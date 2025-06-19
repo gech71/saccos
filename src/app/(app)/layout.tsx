@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,13 +12,14 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users } from 'lucide-react'; // Added Users
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { title: 'Schools', href: '/schools', icon: School },
+  { title: 'Members', href: '/members', icon: Users },
   { title: 'Savings', href: '/savings', icon: PiggyBank },
   { title: 'Shares', href: '/shares', icon: PieChart },
   { title: 'Dividends', href: '/dividends', icon: Landmark },
