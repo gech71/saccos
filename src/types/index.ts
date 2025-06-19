@@ -1,3 +1,4 @@
+
 export interface School {
   id: string;
   name: string;
@@ -58,7 +59,12 @@ export interface Saving {
   date: string; // ISO date string
   month: string; // e.g., "January 2024"
   transactionType: 'deposit' | 'withdrawal';
-  // Future: savingAccountTypeId?: string;
+  depositMode?: 'Cash' | 'Bank' | 'Wallet'; // Only applicable for deposits
+  paymentDetails?: { // Only applicable for 'Bank' or 'Wallet' deposits
+    sourceName?: string; // e.g., Bank Name or Wallet Provider Name
+    transactionReference?: string;
+    evidenceUrl?: string; // URL to the uploaded evidence (text input for now)
+  };
 }
 
 export interface Share {
@@ -94,4 +100,3 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
-

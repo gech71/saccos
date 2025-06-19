@@ -1,3 +1,4 @@
+
 import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType } from '@/types';
 
 export const mockSchools: School[] = [
@@ -107,6 +108,12 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 0, 15).toISOString(),
     month: 'January 2024',
     transactionType: 'deposit',
+    depositMode: 'Bank',
+    paymentDetails: {
+      sourceName: 'Bank of Academ',
+      transactionReference: 'TRX12345JAN',
+      evidenceUrl: 'http://example.com/receipt1.pdf'
+    }
   },
   {
     id: 'saving-2',
@@ -116,6 +123,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 0, 20).toISOString(),
     month: 'January 2024',
     transactionType: 'deposit',
+    depositMode: 'Cash',
   },
   {
     id: 'saving-3',
@@ -125,6 +133,11 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 1, 15).toISOString(),
     month: 'February 2024',
     transactionType: 'deposit',
+    depositMode: 'Wallet',
+    paymentDetails: {
+      sourceName: 'AcademPay Wallet',
+      transactionReference: 'WALLETFEB001',
+    }
   },
   {
     id: 'saving-4',
@@ -134,6 +147,21 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 1, 18).toISOString(),
     month: 'February 2024',
     transactionType: 'deposit',
+    depositMode: 'Bank',
+    paymentDetails: {
+        sourceName: 'Investment Bank Inc.',
+        transactionReference: 'INVTRX002FEB',
+        evidenceUrl: 'http://example.com/deposit_slip_mj.jpg'
+    }
+  },
+  {
+    id: 'saving-5',
+    memberId: 'member-1',
+    memberName: 'John Doe',
+    amount: 50.00,
+    date: new Date(2024, 2, 5).toISOString(),
+    month: 'March 2024',
+    transactionType: 'withdrawal',
   },
 ];
 
