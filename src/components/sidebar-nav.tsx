@@ -50,7 +50,7 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
           return (
             item.href && (
               <SidebarMenuItem key={index}>
-                <Link href={item.disabled ? '#' : item.href} passHref>
+                <Link href={item.disabled ? '#' : item.href} asChild>
                   <SidebarMenuButton
                     asChild
                     variant={isActive ? 'default' : 'ghost'}
