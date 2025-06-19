@@ -49,6 +49,7 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
             item.href && (
               <SidebarMenuItem key={index}>
                 <Link href={item.disabled ? '#' : item.href} asChild>
+                  {/* SidebarMenuButton does NOT use its own asChild here. It becomes the <a> tag. */}
                   <SidebarMenuButton
                     variant={isActive ? 'default' : 'ghost'}
                     className={cn(
@@ -56,10 +57,13 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
                       item.disabled && 'cursor-not-allowed opacity-80'
                     )}
                     onClick={() => {
+                      // For Link asChild, navigation is handled by Link.
+                      // This onClick is for other actions like closing mobile sidebar.
                       if (setOpenMobile) setOpenMobile(false);
                     }}
                     tooltip={item.title}
                   >
+                    {/* No <a> tag here. Icon and span are direct children of SidebarMenuButton */}
                     <Icon className="mr-2 h-5 w-5" />
                     <span className="truncate">{item.title}</span>
                   </SidebarMenuButton>
