@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, DollarSign, Banknote, Wallet, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, DollarSign, Banknote, Wallet, FileText, ArrowUpCircle, ArrowDownCircle, UserCircle } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { StatCard } from '@/components/stat-card';
 
 const initialSavingFormState: Partial<Saving> = {
   memberId: '',
@@ -102,7 +103,6 @@ export default function SavingsPage() {
     setCurrentSaving(prev => ({ 
         ...prev, 
         transactionType: value,
-        // Reset deposit-specific fields if switching to withdrawal
         depositMode: value === 'withdrawal' ? undefined : prev.depositMode || 'Cash',
         paymentDetails: value === 'withdrawal' ? undefined : prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''},
     }));
@@ -131,7 +131,6 @@ export default function SavingsPage() {
         return;
     }
 
-
     const memberName = members.find(m => m.id === currentSaving.memberId)?.fullName;
     let savingDataToSave = { ...currentSaving, memberName };
 
@@ -142,14 +141,13 @@ export default function SavingsPage() {
         savingDataToSave.depositMode = undefined;
     }
 
-
     if (isEditing && savingDataToSave.id) {
       setSavings(prev => prev.map(s => s.id === savingDataToSave.id ? savingDataToSave as Saving : s));
       toast({ title: 'Success', description: 'Savings record updated.' });
     } else {
       const newSaving: Saving = {
         id: `saving-${Date.now()}`,
-        ...initialSavingFormState, // provide all default fields
+        ...initialSavingFormState,
         ...savingDataToSave,
       } as Saving;
       setSavings(prev => [newSaving, ...prev]);
@@ -170,7 +168,6 @@ export default function SavingsPage() {
     setCurrentSaving({
       ...saving,
       date: saving.date ? new Date(saving.date).toISOString().split('T')[0] : '',
-      // Ensure paymentDetails is an object even if undefined in mock, for form binding
       paymentDetails: saving.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''},
     });
     setIsEditing(true);
@@ -193,6 +190,36 @@ export default function SavingsPage() {
     });
   }, [savings, members, searchTerm, selectedMemberFilter]);
 
+  const selectedMemberDetails = useMemo(() => {
+    if (selectedMemberFilter !== 'all') {
+      return members.find(m => m.id === selectedMemberFilter);
+    }
+    return null;
+  }, [members, selectedMemberFilter]);
+
+  const summaryStats = useMemo(() => {
+    const deposits = filteredSavings
+      .filter(s => s.transactionType === 'deposit')
+      .reduce((acc, s) => acc + s.amount, 0);
+    const withdrawals = filteredSavings
+      .filter(s => s.transactionType === 'withdrawal')
+      .reduce((acc, s) => acc + s.amount, 0);
+    
+    if (selectedMemberDetails) {
+      return {
+        memberBalance: selectedMemberDetails.savingsBalance,
+        depositsInView: deposits,
+        withdrawalsInView: withdrawals,
+      };
+    }
+    return {
+      overallDeposits: deposits,
+      overallWithdrawals: withdrawals,
+      overallNet: deposits - withdrawals,
+    };
+  }, [filteredSavings, selectedMemberDetails]);
+
+
   return (
     <div className="space-y-6">
       <PageTitle title="Savings Tracking" subtitle="Monitor and manage member savings contributions.">
@@ -200,6 +227,52 @@ export default function SavingsPage() {
           <PlusCircle className="mr-2 h-5 w-5" /> Add Record
         </Button>
       </PageTitle>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+        {selectedMemberDetails ? (
+          <>
+            <StatCard
+              title={`${selectedMemberDetails.fullName}'s Balance`}
+              value={`$${selectedMemberDetails.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<Wallet className="h-6 w-6 text-accent" />}
+              description="Current total savings balance."
+            />
+            <StatCard
+              title={`Deposits by ${selectedMemberDetails.fullName} (in view)`}
+              value={`$${(summaryStats.depositsInView || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowUpCircle className="h-6 w-6 text-accent" />}
+              description="Sum of deposits shown in the table below."
+            />
+            <StatCard
+              title={`Withdrawals by ${selectedMemberDetails.fullName} (in view)`}
+              value={`$${(summaryStats.withdrawalsInView || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowDownCircle className="h-6 w-6 text-accent" />}
+              description="Sum of withdrawals shown in the table below."
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Total Deposits (in view)"
+              value={`$${(summaryStats.overallDeposits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowUpCircle className="h-6 w-6 text-accent" />}
+              description="Sum of all deposits shown below."
+            />
+            <StatCard
+              title="Total Withdrawals (in view)"
+              value={`$${(summaryStats.overallWithdrawals || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowDownCircle className="h-6 w-6 text-accent" />}
+              description="Sum of all withdrawals shown below."
+            />
+            <StatCard
+              title="Net Savings (in view)"
+              value={`$${(summaryStats.overallNet || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<DollarSign className="h-6 w-6 text-accent" />}
+              description="Net effect of transactions shown below."
+            />
+          </>
+        )}
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-grow">
@@ -250,7 +323,7 @@ export default function SavingsPage() {
                   <Checkbox aria-label={`Select saving record for ${saving.memberName}`} />
                 </TableCell>
                 <TableCell className="font-medium">{saving.memberName || members.find(m => m.id === saving.memberId)?.fullName}</TableCell>
-                <TableCell className="text-right">${saving.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${saving.amount.toFixed(2)}</TableCell>
                 <TableCell>{new Date(saving.date).toLocaleDateString()}</TableCell>
                 <TableCell>{saving.month}</TableCell>
                 <TableCell>
@@ -295,7 +368,7 @@ export default function SavingsPage() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-lg"> {/* Adjusted width slightly */}
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Savings Record' : 'Add New Savings Record'}</DialogTitle>
             <DialogDescription>
@@ -408,3 +481,4 @@ export default function SavingsPage() {
     </div>
   );
 }
+
