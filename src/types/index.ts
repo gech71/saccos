@@ -9,6 +9,17 @@ export interface Member {
   id: string;
   fullName: string;
   email: string;
+  sex: 'Male' | 'Female' | 'Other';
+  phoneNumber: string;
+  address: {
+    city: string;
+    subCity: string;
+    wereda: string;
+  };
+  emergencyContact: {
+    name: string;
+    phone: string;
+  };
   schoolId: string;
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
@@ -57,3 +68,4 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
+

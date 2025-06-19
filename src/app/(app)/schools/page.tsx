@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users } from 'lucide-react'; // Added Users
 import {
   Table,
   TableBody,
@@ -33,7 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Renamed to avoid conflict with potential local CardTitle
+import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -131,7 +132,7 @@ export default function SchoolsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-muted-foreground">Total Schools</div>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Schools</ShadcnCardTitle>
                 <SchoolIcon className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -140,7 +141,7 @@ export default function SchoolsPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="text-sm font-medium text-muted-foreground">Total Members (Across Listed Schools)</div>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Members (Across Listed Schools)</ShadcnCardTitle>
                 <Users className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -253,3 +254,4 @@ export default function SchoolsPage() {
     </div>
   );
 }
+

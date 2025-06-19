@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -39,14 +40,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
 
 const initialMemberFormState: Partial<Member> = {
   fullName: '',
   email: '',
+  sex: 'Male',
+  phoneNumber: '',
+  address: { city: '', subCity: '', wereda: '' },
+  emergencyContact: { name: '', phone: '' },
   schoolId: '',
   joinDate: new Date().toISOString().split('T')[0], // today
   savingsBalance: 0,
@@ -65,17 +69,33 @@ export default function MembersPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' ? parseFloat(value) : value }));
+    const nameParts = name.split('.');
+
+    if (nameParts.length > 1) {
+        const [parentKey, childKey] = nameParts as [keyof Member, string];
+        setCurrentMember(prev => {
+            const currentParentValue = prev[parentKey] || {};
+            return {
+                ...prev,
+                [parentKey]: {
+                    ...(currentParentValue as object),
+                    [childKey]: value
+                }
+            };
+        });
+    } else {
+        setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' ? parseFloat(value) : value }));
+    }
   };
 
-  const handleSchoolChange = (value: string) => {
-    setCurrentMember(prev => ({ ...prev, schoolId: value }));
+  const handleSelectChange = (name: keyof Member, value: string) => {
+    setCurrentMember(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields.' });
+    if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School).' });
         return;
     }
 
@@ -87,6 +107,7 @@ export default function MembersPage() {
     } else {
       const newMember: Member = {
         id: `member-${Date.now()}`,
+        ...initialMemberFormState, // Ensure all fields are present
         ...currentMember,
         schoolName,
       } as Member;
@@ -172,6 +193,7 @@ export default function MembersPage() {
               </TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Join Date</TableHead>
               <TableHead className="text-right">Savings</TableHead>
@@ -187,6 +209,7 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.email}</TableCell>
+                <TableCell>{member.phoneNumber}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">{member.schoolName || schools.find(s => s.id === member.schoolId)?.name}</Badge>
                 </TableCell>
@@ -214,7 +237,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -229,48 +252,108 @@ export default function MembersPage() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Member' : 'Add New Member'}</DialogTitle>
             <DialogDescription>
               {isEditing ? 'Update the details for this member.' : 'Enter the details for the new member.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleInputChange} required />
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleInputChange} required />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleInputChange} required />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleInputChange} required />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="sex">Sex</Label>
+                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select sex" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleInputChange} required />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="schoolId">School</Label>
-              <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={handleSchoolChange} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a school" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schools.map(school => (
-                    <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
+            <Separator className="my-4" />
+            <Label className="font-semibold text-base">Address</Label>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <Label htmlFor="address.city">City</Label>
+                    <Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                    <Label htmlFor="address.subCity">Sub City</Label>
+                    <Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                    <Label htmlFor="address.wereda">Wereda</Label>
+                    <Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleInputChange} />
+                </div>
             </div>
-            <div>
-              <Label htmlFor="joinDate">Join Date</Label>
-              <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
+
+            <Separator className="my-4" />
+            <Label className="font-semibold text-base">Emergency Contact</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="emergencyContact.name">Representative Name</Label>
+                    <Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                    <Label htmlFor="emergencyContact.phone">Representative Phone</Label>
+                    <Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleInputChange} />
+                </div>
             </div>
-             <div>
-              <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
-              <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} />
+            
+            <Separator className="my-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="schoolId">School</Label>
+                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleSelectChange('schoolId', value)} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a school" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schools.map(school => (
+                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="joinDate">Join Date</Label>
+                <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
+              </div>
             </div>
-             <div>
-              <Label htmlFor="sharesCount">Initial Shares Count</Label>
-              <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} />
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
+                <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} />
+              </div>
+               <div>
+                <Label htmlFor="sharesCount">Initial Shares Count</Label>
+                <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} />
+              </div>
             </div>
-            <DialogFooter>
+
+            <DialogFooter className="pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="outline">Cancel</Button>
               </DialogClose>
