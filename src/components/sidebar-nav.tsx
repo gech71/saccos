@@ -48,7 +48,7 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
           return (
             item.href && (
               <SidebarMenuItem key={index}>
-                <Link href={item.disabled ? '#' : item.href} legacyBehavior passHref>
+                <Link href={item.disabled ? '#' : item.href} asChild>
                   <SidebarMenuButton
                     asChild // SidebarMenuButton uses its own asChild
                     variant={isActive ? 'default' : 'ghost'}
@@ -57,13 +57,13 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
                       item.disabled && 'cursor-not-allowed opacity-80'
                     )}
                     onClick={() => {
-                      // For Link with legacyBehavior, onClick on the <a> tag handles navigation.
                       // This onClick is for other actions like closing mobile sidebar.
+                      // Link navigation is handled by Link component itself.
                       if (setOpenMobile) setOpenMobile(false);
                     }}
                     tooltip={item.title}
                   >
-                    <a> {/* This anchor tag receives the href */}
+                    <a> {/* This anchor tag receives the href from Link via SidebarMenuButton(Slot) */}
                       <Icon className="mr-2 h-5 w-5" />
                       <span className="truncate">{item.title}</span>
                     </a>
