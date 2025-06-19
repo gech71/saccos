@@ -11,13 +11,12 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, Users, PiggyBank, PieChart, Landmark, FileText, School } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Members', href: '/members', icon: Users },
   { title: 'Schools', href: '/schools', icon: School },
   { title: 'Savings', href: '/savings', icon: PiggyBank },
   { title: 'Shares', href: '/shares', icon: PieChart },
@@ -31,16 +30,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(true);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
-    if (isAuthenticated !== 'true') {
-      // This layout (AppLayout) should only apply to routes within (app),
-      // so pathname should not be /login here. If it were, router.replace would cause a loop.
-      // The route group structure should prevent AppLayout from wrapping /login.
-      router.replace('/login');
-    } else {
-      setIsAuthenticating(false);
+    // Ensure localStorage is accessed only on the client side
+    if (typeof window !== 'undefined') {
+      const isAuthenticated = localStorage.getItem('isAuthenticated');
+      if (isAuthenticated !== 'true') {
+        router.replace('/login');
+      } else {
+        setIsAuthenticating(false);
+      }
     }
-  }, [pathname, router]); // Added pathname to ensure effect re-runs on navigation
+  }, [pathname, router]); 
 
   if (isAuthenticating) {
     return (

@@ -4,7 +4,7 @@ import { PageTitle } from '@/components/page-title';
 import { StatCard } from '@/components/stat-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, School, TrendingUp, ArrowRight } from 'lucide-react';
+import { DollarSign, Users, School, TrendingUp, ArrowRight, PiggyBank, PieChart as LucidePieChart, FileText } from 'lucide-react'; // Added missing imports
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -18,7 +18,7 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  PieChart as RechartsPieChart, // Renamed to avoid conflict with lucide-react PieChart
+  PieChart as RechartsPieChart, 
   Pie,
   Cell,
 } from 'recharts';
@@ -52,7 +52,6 @@ export default function DashboardPage() {
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    // Basic skeleton or loading state
     return (
       <div className="space-y-8">
         <PageTitle title="Dashboard" subtitle="Overview of your association's performance." />
@@ -207,9 +206,8 @@ export default function DashboardPage() {
             <CardDescription>Access key features quickly.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <QuickActionLink href="/members/add" title="Add New Member" icon={<Users className="text-primary"/>} />
             <QuickActionLink href="/savings/record" title="Record Savings" icon={<PiggyBank className="text-primary"/>} />
-            <QuickActionLink href="/shares/allocate" title="Allocate Shares" icon={<PieChart className="text-primary"/>} /> {/* Lucide PieChart */}
+            <QuickActionLink href="/shares/allocate" title="Allocate Shares" icon={<LucidePieChart className="text-primary"/>} />
             <QuickActionLink href="/reports" title="Generate Report" icon={<FileText className="text-primary"/>} />
           </CardContent>
         </Card>
@@ -255,4 +253,3 @@ function QuickActionLink({ href, title, icon }: QuickActionLinkProps) {
         </Link>
     )
 }
-
