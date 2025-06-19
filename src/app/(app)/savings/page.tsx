@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon } from 'lucide-react'; // Added SchoolIcon
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,13 +32,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockSavings, mockMembers, mockSchools } from '@/data/mock'; // mockSchools needed for school filter
+import { mockSavings, mockMembers, mockSchools } from '@/data/mock'; 
 import type { Saving, Member, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { StatCard } from '@/components/stat-card';
-import { Banknote, Wallet } from 'lucide-react'; // For modal icons
+import { Banknote, Wallet } from 'lucide-react'; 
 
 const initialSavingFormState: Partial<Saving> = {
   memberId: '',
@@ -55,12 +55,12 @@ const initialSavingFormState: Partial<Saving> = {
 };
 
 export default function SavingsPage() {
-  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings); // Still needed for "Add Record" modal
+  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings); 
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentSavingTransaction, setCurrentSavingTransaction] = useState<Partial<Saving>>(initialSavingFormState);
-  const [isEditingModal, setIsEditingModal] = useState(false); // Tracks if modal is for editing a transaction
+  const [isEditingModal, setIsEditingModal] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
@@ -95,7 +95,6 @@ export default function SavingsPage() {
       const updatedSaving = { ...prev, [name]: value };
       if (name === 'memberId' && !isEditingModal && updatedSaving.transactionType === 'withdrawal') {
         const member = members.find(m => m.id === value);
-        // Ensure member and savingsBalance are defined before trying to use them
         updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
       }
       return updatedSaving;
@@ -113,10 +112,10 @@ export default function SavingsPage() {
           const member = members.find(m => m.id === updatedSaving.memberId);
           updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
         }
-      } else { // deposit
+      } else { 
         updatedSaving.depositMode = prev.depositMode || initialSavingFormState.depositMode;
         updatedSaving.paymentDetails = prev.paymentDetails || initialSavingFormState.paymentDetails;
-        if (!isEditingModal) { // Only reset amount for new deposits
+        if (!isEditingModal) { 
           updatedSaving.amount = 0;
         }
       }
@@ -132,7 +131,6 @@ export default function SavingsPage() {
     }));
   };
 
-  // This handleSubmit is for the transaction modal
   const handleSubmitTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSavingTransaction.memberId || currentSavingTransaction.amount === undefined || currentSavingTransaction.amount < 0) {
@@ -158,8 +156,6 @@ export default function SavingsPage() {
         transactionDataToSave.depositMode = undefined;
     }
 
-    // For now, we add to a separate list of transactions. 
-    // In a real app, this would also update the member's savingsBalance.
     const newTransaction: Saving = {
       id: `saving-${Date.now()}`,
       ...initialSavingFormState,
@@ -168,14 +164,13 @@ export default function SavingsPage() {
     } as Saving;
     setSavingsTransactions(prev => [newTransaction, ...prev]);
     
-    // Simulate updating member's balance for immediate feedback in UI (won't persist in mock)
     if (transactionDataToSave.memberId) {
         setMembers(prevMembers => prevMembers.map(mem => {
             if (mem.id === transactionDataToSave.memberId) {
                 const newBalance = transactionDataToSave.transactionType === 'deposit' 
                     ? mem.savingsBalance + (transactionDataToSave.amount || 0)
                     : mem.savingsBalance - (transactionDataToSave.amount || 0);
-                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; // Prevent negative balance
+                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; 
             }
             return mem;
         }));
@@ -257,7 +252,7 @@ export default function SavingsPage() {
         <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter}>
           <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by school">
             <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" /> {/* Icon for mobile */}
+            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" /> 
             <SelectValue placeholder="Filter by school" />
           </SelectTrigger>
           <SelectContent>
@@ -277,10 +272,10 @@ export default function SavingsPage() {
                 <Checkbox aria-label="Select all members" />
               </TableHead>
               <TableHead>Member Name</TableHead>
+              <TableHead>Savings Account #</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Saving Account Type</TableHead>
               <TableHead className="text-right">Current Balance</TableHead>
-              {/* Actions column removed for summary view, could add "View Statement" later */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -290,13 +285,14 @@ export default function SavingsPage() {
                   <Checkbox aria-label={`Select member ${member.fullName}`} />
                 </TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
+                <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{member.schoolName || schools.find(s => s.id === member.schoolId)?.name || 'N/A'}</TableCell>
                 <TableCell>{member.savingAccountTypeName || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No members found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -310,7 +306,6 @@ export default function SavingsPage() {
         </div>
       )}
 
-      {/* Modal for Adding/Editing Saving Transaction - unchanged from previous version */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -321,29 +316,29 @@ export default function SavingsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="memberIdModal">Member</Label> {/* Changed id to avoid conflict if main page had one */}
+              <Label htmlFor="memberIdModal">Member</Label> 
               <Select name="memberId" value={currentSavingTransaction.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
                 <SelectTrigger id="memberIdModal"><SelectValue placeholder="Select a member" /></SelectTrigger>
-                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>))}</SelectContent>
+                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
               </Select>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amountModal">Amount ($)</Label> {/* Changed id */}
+                    <Label htmlFor="amountModal">Amount ($)</Label> 
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input id="amountModal" name="amount" type="number" step="0.01" placeholder="0.00" value={currentSavingTransaction.amount || ''} onChange={handleInputChange} required className="pl-8" />
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="dateModal">Transaction Date</Label> {/* Changed id */}
+                    <Label htmlFor="dateModal">Transaction Date</Label> 
                     <Input id="dateModal" name="date" type="date" value={currentSavingTransaction.date || ''} onChange={handleInputChange} required />
                 </div>
             </div>
 
             <div>
-                <Label htmlFor="transactionTypeModal">Transaction Type</Label> {/* Changed id */}
+                <Label htmlFor="transactionTypeModal">Transaction Type</Label> 
                 <RadioGroup
                     id="transactionTypeModal"
                     name="transactionType"
@@ -352,11 +347,11 @@ export default function SavingsPage() {
                     className="flex space-x-4 pt-2"
                 >
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="deposit" id="depositModal" />{/* Changed id */}
+                        <RadioGroupItem value="deposit" id="depositModal" />
                         <Label htmlFor="depositModal">Deposit</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="withdrawal" id="withdrawalModal" />{/* Changed id */}
+                        <RadioGroupItem value="withdrawal" id="withdrawalModal" />
                         <Label htmlFor="withdrawalModal">Withdrawal</Label>
                     </div>
                 </RadioGroup>
@@ -366,7 +361,7 @@ export default function SavingsPage() {
                 <>
                     <Separator className="my-3" />
                     <div>
-                        <Label htmlFor="depositModeModal">Deposit Mode</Label>{/* Changed id */}
+                        <Label htmlFor="depositModeModal">Deposit Mode</Label>
                         <RadioGroup
                             id="depositModeModal"
                             name="depositMode"
@@ -375,13 +370,13 @@ export default function SavingsPage() {
                             className="flex space-x-4 pt-2"
                         >
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cash" id="cashModal" /><Label htmlFor="cashModal">Cash</Label>{/* Changed id */}
+                                <RadioGroupItem value="Cash" id="cashModal" /><Label htmlFor="cashModal">Cash</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Bank" id="bankModal" /><Label htmlFor="bankModal">Bank</Label>{/* Changed id */}
+                                <RadioGroupItem value="Bank" id="bankModal" /><Label htmlFor="bankModal">Bank</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Wallet" id="walletModal" /><Label htmlFor="walletModal">Wallet</Label>{/* Changed id */}
+                                <RadioGroupItem value="Wallet" id="walletModal" /><Label htmlFor="walletModal">Wallet</Label>
                             </div>
                         </RadioGroup>
                     </div>
@@ -390,7 +385,7 @@ export default function SavingsPage() {
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                              <div className="grid grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="paymentDetails.sourceNameModal">{currentSavingTransaction.depositMode} Name</Label>{/* Changed id */}
+                                    <Label htmlFor="paymentDetails.sourceNameModal">{currentSavingTransaction.depositMode} Name</Label>
                                     <div className="relative">
                                      {currentSavingTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                                      {currentSavingTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
@@ -398,12 +393,12 @@ export default function SavingsPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="paymentDetails.transactionReferenceModal">Transaction Reference</Label>{/* Changed id */}
+                                    <Label htmlFor="paymentDetails.transactionReferenceModal">Transaction Reference</Label>
                                     <Input id="paymentDetails.transactionReferenceModal" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentSavingTransaction.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
                                 </div>
                             </div>
                             <div className="pl-3">
-                                <Label htmlFor="paymentDetails.evidenceUrlModal">Evidence Attachment (URL/Filename)</Label>{/* Changed id */}
+                                <Label htmlFor="paymentDetails.evidenceUrlModal">Evidence Attachment (URL/Filename)</Label>
                                  <div className="relative">
                                     <Input id="paymentDetails.evidenceUrlModal" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentSavingTransaction.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} />
                                  </div>

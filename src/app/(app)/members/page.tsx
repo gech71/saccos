@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -54,6 +54,7 @@ const initialMemberFormState: Partial<Member> = {
   schoolId: '',
   joinDate: new Date().toISOString().split('T')[0], // today
   savingsBalance: 0,
+  savingsAccountNumber: '',
   sharesCount: 0,
   shareCommitments: [],
   savingAccountTypeId: '',
@@ -132,8 +133,8 @@ export default function MembersPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School).' });
+    if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School, Savings Account #).' });
         return;
     }
 
@@ -244,8 +245,9 @@ export default function MembersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>School</TableHead>
-              <TableHead>Saving Account</TableHead>
-              <TableHead className="text-right">Savings</TableHead>
+              <TableHead>Saving Account #</TableHead>
+              <TableHead>Saving Account Type</TableHead>
+              <TableHead className="text-right">Savings Balance</TableHead>
               <TableHead className="text-right">Shares</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -262,6 +264,7 @@ export default function MembersPage() {
                 <TableCell>
                   <Badge variant="secondary">{member.schoolName || schools.find(s => s.id === member.schoolId)?.name}</Badge>
                 </TableCell>
+                <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>
                     {member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}
                 </TableCell>
@@ -288,7 +291,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={10} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -373,12 +376,22 @@ export default function MembersPage() {
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
               </div>
             </div>
-            <div>
-                <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
-                <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleSelectChange('savingAccountTypeId', value)}>
-                    <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
-                    <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}%)</SelectItem>))}</SelectContent>
-                </Select>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                    <Label htmlFor="savingsAccountNumber">Savings Account Number</Label>
+                    <div className="relative">
+                        <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleInputChange} placeholder="e.g., SA10023" required className="pl-8" />
+                    </div>
+                </div>
+                <div>
+                    <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
+                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleSelectChange('savingAccountTypeId', value)}>
+                        <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
+                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}%)</SelectItem>))}</SelectContent>
+                    </Select>
+                </div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

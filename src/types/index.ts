@@ -45,6 +45,7 @@ export interface Member {
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
   savingsBalance: number;
+  savingsAccountNumber?: string; // Added for unique savings account identification
   sharesCount: number; // Total shares across all types
   shareCommitments?: MemberShareCommitment[];
   savingAccountTypeId?: string;
@@ -100,3 +101,4 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
+

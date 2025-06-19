@@ -32,6 +32,7 @@ export const mockMembers: Member[] = [
     schoolName: 'Greenwood High',
     joinDate: new Date(2023, 0, 15).toISOString(),
     savingsBalance: 1250.75,
+    savingsAccountNumber: 'SA00001',
     sharesCount: 125,
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 50 },
@@ -52,6 +53,7 @@ export const mockMembers: Member[] = [
     schoolName: 'Riverside Academy',
     joinDate: new Date(2023, 2, 10).toISOString(),
     savingsBalance: 800.00,
+    savingsAccountNumber: 'SA00002',
     sharesCount: 80,
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 75 },
@@ -71,6 +73,7 @@ export const mockMembers: Member[] = [
     schoolName: 'Greenwood High',
     joinDate: new Date(2023, 5, 20).toISOString(),
     savingsBalance: 2100.50,
+    savingsAccountNumber: 'SA00003',
     sharesCount: 210,
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 100 },
@@ -91,6 +94,7 @@ export const mockMembers: Member[] = [
     schoolName: 'Mountain View School',
     joinDate: new Date(2022, 10, 5).toISOString(),
     savingsBalance: 1500.00,
+    savingsAccountNumber: 'SA00004',
     sharesCount: 150,
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 60 },
