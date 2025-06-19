@@ -530,43 +530,60 @@ type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClic
   asChild?: boolean;
   isActive?: boolean;
   tooltip?: string | React.ComponentProps<typeof TooltipContent>;
-  onClick?: React.MouseEventHandler<HTMLElement>; 
+  onClick?: React.MouseEventHandler<HTMLElement>;
 };
 
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLElement, 
+  HTMLElement,
   CombinedProps
 >(
   (
-    {
-      asChild: ownAsChild = false, 
+    allProps, // Receive all props as a single object
+    ref
+  ) => {
+    const {
+      asChild: ownAsChild = false, // SidebarMenuButton's own asChild prop for its polymorphism
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      ...remainingProps 
-    },
-    ref
-  ) => {
+      // All other props (including href and any asChild from <Link>)
+      // will be in 'remainingPropsFromAll'.
+      ...remainingPropsFromAll 
+    } = allProps;
+
+    // Make a mutable copy of props that will be spread onto the DOM element.
+    // This includes props from <Link asChild> (like href) and any other unrecognized props.
+    const propsToSpreadOnDOMElement = { ...remainingPropsFromAll };
+
+    // Explicitly delete the 'asChild' prop if it exists in propsToSpreadOnDOMElement.
+    // This is to prevent the asChild prop (intended for <Link> or ownAsChild)
+    // from being rendered as a DOM attribute.
+    if ('asChild' in propsToSpreadOnDOMElement) {
+      delete propsToSpreadOnDOMElement.asChild;
+    }
+    
     const { isMobile, state } = useSidebar();
     
-    const { asChild: incomingAsChild, ...propsForComp } = remainingProps;
-
-    const Comp = ownAsChild ? Slot : (propsForComp.href ? "a" : "button");
+    // Determine the component type:
+    // - If ownAsChild is true, use Slot (delegates rendering to children).
+    // - Else, if propsToSpreadOnDOMElement.href exists (passed from <Link>), use 'a'.
+    // - Else, use 'button'.
+    const Comp = ownAsChild ? Slot : (propsToSpreadOnDOMElement.href ? "a" : "button");
 
     const buttonElement = (
       <Comp
         ref={ref}
         data-sidebar="menu-button"
-        data-size={size}
-        data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...propsForComp} 
+        data-size={size} // Use the destructured 'size' prop
+        data-active={isActive} // Use the destructured 'isActive' prop
+        className={cn(sidebarMenuButtonVariants({ variant, size, className }))} // Use destructured props for styling
+        {...propsToSpreadOnDOMElement} // Spread the filtered props
       >
-        {children}
+        {children} {/* Use the destructured 'children' prop */}
       </Comp>
     );
 
@@ -763,3 +780,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
