@@ -12,6 +12,13 @@ export interface ShareType {
   valuePerShare: number;
 }
 
+export interface SavingAccountType {
+  id: string;
+  name: string;
+  interestRate: number; // Store as decimal, e.g., 0.05 for 5%
+  description?: string;
+}
+
 export interface MemberShareCommitment {
   shareTypeId: string;
   shareTypeName: string; // Denormalized for easier display
@@ -39,6 +46,8 @@ export interface Member {
   savingsBalance: number;
   sharesCount: number; // Total shares across all types
   shareCommitments?: MemberShareCommitment[];
+  savingAccountTypeId?: string;
+  savingAccountTypeName?: string; // Denormalized for display
 }
 
 export interface Saving {
@@ -49,6 +58,7 @@ export interface Saving {
   date: string; // ISO date string
   month: string; // e.g., "January 2024"
   transactionType: 'deposit' | 'withdrawal';
+  // Future: savingAccountTypeId?: string;
 }
 
 export interface Share {
@@ -84,3 +94,4 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
+

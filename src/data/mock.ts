@@ -1,4 +1,4 @@
-import type { School, Member, Saving, Share, Dividend, ShareType } from '@/types';
+import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType } from '@/types';
 
 export const mockSchools: School[] = [
   { id: 'school-1', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' },
@@ -10,6 +10,12 @@ export const mockShareTypes: ShareType[] = [
   { id: 'st-regular', name: 'Regular Share', description: 'Standard membership share.', valuePerShare: 10 },
   { id: 'st-education', name: 'Educational Support Share', description: 'Dedicated to funding educational initiatives.', valuePerShare: 15 },
   { id: 'st-emergency', name: 'Emergency Fund Share', description: 'Contributes to a member emergency fund.', valuePerShare: 5 },
+];
+
+export const mockSavingAccountTypes: SavingAccountType[] = [
+  { id: 'sat-regular', name: 'Regular Savings', interestRate: 0.02, description: 'Standard savings account with a competitive interest rate.' },
+  { id: 'sat-youth', name: 'Youth Saver Account', interestRate: 0.035, description: 'Higher interest account for members under 18.' },
+  { id: 'sat-premium', name: 'Premium Tier Savings', interestRate: 0.045, description: 'For members with higher balances, offering premium rates.' },
 ];
 
 export const mockMembers: Member[] = [
@@ -25,11 +31,13 @@ export const mockMembers: Member[] = [
     schoolName: 'Greenwood High',
     joinDate: new Date(2023, 0, 15).toISOString(),
     savingsBalance: 1250.75,
-    sharesCount: 125, // This would be total count from mockShares
+    sharesCount: 125,
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 50 },
       { shareTypeId: 'st-education', shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 20 },
     ],
+    savingAccountTypeId: 'sat-regular',
+    savingAccountTypeName: 'Regular Savings',
   },
   {
     id: 'member-2',
@@ -47,6 +55,8 @@ export const mockMembers: Member[] = [
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 75 },
     ],
+    savingAccountTypeId: 'sat-youth',
+    savingAccountTypeName: 'Youth Saver Account',
   },
   {
     id: 'member-3',
@@ -65,6 +75,8 @@ export const mockMembers: Member[] = [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 100 },
       { shareTypeId: 'st-emergency', shareTypeName: 'Emergency Fund Share', monthlyCommittedAmount: 25 },
     ],
+    savingAccountTypeId: 'sat-premium',
+    savingAccountTypeName: 'Premium Tier Savings',
   },
   {
     id: 'member-4',
@@ -82,6 +94,7 @@ export const mockMembers: Member[] = [
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 60 },
     ],
+    // No specific saving account type assigned for this member yet
   },
 ];
 
@@ -133,7 +146,7 @@ export const mockShares: Share[] = [
     shareTypeName: 'Regular Share',
     count: 50,
     allocationDate: new Date(2023, 6, 1).toISOString(),
-    valuePerShare: 10.00, // From st-regular
+    valuePerShare: 10.00,
   },
   {
     id: 'share-2',
@@ -143,7 +156,7 @@ export const mockShares: Share[] = [
     shareTypeName: 'Regular Share',
     count: 30,
     allocationDate: new Date(2023, 6, 1).toISOString(),
-    valuePerShare: 10.00, // From st-regular
+    valuePerShare: 10.00,
   },
   {
     id: 'share-3',
@@ -153,7 +166,7 @@ export const mockShares: Share[] = [
     shareTypeName: 'Educational Support Share',
     count: 20,
     allocationDate: new Date(2023, 8, 1).toISOString(),
-    valuePerShare: 15.00, // From st-education
+    valuePerShare: 15.00,
   },
 ];
 
@@ -162,9 +175,9 @@ export const mockDividends: Dividend[] = [
     id: 'dividend-1',
     memberId: 'member-1',
     memberName: 'John Doe',
-    amount: 25.00, // This amount might need to be re-evaluated based on share types
+    amount: 25.00,
     distributionDate: new Date(2023, 11, 31).toISOString(),
-    shareCountAtDistribution: 70, // Total shares for John (50 regular + 20 education)
+    shareCountAtDistribution: 70,
   },
   {
     id: 'dividend-2',

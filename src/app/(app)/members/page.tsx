@@ -32,8 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools, mockShareTypes } from '@/data/mock';
-import type { Member, School, MemberShareCommitment, ShareType } from '@/types';
+import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes } from '@/data/mock';
+import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -56,12 +56,14 @@ const initialMemberFormState: Partial<Member> = {
   savingsBalance: 0,
   sharesCount: 0,
   shareCommitments: [],
+  savingAccountTypeId: '',
 };
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
   const [shareTypes] = useState<ShareType[]>(mockShareTypes);
+  const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
   const [isEditing, setIsEditing] = useState(false);
@@ -92,6 +94,10 @@ export default function MembersPage() {
 
   const handleSelectChange = (name: keyof Member, value: string) => {
     setCurrentMember(prev => ({ ...prev, [name]: value }));
+    if (name === 'savingAccountTypeId') {
+        const selectedAccountType = savingAccountTypes.find(sat => sat.id === value);
+        setCurrentMember(prev => ({ ...prev, savingAccountTypeName: selectedAccountType?.name || '' }));
+    }
   };
 
   const handleShareCommitmentChange = (index: number, field: keyof MemberShareCommitment, value: string | number) => {
@@ -132,9 +138,13 @@ export default function MembersPage() {
     }
 
     const validCommitments = (currentMember.shareCommitments || []).filter(c => c.shareTypeId && c.monthlyCommittedAmount > 0);
+    
+    const selectedSavingAccountType = savingAccountTypes.find(sat => sat.id === currentMember.savingAccountTypeId);
+
     const memberDataToSave = {
         ...currentMember,
         shareCommitments: validCommitments,
+        savingAccountTypeName: selectedSavingAccountType?.name || '',
     };
 
     const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;
@@ -234,7 +244,7 @@ export default function MembersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>School</TableHead>
-              <TableHead>Join Date</TableHead>
+              <TableHead>Saving Account</TableHead>
               <TableHead className="text-right">Savings</TableHead>
               <TableHead className="text-right">Shares</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -252,7 +262,9 @@ export default function MembersPage() {
                 <TableCell>
                   <Badge variant="secondary">{member.schoolName || schools.find(s => s.id === member.schoolId)?.name}</Badge>
                 </TableCell>
-                <TableCell>{new Date(member.joinDate).toLocaleDateString()}</TableCell>
+                <TableCell>
+                    {member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}
+                </TableCell>
                 <TableCell className="text-right">${member.savingsBalance.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{member.sharesCount}</TableCell>
                 <TableCell className="text-right">
@@ -360,6 +372,13 @@ export default function MembersPage() {
                 <Label htmlFor="joinDate">Join Date</Label>
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
               </div>
+            </div>
+            <div>
+                <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
+                <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleSelectChange('savingAccountTypeId', value)}>
+                    <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
+                    <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}%)</SelectItem>))}</SelectContent>
+                </Select>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
