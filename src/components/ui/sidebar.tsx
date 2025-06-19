@@ -543,42 +543,40 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const {
-      asChild: ownAsChild = false, // Prop for SidebarMenuButton's own polymorphism
+      asChild: ownAsChild = false,
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      // All other props (e.g., href from <Link asChild>, onClick from Link or user, custom data-attributes)
-      // and potentially asChild from <Link asChild> will be in `...restProps`
-      ...restProps 
+      ...remainingProps // Contains props from Link, including potentially its own asChild prop
     } = allProps;
 
     const { isMobile, state } = useSidebar();
     
-    // Determine the component type
-    // If ownAsChild is true, delegate to child via Slot.
-    // Else, if an href is present in restProps, it's an anchor.
-    // Otherwise, it's a button.
-    const Comp = ownAsChild ? Slot : (restProps.href ? "a" : "button");
+    const Comp = ownAsChild ? Slot : (remainingProps.href ? "a" : "button");
 
-    // Critical: If Comp is going to be a DOM element ('a' or 'button'),
-    // we must ensure that no 'asChild' prop (potentially from a parent <Link asChild>)
-    // is spread onto it.
-    const finalProps = { ...restProps };
-    if (Comp !== Slot && typeof finalProps.asChild !== 'undefined') {
-      delete (finalProps as {asChild?: boolean}).asChild;
+    // Explicitly destructure 'asChild' from remainingProps if Comp is a DOM element.
+    // This ensures an 'asChild' prop from a parent <Link asChild> is not spread onto the DOM element.
+    let propsForFinalElement;
+    if (Comp !== Slot) {
+      const { asChild: _discardedAsChildFromParent, ...filteredRemainingProps } = remainingProps;
+      propsForFinalElement = filteredRemainingProps;
+    } else {
+      // If Comp is Slot (ownAsChild is true), pass all remainingProps.
+      // Slot itself knows how to handle an 'asChild' prop if its child is another component.
+      propsForFinalElement = remainingProps;
     }
 
     const buttonElement = (
       <Comp
-        ref={ref as any} // Using 'as any' for ref due to polymorphic nature.
+        ref={ref as any} 
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...finalProps} // Spread the cleaned props
+        {...propsForFinalElement} 
       >
         {children}
       </Comp>
@@ -777,4 +775,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
