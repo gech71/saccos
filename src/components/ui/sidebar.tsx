@@ -543,40 +543,56 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const {
-      asChild: ownAsChild = false,
+      asChild: sidebarMenuButtonItselfRequestsAsChild = false, // Renamed for clarity: This is SidebarMenuButton's own 'asChild' prop.
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      ...remainingProps // Contains props from Link, including potentially its own asChild prop
+      ...parentProvidedProps // Props from the parent (e.g., Link or direct usage). May include href, onClick, and potentially Link's 'asChild'.
     } = allProps;
 
     const { isMobile, state } = useSidebar();
-    
-    const Comp = ownAsChild ? Slot : (remainingProps.href ? "a" : "button");
 
-    // Explicitly destructure 'asChild' from remainingProps if Comp is a DOM element.
-    // This ensures an 'asChild' prop from a parent <Link asChild> is not spread onto the DOM element.
-    let propsForFinalElement;
-    if (Comp !== Slot) {
-      const { asChild: _discardedAsChildFromParent, ...filteredRemainingProps } = remainingProps;
-      propsForFinalElement = filteredRemainingProps;
+    let Comp: React.ElementType;
+
+    // Determine the component type based on props
+    if (parentProvidedProps.href) {
+      // If href is present, it must be an anchor tag.
+      // SidebarMenuButton's own 'asChild' prop is ignored in this case because Link's asChild dictates behavior.
+      Comp = "a";
+    } else if (sidebarMenuButtonItselfRequestsAsChild) {
+      // If SidebarMenuButton itself has asChild={true} and no href, it uses Slot.
+      Comp = Slot;
     } else {
-      // If Comp is Slot (ownAsChild is true), pass all remainingProps.
-      // Slot itself knows how to handle an 'asChild' prop if its child is another component.
-      propsForFinalElement = remainingProps;
+      // Default to a button.
+      Comp = "button";
     }
+
+    // Prepare props to spread. Start with all props passed by the parent.
+    let propsToSpread = { ...parentProvidedProps };
+
+    // If we are rendering a DOM element directly (not Slot),
+    // we must ensure that any 'asChild' prop (which might have been passed by a parent like <Link asChild>)
+    // is removed, as it's not a valid DOM attribute.
+    if (Comp === "a" || Comp === "button") {
+      if ('asChild' in propsToSpread) {
+        delete propsToSpread.asChild;
+      }
+    }
+    // If Comp is Slot, Slot knows how to handle an 'asChild' prop if its immediate child is another component
+    // that accepts 'asChild', or it will merge props onto a DOM child. The critical part is that
+    // Link's 'asChild' doesn't end up as a DOM attribute on the anchor rendered by SidebarMenuButton.
 
     const buttonElement = (
       <Comp
-        ref={ref as any} 
+        ref={ref as any}
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...propsForFinalElement} 
+        {...propsToSpread} // Spread the sanitized props
       >
         {children}
       </Comp>
