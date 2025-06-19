@@ -99,7 +99,8 @@ export const mockMembers: Member[] = [
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 60 },
     ],
-    // No specific saving account type assigned for this member yet
+    savingAccountTypeId: 'sat-regular',
+    savingAccountTypeName: 'Regular Savings',
   },
 ];
 
@@ -141,6 +142,7 @@ export const mockSavings: Saving[] = [
     paymentDetails: {
       sourceName: 'AcademPay Wallet',
       transactionReference: 'WALLETFEB001',
+      evidenceUrl: 'payment_evidence/feb_john_doe.png'
     }
   },
   {
@@ -220,3 +222,4 @@ export const mockDividends: Dividend[] = [
     shareCountAtDistribution: 30,
   },
 ];
+

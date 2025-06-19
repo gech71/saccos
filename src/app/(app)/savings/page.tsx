@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash, WalletCards } from 'lucide-react'; // Added WalletCards
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash, WalletCards, Edit, Trash2, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,18 +32,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockSavings, mockMembers, mockSchools, mockSavingAccountTypes } from '@/data/mock'; 
+import { mockSavings, mockMembers, mockSchools, mockSavingAccountTypes } from '@/data/mock';
 import type { Saving, Member, School, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { StatCard } from '@/components/stat-card';
-import { Banknote, Wallet } from 'lucide-react'; 
+import { Banknote, Wallet } from 'lucide-react';
 
-const initialSavingFormState: Partial<Saving> = {
+const initialIndividualTransactionFormState: Partial<Saving> = {
   memberId: '',
   amount: 0,
-  date: new Date().toISOString().split('T')[0], // today
+  date: new Date().toISOString().split('T')[0],
   month: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
   transactionType: 'deposit',
   depositMode: 'Cash',
@@ -54,26 +54,47 @@ const initialSavingFormState: Partial<Saving> = {
   },
 };
 
+const initialGroupTransactionFormState: Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month'> & { memberIds?: string[] } = {
+  amount: 0,
+  date: new Date().toISOString().split('T')[0],
+  transactionType: 'deposit',
+  depositMode: 'Cash',
+  paymentDetails: {
+    sourceName: '',
+    transactionReference: '',
+    evidenceUrl: '',
+  },
+};
+
+
 export default function SavingsPage() {
-  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings); 
+  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings);
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
   const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentSavingTransaction, setCurrentSavingTransaction] = useState<Partial<Saving>>(initialSavingFormState);
-  const [isEditingModal, setIsEditingModal] = useState(false); 
+  
+  const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
+  const [currentIndividualTransaction, setCurrentIndividualTransaction] = useState<Partial<Saving>>(initialIndividualTransactionFormState);
+  const [isEditingIndividualTransaction, setIsEditingIndividualTransaction] = useState(false);
+
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [currentGroupTransactionData, setCurrentGroupTransactionData] = useState<Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month'>>(initialGroupTransactionFormState);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const [selectedAccountTypeFilter, setSelectedAccountTypeFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Handlers for Individual Transaction Modal ---
+  const handleIndividualInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const nameParts = name.split('.');
 
     if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
         const fieldName = nameParts[1] as keyof NonNullable<Saving['paymentDetails']>;
-        setCurrentSavingTransaction(prev => ({
+        setCurrentIndividualTransaction(prev => ({
             ...prev,
             paymentDetails: {
                 ...(prev?.paymentDetails || {}),
@@ -81,21 +102,21 @@ export default function SavingsPage() {
             }
         }));
     } else {
-        setCurrentSavingTransaction(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
+        setCurrentIndividualTransaction(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
     }
 
     if (name === 'date') {
         const dateObj = new Date(value);
         const month = dateObj.toLocaleString('default', { month: 'long' });
         const year = dateObj.getFullYear();
-        setCurrentSavingTransaction(prev => ({ ...prev, month: `${month} ${year}`}));
+        setCurrentIndividualTransaction(prev => ({ ...prev, month: `${month} ${year}`}));
     }
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setCurrentSavingTransaction(prev => {
+  const handleIndividualSelectChange = (name: string, value: string) => {
+    setCurrentIndividualTransaction(prev => {
       const updatedSaving = { ...prev, [name]: value };
-      if (name === 'memberId' && !isEditingModal && updatedSaving.transactionType === 'withdrawal') {
+      if (name === 'memberId' && !isEditingIndividualTransaction && updatedSaving.transactionType === 'withdrawal') {
         const member = members.find(m => m.id === value);
         updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
       }
@@ -103,21 +124,20 @@ export default function SavingsPage() {
     });
   };
   
-  const handleTransactionTypeChange = (value: 'deposit' | 'withdrawal') => {
-    setCurrentSavingTransaction(prev => {
+  const handleIndividualTransactionTypeChange = (value: 'deposit' | 'withdrawal') => {
+    setCurrentIndividualTransaction(prev => {
       const updatedSaving = { ...prev, transactionType: value };
-
       if (value === 'withdrawal') {
         updatedSaving.depositMode = undefined;
         updatedSaving.paymentDetails = undefined;
-        if (!isEditingModal && updatedSaving.memberId) {
+        if (!isEditingIndividualTransaction && updatedSaving.memberId) {
           const member = members.find(m => m.id === updatedSaving.memberId);
           updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
         }
       } else { 
-        updatedSaving.depositMode = prev.depositMode || initialSavingFormState.depositMode;
-        updatedSaving.paymentDetails = prev.paymentDetails || initialSavingFormState.paymentDetails;
-        if (!isEditingModal) { 
+        updatedSaving.depositMode = prev.depositMode || initialIndividualTransactionFormState.depositMode;
+        updatedSaving.paymentDetails = prev.paymentDetails || initialIndividualTransactionFormState.paymentDetails;
+        if (!isEditingIndividualTransaction) { 
           updatedSaving.amount = 0;
         }
       }
@@ -125,31 +145,31 @@ export default function SavingsPage() {
     });
   };
 
-  const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setCurrentSavingTransaction(prev => ({
+  const handleIndividualDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
+    setCurrentIndividualTransaction(prev => ({
         ...prev,
         depositMode: value,
         paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''}),
     }));
   };
 
-  const handleSubmitTransaction = (e: React.FormEvent) => {
+  const handleSubmitIndividualTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSavingTransaction.memberId || currentSavingTransaction.amount === undefined || currentSavingTransaction.amount < 0) {
+    if (!currentIndividualTransaction.memberId || currentIndividualTransaction.amount === undefined || currentIndividualTransaction.amount < 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid non-negative amount.' });
         return;
     }
-    if (currentSavingTransaction.transactionType === 'deposit' && !currentSavingTransaction.depositMode) {
+    if (currentIndividualTransaction.transactionType === 'deposit' && !currentIndividualTransaction.depositMode) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a deposit mode.' });
         return;
     }
-    if ((currentSavingTransaction.depositMode === 'Bank' || currentSavingTransaction.depositMode === 'Wallet') && !currentSavingTransaction.paymentDetails?.sourceName) {
+    if ((currentIndividualTransaction.depositMode === 'Bank' || currentIndividualTransaction.depositMode === 'Wallet') && !currentIndividualTransaction.paymentDetails?.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter the Bank/Wallet Name for this deposit.' });
         return;
     }
 
-    const memberName = members.find(m => m.id === currentSavingTransaction.memberId)?.fullName;
-    let transactionDataToSave = { ...currentSavingTransaction, memberName };
+    const memberName = members.find(m => m.id === currentIndividualTransaction.memberId)?.fullName;
+    let transactionDataToSave = { ...currentIndividualTransaction, memberName };
 
     if (transactionDataToSave.transactionType === 'withdrawal' || transactionDataToSave.depositMode === 'Cash') {
         transactionDataToSave.paymentDetails = undefined;
@@ -157,43 +177,173 @@ export default function SavingsPage() {
     if (transactionDataToSave.transactionType === 'withdrawal') {
         transactionDataToSave.depositMode = undefined;
     }
-
-    const newTransaction: Saving = {
-      id: `saving-${Date.now()}`,
-      ...initialSavingFormState,
-      ...transactionDataToSave,
-      amount: transactionDataToSave.amount || 0,
-    } as Saving;
-    setSavingsTransactions(prev => [newTransaction, ...prev]);
     
-    // Update member's savings balance
-    if (transactionDataToSave.memberId) {
-        setMembers(prevMembers => prevMembers.map(mem => {
-            if (mem.id === transactionDataToSave.memberId) {
-                const newBalance = transactionDataToSave.transactionType === 'deposit' 
-                    ? mem.savingsBalance + (transactionDataToSave.amount || 0)
-                    : mem.savingsBalance - (transactionDataToSave.amount || 0);
-                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; // Prevent negative balance in this simplified model
+    // In a real app, you would likely not edit transactions this way, or have stricter rules.
+    // This simplified model adds a new transaction for "edits" for simplicity or updates existing one.
+    if (isEditingIndividualTransaction && transactionDataToSave.id) {
+        setSavingsTransactions(prev => prev.map(st => st.id === transactionDataToSave.id ? {...st, ...transactionDataToSave} as Saving : st));
+        // Balance adjustment for edits would be more complex (reverting old, applying new diff)
+        toast({ title: 'Success', description: `Savings transaction updated for ${memberName}. Balance recalculation might be needed separately.` });
+
+    } else {
+        const newTransaction: Saving = {
+          id: `saving-${Date.now()}`,
+          ...initialIndividualTransactionFormState, // Ensure all default fields
+          ...transactionDataToSave,
+          amount: transactionDataToSave.amount || 0, // Ensure amount is a number
+        } as Saving;
+        setSavingsTransactions(prev => [newTransaction, ...prev]);
+        
+        if (transactionDataToSave.memberId) {
+            setMembers(prevMembers => prevMembers.map(mem => {
+                if (mem.id === transactionDataToSave.memberId) {
+                    const newBalance = transactionDataToSave.transactionType === 'deposit' 
+                        ? mem.savingsBalance + (transactionDataToSave.amount || 0)
+                        : mem.savingsBalance - (transactionDataToSave.amount || 0);
+                    return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance };
+                }
+                return mem;
+            }));
+        }
+        toast({ title: 'Success', description: `Savings transaction recorded for ${memberName}.` });
+    }
+    
+    setIsIndividualModalOpen(false);
+    setCurrentIndividualTransaction(initialIndividualTransactionFormState);
+    setIsEditingIndividualTransaction(false);
+  };
+
+  const openAddIndividualTransactionModal = () => {
+    setCurrentIndividualTransaction(initialIndividualTransactionFormState);
+    setIsEditingIndividualTransaction(false);
+    setIsIndividualModalOpen(true);
+  };
+  // --- End Handlers for Individual Transaction Modal ---
+
+
+  // --- Handlers for Group Transaction Modal ---
+  const handleGroupInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const nameParts = name.split('.');
+
+    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
+        const fieldName = nameParts[1] as keyof NonNullable<Saving['paymentDetails']>;
+        setCurrentGroupTransactionData(prev => ({
+            ...prev,
+            paymentDetails: {
+                ...(prev?.paymentDetails || {}),
+                [fieldName]: value,
             }
-            return mem;
         }));
+    } else {
+        setCurrentGroupTransactionData(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
+    }
+  };
+
+  const handleGroupTransactionTypeChange = (value: 'deposit' | 'withdrawal') => {
+    setCurrentGroupTransactionData(prev => {
+      const updatedData = { ...prev, transactionType: value };
+      if (value === 'withdrawal') {
+        updatedData.depositMode = undefined;
+        updatedData.paymentDetails = undefined;
+      } else {
+        updatedData.depositMode = prev.depositMode || initialGroupTransactionFormState.depositMode;
+        updatedData.paymentDetails = prev.paymentDetails || initialGroupTransactionFormState.paymentDetails;
+      }
+      return updatedData;
+    });
+  };
+
+  const handleGroupDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
+    setCurrentGroupTransactionData(prev => ({
+        ...prev,
+        depositMode: value,
+        paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''}),
+    }));
+  };
+
+  const handleSubmitGroupTransaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedMemberIds.length === 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No members selected for group transaction.' });
+        return;
+    }
+    if (currentGroupTransactionData.amount === undefined || currentGroupTransactionData.amount <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid positive amount for the group transaction.' });
+        return;
+    }
+    if (currentGroupTransactionData.transactionType === 'deposit' && !currentGroupTransactionData.depositMode) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a deposit mode for the group transaction.' });
+        return;
+    }
+    if ((currentGroupTransactionData.depositMode === 'Bank' || currentGroupTransactionData.depositMode === 'Wallet') && !currentGroupTransactionData.paymentDetails?.sourceName) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please enter the Bank/Wallet Name for this group deposit.' });
+        return;
     }
 
-    toast({ title: 'Success', description: `Savings transaction recorded for ${memberName}.` });
-    setIsModalOpen(false);
-    setCurrentSavingTransaction(initialSavingFormState);
-    setIsEditingModal(false);
-  };
+    const newTransactions: Saving[] = [];
+    const updatedMembers = [...members];
 
-  const openAddTransactionModal = () => {
-    setCurrentSavingTransaction(initialSavingFormState);
-    setIsEditingModal(false);
-    setIsModalOpen(true);
+    selectedMemberIds.forEach(memberId => {
+        const member = updatedMembers.find(m => m.id === memberId);
+        if (!member) return;
+
+        const transactionDataForMember = { ...currentGroupTransactionData };
+        if (transactionDataForMember.transactionType === 'withdrawal' || transactionDataForMember.depositMode === 'Cash') {
+            transactionDataForMember.paymentDetails = undefined;
+        }
+        if (transactionDataForMember.transactionType === 'withdrawal') {
+            transactionDataForMember.depositMode = undefined;
+        }
+        
+        const dateObj = new Date(transactionDataForMember.date);
+        const month = dateObj.toLocaleString('default', { month: 'long' });
+        const year = dateObj.getFullYear();
+
+        const newTransaction: Saving = {
+            id: `saving-${Date.now()}-${memberId}`,
+            memberId: member.id,
+            memberName: member.fullName,
+            amount: transactionDataForMember.amount,
+            date: transactionDataForMember.date,
+            month: `${month} ${year}`,
+            transactionType: transactionDataForMember.transactionType,
+            depositMode: transactionDataForMember.depositMode,
+            paymentDetails: transactionDataForMember.paymentDetails,
+        };
+        newTransactions.push(newTransaction);
+
+        const memberIndex = updatedMembers.findIndex(m => m.id === memberId);
+        const currentBalance = updatedMembers[memberIndex].savingsBalance;
+        const newBalance = transactionDataForMember.transactionType === 'deposit'
+            ? currentBalance + transactionDataForMember.amount
+            : currentBalance - transactionDataForMember.amount;
+        updatedMembers[memberIndex] = { ...updatedMembers[memberIndex], savingsBalance: newBalance < 0 ? 0 : newBalance };
+    });
+
+    setSavingsTransactions(prev => [...newTransactions, ...prev]);
+    setMembers(updatedMembers);
+
+    toast({ title: 'Success', description: `Group transaction recorded for ${selectedMemberIds.length} members.` });
+    setIsGroupModalOpen(false);
+    setCurrentGroupTransactionData(initialGroupTransactionFormState);
+    setSelectedMemberIds([]);
   };
+  
+  const openAddGroupTransactionModal = () => {
+    if (selectedMemberIds.length === 0) {
+        toast({ variant: 'destructive', title: 'No Members Selected', description: 'Please select members from the table to include in the group transaction.' });
+        return;
+    }
+    setCurrentGroupTransactionData(initialGroupTransactionFormState);
+    setIsGroupModalOpen(true);
+  };
+  // --- End Handlers for Group Transaction Modal ---
+
 
   const filteredMembers = useMemo(() => {
     return members.filter(member => {
-      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
       const matchesAccountTypeFilter = selectedAccountTypeFilter === 'all' || member.savingAccountTypeId === selectedAccountTypeFilter;
       return matchesSearchTerm && matchesSchoolFilter && matchesAccountTypeFilter;
@@ -211,13 +361,40 @@ export default function SavingsPage() {
     };
   }, [filteredMembers]);
 
+  const handleSelectAllChange = (checked: boolean) => {
+    if (checked) {
+      setSelectedMemberIds(filteredMembers.map(member => member.id));
+    } else {
+      setSelectedMemberIds([]);
+    }
+  };
+
+  const handleRowSelectChange = (memberId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedMemberIds(prev => [...prev, memberId]);
+    } else {
+      setSelectedMemberIds(prev => prev.filter(id => id !== memberId));
+    }
+  };
+
+  const isAllSelected = filteredMembers.length > 0 && selectedMemberIds.length === filteredMembers.length;
+
 
   return (
     <div className="space-y-6">
       <PageTitle title="Member Savings Overview" subtitle="View member savings balances and record new transactions.">
-        <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={openAddIndividualTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
+              <PlusCircle className="mr-2 h-5 w-5" /> Add Individual Transaction
+            </Button>
+            <Button 
+                onClick={openAddGroupTransactionModal} 
+                className="shadow-md hover:shadow-lg transition-shadow"
+                disabled={selectedMemberIds.length === 0}
+            >
+              <Users className="mr-2 h-5 w-5" /> Add Group Transaction
+            </Button>
+        </div>
       </PageTitle>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
@@ -246,7 +423,7 @@ export default function SavingsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or account #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -255,8 +432,8 @@ export default function SavingsPage() {
         </div>
         <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter}>
           <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by school">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" /> 
+            <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
+            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
             <SelectValue placeholder="Filter by school" />
           </SelectTrigger>
           <SelectContent>
@@ -268,8 +445,8 @@ export default function SavingsPage() {
         </Select>
         <Select value={selectedAccountTypeFilter} onValueChange={setSelectedAccountTypeFilter}>
           <SelectTrigger className="w-full sm:w-[240px]" aria-label="Filter by saving account type">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <WalletCards className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" />
+            <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
+            <WalletCards className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
             <SelectValue placeholder="Filter by account type" />
           </SelectTrigger>
           <SelectContent>
@@ -285,8 +462,13 @@ export default function SavingsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all members" />
+              <TableHead className="w-[60px] px-2">
+                <Checkbox 
+                  aria-label="Select all members in view"
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAllChange}
+                  disabled={filteredMembers.length === 0}
+                />
               </TableHead>
               <TableHead>Member Name</TableHead>
               <TableHead>Savings Account #</TableHead>
@@ -297,9 +479,13 @@ export default function SavingsPage() {
           </TableHeader>
           <TableBody>
             {filteredMembers.length > 0 ? filteredMembers.map(member => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select member ${member.fullName}`} />
+              <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
+                <TableCell className="px-2">
+                   <Checkbox
+                    aria-label={`Select member ${member.fullName}`}
+                    checked={selectedMemberIds.includes(member.id)}
+                    onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)}
+                  />
                 </TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
@@ -323,118 +509,168 @@ export default function SavingsPage() {
          <span>Total Combined Balance: ${summaryStats.totalBalanceInView.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       )}
-       {filteredMembers.length > 10 && ( // This condition might need adjustment if pagination is implemented differently
+       {filteredMembers.length > 10 && (
         <div className="flex justify-center mt-4">
           <Button variant="outline">Load More Members</Button>
         </div>
       )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+    {/* Individual Transaction Modal */}
+      <Dialog open={isIndividualModalOpen} onOpenChange={setIsIndividualModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditingModal ? 'Edit Savings Record' : 'Add New Savings Transaction'}</DialogTitle>
+            <DialogTitle className="font-headline">{isEditingIndividualTransaction ? 'Edit Savings Transaction' : 'Add New Individual Savings Transaction'}</DialogTitle>
             <DialogDescription>
-              {isEditingModal ? 'Update this savings transaction.' : 'Enter details for a new savings transaction.'}
+              {isEditingIndividualTransaction ? 'Update this savings transaction.' : 'Enter details for a new savings transaction for a single member.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmitIndividualTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="memberIdModal">Member</Label> 
-              <Select name="memberId" value={currentSavingTransaction.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger id="memberIdModal"><SelectValue placeholder="Select a member" /></SelectTrigger>
+              <Label htmlFor="memberIdInd">Member</Label>
+              <Select name="memberId" value={currentIndividualTransaction.memberId || ''} onValueChange={(value) => handleIndividualSelectChange('memberId', value)} required>
+                <SelectTrigger id="memberIdInd"><SelectValue placeholder="Select a member" /></SelectTrigger>
                 <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
               </Select>
             </div>
-            
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amountModal">Amount ($)</Label> 
+                    <Label htmlFor="amountInd">Amount ($)</Label>
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="amountModal" name="amount" type="number" step="0.01" placeholder="0.00" value={currentSavingTransaction.amount || ''} onChange={handleInputChange} required className="pl-8" />
+                        <Input id="amountInd" name="amount" type="number" step="0.01" placeholder="0.00" value={currentIndividualTransaction.amount || ''} onChange={handleIndividualInputChange} required className="pl-8" />
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="dateModal">Transaction Date</Label> 
-                    <Input id="dateModal" name="date" type="date" value={currentSavingTransaction.date || ''} onChange={handleInputChange} required />
+                    <Label htmlFor="dateInd">Transaction Date</Label>
+                    <Input id="dateInd" name="date" type="date" value={currentIndividualTransaction.date || ''} onChange={handleIndividualInputChange} required />
                 </div>
             </div>
-
             <div>
-                <Label htmlFor="transactionTypeModal">Transaction Type</Label> 
-                <RadioGroup
-                    id="transactionTypeModal"
-                    name="transactionType"
-                    value={currentSavingTransaction.transactionType}
-                    onValueChange={handleTransactionTypeChange}
-                    className="flex space-x-4 pt-2"
-                >
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="deposit" id="depositModal" />
-                        <Label htmlFor="depositModal">Deposit</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="withdrawal" id="withdrawalModal" />
-                        <Label htmlFor="withdrawalModal">Withdrawal</Label>
-                    </div>
+                <Label htmlFor="transactionTypeInd">Transaction Type</Label>
+                <RadioGroup id="transactionTypeInd" name="transactionType" value={currentIndividualTransaction.transactionType} onValueChange={handleIndividualTransactionTypeChange} className="flex space-x-4 pt-2">
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="deposit" id="depositInd" /><Label htmlFor="depositInd">Deposit</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="withdrawal" id="withdrawalInd" /><Label htmlFor="withdrawalInd">Withdrawal</Label></div>
                 </RadioGroup>
             </div>
-
-            {currentSavingTransaction.transactionType === 'deposit' && (
+            {currentIndividualTransaction.transactionType === 'deposit' && (
                 <>
                     <Separator className="my-3" />
                     <div>
-                        <Label htmlFor="depositModeModal">Deposit Mode</Label>
-                        <RadioGroup
-                            id="depositModeModal"
-                            name="depositMode"
-                            value={currentSavingTransaction.depositMode || 'Cash'}
-                            onValueChange={handleDepositModeChange}
-                            className="flex space-x-4 pt-2"
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cash" id="cashModal" /><Label htmlFor="cashModal">Cash</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Bank" id="bankModal" /><Label htmlFor="bankModal">Bank</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Wallet" id="walletModal" /><Label htmlFor="walletModal">Wallet</Label>
-                            </div>
+                        <Label htmlFor="depositModeInd">Deposit Mode</Label>
+                        <RadioGroup id="depositModeInd" name="depositMode" value={currentIndividualTransaction.depositMode || 'Cash'} onValueChange={handleIndividualDepositModeChange} className="flex space-x-4 pt-2">
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashInd" /><Label htmlFor="cashInd">Cash</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankInd" /><Label htmlFor="bankInd">Bank</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletInd" /><Label htmlFor="walletInd">Wallet</Label></div>
                         </RadioGroup>
                     </div>
-
-                    {(currentSavingTransaction.depositMode === 'Bank' || currentSavingTransaction.depositMode === 'Wallet') && (
+                    {(currentIndividualTransaction.depositMode === 'Bank' || currentIndividualTransaction.depositMode === 'Wallet') && (
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                              <div className="grid grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="paymentDetails.sourceNameModal">{currentSavingTransaction.depositMode} Name</Label>
+                                    <Label htmlFor="paymentDetails.sourceNameInd">{currentIndividualTransaction.depositMode} Name</Label>
                                     <div className="relative">
-                                     {currentSavingTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                     {currentSavingTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                    <Input id="paymentDetails.sourceNameModal" name="paymentDetails.sourceName" placeholder={`Enter ${currentSavingTransaction.depositMode} Name`} value={currentSavingTransaction.paymentDetails?.sourceName || ''} onChange={handleInputChange} className="pl-8" />
+                                     {currentIndividualTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                     {currentIndividualTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                    <Input id="paymentDetails.sourceNameInd" name="paymentDetails.sourceName" placeholder={`Enter ${currentIndividualTransaction.depositMode} Name`} value={currentIndividualTransaction.paymentDetails?.sourceName || ''} onChange={handleIndividualInputChange} className="pl-8" />
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="paymentDetails.transactionReferenceModal">Transaction Reference</Label>
-                                    <Input id="paymentDetails.transactionReferenceModal" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentSavingTransaction.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
+                                    <Label htmlFor="paymentDetails.transactionReferenceInd">Transaction Reference</Label>
+                                    <Input id="paymentDetails.transactionReferenceInd" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentIndividualTransaction.paymentDetails?.transactionReference || ''} onChange={handleIndividualInputChange} />
                                 </div>
                             </div>
                             <div className="pl-3">
-                                <Label htmlFor="paymentDetails.evidenceUrlModal">Evidence Attachment (URL/Filename)</Label>
-                                 <div className="relative">
-                                    <Input id="paymentDetails.evidenceUrlModal" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentSavingTransaction.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} />
-                                 </div>
-                                <p className="text-xs text-muted-foreground mt-1">Enter URL or filename of the deposit evidence. Full file upload not supported in this demo.</p>
+                                <Label htmlFor="paymentDetails.evidenceUrlInd">Evidence Attachment (URL/Filename)</Label>
+                                <div className="relative">
+                                  <UploadCloud className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                  <Input id="paymentDetails.evidenceUrlInd" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentIndividualTransaction.paymentDetails?.evidenceUrl || ''} onChange={handleIndividualInputChange} className="pl-8" />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">Enter URL or filename. Full file upload not supported in this demo.</p>
                             </div>
                         </div>
                     )}
                 </>
             )}
-            
             <DialogFooter className="pt-6">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditingModal ? 'Save Changes' : 'Add Transaction'}</Button>
+              <Button type="submit">{isEditingIndividualTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+    {/* Group Transaction Modal */}
+      <Dialog open={isGroupModalOpen} onOpenChange={setIsGroupModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Add New Group Savings Transaction</DialogTitle>
+            <DialogDescription>
+              Enter details for a new savings transaction. This will be applied to all ({selectedMemberIds.length}) selected members.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitGroupTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="amountGrp">Amount (per member) ($)</Label>
+                    <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="amountGrp" name="amount" type="number" step="0.01" placeholder="0.00" value={currentGroupTransactionData.amount || ''} onChange={handleGroupInputChange} required className="pl-8" />
+                    </div>
+                </div>
+                <div>
+                    <Label htmlFor="dateGrp">Transaction Date</Label>
+                    <Input id="dateGrp" name="date" type="date" value={currentGroupTransactionData.date || ''} onChange={handleGroupInputChange} required />
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="transactionTypeGrp">Transaction Type</Label>
+                <RadioGroup id="transactionTypeGrp" name="transactionType" value={currentGroupTransactionData.transactionType} onValueChange={handleGroupTransactionTypeChange} className="flex space-x-4 pt-2">
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="deposit" id="depositGrp" /><Label htmlFor="depositGrp">Deposit</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="withdrawal" id="withdrawalGrp" /><Label htmlFor="withdrawalGrp">Withdrawal</Label></div>
+                </RadioGroup>
+            </div>
+            {currentGroupTransactionData.transactionType === 'deposit' && (
+                <>
+                    <Separator className="my-3" />
+                    <div>
+                        <Label htmlFor="depositModeGrp">Deposit Mode</Label>
+                        <RadioGroup id="depositModeGrp" name="depositMode" value={currentGroupTransactionData.depositMode || 'Cash'} onValueChange={handleGroupDepositModeChange} className="flex space-x-4 pt-2">
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashGrp" /><Label htmlFor="cashGrp">Cash</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankGrp" /><Label htmlFor="bankGrp">Bank</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletGrp" /><Label htmlFor="walletGrp">Wallet</Label></div>
+                        </RadioGroup>
+                    </div>
+                    {(currentGroupTransactionData.depositMode === 'Bank' || currentGroupTransactionData.depositMode === 'Wallet') && (
+                        <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
+                             <div className="grid grid-cols-2 gap-4 pl-3">
+                                <div>
+                                    <Label htmlFor="paymentDetails.sourceNameGrp">{currentGroupTransactionData.depositMode} Name</Label>
+                                    <div className="relative">
+                                     {currentGroupTransactionData.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                     {currentGroupTransactionData.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                    <Input id="paymentDetails.sourceNameGrp" name="paymentDetails.sourceName" placeholder={`Enter ${currentGroupTransactionData.depositMode} Name`} value={currentGroupTransactionData.paymentDetails?.sourceName || ''} onChange={handleGroupInputChange} className="pl-8" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label htmlFor="paymentDetails.transactionReferenceGrp">Transaction Reference</Label>
+                                    <Input id="paymentDetails.transactionReferenceGrp" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentGroupTransactionData.paymentDetails?.transactionReference || ''} onChange={handleGroupInputChange} />
+                                </div>
+                            </div>
+                            <div className="pl-3">
+                                <Label htmlFor="paymentDetails.evidenceUrlGrp">Evidence Attachment (URL/Filename)</Label>
+                                 <div className="relative">
+                                    <UploadCloud className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input id="paymentDetails.evidenceUrlGrp" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentGroupTransactionData.paymentDetails?.evidenceUrl || ''} onChange={handleGroupInputChange} className="pl-8" />
+                                 </div>
+                                <p className="text-xs text-muted-foreground mt-1">Enter URL or filename. Full file upload not supported in this demo.</p>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+            <DialogFooter className="pt-6">
+              <DialogClose asChild><Button type="button" variant="outline" onClick={() => setSelectedMemberIds([])}>Cancel</Button></DialogClose>
+              <Button type="submit">Post Group Transaction</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -442,6 +678,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-
-
-    
