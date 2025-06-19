@@ -1,9 +1,10 @@
+
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -31,8 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockShares, mockMembers } from '@/data/mock';
-import type { Share, Member } from '@/types';
+import { mockShares, mockMembers, mockShareTypes } from '@/data/mock';
+import type { Share, Member, ShareType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -41,18 +42,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 
 const initialShareFormState: Partial<Share> = {
   memberId: '',
+  shareTypeId: '',
   count: 0,
   allocationDate: new Date().toISOString().split('T')[0], // today
-  valuePerShare: 10, // Default value
+  valuePerShare: 0, 
 };
 
 export default function SharesPage() {
   const [shares, setShares] = useState<Share[]>(mockShares);
   const [members] = useState<Member[]>(mockMembers);
+  const [shareTypes] = useState<ShareType[]>(mockShareTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentShare, setCurrentShare] = useState<Partial<Share>>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
@@ -60,32 +63,60 @@ export default function SharesPage() {
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (currentShare.shareTypeId) {
+      const selectedType = shareTypes.find(st => st.id === currentShare.shareTypeId);
+      if (selectedType) {
+        setCurrentShare(prev => ({ ...prev, valuePerShare: selectedType.valuePerShare }));
+      }
+    } else if (!isEditing) {
+         setCurrentShare(prev => ({ ...prev, valuePerShare: 0}));
+    }
+  }, [currentShare.shareTypeId, shareTypes, isEditing]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCurrentShare(prev => ({ ...prev, [name]: name === 'count' || name === 'valuePerShare' ? parseFloat(value) : value }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleSelectChange = (name: keyof Partial<Share>, value: string) => {
     setCurrentShare(prev => ({ ...prev, [name]: value }));
+    if (name === 'shareTypeId') {
+        const selectedType = shareTypes.find(st => st.id === value);
+        setCurrentShare(prev => ({ ...prev, valuePerShare: selectedType?.valuePerShare || 0, shareTypeName: selectedType?.name || ''}));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShare.memberId || !currentShare.count || currentShare.count <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid share count.' });
+    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.count || currentShare.count <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid share count.' });
+        return;
+    }
+    
+    const selectedType = shareTypes.find(st => st.id === currentShare.shareTypeId);
+    if (!selectedType) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Invalid share type selected.'});
         return;
     }
 
     const memberName = members.find(m => m.id === currentShare.memberId)?.fullName;
+    const shareDataToSave: Partial<Share> = {
+        ...currentShare,
+        memberName,
+        shareTypeName: selectedType.name,
+        valuePerShare: selectedType.valuePerShare, // Ensure this is from the selected share type
+    };
+
 
     if (isEditing && currentShare.id) {
-      setShares(prev => prev.map(s => s.id === currentShare.id ? { ...s, ...currentShare, memberName } as Share : s));
+      setShares(prev => prev.map(s => s.id === currentShare.id ? { ...s, ...shareDataToSave } as Share : s));
       toast({ title: 'Success', description: 'Share record updated.' });
     } else {
       const newShare: Share = {
         id: `share-${Date.now()}`,
-        ...currentShare,
-        memberName,
+        ...initialShareFormState, // Ensure all fields are present even if not in currentShare
+        ...shareDataToSave,
       } as Share;
       setShares(prev => [newShare, ...prev]);
       toast({ title: 'Success', description: 'Share record added.' });
@@ -140,7 +171,7 @@ export default function SharesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Allocated</CardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Shares Allocated</ShadcnCardTitle>
                 <LucidePieChart className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -149,8 +180,8 @@ export default function SharesPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Value of Shares</CardTitle>
-                <span className="text-accent font-bold text-lg">$</span>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Shares</ShadcnCardTitle>
+                <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -192,6 +223,7 @@ export default function SharesPage() {
                 <Checkbox aria-label="Select all share records" />
               </TableHead>
               <TableHead>Member Name</TableHead>
+              <TableHead>Share Type</TableHead>
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
@@ -206,6 +238,7 @@ export default function SharesPage() {
                   <Checkbox aria-label={`Select share record for ${share.memberName}`} />
                 </TableCell>
                 <TableCell className="font-medium">{share.memberName || members.find(m => m.id === share.memberId)?.fullName}</TableCell>
+                <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
                 <TableCell className="text-right">{share.count}</TableCell>
                 <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-semibold">${(share.count * share.valuePerShare).toFixed(2)}</TableCell>
@@ -231,7 +264,7 @@ export default function SharesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>
@@ -257,14 +290,15 @@ export default function SharesPage() {
             <div>
               <Label htmlFor="memberId">Member</Label>
               <Select name="memberId" value={currentShare.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map(member => (
-                    <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Select a member" /></SelectTrigger>
+                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+             <div>
+              <Label htmlFor="shareTypeId">Share Type</Label>
+              <Select name="shareTypeId" value={currentShare.shareTypeId || ''} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
+                <SelectTrigger><SelectValue placeholder="Select share type" /></SelectTrigger>
+                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div>
@@ -273,16 +307,17 @@ export default function SharesPage() {
             </div>
             <div>
               <Label htmlFor="valuePerShare">Value per Share ($)</Label>
-              <Input id="valuePerShare" name="valuePerShare" type="number" step="0.01" placeholder="10.00" value={currentShare.valuePerShare || ''} onChange={handleInputChange} required />
+              <div className="relative">
+                <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="valuePerShare" name="valuePerShare" type="number" step="0.01" placeholder="0.00" value={currentShare.valuePerShare || ''} onChange={handleInputChange} required readOnly className="pl-7 bg-muted/50" />
+              </div>
             </div>
             <div>
               <Label htmlFor="allocationDate">Allocation Date</Label>
               <Input id="allocationDate" name="allocationDate" type="date" value={currentShare.allocationDate || ''} onChange={handleInputChange} required />
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
-              </DialogClose>
+              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit">{isEditing ? 'Save Changes' : 'Allocate Shares'}</Button>
             </DialogFooter>
           </form>

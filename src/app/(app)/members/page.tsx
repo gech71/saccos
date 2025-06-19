@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,8 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools } from '@/data/mock';
-import type { Member, School } from '@/types';
+import { mockMembers, mockSchools, mockShareTypes } from '@/data/mock';
+import type { Member, School, MemberShareCommitment, ShareType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -55,11 +55,13 @@ const initialMemberFormState: Partial<Member> = {
   joinDate: new Date().toISOString().split('T')[0], // today
   savingsBalance: 0,
   sharesCount: 0,
+  shareCommitments: [],
 };
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
+  const [shareTypes] = useState<ShareType[]>(mockShareTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
   const [isEditing, setIsEditing] = useState(false);
@@ -92,6 +94,36 @@ export default function MembersPage() {
     setCurrentMember(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleShareCommitmentChange = (index: number, field: keyof MemberShareCommitment, value: string | number) => {
+    const updatedCommitments = [...(currentMember.shareCommitments || [])];
+    if (field === 'shareTypeId') {
+      const selectedType = shareTypes.find(st => st.id === value);
+      updatedCommitments[index] = {
+        ...updatedCommitments[index],
+        shareTypeId: value as string,
+        shareTypeName: selectedType?.name || '',
+      };
+    } else if (field === 'monthlyCommittedAmount') {
+        updatedCommitments[index] = { ...updatedCommitments[index], monthlyCommittedAmount: parseFloat(value as string) || 0 };
+    }
+    setCurrentMember(prev => ({ ...prev, shareCommitments: updatedCommitments }));
+  };
+
+  const addShareCommitment = () => {
+    const newCommitment: MemberShareCommitment = { shareTypeId: '', shareTypeName: '', monthlyCommittedAmount: 0 };
+    setCurrentMember(prev => ({
+      ...prev,
+      shareCommitments: [...(prev.shareCommitments || []), newCommitment]
+    }));
+  };
+
+  const removeShareCommitment = (index: number) => {
+    setCurrentMember(prev => ({
+      ...prev,
+      shareCommitments: (prev.shareCommitments || []).filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
@@ -99,16 +131,22 @@ export default function MembersPage() {
         return;
     }
 
-    const schoolName = schools.find(s => s.id === currentMember.schoolId)?.name;
+    const validCommitments = (currentMember.shareCommitments || []).filter(c => c.shareTypeId && c.monthlyCommittedAmount > 0);
+    const memberDataToSave = {
+        ...currentMember,
+        shareCommitments: validCommitments,
+    };
 
-    if (isEditing && currentMember.id) {
-      setMembers(prev => prev.map(m => m.id === currentMember.id ? { ...m, ...currentMember, schoolName } as Member : m));
+    const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;
+
+    if (isEditing && memberDataToSave.id) {
+      setMembers(prev => prev.map(m => m.id === memberDataToSave.id ? { ...m, ...memberDataToSave, schoolName } as Member : m));
       toast({ title: 'Success', description: 'Member updated successfully.' });
     } else {
       const newMember: Member = {
         id: `member-${Date.now()}`,
-        ...initialMemberFormState, // Ensure all fields are present
-        ...currentMember,
+        ...initialMemberFormState, 
+        ...memberDataToSave,
         schoolName,
       } as Member;
       setMembers(prev => [newMember, ...prev]);
@@ -129,6 +167,7 @@ export default function MembersPage() {
     setCurrentMember({
       ...member,
       joinDate: member.joinDate ? new Date(member.joinDate).toISOString().split('T')[0] : '',
+      shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -252,14 +291,15 @@ export default function MembersPage() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl"> {/* Increased width for more fields */}
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Member' : 'Add New Member'}</DialogTitle>
             <DialogDescription>
               {isEditing ? 'Update the details for this member.' : 'Enter the details for the new member.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+            {/* Personal Info Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
@@ -270,14 +310,11 @@ export default function MembersPage() {
                 <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleInputChange} required />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="sex">Sex</Label>
                 <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sex" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Male">Male</SelectItem>
                     <SelectItem value="Female">Female</SelectItem>
@@ -291,49 +328,32 @@ export default function MembersPage() {
               </div>
             </div>
             
+            {/* Address Section */}
             <Separator className="my-4" />
-            <Label className="font-semibold text-base">Address</Label>
+            <Label className="font-semibold text-base text-primary">Address</Label>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <Label htmlFor="address.city">City</Label>
-                    <Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleInputChange} />
-                </div>
-                <div>
-                    <Label htmlFor="address.subCity">Sub City</Label>
-                    <Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleInputChange} />
-                </div>
-                <div>
-                    <Label htmlFor="address.wereda">Wereda</Label>
-                    <Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleInputChange} />
-                </div>
+                <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleInputChange} /></div>
+                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleInputChange} /></div>
+                <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleInputChange} /></div>
             </div>
 
+            {/* Emergency Contact Section */}
             <Separator className="my-4" />
-            <Label className="font-semibold text-base">Emergency Contact</Label>
+            <Label className="font-semibold text-base text-primary">Emergency Contact</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="emergencyContact.name">Representative Name</Label>
-                    <Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleInputChange} />
-                </div>
-                <div>
-                    <Label htmlFor="emergencyContact.phone">Representative Phone</Label>
-                    <Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleInputChange} />
-                </div>
+                <div><Label htmlFor="emergencyContact.name">Representative Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleInputChange} /></div>
+                <div><Label htmlFor="emergencyContact.phone">Representative Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleInputChange} /></div>
             </div>
             
+            {/* School & Financial Info Section */}
             <Separator className="my-4" />
+             <Label className="font-semibold text-base text-primary">School &amp; Financial Information</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="schoolId">School</Label>
                 <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleSelectChange('schoolId', value)} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a school" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {schools.map(school => (
-                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
+                  <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div>
@@ -341,22 +361,66 @@ export default function MembersPage() {
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
               </div>
             </div>
-
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
                 <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} />
               </div>
                <div>
-                <Label htmlFor="sharesCount">Initial Shares Count</Label>
+                <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
                 <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} />
               </div>
             </div>
 
+            {/* Share Commitments Section */}
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center">
+                <Label className="font-semibold text-base text-primary">Share Commitments</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addShareCommitment}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Commitment
+                </Button>
+            </div>
+            {(currentMember.shareCommitments || []).map((commitment, index) => (
+                <div key={index} className="grid grid-cols-[1fr_auto_auto] items-end gap-3 p-3 border rounded-md">
+                    <div>
+                        <Label htmlFor={`commitment-type-${index}`}>Share Type</Label>
+                        <Select
+                            value={commitment.shareTypeId}
+                            onValueChange={(value) => handleShareCommitmentChange(index, 'shareTypeId', value)}
+                        >
+                            <SelectTrigger id={`commitment-type-${index}`}><SelectValue placeholder="Select share type" /></SelectTrigger>
+                            <SelectContent>
+                                {shareTypes.map(st => (
+                                    <SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare}/share)</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor={`commitment-amount-${index}`}>Monthly Amount ($)</Label>
+                         <div className="relative">
+                             <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                id={`commitment-amount-${index}`}
+                                type="number"
+                                step="0.01"
+                                value={commitment.monthlyCommittedAmount}
+                                onChange={(e) => handleShareCommitmentChange(index, 'monthlyCommittedAmount', e.target.value)}
+                                placeholder="0.00"
+                                className="pl-7"
+                            />
+                        </div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeShareCommitment(index)} className="text-destructive hover:bg-destructive/10">
+                        <MinusCircle className="h-5 w-5" />
+                        <span className="sr-only">Remove commitment</span>
+                    </Button>
+                </div>
+            ))}
+
+
             <DialogFooter className="pt-4">
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
-              </DialogClose>
+              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit">{isEditing ? 'Save Changes' : 'Add Member'}</Button>
             </DialogFooter>
           </form>

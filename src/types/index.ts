@@ -5,6 +5,19 @@ export interface School {
   contactPerson?: string;
 }
 
+export interface ShareType {
+  id: string;
+  name: string;
+  description?: string;
+  valuePerShare: number;
+}
+
+export interface MemberShareCommitment {
+  shareTypeId: string;
+  shareTypeName: string; // Denormalized for easier display
+  monthlyCommittedAmount: number;
+}
+
 export interface Member {
   id: string;
   fullName: string;
@@ -24,7 +37,8 @@ export interface Member {
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
   savingsBalance: number;
-  sharesCount: number;
+  sharesCount: number; // Total shares across all types
+  shareCommitments?: MemberShareCommitment[];
 }
 
 export interface Saving {
@@ -41,9 +55,11 @@ export interface Share {
   id: string;
   memberId: string;
   memberName?: string; // Denormalized for display
+  shareTypeId: string;
+  shareTypeName?: string; // Denormalized for display
   count: number;
   allocationDate: string; // ISO date string
-  valuePerShare: number;
+  valuePerShare: number; // Set at the time of allocation based on ShareType
 }
 
 export interface Dividend {
@@ -52,7 +68,7 @@ export interface Dividend {
   memberName?: string; // Denormalized for display
   amount: number;
   distributionDate: string; // ISO date string
-  shareCountAtDistribution: number;
+  shareCountAtDistribution: number; // Could be refined to be per share type if dividends vary
 }
 
 export interface NavItem {
@@ -68,4 +84,3 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
-
