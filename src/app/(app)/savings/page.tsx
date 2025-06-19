@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, DollarSign, Banknote, Wallet, FileText, ArrowUpCircle, ArrowDownCircle, UserCircle } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon } from 'lucide-react'; // Added SchoolIcon
 import {
   Table,
   TableBody,
@@ -32,19 +32,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockSavings, mockMembers } from '@/data/mock';
-import type { Saving, Member } from '@/types';
+import { mockSavings, mockMembers, mockSchools } from '@/data/mock'; // mockSchools needed for school filter
+import type { Saving, Member, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { StatCard } from '@/components/stat-card';
+import { Banknote, Wallet } from 'lucide-react'; // For modal icons
 
 const initialSavingFormState: Partial<Saving> = {
   memberId: '',
@@ -61,13 +55,14 @@ const initialSavingFormState: Partial<Saving> = {
 };
 
 export default function SavingsPage() {
-  const [savings, setSavings] = useState<Saving[]>(mockSavings);
-  const [members] = useState<Member[]>(mockMembers);
+  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings); // Still needed for "Add Record" modal
+  const [members, setMembers] = useState<Member[]>(mockMembers);
+  const [schools] = useState<School[]>(mockSchools);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentSaving, setCurrentSaving] = useState<Partial<Saving>>(initialSavingFormState);
-  const [isEditing, setIsEditing] = useState(false);
+  const [currentSavingTransaction, setCurrentSavingTransaction] = useState<Partial<Saving>>(initialSavingFormState);
+  const [isEditingModal, setIsEditingModal] = useState(false); // Tracks if modal is for editing a transaction
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +71,7 @@ export default function SavingsPage() {
 
     if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
         const fieldName = nameParts[1] as keyof NonNullable<Saving['paymentDetails']>;
-        setCurrentSaving(prev => ({
+        setCurrentSavingTransaction(prev => ({
             ...prev,
             paymentDetails: {
                 ...(prev?.paymentDetails || {}),
@@ -84,216 +79,167 @@ export default function SavingsPage() {
             }
         }));
     } else {
-        setCurrentSaving(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
+        setCurrentSavingTransaction(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
     }
 
     if (name === 'date') {
         const dateObj = new Date(value);
         const month = dateObj.toLocaleString('default', { month: 'long' });
         const year = dateObj.getFullYear();
-        setCurrentSaving(prev => ({ ...prev, month: `${month} ${year}`}));
+        setCurrentSavingTransaction(prev => ({ ...prev, month: `${month} ${year}`}));
     }
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setCurrentSaving(prev => {
+    setCurrentSavingTransaction(prev => {
       const updatedSaving = { ...prev, [name]: value };
-      if (name === 'memberId' && !isEditing && updatedSaving.transactionType === 'withdrawal') {
+      if (name === 'memberId' && !isEditingModal && updatedSaving.transactionType === 'withdrawal') {
         const member = members.find(m => m.id === value);
-        updatedSaving.amount = member ? member.savingsBalance : 0;
+        // Ensure member and savingsBalance are defined before trying to use them
+        updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
       }
       return updatedSaving;
     });
   };
   
   const handleTransactionTypeChange = (value: 'deposit' | 'withdrawal') => {
-    setCurrentSaving(prev => {
+    setCurrentSavingTransaction(prev => {
       const updatedSaving = { ...prev, transactionType: value };
 
       if (value === 'withdrawal') {
         updatedSaving.depositMode = undefined;
         updatedSaving.paymentDetails = undefined;
-        if (!isEditing && updatedSaving.memberId) {
+        if (!isEditingModal && updatedSaving.memberId) {
           const member = members.find(m => m.id === updatedSaving.memberId);
-          updatedSaving.amount = member ? member.savingsBalance : 0;
+          updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
         }
       } else { // deposit
         updatedSaving.depositMode = prev.depositMode || initialSavingFormState.depositMode;
         updatedSaving.paymentDetails = prev.paymentDetails || initialSavingFormState.paymentDetails;
-        if (!isEditing) {
-          updatedSaving.amount = 0; // For new deposits, amount starts at 0
+        if (!isEditingModal) { // Only reset amount for new deposits
+          updatedSaving.amount = 0;
         }
       }
-      // If isEditing, amount is preserved from the record being edited unless type changes as above.
       return updatedSaving;
     });
   };
 
   const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setCurrentSaving(prev => ({
+    setCurrentSavingTransaction(prev => ({
         ...prev,
         depositMode: value,
         paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''}),
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // This handleSubmit is for the transaction modal
+  const handleSubmitTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSaving.memberId || currentSaving.amount === undefined || currentSaving.amount < 0) { // Allow 0 amount for specific cases if needed, but generally > 0
+    if (!currentSavingTransaction.memberId || currentSavingTransaction.amount === undefined || currentSavingTransaction.amount < 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid non-negative amount.' });
         return;
     }
-    if (currentSaving.transactionType === 'deposit' && !currentSaving.depositMode) {
+    if (currentSavingTransaction.transactionType === 'deposit' && !currentSavingTransaction.depositMode) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a deposit mode.' });
         return;
     }
-    if ((currentSaving.depositMode === 'Bank' || currentSaving.depositMode === 'Wallet') && !currentSaving.paymentDetails?.sourceName) {
+    if ((currentSavingTransaction.depositMode === 'Bank' || currentSavingTransaction.depositMode === 'Wallet') && !currentSavingTransaction.paymentDetails?.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter the Bank/Wallet Name for this deposit.' });
         return;
     }
 
-    const memberName = members.find(m => m.id === currentSaving.memberId)?.fullName;
-    let savingDataToSave = { ...currentSaving, memberName };
+    const memberName = members.find(m => m.id === currentSavingTransaction.memberId)?.fullName;
+    let transactionDataToSave = { ...currentSavingTransaction, memberName };
 
-    if (savingDataToSave.transactionType === 'withdrawal' || savingDataToSave.depositMode === 'Cash') {
-        savingDataToSave.paymentDetails = undefined;
+    if (transactionDataToSave.transactionType === 'withdrawal' || transactionDataToSave.depositMode === 'Cash') {
+        transactionDataToSave.paymentDetails = undefined;
     }
-    if (savingDataToSave.transactionType === 'withdrawal') {
-        savingDataToSave.depositMode = undefined;
+    if (transactionDataToSave.transactionType === 'withdrawal') {
+        transactionDataToSave.depositMode = undefined;
     }
 
-    if (isEditing && savingDataToSave.id) {
-      setSavings(prev => prev.map(s => s.id === savingDataToSave.id ? savingDataToSave as Saving : s));
-      toast({ title: 'Success', description: 'Savings record updated.' });
-    } else {
-      const newSaving: Saving = {
-        id: `saving-${Date.now()}`,
-        ...initialSavingFormState, // Base defaults
-        ...savingDataToSave, // Applied changes
-        amount: savingDataToSave.amount || 0, // Ensure amount is number
-      } as Saving;
-      setSavings(prev => [newSaving, ...prev]);
-      toast({ title: 'Success', description: 'Savings record added.' });
+    // For now, we add to a separate list of transactions. 
+    // In a real app, this would also update the member's savingsBalance.
+    const newTransaction: Saving = {
+      id: `saving-${Date.now()}`,
+      ...initialSavingFormState,
+      ...transactionDataToSave,
+      amount: transactionDataToSave.amount || 0,
+    } as Saving;
+    setSavingsTransactions(prev => [newTransaction, ...prev]);
+    
+    // Simulate updating member's balance for immediate feedback in UI (won't persist in mock)
+    if (transactionDataToSave.memberId) {
+        setMembers(prevMembers => prevMembers.map(mem => {
+            if (mem.id === transactionDataToSave.memberId) {
+                const newBalance = transactionDataToSave.transactionType === 'deposit' 
+                    ? mem.savingsBalance + (transactionDataToSave.amount || 0)
+                    : mem.savingsBalance - (transactionDataToSave.amount || 0);
+                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; // Prevent negative balance
+            }
+            return mem;
+        }));
     }
+
+    toast({ title: 'Success', description: `Savings transaction recorded for ${memberName}.` });
     setIsModalOpen(false);
-    setCurrentSaving(initialSavingFormState);
-    setIsEditing(false);
+    setCurrentSavingTransaction(initialSavingFormState);
+    setIsEditingModal(false);
   };
 
-  const openAddModal = () => {
-    setCurrentSaving(initialSavingFormState);
-    setIsEditing(false);
+  const openAddTransactionModal = () => {
+    setCurrentSavingTransaction(initialSavingFormState);
+    setIsEditingModal(false);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (saving: Saving) => {
-    setIsEditing(true); // Set editing true first
-    setCurrentSaving({ // Then set the state
-      ...saving,
-      date: saving.date ? new Date(saving.date).toISOString().split('T')[0] : '',
-      paymentDetails: saving.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''},
+  const filteredMembers = useMemo(() => {
+    return members.filter(member => {
+      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
+      return matchesSearchTerm && matchesSchoolFilter;
     });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (savingId: string) => {
-    if (window.confirm('Are you sure you want to delete this savings record?')) {
-      setSavings(prev => prev.filter(s => s.id !== savingId));
-      toast({ title: 'Success', description: 'Savings record deleted.' });
-    }
-  };
-
-  const filteredSavings = useMemo(() => {
-    return savings.filter(saving => {
-      const member = members.find(m => m.id === saving.memberId);
-      const matchesSearchTerm = member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
-      const matchesMemberFilter = selectedMemberFilter === 'all' || saving.memberId === selectedMemberFilter;
-      return matchesSearchTerm && matchesMemberFilter;
-    });
-  }, [savings, members, searchTerm, selectedMemberFilter]);
-
-  const selectedMemberDetails = useMemo(() => {
-    if (selectedMemberFilter !== 'all') {
-      return members.find(m => m.id === selectedMemberFilter);
-    }
-    return null;
-  }, [members, selectedMemberFilter]);
+  }, [members, searchTerm, selectedSchoolFilter]);
 
   const summaryStats = useMemo(() => {
-    const deposits = filteredSavings
-      .filter(s => s.transactionType === 'deposit')
-      .reduce((acc, s) => acc + s.amount, 0);
-    const withdrawals = filteredSavings
-      .filter(s => s.transactionType === 'withdrawal')
-      .reduce((acc, s) => acc + s.amount, 0);
-    
-    if (selectedMemberDetails) {
-      return {
-        memberBalance: selectedMemberDetails.savingsBalance,
-        depositsInView: deposits,
-        withdrawalsInView: withdrawals,
-      };
-    }
+    const membersInView = filteredMembers.length;
+    const totalBalanceInView = filteredMembers.reduce((acc, member) => acc + member.savingsBalance, 0);
+    const averageBalance = membersInView > 0 ? totalBalanceInView / membersInView : 0;
     return {
-      overallDeposits: deposits,
-      overallWithdrawals: withdrawals,
-      overallNet: deposits - withdrawals,
+      membersInView,
+      totalBalanceInView,
+      averageBalance,
     };
-  }, [filteredSavings, selectedMemberDetails]);
+  }, [filteredMembers]);
 
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Savings Tracking" subtitle="Monitor and manage member savings contributions.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Record
+      <PageTitle title="Member Savings Overview" subtitle="View member savings balances and record new transactions.">
+        <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
+          <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
         </Button>
       </PageTitle>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-        {selectedMemberDetails ? (
-          <>
-            <StatCard
-              title={`${selectedMemberDetails.fullName}'s Balance`}
-              value={`$${selectedMemberDetails.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<Wallet className="h-6 w-6 text-accent" />}
-              description="Current total savings balance."
-            />
-            <StatCard
-              title={`Deposits by ${selectedMemberDetails.fullName} (in view)`}
-              value={`$${(summaryStats.depositsInView || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<ArrowUpCircle className="h-6 w-6 text-accent" />}
-              description="Sum of deposits shown in the table below."
-            />
-            <StatCard
-              title={`Withdrawals by ${selectedMemberDetails.fullName} (in view)`}
-              value={`$${(summaryStats.withdrawalsInView || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<ArrowDownCircle className="h-6 w-6 text-accent" />}
-              description="Sum of withdrawals shown in the table below."
-            />
-          </>
-        ) : (
-          <>
-            <StatCard
-              title="Total Deposits (in view)"
-              value={`$${(summaryStats.overallDeposits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<ArrowUpCircle className="h-6 w-6 text-accent" />}
-              description="Sum of all deposits shown below."
-            />
-            <StatCard
-              title="Total Withdrawals (in view)"
-              value={`$${(summaryStats.overallWithdrawals || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<ArrowDownCircle className="h-6 w-6 text-accent" />}
-              description="Sum of all withdrawals shown below."
-            />
-            <StatCard
-              title="Net Savings (in view)"
-              value={`$${(summaryStats.overallNet || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              icon={<DollarSign className="h-6 w-6 text-accent" />}
-              description="Net effect of transactions shown below."
-            />
-          </>
-        )}
+        <StatCard
+          title="Total Members (in view)"
+          value={summaryStats.membersInView}
+          icon={<Users className="h-6 w-6 text-accent" />}
+          description="Number of members matching filters."
+        />
+        <StatCard
+          title="Total Savings Balance (in view)"
+          value={`$${summaryStats.totalBalanceInView.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          icon={<DollarSign className="h-6 w-6 text-accent" />}
+          description="Combined savings of members shown below."
+        />
+        <StatCard
+          title="Average Savings (in view)"
+          value={`$${summaryStats.averageBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          icon={<TrendingUp className="h-6 w-6 text-accent" />}
+          description="Average savings per member shown below."
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -305,18 +251,19 @@ export default function SavingsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
-            aria-label="Search savings records"
+            aria-label="Search members"
           />
         </div>
-        <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
-          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
+        <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter}>
+          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by school">
             <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Filter by member" />
+            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" /> {/* Icon for mobile */}
+            <SelectValue placeholder="Filter by school" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Members</SelectItem>
-            {members.map(member => (
-              <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+            <SelectItem value="all">All Schools</SelectItem>
+            {schools.map(school => (
+              <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -327,164 +274,138 @@ export default function SavingsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all savings records" />
+                <Checkbox aria-label="Select all members" />
               </TableHead>
               <TableHead>Member Name</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Month</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Deposit Mode</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              <TableHead>School</TableHead>
+              <TableHead>Saving Account Type</TableHead>
+              <TableHead className="text-right">Current Balance</TableHead>
+              {/* Actions column removed for summary view, could add "View Statement" later */}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSavings.length > 0 ? filteredSavings.map(saving => (
-              <TableRow key={saving.id}>
+            {filteredMembers.length > 0 ? filteredMembers.map(member => (
+              <TableRow key={member.id}>
                 <TableCell>
-                  <Checkbox aria-label={`Select saving record for ${saving.memberName}`} />
+                  <Checkbox aria-label={`Select member ${member.fullName}`} />
                 </TableCell>
-                <TableCell className="font-medium">{saving.memberName || members.find(m => m.id === saving.memberId)?.fullName}</TableCell>
-                <TableCell className="text-right font-semibold">${saving.amount.toFixed(2)}</TableCell>
-                <TableCell>{new Date(saving.date).toLocaleDateString()}</TableCell>
-                <TableCell>{saving.month}</TableCell>
-                <TableCell>
-                  <Badge variant={saving.transactionType === 'deposit' ? 'default' : 'destructive'} className="capitalize">
-                    {saving.transactionType}
-                  </Badge>
-                </TableCell>
-                <TableCell className="capitalize">{saving.depositMode || 'N/A'}</TableCell>
-                <TableCell className="text-right">
-                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(saving)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(saving.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                <TableCell className="font-medium">{member.fullName}</TableCell>
+                <TableCell>{member.schoolName || schools.find(s => s.id === member.schoolId)?.name || 'N/A'}</TableCell>
+                <TableCell>{member.savingAccountTypeName || 'N/A'}</TableCell>
+                <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  No savings records found.
+                <TableCell colSpan={5} className="h-24 text-center">
+                  No members found matching your criteria.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-       {filteredSavings.length > 10 && (
+       {filteredMembers.length > 10 && (
         <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
+          <Button variant="outline">Load More Members</Button>
         </div>
       )}
 
+      {/* Modal for Adding/Editing Saving Transaction - unchanged from previous version */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Savings Record' : 'Add New Savings Record'}</DialogTitle>
+            <DialogTitle className="font-headline">{isEditingModal ? 'Edit Savings Record' : 'Add New Savings Transaction'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this savings transaction.' : 'Enter details for a new savings transaction.'}
+              {isEditingModal ? 'Update this savings transaction.' : 'Enter details for a new savings transaction.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="memberId">Member</Label>
-              <Select name="memberId" value={currentSaving.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger><SelectValue placeholder="Select a member" /></SelectTrigger>
+              <Label htmlFor="memberIdModal">Member</Label> {/* Changed id to avoid conflict if main page had one */}
+              <Select name="memberId" value={currentSavingTransaction.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
+                <SelectTrigger id="memberIdModal"><SelectValue placeholder="Select a member" /></SelectTrigger>
                 <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>))}</SelectContent>
               </Select>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amount">Amount ($)</Label>
+                    <Label htmlFor="amountModal">Amount ($)</Label> {/* Changed id */}
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" value={currentSaving.amount || ''} onChange={handleInputChange} required className="pl-8" />
+                        <Input id="amountModal" name="amount" type="number" step="0.01" placeholder="0.00" value={currentSavingTransaction.amount || ''} onChange={handleInputChange} required className="pl-8" />
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="date">Transaction Date</Label>
-                    <Input id="date" name="date" type="date" value={currentSaving.date || ''} onChange={handleInputChange} required />
+                    <Label htmlFor="dateModal">Transaction Date</Label> {/* Changed id */}
+                    <Input id="dateModal" name="date" type="date" value={currentSavingTransaction.date || ''} onChange={handleInputChange} required />
                 </div>
             </div>
 
             <div>
-                <Label htmlFor="transactionType">Transaction Type</Label>
+                <Label htmlFor="transactionTypeModal">Transaction Type</Label> {/* Changed id */}
                 <RadioGroup
-                    id="transactionType"
+                    id="transactionTypeModal"
                     name="transactionType"
-                    value={currentSaving.transactionType}
+                    value={currentSavingTransaction.transactionType}
                     onValueChange={handleTransactionTypeChange}
                     className="flex space-x-4 pt-2"
                 >
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="deposit" id="deposit" />
-                        <Label htmlFor="deposit">Deposit</Label>
+                        <RadioGroupItem value="deposit" id="depositModal" />{/* Changed id */}
+                        <Label htmlFor="depositModal">Deposit</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="withdrawal" id="withdrawal" />
-                        <Label htmlFor="withdrawal">Withdrawal</Label>
+                        <RadioGroupItem value="withdrawal" id="withdrawalModal" />{/* Changed id */}
+                        <Label htmlFor="withdrawalModal">Withdrawal</Label>
                     </div>
                 </RadioGroup>
             </div>
 
-            {currentSaving.transactionType === 'deposit' && (
+            {currentSavingTransaction.transactionType === 'deposit' && (
                 <>
                     <Separator className="my-3" />
                     <div>
-                        <Label htmlFor="depositMode">Deposit Mode</Label>
+                        <Label htmlFor="depositModeModal">Deposit Mode</Label>{/* Changed id */}
                         <RadioGroup
-                            id="depositMode"
+                            id="depositModeModal"
                             name="depositMode"
-                            value={currentSaving.depositMode || 'Cash'}
+                            value={currentSavingTransaction.depositMode || 'Cash'}
                             onValueChange={handleDepositModeChange}
                             className="flex space-x-4 pt-2"
                         >
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Cash" id="cash" /><Label htmlFor="cash">Cash</Label>
+                                <RadioGroupItem value="Cash" id="cashModal" /><Label htmlFor="cashModal">Cash</Label>{/* Changed id */}
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Bank" id="bank" /><Label htmlFor="bank">Bank</Label>
+                                <RadioGroupItem value="Bank" id="bankModal" /><Label htmlFor="bankModal">Bank</Label>{/* Changed id */}
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="Wallet" id="wallet" /><Label htmlFor="wallet">Wallet</Label>
+                                <RadioGroupItem value="Wallet" id="walletModal" /><Label htmlFor="walletModal">Wallet</Label>{/* Changed id */}
                             </div>
                         </RadioGroup>
                     </div>
 
-                    {(currentSaving.depositMode === 'Bank' || currentSaving.depositMode === 'Wallet') && (
+                    {(currentSavingTransaction.depositMode === 'Bank' || currentSavingTransaction.depositMode === 'Wallet') && (
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                              <div className="grid grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="paymentDetails.sourceName">{currentSaving.depositMode} Name</Label>
+                                    <Label htmlFor="paymentDetails.sourceNameModal">{currentSavingTransaction.depositMode} Name</Label>{/* Changed id */}
                                     <div className="relative">
-                                     {currentSaving.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                     {currentSaving.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                    <Input id="paymentDetails.sourceName" name="paymentDetails.sourceName" placeholder={`Enter ${currentSaving.depositMode} Name`} value={currentSaving.paymentDetails?.sourceName || ''} onChange={handleInputChange} className="pl-8" />
+                                     {currentSavingTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                     {currentSavingTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                    <Input id="paymentDetails.sourceNameModal" name="paymentDetails.sourceName" placeholder={`Enter ${currentSavingTransaction.depositMode} Name`} value={currentSavingTransaction.paymentDetails?.sourceName || ''} onChange={handleInputChange} className="pl-8" />
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="paymentDetails.transactionReference">Transaction Reference</Label>
-                                    <Input id="paymentDetails.transactionReference" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentSaving.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
+                                    <Label htmlFor="paymentDetails.transactionReferenceModal">Transaction Reference</Label>{/* Changed id */}
+                                    <Input id="paymentDetails.transactionReferenceModal" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentSavingTransaction.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
                                 </div>
                             </div>
                             <div className="pl-3">
-                                <Label htmlFor="paymentDetails.evidenceUrl">Evidence Attachment (URL/Filename)</Label>
+                                <Label htmlFor="paymentDetails.evidenceUrlModal">Evidence Attachment (URL/Filename)</Label>{/* Changed id */}
                                  <div className="relative">
-                                    <FileText className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input id="paymentDetails.evidenceUrl" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentSaving.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} className="pl-8"/>
+                                    <Input id="paymentDetails.evidenceUrlModal" name="paymentDetails.evidenceUrl" placeholder="e.g., http://example.com/receipt.pdf" value={currentSavingTransaction.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} />
                                  </div>
                                 <p className="text-xs text-muted-foreground mt-1">Enter URL or filename of the deposit evidence. Full file upload not supported in this demo.</p>
                             </div>
@@ -495,7 +416,7 @@ export default function SavingsPage() {
             
             <DialogFooter className="pt-6">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Record'}</Button>
+              <Button type="submit">{isEditingModal ? 'Save Changes' : 'Add Transaction'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -503,4 +424,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-
