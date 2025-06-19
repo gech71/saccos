@@ -530,38 +530,30 @@ type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClic
   asChild?: boolean;
   isActive?: boolean;
   tooltip?: string | React.ComponentProps<typeof TooltipContent>;
-  onClick?: React.MouseEventHandler<HTMLElement>; // Generic click handler
-  // Add other common props if needed, e.g., className, children are part of HTMLAttributes
+  onClick?: React.MouseEventHandler<HTMLElement>; 
 };
 
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLElement, // More generic ref
+  HTMLElement, 
   CombinedProps
 >(
   (
     {
-      asChild: ownAsChild = false,
+      asChild: ownAsChild = false, 
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      ...remainingProps
+      ...remainingProps 
     },
     ref
   ) => {
-    const { isMobile, state } = useSidebar()
+    const { isMobile, state } = useSidebar();
     
-    const propsForComp = { ...remainingProps };
-    // Explicitly delete asChild from propsForComp if it exists,
-    // to prevent it from being passed to the underlying DOM element.
-    // This targets an asChild prop that might be passed *in* (e.g., from NextLink).
-    // ownAsChild is for SidebarMenuButton's own polymorphism.
-    if ('asChild' in propsForComp) {
-      delete propsForComp.asChild;
-    }
+    const { asChild: incomingAsChild, ...propsForComp } = remainingProps;
 
     const Comp = ownAsChild ? Slot : (propsForComp.href ? "a" : "button");
 
@@ -572,14 +564,14 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...propsForComp}
+        {...propsForComp} 
       >
         {children}
       </Comp>
-    )
+    );
 
     if (!tooltip) {
-      return buttonElement
+      return buttonElement;
     }
 
     let tooltipProps: React.ComponentProps<typeof TooltipContent> = {};
@@ -589,7 +581,6 @@ const SidebarMenuButton = React.forwardRef<
       tooltipProps = tooltip;
     }
     
-
     return (
       <Tooltip>
         <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
@@ -600,10 +591,10 @@ const SidebarMenuButton = React.forwardRef<
           {...tooltipProps}
         />
       </Tooltip>
-    )
+    );
   }
-)
-SidebarMenuButton.displayName = "SidebarMenuButton"
+);
+SidebarMenuButton.displayName = "SidebarMenuButton";
 
 const SidebarMenuAction = React.forwardRef<
   HTMLButtonElement,
