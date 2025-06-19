@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -543,48 +544,57 @@ const SidebarMenuButton = React.forwardRef<
 >(
   (
     {
-      asChild = false,
+      asChild: ownAsChild = false, // Renamed to avoid conflict with potential 'asChild' in '...remainingProps'
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
-      ...props
+      children, // Explicitly get children
+      ...remainingProps // All other props, may include 'asChild' from Link or other parents
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = ownAsChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
 
-    const button = (
+    // Explicitly remove 'asChild' from remainingProps before spreading it onto Comp
+    // This prevents an 'asChild' prop from being passed to the underlying DOM element if it came from a parent like NextLink
+    const { asChild: _discardAsChildFromRemaining, ...propsToSpread } = remainingProps;
+
+    const buttonElement = (
       <Comp
         ref={ref}
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-        {...props}
-      />
+        {...propsToSpread}
+      >
+        {children}
+      </Comp>
     )
 
     if (!tooltip) {
-      return button
+      return buttonElement
     }
 
+    let tooltipProps: React.ComponentProps<typeof TooltipContent> = {};
     if (typeof tooltip === "string") {
-      tooltip = {
-        children: tooltip,
-      }
+      tooltipProps = { children: tooltip };
+    } else {
+      tooltipProps = tooltip;
     }
+    
 
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
         <TooltipContent
           side="right"
           align="center"
           hidden={state !== "collapsed" || isMobile}
-          {...tooltip}
+          {...tooltipProps}
         />
       </Tooltip>
     )
