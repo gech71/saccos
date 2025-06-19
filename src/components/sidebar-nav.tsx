@@ -48,24 +48,25 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
           return (
             item.href && (
               <SidebarMenuItem key={index}>
-                <Link href={item.disabled ? '#' : item.href} asChild>
-                  {/* SidebarMenuButton does NOT use its own asChild here. It becomes the <a> tag. */}
+                <Link href={item.disabled ? '#' : item.href} legacyBehavior passHref>
                   <SidebarMenuButton
+                    asChild // SidebarMenuButton uses its own asChild
                     variant={isActive ? 'default' : 'ghost'}
                     className={cn(
                       isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       item.disabled && 'cursor-not-allowed opacity-80'
                     )}
                     onClick={() => {
-                      // For Link asChild, navigation is handled by Link.
+                      // For Link with legacyBehavior, onClick on the <a> tag handles navigation.
                       // This onClick is for other actions like closing mobile sidebar.
                       if (setOpenMobile) setOpenMobile(false);
                     }}
                     tooltip={item.title}
                   >
-                    {/* No <a> tag here. Icon and span are direct children of SidebarMenuButton */}
-                    <Icon className="mr-2 h-5 w-5" />
-                    <span className="truncate">{item.title}</span>
+                    <a> {/* This anchor tag receives the href */}
+                      <Icon className="mr-2 h-5 w-5" />
+                      <span className="truncate">{item.title}</span>
+                    </a>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
