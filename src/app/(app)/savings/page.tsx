@@ -96,16 +96,37 @@ export default function SavingsPage() {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setCurrentSaving(prev => ({ ...prev, [name]: value }));
+    setCurrentSaving(prev => {
+      const updatedSaving = { ...prev, [name]: value };
+      if (name === 'memberId' && !isEditing && updatedSaving.transactionType === 'withdrawal') {
+        const member = members.find(m => m.id === value);
+        updatedSaving.amount = member ? member.savingsBalance : 0;
+      }
+      return updatedSaving;
+    });
   };
   
   const handleTransactionTypeChange = (value: 'deposit' | 'withdrawal') => {
-    setCurrentSaving(prev => ({ 
-        ...prev, 
-        transactionType: value,
-        depositMode: value === 'withdrawal' ? undefined : prev.depositMode || 'Cash',
-        paymentDetails: value === 'withdrawal' ? undefined : prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''},
-    }));
+    setCurrentSaving(prev => {
+      const updatedSaving = { ...prev, transactionType: value };
+
+      if (value === 'withdrawal') {
+        updatedSaving.depositMode = undefined;
+        updatedSaving.paymentDetails = undefined;
+        if (!isEditing && updatedSaving.memberId) {
+          const member = members.find(m => m.id === updatedSaving.memberId);
+          updatedSaving.amount = member ? member.savingsBalance : 0;
+        }
+      } else { // deposit
+        updatedSaving.depositMode = prev.depositMode || initialSavingFormState.depositMode;
+        updatedSaving.paymentDetails = prev.paymentDetails || initialSavingFormState.paymentDetails;
+        if (!isEditing) {
+          updatedSaving.amount = 0; // For new deposits, amount starts at 0
+        }
+      }
+      // If isEditing, amount is preserved from the record being edited unless type changes as above.
+      return updatedSaving;
+    });
   };
 
   const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
@@ -118,8 +139,8 @@ export default function SavingsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSaving.memberId || !currentSaving.amount || currentSaving.amount <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid amount.' });
+    if (!currentSaving.memberId || currentSaving.amount === undefined || currentSaving.amount < 0) { // Allow 0 amount for specific cases if needed, but generally > 0
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid non-negative amount.' });
         return;
     }
     if (currentSaving.transactionType === 'deposit' && !currentSaving.depositMode) {
@@ -147,8 +168,9 @@ export default function SavingsPage() {
     } else {
       const newSaving: Saving = {
         id: `saving-${Date.now()}`,
-        ...initialSavingFormState,
-        ...savingDataToSave,
+        ...initialSavingFormState, // Base defaults
+        ...savingDataToSave, // Applied changes
+        amount: savingDataToSave.amount || 0, // Ensure amount is number
       } as Saving;
       setSavings(prev => [newSaving, ...prev]);
       toast({ title: 'Success', description: 'Savings record added.' });
@@ -165,12 +187,12 @@ export default function SavingsPage() {
   };
 
   const openEditModal = (saving: Saving) => {
-    setCurrentSaving({
+    setIsEditing(true); // Set editing true first
+    setCurrentSaving({ // Then set the state
       ...saving,
       date: saving.date ? new Date(saving.date).toISOString().split('T')[0] : '',
       paymentDetails: saving.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''},
     });
-    setIsEditing(true);
     setIsModalOpen(true);
   };
 
