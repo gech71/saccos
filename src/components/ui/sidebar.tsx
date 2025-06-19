@@ -535,8 +535,8 @@ const sidebarMenuButtonVariants = cva(
 )
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<"button"> & {
+  HTMLButtonElement, // Changed to HTMLButtonElement as default, can be overridden by asChild
+  React.ComponentProps<"button"> & { // Defaulting to button props
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
@@ -544,23 +544,24 @@ const SidebarMenuButton = React.forwardRef<
 >(
   (
     {
-      asChild: ownAsChild = false, // Renamed to avoid conflict with potential 'asChild' in '...remainingProps'
+      asChild: ownAsChild = false,
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
-      children, // Explicitly get children
-      ...remainingProps // All other props, may include 'asChild' from Link or other parents
+      children,
+      ...remainingProps
     },
     ref
   ) => {
-    const Comp = ownAsChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
-
     // Explicitly remove 'asChild' from remainingProps before spreading it onto Comp
     // This prevents an 'asChild' prop from being passed to the underlying DOM element if it came from a parent like NextLink
     const { asChild: _discardAsChildFromRemaining, ...propsToSpread } = remainingProps;
+
+    // Determine the component type: 'a' if href is present (passed from Link asChild), otherwise 'button' or Slot.
+    const Comp = ownAsChild ? Slot : (propsToSpread.href ? "a" : "button");
 
     const buttonElement = (
       <Comp

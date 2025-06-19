@@ -50,7 +50,6 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
               <SidebarMenuItem key={index}>
                 <Link href={item.disabled ? '#' : item.href} asChild>
                   <SidebarMenuButton
-                    asChild
                     variant={isActive ? 'default' : 'ghost'}
                     className={cn(
                       isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
@@ -61,10 +60,8 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
                     }}
                     tooltip={item.title}
                   >
-                    <a>
-                      <Icon className="mr-2 h-5 w-5" />
-                      <span className="truncate">{item.title}</span>
-                    </a>
+                    <Icon className="mr-2 h-5 w-5" />
+                    <span className="truncate">{item.title}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
