@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -49,7 +50,7 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
           return (
             item.href && (
               <SidebarMenuItem key={index}>
-                <Link href={item.disabled ? '#' : item.href} legacyBehavior passHref>
+                <Link href={item.disabled ? '#' : item.href} passHref>
                   <SidebarMenuButton
                     asChild
                     variant={isActive ? 'default' : 'ghost'}
