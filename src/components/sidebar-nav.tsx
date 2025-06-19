@@ -49,24 +49,25 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
             item.href && (
               <SidebarMenuItem key={index}>
                 <Link href={item.disabled ? '#' : item.href} asChild>
+                  {/* SidebarMenuButton does NOT use its own asChild here. It becomes the <a> tag. */}
                   <SidebarMenuButton
-                    asChild // SidebarMenuButton uses its own asChild
                     variant={isActive ? 'default' : 'ghost'}
                     className={cn(
                       isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       item.disabled && 'cursor-not-allowed opacity-80'
                     )}
                     onClick={() => {
-                      // This onClick is for other actions like closing mobile sidebar.
-                      // Link navigation is handled by Link component itself.
+                      // Navigation is handled by Link asChild.
+                      // This onClick is for other actions like closing mobile sidebar,
+                      // or handling disabled state if Link didn't prevent navigation for it.
+                      if (item.disabled) return; 
                       if (setOpenMobile) setOpenMobile(false);
                     }}
+                    disabled={item.disabled} // Pass disabled to SidebarMenuButton for styling/aria if needed
                     tooltip={item.title}
                   >
-                    <a> {/* This anchor tag receives the href from Link via SidebarMenuButton(Slot) */}
-                      <Icon className="mr-2 h-5 w-5" />
-                      <span className="truncate">{item.title}</span>
-                    </a>
+                    <Icon className="mr-2 h-5 w-5" />
+                    <span className="truncate">{item.title}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -93,3 +94,4 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
     </SidebarContent>
   );
 }
+
