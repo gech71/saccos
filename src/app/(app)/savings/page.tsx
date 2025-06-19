@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash, WalletCards } from 'lucide-react'; // Added WalletCards
 import {
   Table,
   TableBody,
@@ -32,8 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockSavings, mockMembers, mockSchools } from '@/data/mock'; 
-import type { Saving, Member, School } from '@/types';
+import { mockSavings, mockMembers, mockSchools, mockSavingAccountTypes } from '@/data/mock'; 
+import type { Saving, Member, School, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -58,11 +58,13 @@ export default function SavingsPage() {
   const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings); 
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
+  const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentSavingTransaction, setCurrentSavingTransaction] = useState<Partial<Saving>>(initialSavingFormState);
   const [isEditingModal, setIsEditingModal] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  const [selectedAccountTypeFilter, setSelectedAccountTypeFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,13 +166,14 @@ export default function SavingsPage() {
     } as Saving;
     setSavingsTransactions(prev => [newTransaction, ...prev]);
     
+    // Update member's savings balance
     if (transactionDataToSave.memberId) {
         setMembers(prevMembers => prevMembers.map(mem => {
             if (mem.id === transactionDataToSave.memberId) {
                 const newBalance = transactionDataToSave.transactionType === 'deposit' 
                     ? mem.savingsBalance + (transactionDataToSave.amount || 0)
                     : mem.savingsBalance - (transactionDataToSave.amount || 0);
-                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; 
+                return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance }; // Prevent negative balance in this simplified model
             }
             return mem;
         }));
@@ -192,9 +195,10 @@ export default function SavingsPage() {
     return members.filter(member => {
       const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
-      return matchesSearchTerm && matchesSchoolFilter;
+      const matchesAccountTypeFilter = selectedAccountTypeFilter === 'all' || member.savingAccountTypeId === selectedAccountTypeFilter;
+      return matchesSearchTerm && matchesSchoolFilter && matchesAccountTypeFilter;
     });
-  }, [members, searchTerm, selectedSchoolFilter]);
+  }, [members, searchTerm, selectedSchoolFilter, selectedAccountTypeFilter]);
 
   const summaryStats = useMemo(() => {
     const membersInView = filteredMembers.length;
@@ -262,6 +266,19 @@ export default function SavingsPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={selectedAccountTypeFilter} onValueChange={setSelectedAccountTypeFilter}>
+          <SelectTrigger className="w-full sm:w-[240px]" aria-label="Filter by saving account type">
+            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+            <WalletCards className="mr-2 h-4 w-4 text-muted-foreground sm:hidden" />
+            <SelectValue placeholder="Filter by account type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Account Types</SelectItem>
+            {savingAccountTypes.map(accountType => (
+              <SelectItem key={accountType.id} value={accountType.id}>{accountType.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
@@ -287,7 +304,7 @@ export default function SavingsPage() {
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{member.schoolName || schools.find(s => s.id === member.schoolId)?.name || 'N/A'}</TableCell>
-                <TableCell>{member.savingAccountTypeName || 'N/A'}</TableCell>
+                <TableCell>{member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
               </TableRow>
             )) : (
@@ -300,7 +317,13 @@ export default function SavingsPage() {
           </TableBody>
         </Table>
       </div>
-       {filteredMembers.length > 10 && (
+      {filteredMembers.length > 0 && (
+        <div className="mt-4 p-4 border-t bg-muted/50 rounded-b-lg flex flex-col sm:flex-row justify-between items-center text-sm font-medium">
+         <span>Total Members: {summaryStats.membersInView}</span>
+         <span>Total Combined Balance: ${summaryStats.totalBalanceInView.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      )}
+       {filteredMembers.length > 10 && ( // This condition might need adjustment if pagination is implemented differently
         <div className="flex justify-center mt-4">
           <Button variant="outline">Load More Members</Button>
         </div>
@@ -419,3 +442,6 @@ export default function SavingsPage() {
     </div>
   );
 }
+
+
+    
