@@ -539,51 +539,48 @@ const SidebarMenuButton = React.forwardRef<
   CombinedProps
 >(
   (
-    allProps, // Receive all props as a single object
+    allProps,
     ref
   ) => {
     const {
-      asChild: ownAsChild = false, // SidebarMenuButton's own asChild prop for its polymorphism
+      asChild: ownAsChild = false, // Prop for SidebarMenuButton's own polymorphism
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      // All other props (including href and any asChild from <Link>)
-      // will be in 'remainingPropsFromAll'.
-      ...remainingPropsFromAll 
+      // All other props (e.g., href from <Link asChild>, onClick from Link or user, custom data-attributes)
+      // and potentially asChild from <Link asChild> will be in `...restProps`
+      ...restProps 
     } = allProps;
 
-    // Make a mutable copy of props that will be spread onto the DOM element.
-    // This includes props from <Link asChild> (like href) and any other unrecognized props.
-    const propsToSpreadOnDOMElement = { ...remainingPropsFromAll };
-
-    // Explicitly delete the 'asChild' prop if it exists in propsToSpreadOnDOMElement.
-    // This is to prevent the asChild prop (intended for <Link> or ownAsChild)
-    // from being rendered as a DOM attribute.
-    if ('asChild' in propsToSpreadOnDOMElement) {
-      delete propsToSpreadOnDOMElement.asChild;
-    }
-    
     const { isMobile, state } = useSidebar();
     
-    // Determine the component type:
-    // - If ownAsChild is true, use Slot (delegates rendering to children).
-    // - Else, if propsToSpreadOnDOMElement.href exists (passed from <Link>), use 'a'.
-    // - Else, use 'button'.
-    const Comp = ownAsChild ? Slot : (propsToSpreadOnDOMElement.href ? "a" : "button");
+    // Determine the component type
+    // If ownAsChild is true, delegate to child via Slot.
+    // Else, if an href is present in restProps, it's an anchor.
+    // Otherwise, it's a button.
+    const Comp = ownAsChild ? Slot : (restProps.href ? "a" : "button");
+
+    // Critical: If Comp is going to be a DOM element ('a' or 'button'),
+    // we must ensure that no 'asChild' prop (potentially from a parent <Link asChild>)
+    // is spread onto it.
+    const finalProps = { ...restProps };
+    if (Comp !== Slot && typeof finalProps.asChild !== 'undefined') {
+      delete (finalProps as {asChild?: boolean}).asChild;
+    }
 
     const buttonElement = (
       <Comp
-        ref={ref}
+        ref={ref as any} // Using 'as any' for ref due to polymorphic nature.
         data-sidebar="menu-button"
-        data-size={size} // Use the destructured 'size' prop
-        data-active={isActive} // Use the destructured 'isActive' prop
-        className={cn(sidebarMenuButtonVariants({ variant, size, className }))} // Use destructured props for styling
-        {...propsToSpreadOnDOMElement} // Spread the filtered props
+        data-size={size}
+        data-active={isActive}
+        className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
+        {...finalProps} // Spread the cleaned props
       >
-        {children} {/* Use the destructured 'children' prop */}
+        {children}
       </Comp>
     );
 
