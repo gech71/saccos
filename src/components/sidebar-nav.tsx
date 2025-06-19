@@ -8,14 +8,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarContent,
   useSidebar,
 } from '@/components/ui/sidebar';
 import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { LogOut } from 'lucide-react';
-import { Button } from './ui/button';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
