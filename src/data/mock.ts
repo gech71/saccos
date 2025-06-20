@@ -35,7 +35,7 @@ export const mockMembers: Member[] = [
     joinDate: new Date(2023, 0, 15).toISOString(),
     savingsBalance: 1250.75,
     savingsAccountNumber: 'SA00001',
-    sharesCount: 125,
+    sharesCount: 70, // Sum of shares from mockShares below for this member
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
       { shareTypeId: 'st-education', shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 15 },
@@ -57,7 +57,7 @@ export const mockMembers: Member[] = [
     joinDate: new Date(2023, 2, 10).toISOString(),
     savingsBalance: 800.00,
     savingsAccountNumber: 'SA00002',
-    sharesCount: 80,
+    sharesCount: 30, // Sum of shares from mockShares below for this member
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 25 },
     ],
@@ -78,7 +78,7 @@ export const mockMembers: Member[] = [
     joinDate: new Date(2023, 5, 20).toISOString(),
     savingsBalance: 2100.50,
     savingsAccountNumber: 'SA00003',
-    sharesCount: 210,
+    sharesCount: 0, // No shares yet for this member
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
       { shareTypeId: 'st-emergency', shareTypeName: 'Emergency Fund Share', monthlyCommittedAmount: 5 },
@@ -100,7 +100,7 @@ export const mockMembers: Member[] = [
     joinDate: new Date(2022, 10, 5).toISOString(),
     savingsBalance: 1500.00,
     savingsAccountNumber: 'SA00004',
-    sharesCount: 150,
+    sharesCount: 0, // No shares yet for this member
     shareCommitments: [
       { shareTypeId: 'st-project', shareTypeName: 'Project Specific Share', monthlyCommittedAmount: 30 },
     ],
@@ -187,6 +187,8 @@ export const mockShares: Share[] = [
     count: 50,
     allocationDate: new Date(2023, 6, 1).toISOString(),
     valuePerShare: 10.00,
+    contributionAmount: 500.00,
+    totalValueForAllocation: 500.00,
   },
   {
     id: 'share-2',
@@ -197,6 +199,8 @@ export const mockShares: Share[] = [
     count: 30,
     allocationDate: new Date(2023, 6, 1).toISOString(),
     valuePerShare: 10.00,
+    contributionAmount: 300.00,
+    totalValueForAllocation: 300.00,
   },
   {
     id: 'share-3',
@@ -207,6 +211,8 @@ export const mockShares: Share[] = [
     count: 20,
     allocationDate: new Date(2023, 8, 1).toISOString(),
     valuePerShare: 15.00,
+    contributionAmount: 300.00,
+    totalValueForAllocation: 300.00,
   },
 ];
 
@@ -217,7 +223,7 @@ export const mockDividends: Dividend[] = [
     memberName: 'John Doe',
     amount: 25.00,
     distributionDate: new Date(2023, 11, 31).toISOString(),
-    shareCountAtDistribution: 70,
+    shareCountAtDistribution: 70, // sum of shares for member-1
   },
   {
     id: 'dividend-2',
@@ -225,7 +231,7 @@ export const mockDividends: Dividend[] = [
     memberName: 'Jane Smith',
     amount: 15.00,
     distributionDate: new Date(2023, 11, 31).toISOString(),
-    shareCountAtDistribution: 30,
+    shareCountAtDistribution: 30, // sum of shares for member-2
   },
 ];
 

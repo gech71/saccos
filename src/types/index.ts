@@ -11,7 +11,7 @@ export interface ShareType {
   name: string;
   description?: string;
   valuePerShare: number;
-  expectedMonthlyContribution?: number; // Added field
+  expectedMonthlyContribution?: number;
 }
 
 export interface SavingAccountType {
@@ -48,7 +48,7 @@ export interface Member {
   joinDate: string; // ISO date string
   savingsBalance: number;
   savingsAccountNumber?: string;
-  sharesCount: number; // Total shares across all types
+  sharesCount: number; // Total shares across all types for this member - should be sum of all their Share records' counts.
   shareCommitments?: MemberShareCommitment[];
   savingAccountTypeId?: string;
   savingAccountTypeName?: string; // Denormalized for display
@@ -77,9 +77,11 @@ export interface Share {
   memberName?: string; // Denormalized for display
   shareTypeId: string;
   shareTypeName?: string; // Denormalized for display
-  count: number;
+  count: number; // Number of shares allocated
   allocationDate: string; // ISO date string
-  valuePerShare: number; // Set at the time of allocation based on ShareType
+  valuePerShare: number; // Value per share at the time of allocation
+  contributionAmount?: number; // The monetary amount input by the user for this specific allocation
+  totalValueForAllocation?: number; // Actual value of shares allocated (count * valuePerShare)
 }
 
 export interface Dividend {

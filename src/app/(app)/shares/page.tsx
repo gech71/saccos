@@ -46,53 +46,64 @@ import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/c
 import { differenceInMonths } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
-const initialShareFormState: Partial<Share> = {
+// Adjusted initial state: remove count, add contributionAmount
+const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
   memberId: '',
   shareTypeId: '',
-  count: 0,
-  allocationDate: new Date().toISOString().split('T')[0], // today
-  valuePerShare: 0,
+  contributionAmount: 0,
+  allocationDate: new Date().toISOString().split('T')[0],
+  valuePerShare: 0, // This will be derived from shareTypeId
 };
 
 export default function SharesPage() {
   const [shares, setShares] = useState<Share[]>(mockShares);
-  const [members, setMembersState] = useState<Member[]>(mockMembers); // Renamed to avoid conflict in this scope
-  const [shareTypes, setShareTypesState] = useState<ShareType[]>(mockShareTypes); // Renamed
+  const [members, setMembersState] = useState<Member[]>(mockMembers);
+  const [shareTypes, setShareTypesState] = useState<ShareType[]>(mockShareTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentShare, setCurrentShare] = useState<Partial<Share>>(initialShareFormState);
+  const [currentShare, setCurrentShare] = useState<Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number }>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const { toast } = useToast();
+  const [calculatedShares, setCalculatedShares] = useState(0);
 
   useEffect(() => {
-    if (currentShare.shareTypeId) {
-      const selectedType = shareTypes.find(st => st.id === currentShare.shareTypeId);
-      if (selectedType) {
-        setCurrentShare(prev => ({ ...prev, valuePerShare: selectedType.valuePerShare }));
-      }
-    } else if (!isEditing) {
-         setCurrentShare(prev => ({ ...prev, valuePerShare: 0}));
-    }
-  }, [currentShare.shareTypeId, shareTypes, isEditing]);
+    const { contributionAmount, valuePerShare } = currentShare;
+    const newCalculatedShares = (valuePerShare && valuePerShare > 0 && contributionAmount && contributionAmount > 0)
+        ? Math.floor(contributionAmount / valuePerShare)
+        : 0;
+    setCalculatedShares(newCalculatedShares);
+  }, [currentShare.contributionAmount, currentShare.valuePerShare]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCurrentShare(prev => ({ ...prev, [name]: name === 'count' || name === 'valuePerShare' ? parseFloat(value) : value }));
+     if (name === 'contributionAmount') {
+        setCurrentShare(prev => ({ ...prev, contributionAmount: parseFloat(value) || 0 }));
+    } else {
+        setCurrentShare(prev => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleSelectChange = (name: keyof Partial<Share>, value: string) => {
-    setCurrentShare(prev => ({ ...prev, [name]: value }));
+  const handleSelectChange = (name: keyof (Omit<Share, 'id' | 'count'> & { contributionAmount?: number }), value: string) => {
+    const selectedType = shareTypes.find(st => st.id === value);
+    const newValuePerShare = selectedType?.valuePerShare || 0;
+    const shareTypeName = selectedType?.name || '';
+    
     if (name === 'shareTypeId') {
-        const selectedType = shareTypes.find(st => st.id === value);
-        setCurrentShare(prev => ({ ...prev, valuePerShare: selectedType?.valuePerShare || 0, shareTypeName: selectedType?.name || ''}));
+        setCurrentShare(prev => ({ ...prev, shareTypeId: value, valuePerShare: newValuePerShare, shareTypeName }));
+    } else {
+        setCurrentShare(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.count || currentShare.count <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid share count.' });
+    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.contributionAmount || currentShare.contributionAmount <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid contribution amount.' });
+        return;
+    }
+    if (calculatedShares <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Contribution amount is not enough to allocate any shares.' });
         return;
     }
     
@@ -103,33 +114,51 @@ export default function SharesPage() {
     }
 
     const memberName = members.find(m => m.id === currentShare.memberId)?.fullName;
-    const shareDataToSave: Partial<Share> = {
-        ...currentShare,
+    const totalValueForAllocation = calculatedShares * selectedType.valuePerShare;
+
+    const shareDataToSave: Share = {
+        id: isEditing && currentShare.id ? currentShare.id : `share-${Date.now()}`,
+        memberId: currentShare.memberId!,
         memberName,
+        shareTypeId: currentShare.shareTypeId!,
         shareTypeName: selectedType.name,
-        valuePerShare: selectedType.valuePerShare, // Ensure this is from the selected share type
+        count: calculatedShares,
+        allocationDate: currentShare.allocationDate || new Date().toISOString().split('T')[0],
+        valuePerShare: selectedType.valuePerShare,
+        contributionAmount: currentShare.contributionAmount,
+        totalValueForAllocation: totalValueForAllocation,
     };
 
 
     if (isEditing && currentShare.id) {
-      setShares(prev => prev.map(s => s.id === currentShare.id ? { ...s, ...shareDataToSave } as Share : s));
-      toast({ title: 'Success', description: 'Share record updated.' });
+      setShares(prev => prev.map(s => s.id === shareDataToSave.id ? shareDataToSave : s));
+      toast({ title: 'Success', description: `${calculatedShares} share(s) record updated for ${memberName}.` });
     } else {
-      const newShare: Share = {
-        id: `share-${Date.now()}`,
-        ...initialShareFormState, 
-        ...shareDataToSave,
-      } as Share;
-      setShares(prev => [newShare, ...prev]);
-      toast({ title: 'Success', description: 'Share record added.' });
+      setShares(prev => [shareDataToSave, ...prev]);
+      toast({ title: 'Success', description: `${calculatedShares} share(s) allocated to ${memberName} for $${currentShare.contributionAmount.toFixed(2)}.` });
     }
+    
+    // Update member's total sharesCount
+    setMembersState(prevMembers => prevMembers.map(mem => {
+        if (mem.id === shareDataToSave.memberId) {
+            // Recalculate total shares for this member from all their share records
+            const memberTotalShares = shares
+                .filter(s => s.memberId === mem.id && s.id !== shareDataToSave.id) // Exclude current if editing
+                .reduce((acc, curr) => acc + curr.count, 0) + shareDataToSave.count; // Add current/new
+            return { ...mem, sharesCount: memberTotalShares };
+        }
+        return mem;
+    }));
+
     setIsModalOpen(false);
     setCurrentShare(initialShareFormState);
+    setCalculatedShares(0);
     setIsEditing(false);
   };
 
   const openAddModal = () => {
     setCurrentShare(initialShareFormState);
+    setCalculatedShares(0);
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -137,15 +166,27 @@ export default function SharesPage() {
   const openEditModal = (share: Share) => {
     setCurrentShare({
       ...share,
+      contributionAmount: share.contributionAmount || (share.count * share.valuePerShare), // Pre-fill contribution amount
       allocationDate: share.allocationDate ? new Date(share.allocationDate).toISOString().split('T')[0] : '',
     });
+    // calculatedShares will be updated by useEffect
     setIsEditing(true);
     setIsModalOpen(true);
   };
 
   const handleDelete = (shareId: string) => {
-     if (window.confirm('Are you sure you want to delete this share record?')) {
+     if (window.confirm('Are you sure you want to delete this share record? This also adjusts member total shares.')) {
+        const shareToDelete = shares.find(s => s.id === shareId);
         setShares(prev => prev.filter(s => s.id !== shareId));
+        
+        if (shareToDelete) {
+            setMembersState(prevMembers => prevMembers.map(mem => {
+                if (mem.id === shareToDelete.memberId) {
+                    return { ...mem, sharesCount: Math.max(0, mem.sharesCount - shareToDelete.count) };
+                }
+                return mem;
+            }));
+        }
         toast({ title: 'Success', description: 'Share record deleted.' });
     }
   };
@@ -160,13 +201,13 @@ export default function SharesPage() {
   }, [shares, members, searchTerm, selectedMemberFilter]);
 
   const totalSharesAllocated = useMemo(() => filteredShares.reduce((sum, s) => sum + s.count, 0), [filteredShares]);
-  const totalSharesValue = useMemo(() => filteredShares.reduce((sum, s) => sum + (s.count * s.valuePerShare), 0), [filteredShares]);
+  const totalSharesValue = useMemo(() => filteredShares.reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Share Allocation" subtitle="Manage member shareholdings and their commitments.">
+      <PageTitle title="Share Contribution & Allocation" subtitle="Record member share contributions and manage allocations.">
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Allocate Shares
+          <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
         </Button>
       </PageTitle>
 
@@ -244,7 +285,7 @@ export default function SharesPage() {
               
               let totalExpectedContribution = 0;
               let fulfillmentPercentage = 0;
-              const currentAllocationValue = share.count * share.valuePerShare;
+              const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
 
               if (member && monthlyCommittedAmount > 0) {
                 const joinDate = new Date(member.joinDate);
@@ -273,8 +314,8 @@ export default function SharesPage() {
                   <TableCell className="text-right font-semibold">${currentAllocationValue.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${monthlyCommittedAmount.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${totalExpectedContribution.toFixed(2)}</TableCell>
-                  <TableCell className="text-center">
-                    {totalExpectedContribution > 0 ? (
+                   <TableCell className="text-center">
+                    {totalExpectedContribution > 0 && monthlyCommittedAmount > 0 ? (
                         <div className="flex flex-col items-center">
                             <Progress value={Math.min(100, fulfillmentPercentage)} className="h-2 w-full" />
                             <span className="text-xs mt-1">{Math.min(100, Math.max(0, fulfillmentPercentage)).toFixed(1)}%</span>
@@ -321,46 +362,68 @@ export default function SharesPage() {
       )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Allocate New Shares'}</DialogTitle>
+            <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Record Share Contribution & Allocation'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this share allocation.' : 'Enter details for new share allocation.'}
+              {isEditing ? 'Update this share allocation.' : 'Enter monetary contribution to allocate shares.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
               <Label htmlFor="memberId">Member</Label>
               <Select name="memberId" value={currentShare.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger><SelectValue placeholder="Select a member" /></SelectTrigger>
+                <SelectTrigger id="memberId"><SelectValue placeholder="Select a member" /></SelectTrigger>
                 <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>))}</SelectContent>
               </Select>
             </div>
              <div>
               <Label htmlFor="shareTypeId">Share Type</Label>
               <Select name="shareTypeId" value={currentShare.shareTypeId || ''} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
-                <SelectTrigger><SelectValue placeholder="Select share type" /></SelectTrigger>
-                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>))}</SelectContent>
+                <SelectTrigger id="shareTypeId"><SelectValue placeholder="Select share type" /></SelectTrigger>
+                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare.toFixed(2)}/share)</SelectItem>))}</SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label htmlFor="count">Share Count</Label>
-              <Input id="count" name="count" type="number" step="1" placeholder="0" value={currentShare.count || ''} onChange={handleInputChange} required />
             </div>
             <div>
               <Label htmlFor="valuePerShare">Value per Share ($)</Label>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="valuePerShare" name="valuePerShare" type="number" step="0.01" placeholder="0.00" value={currentShare.valuePerShare || ''} onChange={handleInputChange} required readOnly className="pl-7 bg-muted/50" />
+                <Input id="valuePerShare" name="valuePerShare" type="number" value={currentShare.valuePerShare || ''} readOnly className="pl-7 bg-muted/50" />
               </div>
             </div>
+            <div>
+              <Label htmlFor="contributionAmount">Contribution Amount ($)</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    id="contributionAmount" 
+                    name="contributionAmount" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0.00" 
+                    value={currentShare.contributionAmount || ''} 
+                    onChange={handleInputChange} 
+                    required 
+                    className="pl-7"
+                />
+              </div>
+            </div>
+             {currentShare.contributionAmount! > 0 && currentShare.valuePerShare! > 0 && (
+                <div className="text-sm text-muted-foreground p-2 border rounded-md bg-accent/10">
+                    <p>This contribution will allocate approximately <strong className="text-primary">{calculatedShares}</strong> share(s).</p>
+                    <p>Total value of allocated shares: <strong className="text-primary">${(calculatedShares * (currentShare.valuePerShare || 0)).toFixed(2)}</strong></p>
+                    {currentShare.contributionAmount! > (calculatedShares * (currentShare.valuePerShare || 0)) && calculatedShares > 0 &&
+                        <p className="text-xs text-orange-600">Note: Remaining ${ (currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toFixed(2) } is not allocated as it's less than one share value.</p>
+                    }
+                </div>
+            )}
             <div>
               <Label htmlFor="allocationDate">Allocation Date</Label>
               <Input id="allocationDate" name="allocationDate" type="date" value={currentShare.allocationDate || ''} onChange={handleInputChange} required />
             </div>
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Allocate Shares'}</Button>
+              <Button type="submit" disabled={calculatedShares <= 0 && currentShare.contributionAmount! > 0}>{isEditing ? 'Save Changes' : 'Record Contribution'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
