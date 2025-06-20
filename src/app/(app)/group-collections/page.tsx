@@ -27,7 +27,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { mockSchools, mockSavingAccountTypes, mockMembers, mockSavings } from '@/data/mock';
 import type { School, SavingAccountType, Member, Saving } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, ListChecks, Trash2, RotateCcw } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, ListChecks, Trash2, RotateCcw, Shapes } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
@@ -92,13 +92,13 @@ export default function GroupCollectionsPage() {
       const filtered = allMembers.filter(member =>
         member.schoolId === selectedSchool &&
         member.savingAccountTypeId === selectedAccountType &&
-        (member.expectedMonthlySaving || 0) > 0
+        ((member.expectedMonthlySaving || 0) > 0 || (member.shareCommitments || []).reduce((sum, sc) => sum + sc.monthlyCommittedAmount, 0) > 0)
       );
       setEligibleMembers(filtered);
       setSelectedMemberIds(filtered.map(m => m.id)); 
       setIsLoadingMembers(false);
       if (filtered.length === 0) {
-        toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving.' });
+        toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving/share contribution.' });
       }
     }, 500);
   };
@@ -119,7 +119,8 @@ export default function GroupCollectionsPage() {
     const membersInSelection = eligibleMembers.filter(m => selectedMemberIds.includes(m.id));
     return {
       count: membersInSelection.length,
-      totalExpected: membersInSelection.reduce((sum, m) => sum + (m.expectedMonthlySaving || 0), 0),
+      totalExpectedSaving: membersInSelection.reduce((sum, m) => sum + (m.expectedMonthlySaving || 0), 0),
+      totalExpectedShare: membersInSelection.reduce((sum, m) => sum + (m.shareCommitments || []).reduce((s, sc) => s + sc.monthlyCommittedAmount, 0), 0),
     };
   }, [eligibleMembers, selectedMemberIds]);
 
@@ -172,16 +173,16 @@ export default function GroupCollectionsPage() {
 
     selectedMemberIds.forEach(memberId => {
       const member = updatedMembersList.find(m => m.id === memberId);
-      if (!member || (member.expectedMonthlySaving || 0) <= 0) return;
+      if (!member || (member.expectedMonthlySaving || 0) <= 0) return; // For now, only processes savings
 
       const newTransaction: Saving = {
-        id: `saving-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${memberId}`, // Ensure unique ID
+        id: `saving-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${memberId}`,
         memberId: member.id,
         memberName: member.fullName,
-        amount: member.expectedMonthlySaving || 0,
+        amount: member.expectedMonthlySaving || 0, // Using expectedMonthlySaving
         date: transactionDate,
         month: transactionMonthString,
-        transactionType: 'deposit',
+        transactionType: 'deposit', // Assuming group collection is always deposit
         depositMode: batchDetails.depositMode,
         paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
       };
@@ -194,12 +195,12 @@ export default function GroupCollectionsPage() {
     setTimeout(() => {
       setAllSavings(prev => [...newTransactions, ...prev]);
       setAllMembers(updatedMembersList); 
-      toast({ title: 'Collection Posted', description: `Successfully posted monthly collection for ${newTransactions.length} members.` });
+      toast({ title: 'Collection Posted', description: `Successfully posted monthly SAVINGS collection for ${newTransactions.length} members.` });
       setIsPosting(false);
       setEligibleMembers([]); 
       setSelectedMemberIds([]);
-      setPostedTransactions(newTransactions); // Show posted transactions
-      // setBatchDetails(initialBatchTransactionState); // Reset batch details for next run if desired
+      setPostedTransactions(newTransactions); 
+      // setBatchDetails(initialBatchTransactionState); 
     }, 1000);
   };
   
@@ -217,7 +218,7 @@ export default function GroupCollectionsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Group Monthly Collection" subtitle="Process expected monthly savings contributions for a group of members." />
+      <PageTitle title="Group Monthly Collection" subtitle="Process expected monthly savings and share contributions for a group of members." />
 
       {!postedTransactions && (
         <>
@@ -266,9 +267,12 @@ export default function GroupCollectionsPage() {
             <Card className="shadow-lg animate-in fade-in duration-300">
               <CardHeader>
                 <CardTitle className="font-headline text-primary">Eligible Members for Collection</CardTitle>
-                <div className="flex justify-between items-center text-sm text-muted-foreground">
-                  <span>Selected: {summaryForSelection.count} members</span>
-                  <span>Total Expected from Selection: ${summaryForSelection.totalExpected.toFixed(2)}</span>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
+                    <span>Selected: {summaryForSelection.count} members</span>
+                    <div className="flex flex-col sm:items-end">
+                        <span>Total Expected Savings from Selection: ${summaryForSelection.totalExpectedSaving.toFixed(2)}</span>
+                        <span>Total Expected Shares from Selection: ${summaryForSelection.totalExpectedShare.toFixed(2)}</span>
+                    </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -285,11 +289,14 @@ export default function GroupCollectionsPage() {
                         </TableHead>
                         <TableHead>Member Name</TableHead>
                         <TableHead>Account Number</TableHead>
-                        <TableHead className="text-right">Expected Monthly Saving</TableHead>
+                        <TableHead className="text-right">Exp. Monthly Saving ($)</TableHead>
+                        <TableHead className="text-right">Exp. Monthly Share ($)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {eligibleMembers.map(member => (
+                      {eligibleMembers.map(member => {
+                        const totalExpectedShare = (member.shareCommitments || []).reduce((sum, sc) => sum + sc.monthlyCommittedAmount, 0);
+                        return (
                         <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
                           <TableCell className="px-2">
                             <Checkbox
@@ -301,15 +308,17 @@ export default function GroupCollectionsPage() {
                           <TableCell className="font-medium">{member.fullName}</TableCell>
                           <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                           <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${totalExpectedShare.toFixed(2)}</TableCell>
                         </TableRow>
-                      ))}
+                      )})}
                     </TableBody>
                   </Table>
                 </div>
 
                 <Separator className="my-6" />
                 
-                <Label className="text-lg font-semibold text-primary mb-2 block">Batch Transaction Details</Label>
+                <Label className="text-lg font-semibold text-primary mb-2 block">Batch Transaction Details (For Savings)</Label>
+                 <p className="text-xs text-muted-foreground mb-3">Note: This form currently posts collections for EXPECTED MONTHLY SAVINGS only.</p>
                 <div className="space-y-4">
                     <div>
                         <Label htmlFor="batchDetails.date">Transaction Date</Label>
@@ -354,7 +363,7 @@ export default function GroupCollectionsPage() {
               <CardFooter>
                 <Button onClick={handleSubmitCollection} disabled={isPosting || selectedMemberIds.length === 0} className="w-full md:w-auto ml-auto">
                   {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Post Collection for {summaryForSelection.count} Members
+                  Post Savings Collection for {summaryForSelection.count} Members
                 </Button>
               </CardFooter>
             </Card>
@@ -375,14 +384,14 @@ export default function GroupCollectionsPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <CardTitle className="font-headline text-primary">Posted Collection Transactions</CardTitle>
-                        <CardDescription>Review the transactions that were just processed. Direct deletion is not allowed; use the reversal process for corrections.</CardDescription>
+                        <CardDescription>Review the SAVINGS transactions that were just processed. For corrections, a formal reversal process is needed (not implemented in this view).</CardDescription>
                     </div>
                     <Button onClick={startNewGroupCollection} variant="outline">
                         <RotateCcw className="mr-2 h-4 w-4" /> Start New Group Collection
                     </Button>
                 </div>
                  <p className="text-sm text-muted-foreground mt-2">
-                    Total Transactions Posted: {postedTransactions.length}
+                    Total Savings Transactions Posted: {postedTransactions.length}
                 </p>
             </CardHeader>
             <CardContent>
@@ -391,12 +400,11 @@ export default function GroupCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead className="text-right">Amount ($)</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Month</TableHead>
                                 <TableHead>Deposit Mode</TableHead>
                                 <TableHead>Source/Reference</TableHead>
-                                {/* <TableHead className="text-right">Actions</TableHead> Removed Actions column */}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -413,11 +421,10 @@ export default function GroupCollectionsPage() {
                                         {transaction.paymentDetails?.evidenceUrl && <div><strong>Evidence:</strong> {transaction.paymentDetails.evidenceUrl}</div>}
                                         {!transaction.paymentDetails && transaction.depositMode !== 'Cash' && <span className="text-muted-foreground">N/A</span>}
                                     </TableCell>
-                                    {/* <TableCell className="text-right"> Removed Action button cell </TableCell> */}
                                 </TableRow>
                             )) : (
                                  <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center"> {/* Adjusted colSpan */}
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                     No transactions in this batch or all have been cleared.
                                     </TableCell>
                                 </TableRow>
@@ -436,6 +443,3 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
-
-      
-      

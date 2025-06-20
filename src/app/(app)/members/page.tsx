@@ -114,6 +114,8 @@ export default function MembersPage() {
         ...updatedCommitments[index],
         shareTypeId: value as string,
         shareTypeName: selectedType?.name || '',
+        // Keep existing monthlyCommittedAmount if shareTypeId changes
+        monthlyCommittedAmount: updatedCommitments[index]?.monthlyCommittedAmount || 0,
       };
     } else if (field === 'monthlyCommittedAmount') {
         updatedCommitments[index] = { ...updatedCommitments[index], monthlyCommittedAmount: parseFloat(value as string) || 0 };
@@ -151,7 +153,7 @@ export default function MembersPage() {
         ...currentMember,
         shareCommitments: validCommitments,
         savingAccountTypeName: selectedSavingAccountType?.name || '',
-        expectedMonthlySaving: selectedSavingAccountType?.expectedMonthlyContribution || 0,
+        expectedMonthlySaving: currentMember.expectedMonthlySaving ?? selectedSavingAccountType?.expectedMonthlyContribution ?? 0,
     };
 
     const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;

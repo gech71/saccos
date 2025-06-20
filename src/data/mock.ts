@@ -1,5 +1,5 @@
 
-import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType } from '@/types';
+import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment } from '@/types';
 
 export const mockSchools: School[] = [
   { id: 'school-1', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' },
