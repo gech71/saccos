@@ -79,7 +79,10 @@ const generateVisualizationTool = ai.defineTool({
       `Tool 'generateDataVisualization' called. Generating a ${input.visualizationType} chart with data: ${input.financialDataJson}`
     );
     // In a real scenario, you might parse input.data and use a charting library or service.
-    return `https://placehold.co/600x400.png?text=${input.visualizationType}+chart+for+${encodeURIComponent(JSON.parse(input.financialDataJson).reportType)}`; // Placeholder URL.
+    const parsedData = JSON.parse(input.financialDataJson);
+    const schoolName = parsedData.school || "School";
+    const reportType = parsedData.reportType || "Data";
+    return `https://placehold.co/600x400.png?text=${input.visualizationType}+chart+for+${encodeURIComponent(reportType)}+at+${encodeURIComponent(schoolName)}`; // Placeholder URL.
   },
 });
 
@@ -97,21 +100,22 @@ const summarizeDataPrompt = ai.definePrompt({
     name: 'summarizeFinancialDataPrompt',
     input: { schema: SummarizeDataInputSchema },
     output: { schema: SummarizeDataOutputSchema },
-    prompt: `You are an AI assistant. Your task is to create a concise textual summary for a financial report.
-You will be provided with the school name, the type of report, and the financial data as a JSON string.
-
-School Name: {{{schoolName}}}
-Report Type: {{{reportType}}}
+    prompt: `Analyze the following financial data for {{schoolName}} regarding their {{reportType}} report.
 Financial Data (JSON):
 \`\`\`json
 {{{financialDataJson}}}
 \`\`\`
 
-Based on this information, generate a human-readable summary.
-For example, if the report type is 'savings' and the data indicates total savings of $1,000,000 from 150 members, your summary might be:
-"For {{schoolName}}, the total savings for the period were $1,000,000, contributed by 150 members. The average saving per member was approximately $6,666.67."
-Adapt your summary based on the actual data provided and the report type. Focus on key figures.
-Your output must be a JSON object with a single key "summary".
+Your task is to provide a concise, human-readable summary of this data.
+Your entire response MUST be a JSON object containing a single key "summary". The value of the "summary" key should be the textual summary.
+
+Example of the exact output format required:
+{
+  "summary": "For [School Name], the total [report type specific metric, e.g., savings] for the period were $[Amount], contributed by [Number] members. The average [metric] per member was approximately $[Average Amount]."
+}
+
+Adapt the example summary structure based on the actual data provided in financialDataJson and the specific reportType. Focus on key figures and insights.
+Do not include any text or explanation outside of this JSON object.
 `,
 });
 
@@ -152,9 +156,9 @@ const generateSavingsReportFlow = ai.defineFlow(
         financialDataJson: financialDataJson,
     });
 
-    if (!llmSummaryResponse.output || !llmSummaryResponse.output.summary) {
-        console.error('LLM call to summarizeDataPrompt did not produce a valid summary.', {input, financialDataJson, llmUsage: llmSummaryResponse.usage});
-        throw new Error('Failed to generate report summary: The AI model did not return the expected text data.');
+    if (!llmSummaryResponse.output || typeof llmSummaryResponse.output.summary !== 'string') {
+        console.error('LLM call to summarizeDataPrompt did not produce a valid summary.', {input, financialDataJson, llmUsage: llmSummaryResponse.usage, outputReceived: llmSummaryResponse.output});
+        throw new Error('Failed to generate report summary: The AI model did not return the expected text data structure for the summary.');
     }
 
     // Step 4: Assemble and return the final output
@@ -177,6 +181,5 @@ export async function generateSavingsReport(input: GenerateSavingsReportInput): 
 }
 
 export type {DataVisualizationTypeSchema};
-
 
     
