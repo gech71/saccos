@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FilePlus2, ReceiptText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FilePlus2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -33,8 +33,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes, mockServiceChargeTypes, mockAppliedServiceCharges } from '@/data/mock';
-import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType, ServiceChargeType, AppliedServiceCharge } from '@/types';
+import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes } from '@/data/mock';
+import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -65,30 +65,17 @@ const initialMemberFormState: Partial<Member> = {
   expectedMonthlySaving: 0,
 };
 
-const initialApplyChargeFormState: Partial<Omit<AppliedServiceCharge, 'id' | 'memberName' | 'serviceChargeTypeName' | 'status'>> = {
-    memberId: '',
-    serviceChargeTypeId: '',
-    amountCharged: 0,
-    dateApplied: new Date().toISOString().split('T')[0],
-    notes: '',
-};
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
   const [shareTypes] = useState<ShareType[]>(mockShareTypes);
   const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-  const [serviceChargeTypes] = useState<ServiceChargeType[]>(mockServiceChargeTypes);
-  const [appliedServiceCharges, setAppliedServiceCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
-
+  
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   
-  const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
-  const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
-  const [memberToApplyCharge, setMemberToApplyCharge] = useState<Member | null>(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
@@ -217,60 +204,6 @@ export default function MembersPage() {
     }
   };
 
-  const openApplyChargeModal = (member: Member) => {
-    setMemberToApplyCharge(member);
-    setApplyChargeForm({
-        ...initialApplyChargeFormState,
-        memberId: member.id,
-    });
-    setIsApplyChargeModalOpen(true);
-  };
-
-  const handleApplyChargeFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setApplyChargeForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleApplyChargeSelectChange = (name: keyof typeof applyChargeForm, value: string) => {
-    if (name === 'serviceChargeTypeId') {
-        const selectedType = serviceChargeTypes.find(sct => sct.id === value);
-        setApplyChargeForm(prev => ({ ...prev, serviceChargeTypeId: value, amountCharged: selectedType?.amount || 0 }));
-    } else {
-        setApplyChargeForm(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleApplyChargeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!applyChargeForm.serviceChargeTypeId || !memberToApplyCharge) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a service charge type.' });
-      return;
-    }
-    const selectedChargeType = serviceChargeTypes.find(sct => sct.id === applyChargeForm.serviceChargeTypeId);
-    if (!selectedChargeType) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid service charge type selected.'});
-        return;
-    }
-
-    const newAppliedCharge: AppliedServiceCharge = {
-      id: `asc-${Date.now()}`,
-      memberId: memberToApplyCharge.id,
-      memberName: memberToApplyCharge.fullName,
-      serviceChargeTypeId: selectedChargeType.id,
-      serviceChargeTypeName: selectedChargeType.name,
-      amountCharged: selectedChargeType.amount,
-      dateApplied: applyChargeForm.dateApplied || new Date().toISOString().split('T')[0],
-      status: 'pending',
-      notes: applyChargeForm.notes,
-    };
-    setAppliedServiceCharges(prev => [newAppliedCharge, ...prev]);
-    toast({ title: 'Service Charge Applied', description: `${selectedChargeType.name} for $${selectedChargeType.amount.toFixed(2)} applied to ${memberToApplyCharge.fullName}.` });
-    setIsApplyChargeModalOpen(false);
-    setApplyChargeForm(initialApplyChargeFormState);
-    setMemberToApplyCharge(null);
-  };
-
-
   const filteredMembers = useMemo(() => {
     return members.filter(member => {
       const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -363,9 +296,6 @@ export default function MembersPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
-                      </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => openApplyChargeModal(member)}>
-                        <ReceiptText className="mr-2 h-4 w-4" /> Apply Service Charge
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleDeleteMember(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -559,50 +489,6 @@ export default function MembersPage() {
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit">{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Apply Service Charge Modal */}
-      <Dialog open={isApplyChargeModalOpen} onOpenChange={setIsApplyChargeModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-headline">Apply Service Charge to {memberToApplyCharge?.fullName}</DialogTitle>
-            <DialogDescription>
-              Select a service charge type to apply to this member.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleApplyChargeSubmit} className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="serviceChargeTypeId">Service Charge Type</Label>
-              <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId || ''} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
-                <SelectTrigger id="serviceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
-                <SelectContent>
-                  {serviceChargeTypes.map(sct => (
-                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toFixed(2)}, {sct.frequency})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-             <div>
-                <Label htmlFor="applyChargeAmount">Amount ($) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
-                <div className="relative">
-                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="applyChargeAmount" name="amountCharged" type="number" value={applyChargeForm.amountCharged || ''} readOnly className="pl-7 bg-muted/50" />
-                </div>
-            </div>
-            <div>
-                <Label htmlFor="dateApplied">Date Applied</Label>
-                <Input id="dateApplied" name="dateApplied" type="date" value={applyChargeForm.dateApplied || ''} onChange={handleApplyChargeFormChange} required />
-            </div>
-            <div>
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea id="notes" name="notes" value={applyChargeForm.notes || ''} onChange={handleApplyChargeFormChange} placeholder="E.g., Reason for charge application"/>
-            </div>
-            <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">Apply Charge</Button>
             </DialogFooter>
           </form>
         </DialogContent>
