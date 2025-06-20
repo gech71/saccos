@@ -480,12 +480,25 @@ export default function SharesPage() {
                         </div>
                     </div>
                     <div className="pl-3">
-                        <Label htmlFor="paymentDetails.evidenceUrlShare">Evidence Attachment (URL/Filename)</Label>
-                        <div className="relative">
-                           <UploadCloud className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                           <Input id="paymentDetails.evidenceUrlShare" name="paymentDetails.evidenceUrl" placeholder="Optional: http://example.com/receipt.pdf" value={currentShare.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} className="pl-8" />
+                        <Label htmlFor="paymentDetails.evidenceUrlShare">Evidence Attachment</Label>
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
+                            <div className="space-y-1 text-center">
+                                <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
+                                <div className="flex text-sm text-muted-foreground">
+                                   <p className="pl-1">Upload a file or drag and drop</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
+                            </div>
                         </div>
-                         <p className="text-xs text-muted-foreground mt-1">Enter URL or filename. Full file upload not supported in this demo.</p>
+                        <Input
+                            id="paymentDetails.evidenceUrlShare"
+                            name="paymentDetails.evidenceUrl"
+                            placeholder="Enter URL or filename for reference"
+                            value={currentShare.paymentDetails?.evidenceUrl || ''}
+                            onChange={handleInputChange}
+                            className="mt-2"
+                        />
+                         <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
                     </div>
                 </div>
             )}
