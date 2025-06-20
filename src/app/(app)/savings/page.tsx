@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash, WalletCards, Edit, Trash2, UploadCloud } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, Hash, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, BarChartHorizontalBig } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -38,7 +38,9 @@ import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { StatCard } from '@/components/stat-card';
-import { Banknote, Wallet } from 'lucide-react';
+import { differenceInMonths } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
+
 
 const initialIndividualTransactionFormState: Partial<Saving> = {
   memberId: '',
@@ -178,19 +180,16 @@ export default function SavingsPage() {
         transactionDataToSave.depositMode = undefined;
     }
     
-    // In a real app, you would likely not edit transactions this way, or have stricter rules.
-    // This simplified model adds a new transaction for "edits" for simplicity or updates existing one.
     if (isEditingIndividualTransaction && transactionDataToSave.id) {
         setSavingsTransactions(prev => prev.map(st => st.id === transactionDataToSave.id ? {...st, ...transactionDataToSave} as Saving : st));
-        // Balance adjustment for edits would be more complex (reverting old, applying new diff)
         toast({ title: 'Success', description: `Savings transaction updated for ${memberName}. Balance recalculation might be needed separately.` });
 
     } else {
         const newTransaction: Saving = {
           id: `saving-${Date.now()}`,
-          ...initialIndividualTransactionFormState, // Ensure all default fields
+          ...initialIndividualTransactionFormState, 
           ...transactionDataToSave,
-          amount: transactionDataToSave.amount || 0, // Ensure amount is a number
+          amount: transactionDataToSave.amount || 0, 
         } as Saving;
         setSavingsTransactions(prev => [newTransaction, ...prev]);
         
@@ -382,7 +381,7 @@ export default function SavingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Member Savings Overview" subtitle="View member savings balances and record new transactions.">
+      <PageTitle title="Member Savings Overview" subtitle="View member savings balances, expected contributions, and record new transactions.">
         <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={openAddIndividualTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
               <PlusCircle className="mr-2 h-5 w-5" /> Add Individual Transaction
@@ -475,27 +474,60 @@ export default function SavingsPage() {
               <TableHead>School</TableHead>
               <TableHead>Saving Account Type</TableHead>
               <TableHead className="text-right">Current Balance</TableHead>
+              <TableHead className="text-right">Expected Monthly</TableHead>
+              <TableHead className="text-right">Total Expected</TableHead>
+              <TableHead className="text-center w-[150px]">Collection %</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMembers.length > 0 ? filteredMembers.map(member => (
-              <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
-                <TableCell className="px-2">
-                   <Checkbox
-                    aria-label={`Select member ${member.fullName}`}
-                    checked={selectedMemberIds.includes(member.id)}
-                    onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                <TableCell>{member.schoolName || schools.find(s => s.id === member.schoolId)?.name || 'N/A'}</TableCell>
-                <TableCell>{member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
-              </TableRow>
-            )) : (
+            {filteredMembers.length > 0 ? filteredMembers.map(member => {
+              const joinDate = new Date(member.joinDate);
+              const currentDate = new Date();
+              let contributionPeriods = 0;
+              if (joinDate <= currentDate && (member.expectedMonthlySaving || 0) > 0) {
+                contributionPeriods = differenceInMonths(currentDate, joinDate) + 1;
+              }
+              contributionPeriods = Math.max(0, contributionPeriods);
+
+              const totalExpectedSavings = (member.expectedMonthlySaving || 0) * contributionPeriods;
+              const percentageCollected = totalExpectedSavings > 0 ? (member.savingsBalance / totalExpectedSavings) * 100 : 0;
+
+              return (
+                <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
+                  <TableCell className="px-2">
+                    <Checkbox
+                      aria-label={`Select member ${member.fullName}`}
+                      checked={selectedMemberIds.includes(member.id)}
+                      onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">{member.fullName}</TableCell>
+                  <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
+                  <TableCell>{member.schoolName || schools.find(s => s.id === member.schoolId)?.name || 'N/A'}</TableCell>
+                  <TableCell>{member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}</TableCell>
+                  <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${totalExpectedSavings.toFixed(2)}</TableCell>
+                  <TableCell className="text-center">
+                    {totalExpectedSavings > 0 ? (
+                      <div className="flex flex-col items-center">
+                        <Progress value={percentageCollected} className="h-2 w-full" />
+                        <span className="text-xs mt-1">{Math.min(100, Math.max(0, percentageCollected)).toFixed(1)}%</span>
+                      </div>
+                    ) : (member.expectedMonthlySaving || 0) > 0 ? (
+                      <div className="flex flex-col items-center">
+                        <Progress value={0} className="h-2 w-full" />
+                        <span className="text-xs mt-1">0.0%</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            }) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No members found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -678,3 +710,4 @@ export default function SavingsPage() {
     </div>
   );
 }
+
