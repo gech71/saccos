@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -479,12 +479,14 @@ export default function SharesPage() {
                             <Input id="paymentDetails.transactionReferenceShare" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentShare.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
                         </div>
                     </div>
-                    {/* Optional: Evidence URL input if needed in future
                     <div className="pl-3">
-                        <Label htmlFor="paymentDetails.evidenceUrlShare">Evidence Attachment (URL)</Label>
-                        <Input id="paymentDetails.evidenceUrlShare" name="paymentDetails.evidenceUrl" placeholder="http://example.com/receipt.pdf" value={currentShare.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} />
+                        <Label htmlFor="paymentDetails.evidenceUrlShare">Evidence Attachment (URL/Filename)</Label>
+                        <div className="relative">
+                           <UploadCloud className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                           <Input id="paymentDetails.evidenceUrlShare" name="paymentDetails.evidenceUrl" placeholder="Optional: http://example.com/receipt.pdf" value={currentShare.paymentDetails?.evidenceUrl || ''} onChange={handleInputChange} className="pl-8" />
+                        </div>
+                         <p className="text-xs text-muted-foreground mt-1">Enter URL or filename. Full file upload not supported in this demo.</p>
                     </div>
-                    */}
                 </div>
             )}
 
