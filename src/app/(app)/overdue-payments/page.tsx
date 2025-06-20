@@ -61,15 +61,26 @@ interface OverdueMemberInfo {
   overdueSharesDetails: OverdueShareDetail[];
   hasAnyOverdue: boolean;
   shareCommitments?: MemberShareCommitment[];
-  sharesCount: number; // Keep track of member's total shares
+  sharesCount: number;
 }
 
-const initialPaymentFormState = {
-  paymentType: 'savings' as 'savings' | 'share',
-  selectedShareTypeIdForPayment: '',
-  amount: 0,
+interface PaymentFormState {
+  savingsAmount: number;
+  shareAmounts: Record<string, number>; // Key: shareTypeId, Value: amount for that share type
+  date: string;
+  depositMode: 'Cash' | 'Bank' | 'Wallet';
+  paymentDetails: {
+    sourceName: string;
+    transactionReference: string;
+    evidenceUrl: string;
+  };
+}
+
+const initialPaymentFormState: PaymentFormState = {
+  savingsAmount: 0,
+  shareAmounts: {},
   date: new Date().toISOString().split('T')[0],
-  depositMode: 'Cash' as 'Cash' | 'Bank' | 'Wallet',
+  depositMode: 'Cash',
   paymentDetails: {
     sourceName: '',
     transactionReference: '',
@@ -90,7 +101,7 @@ export default function OverduePaymentsPage() {
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedOverdueMemberForPayment, setSelectedOverdueMemberForPayment] = useState<OverdueMemberInfo | null>(null);
-  const [paymentForm, setPaymentForm] = useState(initialPaymentFormState);
+  const [paymentForm, setPaymentForm] = useState<PaymentFormState>(initialPaymentFormState);
 
 
   const overdueMembersData = useMemo((): OverdueMemberInfo[] => {
@@ -175,35 +186,41 @@ export default function OverduePaymentsPage() {
   
   const handleOpenPaymentModal = (member: OverdueMemberInfo) => {
     setSelectedOverdueMemberForPayment(member);
-    setPaymentForm({ // Reset form, pre-select share type if only one is overdue for shares
-      ...initialPaymentFormState,
-      paymentType: member.overdueSavingsAmount > 0 ? 'savings' : (member.overdueSharesDetails.length > 0 ? 'share' : 'savings'),
-      selectedShareTypeIdForPayment: member.overdueSharesDetails.length === 1 ? member.overdueSharesDetails[0].shareTypeId : '',
+    const initialShareAmounts: Record<string, number> = {};
+    member.overdueSharesDetails.forEach(detail => {
+        initialShareAmounts[detail.shareTypeId] = detail.overdueAmount;
+    });
+    setPaymentForm({
+        savingsAmount: member.overdueSavingsAmount,
+        shareAmounts: initialShareAmounts,
+        date: new Date().toISOString().split('T')[0],
+        depositMode: 'Cash',
+        paymentDetails: { sourceName: '', transactionReference: '', evidenceUrl: '' },
     });
     setIsPaymentModalOpen(true);
   };
 
-  const handlePaymentFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-     const nameParts = name.split('.');
-    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
-        const fieldName = nameParts[1] as keyof NonNullable<typeof paymentForm.paymentDetails>;
-        setPaymentForm(prev => ({
-            ...prev,
-            paymentDetails: {
-                ...(prev.paymentDetails || {}),
-                [fieldName]: value,
-            }
-        }));
-    } else {
-      setPaymentForm(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
+  const handlePaymentFormInputChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, shareTypeId?: string) => {
+    const { value } = e.target;
+
+    if (fieldName === 'savingsAmount') {
+      setPaymentForm(prev => ({ ...prev, savingsAmount: parseFloat(value) || 0 }));
+    } else if (fieldName === 'shareAmount' && shareTypeId) {
+      setPaymentForm(prev => ({
+        ...prev,
+        shareAmounts: { ...prev.shareAmounts, [shareTypeId]: parseFloat(value) || 0 },
+      }));
+    } else if (fieldName === 'date') {
+      setPaymentForm(prev => ({ ...prev, date: value }));
+    } else if (fieldName.startsWith('paymentDetails.')) {
+      const detailKey = fieldName.split('.')[1] as keyof PaymentFormState['paymentDetails'];
+      setPaymentForm(prev => ({
+        ...prev,
+        paymentDetails: { ...prev.paymentDetails, [detailKey]: value },
+      }));
     }
   };
   
-  const handlePaymentTypeChange = (value: 'savings' | 'share') => {
-    setPaymentForm(prev => ({ ...prev, paymentType: value, selectedShareTypeIdForPayment: '' }));
-  };
-
   const handlePaymentDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
     setPaymentForm(prev => ({
       ...prev,
@@ -216,76 +233,88 @@ export default function OverduePaymentsPage() {
     e.preventDefault();
     if (!selectedOverdueMemberForPayment) return;
 
-    if (paymentForm.amount <= 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Payment amount must be positive.' });
+    const { savingsAmount, shareAmounts, date, depositMode, paymentDetails } = paymentForm;
+    const totalPaymentMade = savingsAmount + Object.values(shareAmounts).reduce((sum, amt) => sum + amt, 0);
+
+    if (totalPaymentMade <= 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Total payment amount must be positive.' });
       return;
     }
-    if (paymentForm.paymentType === 'share' && !paymentForm.selectedShareTypeIdForPayment) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a share type for payment.' });
-      return;
-    }
-    if ((paymentForm.depositMode === 'Bank' || paymentForm.depositMode === 'Wallet') && !paymentForm.paymentDetails.sourceName) {
-        toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${paymentForm.depositMode} Name.` });
+    if ((depositMode === 'Bank' || depositMode === 'Wallet') && !paymentDetails.sourceName) {
+        toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${depositMode} Name.` });
         return;
     }
 
-    const dateObj = new Date(paymentForm.date);
+    const dateObj = new Date(date);
     const monthYear = format(dateObj, 'MMMM yyyy');
+    let toastMessages: string[] = [];
 
-    if (paymentForm.paymentType === 'savings') {
+    // Process Savings Payment
+    if (savingsAmount > 0) {
       const newSaving: Saving = {
-        id: `saving-${Date.now()}`,
+        id: `saving-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         memberId: selectedOverdueMemberForPayment.memberId,
         memberName: selectedOverdueMemberForPayment.fullName,
-        amount: paymentForm.amount,
-        date: paymentForm.date,
+        amount: savingsAmount,
+        date: date,
         month: monthYear,
         transactionType: 'deposit',
-        depositMode: paymentForm.depositMode,
-        paymentDetails: paymentForm.depositMode === 'Cash' ? undefined : paymentForm.paymentDetails,
+        depositMode: depositMode,
+        paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
       };
       setAllSavings(prev => [...prev, newSaving]);
       setAllMembers(prev => prev.map(m => 
         m.id === selectedOverdueMemberForPayment.memberId 
-        ? { ...m, savingsBalance: m.savingsBalance + paymentForm.amount } 
+        ? { ...m, savingsBalance: m.savingsBalance + savingsAmount } 
         : m
       ));
-      toast({ title: 'Success', description: `Savings payment of $${paymentForm.amount.toFixed(2)} recorded for ${selectedOverdueMemberForPayment.fullName}.` });
-    } else if (paymentForm.paymentType === 'share') {
-      const shareType = allShareTypes.find(st => st.id === paymentForm.selectedShareTypeIdForPayment);
-      if (!shareType) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Selected share type not found.' });
-        return;
-      }
-      const sharesToAllocate = Math.floor(paymentForm.amount / shareType.valuePerShare);
-      if (sharesToAllocate <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: `Contribution of $${paymentForm.amount.toFixed(2)} is not enough to allocate any ${shareType.name}.` });
-        return;
-      }
-      const totalValueForAllocation = sharesToAllocate * shareType.valuePerShare;
-      const newShare: Share = {
-        id: `share-${Date.now()}`,
-        memberId: selectedOverdueMemberForPayment.memberId,
-        memberName: selectedOverdueMemberForPayment.fullName,
-        shareTypeId: shareType.id,
-        shareTypeName: shareType.name,
-        count: sharesToAllocate,
-        allocationDate: paymentForm.date,
-        valuePerShare: shareType.valuePerShare,
-        contributionAmount: paymentForm.amount,
-        totalValueForAllocation,
-        depositMode: paymentForm.depositMode,
-        paymentDetails: paymentForm.depositMode === 'Cash' ? undefined : paymentForm.paymentDetails,
-      };
-      setAllShares(prev => [...prev, newShare]);
-      setAllMembers(prev => prev.map(m => 
-        m.id === selectedOverdueMemberForPayment.memberId 
-        ? { ...m, sharesCount: (m.sharesCount || 0) + sharesToAllocate } 
-        : m
-      ));
-      toast({ title: 'Success', description: `${sharesToAllocate} ${shareType.name}(s) allocated to ${selectedOverdueMemberForPayment.fullName}.` });
+      toastMessages.push(`$${savingsAmount.toFixed(2)} for savings`);
     }
 
+    // Process Share Payments
+    Object.entries(shareAmounts).forEach(([shareTypeId, amount]) => {
+      if (amount > 0) {
+        const shareType = allShareTypes.find(st => st.id === shareTypeId);
+        if (!shareType) {
+          console.error(`Share type ${shareTypeId} not found during payment processing.`);
+          return; 
+        }
+        const sharesToAllocate = Math.floor(amount / shareType.valuePerShare);
+        if (sharesToAllocate > 0) {
+          const totalValueForAllocation = sharesToAllocate * shareType.valuePerShare;
+          const newShare: Share = {
+            id: `share-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            memberId: selectedOverdueMemberForPayment.memberId,
+            memberName: selectedOverdueMemberForPayment.fullName,
+            shareTypeId: shareType.id,
+            shareTypeName: shareType.name,
+            count: sharesToAllocate,
+            allocationDate: date,
+            valuePerShare: shareType.valuePerShare,
+            contributionAmount: amount,
+            totalValueForAllocation,
+            depositMode: depositMode,
+            paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
+          };
+          setAllShares(prev => [...prev, newShare]);
+          setAllMembers(prev => prev.map(m => 
+            m.id === selectedOverdueMemberForPayment.memberId 
+            ? { ...m, sharesCount: (m.sharesCount || 0) + sharesToAllocate } 
+            : m
+          ));
+          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s) (valued at $${totalValueForAllocation.toFixed(2)} from $${amount.toFixed(2)} contribution)`);
+        } else {
+          toastMessages.push(`$${amount.toFixed(2)} for ${shareType.name} (insufficient for one share)`);
+        }
+      }
+    });
+    
+    let finalToastMessage = `Payment recorded for ${selectedOverdueMemberForPayment.fullName}.`;
+    if(toastMessages.length > 0) {
+        finalToastMessage += ` Details: ${toastMessages.join(', ')}.`;
+    }
+
+    toast({ title: 'Success', description: finalToastMessage });
     setIsPaymentModalOpen(false);
     setPaymentForm(initialPaymentFormState);
     setSelectedOverdueMemberForPayment(null);
@@ -431,62 +460,66 @@ export default function OverduePaymentsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Record Payment for {selectedOverdueMemberForPayment?.fullName}</DialogTitle>
             <DialogDescription>
-              Enter payment details for overdue contributions.
+              Enter payment amounts for overdue savings and/or shares.
             </DialogDescription>
           </DialogHeader>
           {selectedOverdueMemberForPayment && (
-            <form onSubmit={handleSubmitPayment} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div>
-                <Label>Payment For:</Label>
-                <RadioGroup value={paymentForm.paymentType} onValueChange={handlePaymentTypeChange} className="flex space-x-4 pt-2">
-                  {selectedOverdueMemberForPayment.overdueSavingsAmount > 0 && (
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="savings" id="paySavings" />
-                      <Label htmlFor="paySavings">Savings (${selectedOverdueMemberForPayment.overdueSavingsAmount.toFixed(2)} overdue)</Label>
-                    </div>
-                  )}
-                  {selectedOverdueMemberForPayment.overdueSharesDetails.length > 0 && (
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="share" id="payShare" />
-                      <Label htmlFor="payShare">Shares</Label>
-                    </div>
-                  )}
-                </RadioGroup>
-              </div>
+            <form onSubmit={handleSubmitPayment} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+              
+              {selectedOverdueMemberForPayment.overdueSavingsAmount > 0 && (
+                <div className="p-3 border rounded-md bg-background shadow-sm">
+                  <Label htmlFor="savingsAmount" className="font-semibold text-primary">Savings Payment</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Overdue: ${selectedOverdueMemberForPayment.overdueSavingsAmount.toFixed(2)}</p>
+                  <div className="relative">
+                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        id="savingsAmount" 
+                        name="savingsAmount" 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        value={paymentForm.savingsAmount || ''} 
+                        onChange={(e) => handlePaymentFormInputChange(e, 'savingsAmount')} 
+                        className="pl-7"
+                    />
+                  </div>
+                </div>
+              )}
 
-              {paymentForm.paymentType === 'share' && selectedOverdueMemberForPayment.overdueSharesDetails.length > 0 && (
-                <div>
-                  <Label htmlFor="selectedShareTypeIdForPayment">Share Type</Label>
-                  <Select 
-                    name="selectedShareTypeIdForPayment" 
-                    value={paymentForm.selectedShareTypeIdForPayment} 
-                    onValueChange={(value) => setPaymentForm(prev => ({...prev, selectedShareTypeIdForPayment: value}))}
-                    required
-                  >
-                    <SelectTrigger id="selectedShareTypeIdForPayment"><SelectValue placeholder="Select share type" /></SelectTrigger>
-                    <SelectContent>
-                      {selectedOverdueMemberForPayment.overdueSharesDetails.map(detail => (
-                        <SelectItem key={detail.shareTypeId} value={detail.shareTypeId}>
-                          {detail.shareTypeName} (${detail.overdueAmount.toFixed(2)} overdue)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {selectedOverdueMemberForPayment.overdueSharesDetails.length > 0 && (
+                <div className="space-y-3 p-3 border rounded-md bg-background shadow-sm">
+                  <Label className="font-semibold text-primary">Share Payments</Label>
+                  {selectedOverdueMemberForPayment.overdueSharesDetails.map(detail => (
+                    <div key={detail.shareTypeId} className="ml-1 pl-2 border-l-2 border-accent/50">
+                      <Label htmlFor={`shareAmount-${detail.shareTypeId}`}>{detail.shareTypeName}</Label>
+                      <p className="text-xs text-muted-foreground mb-1">Overdue: ${detail.overdueAmount.toFixed(2)}</p>
+                      <div className="relative">
+                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id={`shareAmount-${detail.shareTypeId}`}
+                          name="shareAmount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={paymentForm.shareAmounts[detail.shareTypeId] || ''}
+                          onChange={(e) => handlePaymentFormInputChange(e, 'shareAmount', detail.shareTypeId)}
+                          className="pl-7"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="amount">Payment Amount ($)</Label>
-                  <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" value={paymentForm.amount || ''} onChange={handlePaymentFormChange} required />
-                </div>
-                <div>
-                  <Label htmlFor="date">Payment Date</Label>
-                  <Input id="date" name="date" type="date" value={paymentForm.date} onChange={handlePaymentFormChange} required />
+              <Separator className="my-4"/>
+
+              <div className="grid grid-cols-1 gap-4">
+                 <div>
+                    <Label htmlFor="date">Payment Date</Label>
+                    <Input id="date" name="date" type="date" value={paymentForm.date} onChange={(e) => handlePaymentFormInputChange(e, 'date')} required />
                 </div>
               </div>
 
-              <Separator />
               <div>
                 <Label>Deposit Mode</Label>
                 <RadioGroup value={paymentForm.depositMode} onValueChange={handlePaymentDepositModeChange} className="flex space-x-4 pt-2">
@@ -504,12 +537,12 @@ export default function OverduePaymentsPage() {
                        <div className="relative">
                         {paymentForm.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                         {paymentForm.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                        <Input id="paymentDetails.sourceName" name="paymentDetails.sourceName" placeholder={`Enter ${paymentForm.depositMode} Name`} value={paymentForm.paymentDetails.sourceName} onChange={handlePaymentFormChange} className="pl-8" />
+                        <Input id="paymentDetails.sourceName" name="paymentDetails.sourceName" placeholder={`Enter ${paymentForm.depositMode} Name`} value={paymentForm.paymentDetails.sourceName} onChange={(e) => handlePaymentFormInputChange(e, 'paymentDetails.sourceName')} className="pl-8" />
                        </div>
                     </div>
                     <div>
                       <Label htmlFor="paymentDetails.transactionReference">Transaction Reference</Label>
-                      <Input id="paymentDetails.transactionReference" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={paymentForm.paymentDetails.transactionReference} onChange={handlePaymentFormChange} />
+                      <Input id="paymentDetails.transactionReference" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={paymentForm.paymentDetails.transactionReference} onChange={(e) => handlePaymentFormInputChange(e, 'paymentDetails.transactionReference')} />
                     </div>
                   </div>
                   <div className="pl-3">
@@ -528,7 +561,7 @@ export default function OverduePaymentsPage() {
                         name="paymentDetails.evidenceUrl"
                         placeholder="Enter URL or filename for reference"
                         value={paymentForm.paymentDetails.evidenceUrl}
-                        onChange={handlePaymentFormChange}
+                        onChange={(e) => handlePaymentFormInputChange(e, 'paymentDetails.evidenceUrl')}
                         className="mt-2"
                     />
                     <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
