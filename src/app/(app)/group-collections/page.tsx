@@ -25,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { mockSchools, mockSavingAccountTypes, mockMembers, mockSavings } from '@/data/mock';
-import type { School, SavingAccountType, Member, Saving } from '@/types';
+import type { School, SavingAccountType, Member, Saving, MemberShareCommitment } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Filter, Users, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, ListChecks, Trash2, RotateCcw, Shapes } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -87,7 +87,7 @@ export default function GroupCollectionsPage() {
       return;
     }
     setIsLoadingMembers(true);
-    setPostedTransactions(null); // Clear any previously posted transactions view
+    setPostedTransactions(null); 
     setTimeout(() => {
       const filtered = allMembers.filter(member =>
         member.schoolId === selectedSchool &&
@@ -98,7 +98,7 @@ export default function GroupCollectionsPage() {
       setSelectedMemberIds(filtered.map(m => m.id)); 
       setIsLoadingMembers(false);
       if (filtered.length === 0) {
-        toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving/share contribution.' });
+        toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving/share contribution for the selected account type.' });
       }
     }, 500);
   };
@@ -173,16 +173,16 @@ export default function GroupCollectionsPage() {
 
     selectedMemberIds.forEach(memberId => {
       const member = updatedMembersList.find(m => m.id === memberId);
-      if (!member || (member.expectedMonthlySaving || 0) <= 0) return; // For now, only processes savings
+      if (!member || (member.expectedMonthlySaving || 0) <= 0) return; 
 
       const newTransaction: Saving = {
         id: `saving-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${memberId}`,
         memberId: member.id,
         memberName: member.fullName,
-        amount: member.expectedMonthlySaving || 0, // Using expectedMonthlySaving
+        amount: member.expectedMonthlySaving || 0, 
         date: transactionDate,
         month: transactionMonthString,
-        transactionType: 'deposit', // Assuming group collection is always deposit
+        transactionType: 'deposit', 
         depositMode: batchDetails.depositMode,
         paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
       };
@@ -200,7 +200,6 @@ export default function GroupCollectionsPage() {
       setEligibleMembers([]); 
       setSelectedMemberIds([]);
       setPostedTransactions(newTransactions); 
-      // setBatchDetails(initialBatchTransactionState); 
     }, 1000);
   };
   
@@ -214,6 +213,18 @@ export default function GroupCollectionsPage() {
     setSelectedMemberIds([]);
     setBatchDetails(initialBatchTransactionState);
   };
+
+  const formatShareCommitments = (commitments: MemberShareCommitment[] | undefined): string => {
+    if (!commitments || commitments.length === 0) {
+        return '$0.00';
+    }
+    const total = commitments.reduce((sum, sc) => sum + sc.monthlyCommittedAmount, 0);
+    if (commitments.length === 1) {
+        return `$${total.toFixed(2)} (${commitments[0].shareTypeName})`;
+    }
+    const details = commitments.map(sc => `${sc.shareTypeName}: $${sc.monthlyCommittedAmount.toFixed(2)}`).join(', ');
+    return `Total: $${total.toFixed(2)} (${details})`;
+};
 
 
   return (
@@ -290,13 +301,11 @@ export default function GroupCollectionsPage() {
                         <TableHead>Member Name</TableHead>
                         <TableHead>Account Number</TableHead>
                         <TableHead className="text-right">Exp. Monthly Saving ($)</TableHead>
-                        <TableHead className="text-right">Exp. Monthly Share ($)</TableHead>
+                        <TableHead className="text-left min-w-[250px]">Exp. Monthly Share ($)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {eligibleMembers.map(member => {
-                        const totalExpectedShare = (member.shareCommitments || []).reduce((sum, sc) => sum + sc.monthlyCommittedAmount, 0);
-                        return (
+                      {eligibleMembers.map(member => (
                         <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
                           <TableCell className="px-2">
                             <Checkbox
@@ -308,9 +317,9 @@ export default function GroupCollectionsPage() {
                           <TableCell className="font-medium">{member.fullName}</TableCell>
                           <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                           <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${totalExpectedShare.toFixed(2)}</TableCell>
+                          <TableCell className="text-left text-xs">{formatShareCommitments(member.shareCommitments)}</TableCell>
                         </TableRow>
-                      )})}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -443,3 +452,4 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
