@@ -34,10 +34,13 @@ import { Badge } from '@/components/ui/badge';
 import { mockMembers, mockSchools, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
 import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, BarChartHorizontalBig, ClipboardList } from 'lucide-react';
+import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, UploadCloud, Banknote, Wallet, ReceiptText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
+import { compareAsc } from 'date-fns';
 
 interface MemberServiceChargeSummary {
   memberId: string;
@@ -58,6 +61,28 @@ const initialApplyChargeFormState: Partial<Omit<AppliedServiceCharge, 'id' | 'me
     notes: '',
 };
 
+interface RecordPaymentFormState {
+    amount: number;
+    paymentDate: string;
+    depositMode: 'Cash' | 'Bank' | 'Wallet';
+    paymentDetails: {
+        sourceName: string;
+        transactionReference: string;
+        evidenceUrl: string;
+    };
+}
+
+const initialRecordPaymentFormState: RecordPaymentFormState = {
+    amount: 0,
+    paymentDate: new Date().toISOString().split('T')[0],
+    depositMode: 'Cash',
+    paymentDetails: {
+        sourceName: '',
+        transactionReference: '',
+        evidenceUrl: '',
+    },
+};
+
 export default function AppliedServiceChargesPage() {
   const [allMembers, setAllMembers] = useState<Member[]>(mockMembers);
   const [allSchools] = useState<School[]>(mockSchools);
@@ -71,6 +96,10 @@ export default function AppliedServiceChargesPage() {
   const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
   const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
 
+  const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
+  const [selectedMemberForPayment, setSelectedMemberForPayment] = useState<MemberServiceChargeSummary | null>(null);
+  const [recordPaymentForm, setRecordPaymentForm] = useState<RecordPaymentFormState>(initialRecordPaymentFormState);
+
 
   const memberChargeSummaries = useMemo((): MemberServiceChargeSummary[] => {
     return allMembers.map(member => {
@@ -79,7 +108,7 @@ export default function AppliedServiceChargesPage() {
       const totalPaid = memberCharges
         .filter(asc => asc.status === 'paid')
         .reduce((sum, asc) => sum + asc.amountCharged, 0);
-      const totalPending = totalApplied - totalPaid; // Can also sum 'pending' status charges
+      const totalPending = totalApplied - totalPaid;
       const fulfillmentPercentage = totalApplied > 0 ? (totalPaid / totalApplied) * 100 : 0;
 
       return {
@@ -150,7 +179,7 @@ export default function AppliedServiceChargesPage() {
       memberName: member.fullName,
       serviceChargeTypeId: selectedChargeType.id,
       serviceChargeTypeName: selectedChargeType.name,
-      amountCharged: selectedChargeType.amount, // Amount is from the type definition
+      amountCharged: selectedChargeType.amount,
       dateApplied: applyChargeForm.dateApplied || new Date().toISOString().split('T')[0],
       status: 'pending',
       notes: applyChargeForm.notes,
@@ -161,9 +190,95 @@ export default function AppliedServiceChargesPage() {
     setApplyChargeForm(initialApplyChargeFormState);
   };
 
-  // Placeholder for Record Payment Modal (to be implemented in next step)
   const handleOpenRecordPaymentModal = (memberSummary: MemberServiceChargeSummary) => {
-    toast({title: "Not Implemented", description: `Record payment for ${memberSummary.fullName} is not yet implemented.`});
+    setSelectedMemberForPayment(memberSummary);
+    setRecordPaymentForm({ ...initialRecordPaymentFormState, amount: memberSummary.totalPending });
+    setIsRecordPaymentModalOpen(true);
+  };
+
+  const handleRecordPaymentFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const nameParts = name.split('.');
+
+    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
+      const detailKey = nameParts[1] as keyof RecordPaymentFormState['paymentDetails'];
+      setRecordPaymentForm(prev => ({
+        ...prev,
+        paymentDetails: { ...prev.paymentDetails, [detailKey]: value },
+      }));
+    } else if (name === 'amount') {
+      setRecordPaymentForm(prev => ({ ...prev, amount: parseFloat(value) || 0 }));
+    } else {
+      setRecordPaymentForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+  
+  const handleRecordPaymentDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
+    setRecordPaymentForm(prev => ({
+      ...prev,
+      depositMode: value,
+      paymentDetails: value === 'Cash' ? initialRecordPaymentFormState.paymentDetails : prev.paymentDetails,
+    }));
+  };
+
+  const handleRecordPaymentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMemberForPayment || recordPaymentForm.amount <= 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Payment amount must be positive.' });
+      return;
+    }
+    if (recordPaymentForm.amount > selectedMemberForPayment.totalPending) {
+      toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed total pending ($${selectedMemberForPayment.totalPending.toFixed(2)}).` });
+      return;
+    }
+    if ((recordPaymentForm.depositMode === 'Bank' || recordPaymentForm.depositMode === 'Wallet') && !recordPaymentForm.paymentDetails.sourceName) {
+      toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${recordPaymentForm.depositMode} Name.` });
+      return;
+    }
+
+    let amountToAllocate = recordPaymentForm.amount;
+    const updatedCharges = appliedServiceCharges.map(charge => {
+      if (charge.memberId === selectedMemberForPayment.memberId && charge.status === 'pending' && amountToAllocate > 0) {
+        const amountPaidForThisCharge = Math.min(amountToAllocate, charge.amountCharged);
+        // In a real system, partial payments on a single charge might be more complex.
+        // For now, we assume full payment of a charge if amountToAllocate covers it.
+        if (amountToAllocate >= charge.amountCharged) {
+          amountToAllocate -= charge.amountCharged;
+          return { ...charge, status: 'paid' as 'paid' }; // Explicitly cast to 'paid'
+        }
+        // If partial payment on a single charge item was allowed, logic would go here.
+        // For simplicity, if payment doesn't cover the whole charge, it remains pending.
+      }
+      return charge;
+    }).sort((a, b) => compareAsc(new Date(a.dateApplied), new Date(b.dateApplied))); // Sort to pay oldest first
+    
+    // Second pass to apply payment to charges based on sorted order
+    let remainingPayment = recordPaymentForm.amount;
+    const finalCharges = [...appliedServiceCharges];
+
+    appliedServiceCharges
+      .filter(c => c.memberId === selectedMemberForPayment.memberId && c.status === 'pending')
+      .sort((a,b) => compareAsc(new Date(a.dateApplied), new Date(b.dateApplied))) // Oldest first
+      .forEach(chargeToPay => {
+        if (remainingPayment <= 0) return;
+        const chargeIndexInOriginal = finalCharges.findIndex(c => c.id === chargeToPay.id);
+        if (chargeIndexInOriginal === -1) return;
+
+        if (remainingPayment >= chargeToPay.amountCharged) {
+          finalCharges[chargeIndexInOriginal] = { ...finalCharges[chargeIndexInOriginal], status: 'paid' };
+          remainingPayment -= chargeToPay.amountCharged;
+        } else {
+          // Partial payment for a single charge item is not handled yet to keep it simple.
+          // If you want to handle partial, you'd need to potentially split a charge or add a 'paidAmount' field.
+        }
+      });
+
+
+    setAppliedServiceCharges(finalCharges);
+    toast({ title: 'Payment Recorded', description: `$${recordPaymentForm.amount.toFixed(2)} paid for ${selectedMemberForPayment.fullName}.` });
+    setIsRecordPaymentModalOpen(false);
+    setRecordPaymentForm(initialRecordPaymentFormState);
+    setSelectedMemberForPayment(null);
   };
 
 
@@ -339,6 +454,113 @@ export default function AppliedServiceChargesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Record Payment Modal */}
+      <Dialog open={isRecordPaymentModalOpen} onOpenChange={setIsRecordPaymentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Record Service Charge Payment</DialogTitle>
+            {selectedMemberForPayment && (
+              <DialogDescription>
+                For {selectedMemberForPayment.fullName}. Total Pending: ${selectedMemberForPayment.totalPending.toFixed(2)}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {selectedMemberForPayment && (
+            <form onSubmit={handleRecordPaymentSubmit} className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="recordPaymentAmount">Payment Amount ($)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="recordPaymentAmount"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={recordPaymentForm.amount || ''}
+                    onChange={handleRecordPaymentFormChange}
+                    max={selectedMemberForPayment.totalPending}
+                    required
+                    className="pl-7"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="recordPaymentDate">Payment Date</Label>
+                <Input
+                  id="recordPaymentDate"
+                  name="paymentDate"
+                  type="date"
+                  value={recordPaymentForm.paymentDate}
+                  onChange={handleRecordPaymentFormChange}
+                  required
+                />
+              </div>
+              <Separator />
+              <div>
+                <Label htmlFor="recordPaymentDepositMode">Deposit Mode</Label>
+                <RadioGroup
+                  id="recordPaymentDepositMode"
+                  value={recordPaymentForm.depositMode}
+                  onValueChange={handleRecordPaymentDepositModeChange}
+                  className="flex space-x-4 pt-2"
+                >
+                  <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="payCashRecord" /><Label htmlFor="payCashRecord">Cash</Label></div>
+                  <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="payBankRecord" /><Label htmlFor="payBankRecord">Bank</Label></div>
+                  <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="payWalletRecord" /><Label htmlFor="payWalletRecord">Wallet</Label></div>
+                </RadioGroup>
+              </div>
+
+              {(recordPaymentForm.depositMode === 'Bank' || recordPaymentForm.depositMode === 'Wallet') && (
+                <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
+                    <div>
+                      <Label htmlFor="paymentDetails.sourceNameRecord">{recordPaymentForm.depositMode} Name</Label>
+                      <div className="relative">
+                        {recordPaymentForm.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                        {recordPaymentForm.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                        <Input id="paymentDetails.sourceNameRecord" name="paymentDetails.sourceName" placeholder={`Enter ${recordPaymentForm.depositMode} Name`} value={recordPaymentForm.paymentDetails.sourceName} onChange={handleRecordPaymentFormChange} className="pl-8" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="paymentDetails.transactionReferenceRecord">Transaction Reference</Label>
+                      <Input id="paymentDetails.transactionReferenceRecord" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={recordPaymentForm.paymentDetails.transactionReference} onChange={handleRecordPaymentFormChange} />
+                    </div>
+                  </div>
+                  <div className="pl-3">
+                    <Label htmlFor="paymentDetails.evidenceUrlRecord">Evidence Attachment</Label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
+                      <div className="space-y-1 text-center">
+                        <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
+                        <div className="flex text-sm text-muted-foreground">
+                          <p className="pl-1">Upload a file or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
+                      </div>
+                    </div>
+                    <Input
+                      id="paymentDetails.evidenceUrlRecord"
+                      name="paymentDetails.evidenceUrl"
+                      placeholder="Enter URL or filename for reference"
+                      value={recordPaymentForm.paymentDetails.evidenceUrl}
+                      onChange={handleRecordPaymentFormChange}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
+                  </div>
+                </div>
+              )}
+              <DialogFooter className="pt-4">
+                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit">Record Payment</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+    
