@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart } from 'lucide-react'; // Added PieChart
 import {
   Table,
   TableBody,
@@ -408,11 +408,17 @@ export default function MembersPage() {
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
-                <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} />
+                <div className="relative">
+                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} className="pl-7"/>
+                </div>
               </div>
                <div>
                 <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
-                <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} />
+                <div className="relative">
+                    <LucidePieChart className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} className="pl-7"/>
+                </div>
               </div>
               <div>
                 <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving ($)</Label>
@@ -489,3 +495,5 @@ export default function MembersPage() {
     </div>
   );
 }
+
+    
