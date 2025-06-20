@@ -448,7 +448,7 @@ export default function MembersPage() {
                 </Button>
             </div>
             {(currentMember.shareCommitments || []).map((commitment, index) => (
-                <div key={index} className="grid grid-cols-[1fr_auto_auto] items-end gap-3 p-3 border rounded-md">
+                <div key={index} className="grid grid-cols-1 gap-3 p-3 border rounded-md md:grid-cols-[1fr_auto_auto] md:gap-3 md:items-end">
                     <div>
                         <Label htmlFor={`commitment-type-${index}`}>Share Type</Label>
                         <Select

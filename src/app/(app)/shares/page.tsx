@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -456,7 +457,7 @@ export default function SharesPage() {
             <Separator />
             <div>
               <Label htmlFor="depositModeShare">Deposit Mode</Label>
-              <RadioGroup id="depositModeShare" value={currentShare.depositMode || 'Cash'} onValueChange={handleShareDepositModeChange} className="flex space-x-4 pt-2">
+              <RadioGroup id="depositModeShare" value={currentShare.depositMode || 'Cash'} onValueChange={handleShareDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashShare" /><Label htmlFor="cashShare">Cash</Label></div>
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankShare" /><Label htmlFor="bankShare">Bank</Label></div>
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletShare" /><Label htmlFor="walletShare">Wallet</Label></div>

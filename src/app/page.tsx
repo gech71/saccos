@@ -31,14 +31,14 @@ export default function HomePage() {
             <p className="mt-6 max-w-3xl mx-auto text-lg text-foreground/80 sm:text-xl md:text-2xl">
               AcademInvest provides a transparent and efficient platform for managing savings, shares, and dividends within educational institutions.
             </p>
-            <div className="mt-10 flex justify-center gap-4">
-              <Button size="lg" asChild className="shadow-lg hover:shadow-primary/50 transition-shadow">
+            <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+              <Button size="lg" asChild className="shadow-lg hover:shadow-primary/50 transition-shadow w-full sm:w-auto">
                 <Link href="/signup">
                   Get Started Free
                   <LogIn className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild className="shadow-lg hover:shadow-accent/50 transition-shadow">
+              <Button size="lg" variant="outline" asChild className="shadow-lg hover:shadow-accent/50 transition-shadow w-full sm:w-auto">
                 <Link href="#features">Learn More</Link>
               </Button>
             </div>
@@ -112,7 +112,7 @@ export default function HomePage() {
                         data-ai-hint="analytics dashboard" 
                         width={600} 
                         height={400}
-                        className="rounded-lg shadow-2xl" 
+                        className="rounded-lg shadow-2xl w-full h-auto" 
                     />
                 </div>
             </div>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -168,7 +169,7 @@ function RecordPaymentFormComponent() {
                 id="recordPaymentDepositMode"
                 value={recordPaymentForm.depositMode}
                 onValueChange={handleRecordPaymentDepositModeChange}
-                className="flex space-x-4 pt-2"
+                className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2"
               >
                 <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="payCashRecord" /><Label htmlFor="payCashRecord">Cash</Label></div>
                 <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="payBankRecord" /><Label htmlFor="payBankRecord">Bank</Label></div>

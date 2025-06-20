@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -564,7 +565,7 @@ export default function SavingsPage() {
                 <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="amountInd">Amount ($)</Label>
                     <div className="relative">
@@ -579,7 +580,7 @@ export default function SavingsPage() {
             </div>
             <div>
                 <Label htmlFor="transactionTypeInd">Transaction Type</Label>
-                <RadioGroup id="transactionTypeInd" name="transactionType" value={currentIndividualTransaction.transactionType} onValueChange={handleIndividualTransactionTypeChange} className="flex space-x-4 pt-2">
+                <RadioGroup id="transactionTypeInd" name="transactionType" value={currentIndividualTransaction.transactionType} onValueChange={handleIndividualTransactionTypeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                     <div className="flex items-center space-x-2"><RadioGroupItem value="deposit" id="depositInd" /><Label htmlFor="depositInd">Deposit</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="withdrawal" id="withdrawalInd" /><Label htmlFor="withdrawalInd">Withdrawal</Label></div>
                 </RadioGroup>
@@ -589,7 +590,7 @@ export default function SavingsPage() {
                     <Separator className="my-3" />
                     <div>
                         <Label htmlFor="depositModeInd">Deposit Mode</Label>
-                        <RadioGroup id="depositModeInd" name="depositMode" value={currentIndividualTransaction.depositMode || 'Cash'} onValueChange={handleIndividualDepositModeChange} className="flex space-x-4 pt-2">
+                        <RadioGroup id="depositModeInd" name="depositMode" value={currentIndividualTransaction.depositMode || 'Cash'} onValueChange={handleIndividualDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashInd" /><Label htmlFor="cashInd">Cash</Label></div>
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankInd" /><Label htmlFor="bankInd">Bank</Label></div>
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletInd" /><Label htmlFor="walletInd">Wallet</Label></div>
@@ -597,7 +598,7 @@ export default function SavingsPage() {
                     </div>
                     {(currentIndividualTransaction.depositMode === 'Bank' || currentIndividualTransaction.depositMode === 'Wallet') && (
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
-                             <div className="grid grid-cols-2 gap-4 pl-3">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
                                     <Label htmlFor="paymentDetails.sourceNameInd">{currentIndividualTransaction.depositMode} Name</Label>
                                     <div className="relative">
@@ -654,7 +655,7 @@ export default function SavingsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitGroupTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="amountGrp">Amount (per member) ($)</Label>
                     <div className="relative">
@@ -669,7 +670,7 @@ export default function SavingsPage() {
             </div>
             <div>
                 <Label htmlFor="transactionTypeGrp">Transaction Type</Label>
-                <RadioGroup id="transactionTypeGrp" name="transactionType" value={currentGroupTransactionData.transactionType} onValueChange={handleGroupTransactionTypeChange} className="flex space-x-4 pt-2">
+                <RadioGroup id="transactionTypeGrp" name="transactionType" value={currentGroupTransactionData.transactionType} onValueChange={handleGroupTransactionTypeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                     <div className="flex items-center space-x-2"><RadioGroupItem value="deposit" id="depositGrp" /><Label htmlFor="depositGrp">Deposit</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="withdrawal" id="withdrawalGrp" /><Label htmlFor="withdrawalGrp">Withdrawal</Label></div>
                 </RadioGroup>
@@ -679,7 +680,7 @@ export default function SavingsPage() {
                     <Separator className="my-3" />
                     <div>
                         <Label htmlFor="depositModeGrp">Deposit Mode</Label>
-                        <RadioGroup id="depositModeGrp" name="depositMode" value={currentGroupTransactionData.depositMode || 'Cash'} onValueChange={handleGroupDepositModeChange} className="flex space-x-4 pt-2">
+                        <RadioGroup id="depositModeGrp" name="depositMode" value={currentGroupTransactionData.depositMode || 'Cash'} onValueChange={handleGroupDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashGrp" /><Label htmlFor="cashGrp">Cash</Label></div>
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankGrp" /><Label htmlFor="bankGrp">Bank</Label></div>
                             <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletGrp" /><Label htmlFor="walletGrp">Wallet</Label></div>
@@ -687,7 +688,7 @@ export default function SavingsPage() {
                     </div>
                     {(currentGroupTransactionData.depositMode === 'Bank' || currentGroupTransactionData.depositMode === 'Wallet') && (
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
-                             <div className="grid grid-cols-2 gap-4 pl-3">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
                                     <Label htmlFor="paymentDetails.sourceNameGrp">{currentGroupTransactionData.depositMode} Name</Label>
                                     <div className="relative">
