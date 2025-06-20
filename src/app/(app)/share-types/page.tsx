@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockShareTypes } from '@/data/mock'; // Ensure mockShareTypes is exported from mock.ts
+import { mockShareTypes } from '@/data/mock'; 
 import type { ShareType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -36,10 +36,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const initialShareTypeFormState: Omit<ShareType, 'id'> = {
+const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
   name: '',
   description: '',
   valuePerShare: 0,
+  expectedMonthlyContribution: 0,
 };
 
 export default function ShareTypesPage() {
@@ -52,14 +53,21 @@ export default function ShareTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentShareType(prev => ({ ...prev, [name]: name === 'valuePerShare' ? parseFloat(value) : value }));
+    setCurrentShareType(prev => ({ 
+        ...prev, 
+        [name]: (name === 'valuePerShare' || name === 'expectedMonthlyContribution') ? parseFloat(value) : value 
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShareType.name || !currentShareType.valuePerShare || currentShareType.valuePerShare <= 0) {
+    if (!currentShareType.name || currentShareType.valuePerShare === undefined || currentShareType.valuePerShare <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive value per share are required.' });
       return;
+    }
+    if (currentShareType.expectedMonthlyContribution !== undefined && currentShareType.expectedMonthlyContribution < 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Expected monthly contribution cannot be negative.' });
+        return;
     }
 
     if (isEditing && currentShareType.id) {
@@ -68,9 +76,11 @@ export default function ShareTypesPage() {
     } else {
       const newShareType: ShareType = {
         id: `stype-${Date.now()}`,
-        ...initialShareTypeFormState,
-        ...currentShareType,
-      } as ShareType;
+        name: currentShareType.name || '',
+        valuePerShare: currentShareType.valuePerShare || 0,
+        description: currentShareType.description,
+        expectedMonthlyContribution: currentShareType.expectedMonthlyContribution || 0,
+      };
       setShareTypesList(prev => [newShareType, ...prev]);
       toast({ title: 'Success', description: 'Share type added successfully.' });
     }
@@ -86,7 +96,7 @@ export default function ShareTypesPage() {
   };
 
   const openEditModal = (shareType: ShareType) => {
-    setCurrentShareType(shareType);
+    setCurrentShareType({...shareType, expectedMonthlyContribution: shareType.expectedMonthlyContribution || 0});
     setIsEditing(true);
     setIsModalOpen(true);
   };
@@ -135,7 +145,8 @@ export default function ShareTypesPage() {
               </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Value per Share</TableHead>
+              <TableHead className="text-right">Value per Share ($)</TableHead>
+              <TableHead className="text-right">Exp. Monthly Contrib. ($)</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -148,6 +159,7 @@ export default function ShareTypesPage() {
                 <TableCell className="font-medium">{shareType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{shareType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">${shareType.valuePerShare.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${(shareType.expectedMonthlyContribution || 0).toFixed(2)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -169,7 +181,7 @@ export default function ShareTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No share types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -200,23 +212,42 @@ export default function ShareTypesPage() {
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea id="description" name="description" value={currentShareType.description || ''} onChange={handleInputChange} placeholder="E.g., Standard membership share, Educational fund share" />
             </div>
-            <div>
-              <Label htmlFor="valuePerShare">Value per Share ($)</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    id="valuePerShare" 
-                    name="valuePerShare" 
-                    type="number" 
-                    step="0.01" 
-                    min="0.01"
-                    value={currentShareType.valuePerShare || ''} 
-                    onChange={handleInputChange} 
-                    required 
-                    className="pl-7"
-                    placeholder="0.00"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="valuePerShare">Value per Share ($)</Label>
+                    <div className="relative">
+                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="valuePerShare" 
+                            name="valuePerShare" 
+                            type="number" 
+                            step="0.01" 
+                            min="0.01"
+                            value={currentShareType.valuePerShare || ''} 
+                            onChange={handleInputChange} 
+                            required 
+                            className="pl-7"
+                            placeholder="0.00"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <Label htmlFor="expectedMonthlyContribution">Expected Monthly Contribution ($)</Label>
+                     <div className="relative">
+                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="expectedMonthlyContribution" 
+                            name="expectedMonthlyContribution" 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            value={currentShareType.expectedMonthlyContribution || ''} 
+                            onChange={handleInputChange}
+                            className="pl-7"
+                            placeholder="0.00 (Optional)"
+                        />
+                    </div>
+                </div>
             </div>
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>

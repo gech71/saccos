@@ -11,6 +11,7 @@ export interface ShareType {
   name: string;
   description?: string;
   valuePerShare: number;
+  expectedMonthlyContribution?: number; // Added field
 }
 
 export interface SavingAccountType {

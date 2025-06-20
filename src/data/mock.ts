@@ -8,9 +8,10 @@ export const mockSchools: School[] = [
 ];
 
 export const mockShareTypes: ShareType[] = [
-  { id: 'st-regular', name: 'Regular Share', description: 'Standard membership share.', valuePerShare: 10 },
-  { id: 'st-education', name: 'Educational Support Share', description: 'Dedicated to funding educational initiatives.', valuePerShare: 15 },
-  { id: 'st-emergency', name: 'Emergency Fund Share', description: 'Contributes to a member emergency fund.', valuePerShare: 5 },
+  { id: 'st-regular', name: 'Regular Share', description: 'Standard membership share.', valuePerShare: 10, expectedMonthlyContribution: 20 },
+  { id: 'st-education', name: 'Educational Support Share', description: 'Dedicated to funding educational initiatives.', valuePerShare: 15, expectedMonthlyContribution: 10 },
+  { id: 'st-emergency', name: 'Emergency Fund Share', description: 'Contributes to a member emergency fund.', valuePerShare: 5, expectedMonthlyContribution: 0 },
+  { id: 'st-project', name: 'Project Specific Share', description: 'Shares for a specific school project.', valuePerShare: 25 }, // No expectedMonthlyContribution
 ];
 
 export const mockSavingAccountTypes: SavingAccountType[] = [
@@ -36,8 +37,8 @@ export const mockMembers: Member[] = [
     savingsAccountNumber: 'SA00001',
     sharesCount: 125,
     shareCommitments: [
-      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 50 },
-      { shareTypeId: 'st-education', shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 20 },
+      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
+      { shareTypeId: 'st-education', shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 15 },
     ],
     savingAccountTypeId: 'sat-regular',
     savingAccountTypeName: 'Regular Savings',
@@ -58,7 +59,7 @@ export const mockMembers: Member[] = [
     savingsAccountNumber: 'SA00002',
     sharesCount: 80,
     shareCommitments: [
-      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 75 },
+      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 25 },
     ],
     savingAccountTypeId: 'sat-youth',
     savingAccountTypeName: 'Youth Saver Account',
@@ -79,8 +80,8 @@ export const mockMembers: Member[] = [
     savingsAccountNumber: 'SA00003',
     sharesCount: 210,
     shareCommitments: [
-      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 100 },
-      { shareTypeId: 'st-emergency', shareTypeName: 'Emergency Fund Share', monthlyCommittedAmount: 25 },
+      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
+      { shareTypeId: 'st-emergency', shareTypeName: 'Emergency Fund Share', monthlyCommittedAmount: 5 },
     ],
     savingAccountTypeId: 'sat-premium',
     savingAccountTypeName: 'Premium Tier Savings',
@@ -101,7 +102,7 @@ export const mockMembers: Member[] = [
     savingsAccountNumber: 'SA00004',
     sharesCount: 150,
     shareCommitments: [
-      { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 60 },
+      { shareTypeId: 'st-project', shareTypeName: 'Project Specific Share', monthlyCommittedAmount: 30 },
     ],
     savingAccountTypeId: 'sat-no-expect',
     savingAccountTypeName: 'Flexible Saver',
