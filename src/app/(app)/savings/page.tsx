@@ -476,7 +476,6 @@ export default function SavingsPage() {
               <TableHead className="text-right">Current Balance ($)</TableHead>
               <TableHead className="text-right">Exp. Monthly Saving ($)</TableHead>
               <TableHead className="text-right">Total Exp. Saving ($)</TableHead>
-              <TableHead className="text-right">Exp. Share Contrib. ($)</TableHead>
               <TableHead className="text-center w-[150px]">Saving Collection %</TableHead>
             </TableRow>
           </TableHeader>
@@ -492,8 +491,6 @@ export default function SavingsPage() {
 
               const totalExpectedSavings = (member.expectedMonthlySaving || 0) * contributionPeriods;
               const percentageCollected = totalExpectedSavings > 0 ? (member.savingsBalance / totalExpectedSavings) * 100 : 0;
-              const totalExpectedShareContribution = (member.shareCommitments || []).reduce((sum, commitment) => sum + commitment.monthlyCommittedAmount, 0);
-
 
               return (
                 <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
@@ -511,7 +508,6 @@ export default function SavingsPage() {
                   <TableCell className="text-right font-semibold">${member.savingsBalance.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
                   <TableCell className="text-right">${totalExpectedSavings.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${totalExpectedShareContribution.toFixed(2)}</TableCell>
                   <TableCell className="text-center">
                     {totalExpectedSavings > 0 ? (
                       <div className="flex flex-col items-center">
@@ -531,7 +527,7 @@ export default function SavingsPage() {
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No members found matching your criteria.
                 </TableCell>
               </TableRow>
