@@ -203,34 +203,6 @@ export default function GroupCollectionsPage() {
     }, 1000);
   };
   
-  const handleDeletePostedTransaction = (transactionId: string) => {
-    if (!postedTransactions) return;
-
-    const transactionToDelete = postedTransactions.find(t => t.id === transactionId);
-    if (!transactionToDelete) return;
-
-    if (window.confirm(`Are you sure you want to delete the transaction for ${transactionToDelete.memberName} of $${transactionToDelete.amount.toFixed(2)}? This will also revert their savings balance.`)) {
-        // Revert member balance
-        setAllMembers(prevMembers => prevMembers.map(member => {
-            if (member.id === transactionToDelete.memberId) {
-                return {
-                    ...member,
-                    savingsBalance: member.savingsBalance - transactionToDelete.amount,
-                };
-            }
-            return member;
-        }));
-
-        // Remove from allSavings
-        setAllSavings(prevSavings => prevSavings.filter(s => s.id !== transactionId));
-
-        // Remove from currently displayed postedTransactions
-        setPostedTransactions(prevPosted => (prevPosted ? prevPosted.filter(t => t.id !== transactionId) : null));
-        
-        toast({ title: 'Transaction Deleted', description: `Transaction for ${transactionToDelete.memberName} was deleted and balance reverted.` });
-    }
-  };
-
   const startNewGroupCollection = () => {
     setPostedTransactions(null);
     setSelectedSchool('');
@@ -403,7 +375,7 @@ export default function GroupCollectionsPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <CardTitle className="font-headline text-primary">Posted Collection Transactions</CardTitle>
-                        <CardDescription>Review the transactions that were just processed. You can delete individual transactions if needed.</CardDescription>
+                        <CardDescription>Review the transactions that were just processed. Direct deletion is not allowed; use the reversal process for corrections.</CardDescription>
                     </div>
                     <Button onClick={startNewGroupCollection} variant="outline">
                         <RotateCcw className="mr-2 h-4 w-4" /> Start New Group Collection
@@ -424,7 +396,7 @@ export default function GroupCollectionsPage() {
                                 <TableHead>Month</TableHead>
                                 <TableHead>Deposit Mode</TableHead>
                                 <TableHead>Source/Reference</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                {/* <TableHead className="text-right">Actions</TableHead> Removed Actions column */}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -441,17 +413,12 @@ export default function GroupCollectionsPage() {
                                         {transaction.paymentDetails?.evidenceUrl && <div><strong>Evidence:</strong> {transaction.paymentDetails.evidenceUrl}</div>}
                                         {!transaction.paymentDetails && transaction.depositMode !== 'Cash' && <span className="text-muted-foreground">N/A</span>}
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeletePostedTransaction(transaction.id)} className="text-destructive hover:bg-destructive/10 h-8 w-8">
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Delete Transaction</span>
-                                        </Button>
-                                    </TableCell>
+                                    {/* <TableCell className="text-right"> Removed Action button cell </TableCell> */}
                                 </TableRow>
                             )) : (
                                  <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
-                                    No transactions in this batch or all have been deleted.
+                                    <TableCell colSpan={6} className="h-24 text-center"> {/* Adjusted colSpan */}
+                                    No transactions in this batch or all have been cleared.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -461,7 +428,7 @@ export default function GroupCollectionsPage() {
             </CardContent>
              {postedTransactions.length === 0 && (
                 <CardFooter>
-                    <p className="text-sm text-muted-foreground">All transactions from this batch have been cleared or deleted.</p>
+                    <p className="text-sm text-muted-foreground">All transactions from this batch have been cleared.</p>
                 </CardFooter>
             )}
         </Card>
@@ -470,3 +437,5 @@ export default function GroupCollectionsPage() {
   );
 }
 
+      
+      
