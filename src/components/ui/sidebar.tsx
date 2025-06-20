@@ -524,10 +524,11 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+// Modified CombinedProps to remove its own `asChild`
 type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> &
                      Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'onClick'> &
                      VariantProps<typeof sidebarMenuButtonVariants> & {
-  asChild?: boolean;
+  // asChild?: boolean; // Removed SidebarMenuButton's own asChild prop
   isActive?: boolean;
   tooltip?: string | React.ComponentProps<typeof TooltipContent>;
   onClick?: React.MouseEventHandler<HTMLElement>;
@@ -543,47 +544,37 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const {
-      asChild: sidebarMenuButtonItselfRequestsAsChild = false, // Renamed for clarity: This is SidebarMenuButton's own 'asChild' prop.
+      // asChild prop is no longer explicitly destructured here
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
       children,
-      ...parentProvidedProps // Props from the parent (e.g., Link or direct usage). May include href, onClick, and potentially Link's 'asChild'.
+      ...parentProvidedProps // `asChild` from Link (if passed) will be in here
     } = allProps;
 
     const { isMobile, state } = useSidebar();
 
     let Comp: React.ElementType;
+    let propsToSpread = { ...parentProvidedProps };
 
-    // Determine the component type based on props
-    if (parentProvidedProps.href) {
-      // If href is present, it must be an anchor tag.
-      // SidebarMenuButton's own 'asChild' prop is ignored in this case because Link's asChild dictates behavior.
+
+    if (propsToSpread.href) {
       Comp = "a";
-    } else if (sidebarMenuButtonItselfRequestsAsChild) {
-      // If SidebarMenuButton itself has asChild={true} and no href, it uses Slot.
+    } else if (propsToSpread.asChild) { // Check if asChild was passed from parent
       Comp = Slot;
     } else {
-      // Default to a button.
       Comp = "button";
     }
 
-    // Prepare props to spread. Start with all props passed by the parent.
-    let propsToSpread = { ...parentProvidedProps };
-
-    // If we are rendering a DOM element directly (not Slot),
-    // we must ensure that any 'asChild' prop (which might have been passed by a parent like <Link asChild>)
-    // is removed, as it's not a valid DOM attribute.
+    // If Comp is a DOM element, ensure `asChild` is not passed to it.
     if (Comp === "a" || Comp === "button") {
       if ('asChild' in propsToSpread) {
-        delete propsToSpread.asChild;
+        delete (propsToSpread as any).asChild;
       }
     }
-    // If Comp is Slot, Slot knows how to handle an 'asChild' prop if its immediate child is another component
-    // that accepts 'asChild', or it will merge props onto a DOM child. The critical part is that
-    // Link's 'asChild' doesn't end up as a DOM attribute on the anchor rendered by SidebarMenuButton.
+    // If Comp is Slot, Slot will handle `asChild` if its child is another component.
 
     const buttonElement = (
       <Comp
@@ -592,7 +583,7 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...propsToSpread} // Spread the sanitized props
+        {...propsToSpread}
       >
         {children}
       </Comp>
@@ -791,3 +782,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
