@@ -58,6 +58,7 @@ const initialMemberFormState: Partial<Member> = {
   sharesCount: 0,
   shareCommitments: [],
   savingAccountTypeId: '',
+  expectedMonthlySaving: 0,
 };
 
 export default function MembersPage() {
@@ -89,7 +90,7 @@ export default function MembersPage() {
             };
         });
     } else {
-        setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' ? parseFloat(value) : value }));
+        setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' || name === 'expectedMonthlySaving' ? parseFloat(value) : value }));
     }
   };
 
@@ -97,7 +98,11 @@ export default function MembersPage() {
     setCurrentMember(prev => ({ ...prev, [name]: value }));
     if (name === 'savingAccountTypeId') {
         const selectedAccountType = savingAccountTypes.find(sat => sat.id === value);
-        setCurrentMember(prev => ({ ...prev, savingAccountTypeName: selectedAccountType?.name || '' }));
+        setCurrentMember(prev => ({ 
+            ...prev, 
+            savingAccountTypeName: selectedAccountType?.name || '',
+            expectedMonthlySaving: selectedAccountType?.expectedMonthlyContribution || 0,
+        }));
     }
   };
 
@@ -146,6 +151,7 @@ export default function MembersPage() {
         ...currentMember,
         shareCommitments: validCommitments,
         savingAccountTypeName: selectedSavingAccountType?.name || '',
+        expectedMonthlySaving: selectedSavingAccountType?.expectedMonthlyContribution || 0,
     };
 
     const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;
@@ -175,10 +181,12 @@ export default function MembersPage() {
   };
 
   const openEditModal = (member: Member) => {
+    const selectedAccountType = savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
     setCurrentMember({
       ...member,
       joinDate: member.joinDate ? new Date(member.joinDate).toISOString().split('T')[0] : '',
       shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
+      expectedMonthlySaving: member.expectedMonthlySaving ?? selectedAccountType?.expectedMonthlyContribution ?? 0,
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -247,7 +255,8 @@ export default function MembersPage() {
               <TableHead>School</TableHead>
               <TableHead>Saving Account #</TableHead>
               <TableHead>Saving Account Type</TableHead>
-              <TableHead className="text-right">Savings Balance</TableHead>
+              <TableHead className="text-right">Expected Monthly Saving ($)</TableHead>
+              <TableHead className="text-right">Current Savings Balance ($)</TableHead>
               <TableHead className="text-right">Shares</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -268,6 +277,7 @@ export default function MembersPage() {
                 <TableCell>
                     {member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}
                 </TableCell>
+                <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
                 <TableCell className="text-right">${member.savingsBalance.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{member.sharesCount}</TableCell>
                 <TableCell className="text-right">
@@ -291,7 +301,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={11} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -389,11 +399,11 @@ export default function MembersPage() {
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
                     <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleSelectChange('savingAccountTypeId', value)}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
-                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}%)</SelectItem>))}</SelectContent>
+                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, ${sat.expectedMonthlyContribution?.toFixed(2) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
                 <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} />
@@ -401,6 +411,22 @@ export default function MembersPage() {
                <div>
                 <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
                 <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving ($)</Label>
+                <div className="relative">
+                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        id="expectedMonthlySaving" 
+                        name="expectedMonthlySaving" 
+                        type="number" 
+                        step="0.01" 
+                        value={currentMember.expectedMonthlySaving || 0} 
+                        onChange={handleInputChange} 
+                        className="pl-7 bg-muted/50" 
+                        readOnly 
+                    />
+                </div>
               </div>
             </div>
 

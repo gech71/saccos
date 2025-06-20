@@ -14,9 +14,10 @@ export const mockShareTypes: ShareType[] = [
 ];
 
 export const mockSavingAccountTypes: SavingAccountType[] = [
-  { id: 'sat-regular', name: 'Regular Savings', interestRate: 0.02, description: 'Standard savings account with a competitive interest rate.' },
-  { id: 'sat-youth', name: 'Youth Saver Account', interestRate: 0.035, description: 'Higher interest account for members under 18.' },
-  { id: 'sat-premium', name: 'Premium Tier Savings', interestRate: 0.045, description: 'For members with higher balances, offering premium rates.' },
+  { id: 'sat-regular', name: 'Regular Savings', interestRate: 0.02, description: 'Standard savings account with a competitive interest rate.', expectedMonthlyContribution: 50 },
+  { id: 'sat-youth', name: 'Youth Saver Account', interestRate: 0.035, description: 'Higher interest account for members under 18.', expectedMonthlyContribution: 25 },
+  { id: 'sat-premium', name: 'Premium Tier Savings', interestRate: 0.045, description: 'For members with higher balances, offering premium rates.', expectedMonthlyContribution: 100 },
+  { id: 'sat-no-expect', name: 'Flexible Saver', interestRate: 0.01, description: 'Basic account with no minimum contribution expected.', expectedMonthlyContribution: 0 },
 ];
 
 export const mockMembers: Member[] = [
@@ -40,6 +41,7 @@ export const mockMembers: Member[] = [
     ],
     savingAccountTypeId: 'sat-regular',
     savingAccountTypeName: 'Regular Savings',
+    expectedMonthlySaving: 50,
   },
   {
     id: 'member-2',
@@ -60,6 +62,7 @@ export const mockMembers: Member[] = [
     ],
     savingAccountTypeId: 'sat-youth',
     savingAccountTypeName: 'Youth Saver Account',
+    expectedMonthlySaving: 25,
   },
   {
     id: 'member-3',
@@ -81,6 +84,7 @@ export const mockMembers: Member[] = [
     ],
     savingAccountTypeId: 'sat-premium',
     savingAccountTypeName: 'Premium Tier Savings',
+    expectedMonthlySaving: 100,
   },
   {
     id: 'member-4',
@@ -99,8 +103,9 @@ export const mockMembers: Member[] = [
     shareCommitments: [
       { shareTypeId: 'st-regular', shareTypeName: 'Regular Share', monthlyCommittedAmount: 60 },
     ],
-    savingAccountTypeId: 'sat-regular',
-    savingAccountTypeName: 'Regular Savings',
+    savingAccountTypeId: 'sat-no-expect',
+    savingAccountTypeName: 'Flexible Saver',
+    expectedMonthlySaving: 0,
   },
 ];
 

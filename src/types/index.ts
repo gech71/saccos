@@ -18,6 +18,7 @@ export interface SavingAccountType {
   name: string;
   interestRate: number; // Store as decimal, e.g., 0.05 for 5%
   description?: string;
+  expectedMonthlyContribution?: number; // New field
 }
 
 export interface MemberShareCommitment {
@@ -45,11 +46,12 @@ export interface Member {
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
   savingsBalance: number;
-  savingsAccountNumber?: string; // Added for unique savings account identification
+  savingsAccountNumber?: string;
   sharesCount: number; // Total shares across all types
   shareCommitments?: MemberShareCommitment[];
   savingAccountTypeId?: string;
   savingAccountTypeName?: string; // Denormalized for display
+  expectedMonthlySaving?: number; // New field: Expected based on chosen saving account type
 }
 
 export interface Saving {

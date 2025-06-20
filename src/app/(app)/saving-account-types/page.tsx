@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, DollarSign } from 'lucide-react'; // Added DollarSign
 import {
   Table,
   TableBody,
@@ -36,10 +36,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const initialFormState: Omit<SavingAccountType, 'id'> = {
+const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
   name: '',
   description: '',
   interestRate: 0,
+  expectedMonthlyContribution: 0,
 };
 
 export default function SavingAccountTypesPage() {
@@ -54,7 +55,7 @@ export default function SavingAccountTypesPage() {
     const { name, value } = e.target;
     setCurrentAccountType(prev => ({
       ...prev,
-      [name]: name === 'interestRate' ? parseFloat(value) / 100 : value // Convert percentage to decimal
+      [name]: name === 'interestRate' ? parseFloat(value) / 100 : (name === 'expectedMonthlyContribution' ? parseFloat(value) : value)
     }));
   };
 
@@ -64,6 +65,11 @@ export default function SavingAccountTypesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Account type name and a valid non-negative interest rate are required.' });
       return;
     }
+    if (currentAccountType.expectedMonthlyContribution !== undefined && currentAccountType.expectedMonthlyContribution < 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Expected monthly contribution cannot be negative.' });
+        return;
+    }
+
 
     if (isEditing && currentAccountType.id) {
       setAccountTypes(prev => prev.map(st => st.id === currentAccountType.id ? { ...st, ...currentAccountType } as SavingAccountType : st));
@@ -71,9 +77,11 @@ export default function SavingAccountTypesPage() {
     } else {
       const newAccountType: SavingAccountType = {
         id: `satype-${Date.now()}`,
-        ...initialFormState,
-        ...currentAccountType,
-      } as SavingAccountType;
+        name: currentAccountType.name || '',
+        interestRate: currentAccountType.interestRate || 0,
+        description: currentAccountType.description,
+        expectedMonthlyContribution: currentAccountType.expectedMonthlyContribution || 0,
+      };
       setAccountTypes(prev => [newAccountType, ...prev]);
       toast({ title: 'Success', description: 'Saving account type added successfully.' });
     }
@@ -89,7 +97,11 @@ export default function SavingAccountTypesPage() {
   };
 
   const openEditModal = (accountType: SavingAccountType) => {
-    setCurrentAccountType({...accountType, interestRate: accountType.interestRate * 100}); // Display rate as percentage
+    setCurrentAccountType({
+        ...accountType, 
+        interestRate: accountType.interestRate * 100, // Display rate as percentage
+        expectedMonthlyContribution: accountType.expectedMonthlyContribution || 0,
+    });
     setIsEditing(true);
     setIsModalOpen(true);
   };
@@ -139,6 +151,7 @@ export default function SavingAccountTypesPage() {
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Interest Rate</TableHead>
+              <TableHead className="text-right">Expected Monthly Contrib. ($)</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -151,6 +164,7 @@ export default function SavingAccountTypesPage() {
                 <TableCell className="font-medium">{accountType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{accountType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">{(accountType.interestRate * 100).toFixed(2)}%</TableCell>
+                <TableCell className="text-right font-semibold">${(accountType.expectedMonthlyContribution || 0).toFixed(2)}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -172,7 +186,7 @@ export default function SavingAccountTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No saving account types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -199,23 +213,42 @@ export default function SavingAccountTypesPage() {
               <Label htmlFor="name">Account Type Name</Label>
               <Input id="name" name="name" value={currentAccountType.name || ''} onChange={handleInputChange} required />
             </div>
-            <div>
-              <Label htmlFor="interestRate">Interest Rate (%)</Label>
-              <div className="relative">
-                <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    id="interestRate" 
-                    name="interestRate" 
-                    type="number" 
-                    step="0.01" 
-                    min="0"
-                    value={currentAccountType.interestRate !== undefined ? (typeof currentAccountType.interestRate === 'string' ? currentAccountType.interestRate : (currentAccountType.interestRate * 100).toFixed(2)) : ''}
-                    onChange={handleInputChange} 
-                    required 
-                    className="pr-7"
-                    placeholder="e.g., 2.5 for 2.5%"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                    <div className="relative">
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="interestRate" 
+                            name="interestRate" 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            value={currentAccountType.interestRate !== undefined ? (typeof currentAccountType.interestRate === 'string' ? currentAccountType.interestRate : (currentAccountType.interestRate * 100).toFixed(2)) : ''}
+                            onChange={handleInputChange} 
+                            required 
+                            className="pr-7"
+                            placeholder="e.g., 2.5 for 2.5%"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <Label htmlFor="expectedMonthlyContribution">Expected Monthly Contribution ($)</Label>
+                     <div className="relative">
+                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="expectedMonthlyContribution" 
+                            name="expectedMonthlyContribution" 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            value={currentAccountType.expectedMonthlyContribution || ''} 
+                            onChange={handleInputChange}
+                            className="pl-7"
+                            placeholder="0.00"
+                        />
+                    </div>
+                </div>
             </div>
             <div>
               <Label htmlFor="description">Description (Optional)</Label>
