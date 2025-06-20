@@ -49,13 +49,13 @@ const initialShareFormState: Partial<Share> = {
   shareTypeId: '',
   count: 0,
   allocationDate: new Date().toISOString().split('T')[0], // today
-  valuePerShare: 0, 
+  valuePerShare: 0,
 };
 
 export default function SharesPage() {
   const [shares, setShares] = useState<Share[]>(mockShares);
-  const [members] = useState<Member[]>(mockMembers);
-  const [shareTypes] = useState<ShareType[]>(mockShareTypes);
+  const [members, setMembersState] = useState<Member[]>(mockMembers); // Renamed to avoid conflict in this scope
+  const [shareTypes, setShareTypesState] = useState<ShareType[]>(mockShareTypes); // Renamed
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentShare, setCurrentShare] = useState<Partial<Share>>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
@@ -115,7 +115,7 @@ export default function SharesPage() {
     } else {
       const newShare: Share = {
         id: `share-${Date.now()}`,
-        ...initialShareFormState, // Ensure all fields are present even if not in currentShare
+        ...initialShareFormState, 
         ...shareDataToSave,
       } as Share;
       setShares(prev => [newShare, ...prev]);
@@ -162,7 +162,7 @@ export default function SharesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Share Allocation" subtitle="Manage member shareholdings.">
+      <PageTitle title="Share Allocation" subtitle="Manage member shareholdings and their commitments.">
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Allocate Shares
         </Button>
@@ -227,44 +227,52 @@ export default function SharesPage() {
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
+              <TableHead className="text-right">Exp. Monthly Contrib. ($)</TableHead>
               <TableHead>Allocation Date</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredShares.length > 0 ? filteredShares.map(share => (
-              <TableRow key={share.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select share record for ${share.memberName}`} />
-                </TableCell>
-                <TableCell className="font-medium">{share.memberName || members.find(m => m.id === share.memberId)?.fullName}</TableCell>
-                <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
-                <TableCell className="text-right">{share.count}</TableCell>
-                <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-semibold">${(share.count * share.valuePerShare).toFixed(2)}</TableCell>
-                <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(share)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            )) : (
+            {filteredShares.length > 0 ? filteredShares.map(share => {
+              const member = members.find(m => m.id === share.memberId);
+              const commitment = member?.shareCommitments?.find(sc => sc.shareTypeId === share.shareTypeId);
+              const expectedMonthlyContribution = commitment ? commitment.monthlyCommittedAmount : 0;
+
+              return (
+                <TableRow key={share.id}>
+                  <TableCell>
+                    <Checkbox aria-label={`Select share record for ${share.memberName}`} />
+                  </TableCell>
+                  <TableCell className="font-medium">{share.memberName || member?.fullName}</TableCell>
+                  <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
+                  <TableCell className="text-right">{share.count}</TableCell>
+                  <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-semibold">${(share.count * share.valuePerShare).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${expectedMonthlyContribution.toFixed(2)}</TableCell>
+                  <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <span className="sr-only">Open menu</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditModal(share)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            }) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>
@@ -326,3 +334,4 @@ export default function SharesPage() {
     </div>
   );
 }
+
