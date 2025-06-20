@@ -281,8 +281,8 @@ export default function GroupCollectionsPage() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
                     <span>Selected: {summaryForSelection.count} members</span>
                     <div className="flex flex-col sm:items-end">
-                        <span>Total Expected Savings from Selection: ${summaryForSelection.totalExpectedSaving.toFixed(2)}</span>
-                        <span>Total Expected Shares from Selection: ${summaryForSelection.totalExpectedShare.toFixed(2)}</span>
+                        <span>Total Expected Savings Collection: ${summaryForSelection.totalExpectedSaving.toFixed(2)}</span>
+                        <span>Total Expected Share Collection: ${summaryForSelection.totalExpectedShare.toFixed(2)}</span>
                     </div>
                 </div>
               </CardHeader>
