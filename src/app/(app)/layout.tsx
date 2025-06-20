@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards } from 'lucide-react'; // Added WalletCards
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library } from 'lucide-react'; // Added Library
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { title: 'Members', href: '/members', icon: Users },
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
   { title: 'Savings', href: '/savings', icon: PiggyBank },
+  { title: 'Group Collections', href: '/group-collections', icon: Library },
   { title: 'Share Types', href: '/share-types', icon: Shapes },
   { title: 'Shares', href: '/shares', icon: PieChart },
   { title: 'Dividends', href: '/dividends', icon: Landmark },
