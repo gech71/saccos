@@ -43,6 +43,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
+import { differenceInMonths } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 
 const initialShareFormState: Partial<Share> = {
   memberId: '',
@@ -171,7 +173,7 @@ export default function SharesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Shares Allocated</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Shares Allocated (in view)</ShadcnCardTitle>
                 <LucidePieChart className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -180,7 +182,7 @@ export default function SharesPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Shares</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Shares (in view)</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -227,7 +229,9 @@ export default function SharesPage() {
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
-              <TableHead className="text-right">Exp. Monthly Contrib. ($)</TableHead>
+              <TableHead className="text-right">Monthly Committed ($)</TableHead>
+              <TableHead className="text-right">Total Exp. Contrib. ($)</TableHead>
+              <TableHead className="text-center w-[150px]">Fulfillment %</TableHead>
               <TableHead>Allocation Date</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -236,7 +240,26 @@ export default function SharesPage() {
             {filteredShares.length > 0 ? filteredShares.map(share => {
               const member = members.find(m => m.id === share.memberId);
               const commitment = member?.shareCommitments?.find(sc => sc.shareTypeId === share.shareTypeId);
-              const expectedMonthlyContribution = commitment ? commitment.monthlyCommittedAmount : 0;
+              const monthlyCommittedAmount = commitment?.monthlyCommittedAmount || 0;
+              
+              let totalExpectedContribution = 0;
+              let fulfillmentPercentage = 0;
+              const currentAllocationValue = share.count * share.valuePerShare;
+
+              if (member && monthlyCommittedAmount > 0) {
+                const joinDate = new Date(member.joinDate);
+                const currentDate = new Date();
+                let contributionPeriods = 0;
+                if (joinDate <= currentDate) {
+                    contributionPeriods = differenceInMonths(currentDate, joinDate) + 1;
+                }
+                contributionPeriods = Math.max(0, contributionPeriods);
+                totalExpectedContribution = monthlyCommittedAmount * contributionPeriods;
+                
+                if (totalExpectedContribution > 0) {
+                    fulfillmentPercentage = (currentAllocationValue / totalExpectedContribution) * 100;
+                }
+              }
 
               return (
                 <TableRow key={share.id}>
@@ -247,8 +270,19 @@ export default function SharesPage() {
                   <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-semibold">${(share.count * share.valuePerShare).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${expectedMonthlyContribution.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-semibold">${currentAllocationValue.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${monthlyCommittedAmount.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${totalExpectedContribution.toFixed(2)}</TableCell>
+                  <TableCell className="text-center">
+                    {totalExpectedContribution > 0 ? (
+                        <div className="flex flex-col items-center">
+                            <Progress value={Math.min(100, fulfillmentPercentage)} className="h-2 w-full" />
+                            <span className="text-xs mt-1">{Math.min(100, Math.max(0, fulfillmentPercentage)).toFixed(1)}%</span>
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground text-xs">N/A</span>
+                    )}
+                  </TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -272,7 +306,7 @@ export default function SharesPage() {
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={11} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>
