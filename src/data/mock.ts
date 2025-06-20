@@ -189,6 +189,8 @@ export const mockShares: Share[] = [
     valuePerShare: 10.00,
     contributionAmount: 500.00,
     totalValueForAllocation: 500.00,
+    depositMode: 'Bank',
+    paymentDetails: { sourceName: 'Initial Capital Bank', transactionReference: 'ICB001'}
   },
   {
     id: 'share-2',
@@ -201,6 +203,7 @@ export const mockShares: Share[] = [
     valuePerShare: 10.00,
     contributionAmount: 300.00,
     totalValueForAllocation: 300.00,
+    depositMode: 'Cash',
   },
   {
     id: 'share-3',
@@ -213,6 +216,8 @@ export const mockShares: Share[] = [
     valuePerShare: 15.00,
     contributionAmount: 300.00,
     totalValueForAllocation: 300.00,
+    depositMode: 'Wallet',
+    paymentDetails: { sourceName: 'EduPay Wallet', transactionReference: 'EDUPAY002'}
   },
 ];
 

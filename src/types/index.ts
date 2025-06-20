@@ -82,6 +82,12 @@ export interface Share {
   valuePerShare: number; // Value per share at the time of allocation
   contributionAmount?: number; // The monetary amount input by the user for this specific allocation
   totalValueForAllocation?: number; // Actual value of shares allocated (count * valuePerShare)
+  depositMode?: 'Cash' | 'Bank' | 'Wallet';
+  paymentDetails?: {
+    sourceName?: string;
+    transactionReference?: string;
+    evidenceUrl?: string; // For consistency, though not implemented in UI for shares yet
+  };
 }
 
 export interface Dividend {
