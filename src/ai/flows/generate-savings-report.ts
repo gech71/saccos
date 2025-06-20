@@ -29,7 +29,7 @@ export type GenerateSavingsReportInput = z.infer<typeof GenerateSavingsReportInp
 
 const GenerateSavingsReportOutputSchema = z.object({
   report: z.string().describe('The generated report summarizing the data.'),
-  visualization: z.string().describe('The URL or data URI of the generated data visualization.'),
+  visualization: z.string().describe('The URL or data URI of the generated data visualization. This should be the direct output from the generateDataVisualization tool.'),
 });
 
 export type GenerateSavingsReportOutput = z.infer<typeof GenerateSavingsReportOutputSchema>;
@@ -88,18 +88,21 @@ const savingsReportPrompt = ai.definePrompt({
   input: {schema: GenerateSavingsReportInputSchema},
   output: {schema: GenerateSavingsReportOutputSchema}, // The LLM must generate output matching this schema
   tools: [generateSavingsReportTool, generateVisualization],
-  prompt: `You are an AI assistant tasked with generating a financial report.
-Given the School Name: {{{schoolName}}}, Report Type: {{{reportType}}}, and desired Visualization Type: {{{visualizationType}}}.
+  prompt: `You are an AI assistant. Your task is to generate a financial report summary and a visualization URL based on the provided school information.
 
-Follow these steps carefully:
-1.  Use the 'getSchoolFinancialData' tool to retrieve the financial data for the specified school and report type.
-2.  Analyze the retrieved financial data (which will be a JSON string).
-3.  Based on your analysis, write a concise summary. This summary will be the value for the 'report' field in your JSON output. Make sure to mention key figures from the data.
-4.  Using the same retrieved financial data (the JSON string from step 1) and the specified '{{{visualizationType}}}', use the 'generateDataVisualization' tool to create a visual representation of the data.
-5.  The URL or data URI returned by the 'generateDataVisualization' tool will be the value for the 'visualization' field in your JSON output.
+Inputs:
+- School Name: {{{schoolName}}}
+- Report Type: {{{reportType}}}
+- Desired Visualization Type: {{{visualizationType}}}
 
-Your final response MUST be a valid JSON object adhering to the defined output schema. It should contain both the 'report' summary and the 'visualization' URL/data URI.
-Example of a good report summary for savings: "For {{{schoolName}}}, the total savings for the last fiscal year amounted to $1,000,000, involving 150 members. The average saving per member was approximately $6,666.67." (Adjust details based on actual tool output).
+Instructions:
+1.  Call the 'getSchoolFinancialData' tool with the 'schoolName' and 'reportType' to obtain the financial data. The tool will return this data as a JSON string.
+2.  Using the financial data (JSON string from step 1), create a concise textual summary for the report. This summary will be the value for the 'report' field.
+    Example for a savings report (adapt based on actual data): "For {{{schoolName}}}, total savings were $1,000,000 from 150 members. Average saving: $6,666.67."
+3.  Call the 'generateDataVisualization' tool. Pass it the financial data (JSON string from step 1) and the '{{{visualizationType}}}'. The tool will return a URL string for the visualization. This URL will be the value for the 'visualization' field.
+
+Your final response *must* be a JSON object with two keys: "report" (containing the textual summary) and "visualization" (containing the URL from the 'generateDataVisualization' tool).
+Adhere strictly to this JSON structure: {"report": "your summary string", "visualization": "your_visualization_url_string"}
 `,
 });
 
@@ -112,9 +115,10 @@ const generateSavingsReportFlow = ai.defineFlow(
   async input => {
     const {output, usage} = await savingsReportPrompt(input);
     if (!output) {
-        console.error('LLM call to savingsReportPrompt did not produce valid output conforming to the schema.', {input, usage});
+        console.error('LLM call to savingsReportPrompt did not produce valid output or output was null.', {input, usage});
         throw new Error('Failed to generate report: The AI model did not return the expected data structure. Please check the AI logs for more details.');
     }
+    // If we reach here, Genkit has successfully validated the output against GenerateSavingsReportOutputSchema
     return output;
   }
 );
