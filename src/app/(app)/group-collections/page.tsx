@@ -117,10 +117,13 @@ export default function GroupCollectionsPage() {
 
   const summaryForSelection = useMemo(() => {
     const membersInSelection = eligibleMembers.filter(m => selectedMemberIds.includes(m.id));
+    const totalExpectedSaving = membersInSelection.reduce((sum, m) => sum + (m.expectedMonthlySaving || 0), 0);
+    const totalExpectedShare = membersInSelection.reduce((sum, m) => sum + (m.shareCommitments || []).reduce((s, sc) => s + sc.monthlyCommittedAmount, 0), 0);
     return {
       count: membersInSelection.length,
-      totalExpectedSaving: membersInSelection.reduce((sum, m) => sum + (m.expectedMonthlySaving || 0), 0),
-      totalExpectedShare: membersInSelection.reduce((sum, m) => sum + (m.shareCommitments || []).reduce((s, sc) => s + sc.monthlyCommittedAmount, 0), 0),
+      totalExpectedSaving,
+      totalExpectedShare,
+      grandTotalExpectedCollection: totalExpectedSaving + totalExpectedShare,
     };
   }, [eligibleMembers, selectedMemberIds]);
 
@@ -281,8 +284,10 @@ export default function GroupCollectionsPage() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
                     <span>Selected: {summaryForSelection.count} members</span>
                     <div className="flex flex-col sm:items-end">
-                        <span>Total Expected Savings Collection: ${summaryForSelection.totalExpectedSaving.toFixed(2)}</span>
-                        <span>Total Expected Share Collection: ${summaryForSelection.totalExpectedShare.toFixed(2)}</span>
+                        <span className="font-medium">Total Expected Savings Collection: ${summaryForSelection.totalExpectedSaving.toFixed(2)}</span>
+                        <span className="font-medium">Total Expected Share Collection: ${summaryForSelection.totalExpectedShare.toFixed(2)}</span>
+                        <Separator className="my-1" />
+                        <span className="font-bold text-primary">Grand Total Expected Collection: ${summaryForSelection.grandTotalExpectedCollection.toFixed(2)}</span>
                     </div>
                 </div>
               </CardHeader>
