@@ -34,7 +34,7 @@ const GenerateSavingsReportOutputSchema = z.object({
 
 export type GenerateSavingsReportOutput = z.infer<typeof GenerateSavingsReportOutputSchema>;
 
-const generateSavingsReportTool = ai.defineTool({
+const getSchoolFinancialDataTool = ai.defineTool({
   name: 'getSchoolFinancialData',
   description: 'Retrieves the savings, share allocations, and dividend distributions data for a specific school. The data is returned as a JSON string.',
   inputSchema: z.object({
@@ -53,20 +53,20 @@ const generateSavingsReportTool = ai.defineTool({
     return JSON.stringify({ // Ensure the output is a valid JSON string
       school: input.schoolName,
       reportType: input.reportType,
-      totalSavings: 1000000,
-      totalShares: 50000,
-      totalDividends: 10000,
+      totalSavings: Math.floor(Math.random() * 500000) + 500000,
+      totalShares: Math.floor(Math.random() * 20000) + 30000,
+      totalDividends: Math.floor(Math.random() * 5000) + 5000,
       membersAffected: Math.floor(Math.random() * 100) + 50,
       period: "Last Fiscal Year"
     });
   },
 });
 
-const generateVisualization = ai.defineTool({
+const generateVisualizationTool = ai.defineTool({
   name: 'generateDataVisualization',
   description: 'Generates a data visualization based on the provided data and visualization type.',
   inputSchema: z.object({
-    data: z.string().describe('The financial data to visualize (as a JSON string).'),
+    financialDataJson: z.string().describe('The financial data to visualize (as a JSON string).'),
     visualizationType: DataVisualizationTypeSchema.describe(
       'The type of data visualization to generate (bar chart, pie chart, line chart, or table).'
     ),
@@ -76,35 +76,45 @@ const generateVisualization = ai.defineTool({
     // TODO: Replace with actual data visualization generation logic.
     // This is a placeholder implementation.
     console.log(
-      `Tool 'generateDataVisualization' called. Generating a ${input.visualizationType} chart with data: ${input.data}`
+      `Tool 'generateDataVisualization' called. Generating a ${input.visualizationType} chart with data: ${input.financialDataJson}`
     );
     // In a real scenario, you might parse input.data and use a charting library or service.
-    return `https://placehold.co/600x400.png?text=${input.visualizationType}+chart+for+report`; // Placeholder URL.
+    return `https://placehold.co/600x400.png?text=${input.visualizationType}+chart+for+${encodeURIComponent(JSON.parse(input.financialDataJson).reportType)}`; // Placeholder URL.
   },
 });
 
-const savingsReportPrompt = ai.definePrompt({
-  name: 'savingsReportPrompt',
-  input: {schema: GenerateSavingsReportInputSchema},
-  output: {schema: GenerateSavingsReportOutputSchema}, // The LLM must generate output matching this schema
-  tools: [generateSavingsReportTool, generateVisualization],
-  prompt: `You are an AI assistant. Your task is to generate a financial report summary and a visualization URL based on the provided school information.
+const SummarizeDataInputSchema = z.object({
+    schoolName: z.string().describe('The name of the school.'),
+    reportType: z.string().describe('The type of report being summarized.'),
+    financialDataJson: z.string().describe('The financial data for the school, as a JSON string.'),
+});
 
-Inputs:
-- School Name: {{{schoolName}}}
-- Report Type: {{{reportType}}}
-- Desired Visualization Type: {{{visualizationType}}}
+const SummarizeDataOutputSchema = z.object({
+    summary: z.string().describe('A concise textual summary of the financial report, suitable for display to a user.'),
+});
 
-Instructions:
-1.  Call the 'getSchoolFinancialData' tool with the 'schoolName' and 'reportType' to obtain the financial data. The tool will return this data as a JSON string.
-2.  Using the financial data (JSON string from step 1), create a concise textual summary for the report. This summary will be the value for the 'report' field.
-    Example for a savings report (adapt based on actual data): "For {{{schoolName}}}, total savings were $1,000,000 from 150 members. Average saving: $6,666.67."
-3.  Call the 'generateDataVisualization' tool. Pass it the financial data (JSON string from step 1) and the '{{{visualizationType}}}'. The tool will return a URL string for the visualization. This URL will be the value for the 'visualization' field.
+const summarizeDataPrompt = ai.definePrompt({
+    name: 'summarizeFinancialDataPrompt',
+    input: { schema: SummarizeDataInputSchema },
+    output: { schema: SummarizeDataOutputSchema },
+    prompt: `You are an AI assistant. Your task is to create a concise textual summary for a financial report.
+You will be provided with the school name, the type of report, and the financial data as a JSON string.
 
-Your final response *must* be a JSON object with two keys: "report" (containing the textual summary) and "visualization" (containing the URL from the 'generateDataVisualization' tool).
-Adhere strictly to this JSON structure: {"report": "your summary string", "visualization": "your_visualization_url_string"}
+School Name: {{{schoolName}}}
+Report Type: {{{reportType}}}
+Financial Data (JSON):
+\`\`\`json
+{{{financialDataJson}}}
+\`\`\`
+
+Based on this information, generate a human-readable summary.
+For example, if the report type is 'savings' and the data indicates total savings of $1,000,000 from 150 members, your summary might be:
+"For {{schoolName}}, the total savings for the period were $1,000,000, contributed by 150 members. The average saving per member was approximately $6,666.67."
+Adapt your summary based on the actual data provided and the report type. Focus on key figures.
+Your output must be a JSON object with a single key "summary".
 `,
 });
+
 
 const generateSavingsReportFlow = ai.defineFlow(
   {
@@ -112,19 +122,61 @@ const generateSavingsReportFlow = ai.defineFlow(
     inputSchema: GenerateSavingsReportInputSchema,
     outputSchema: GenerateSavingsReportOutputSchema,
   },
-  async input => {
-    const {output, usage} = await savingsReportPrompt(input);
-    if (!output) {
-        console.error('LLM call to savingsReportPrompt did not produce valid output or output was null.', {input, usage});
-        throw new Error('Failed to generate report: The AI model did not return the expected data structure. Please check the AI logs for more details.');
+  async (input) => {
+    // Step 1: Get financial data using the tool
+    const financialDataJson = await getSchoolFinancialDataTool({
+      schoolName: input.schoolName,
+      reportType: input.reportType,
+    });
+
+    if (!financialDataJson) {
+        console.error('Failed to retrieve financial data from getSchoolFinancialDataTool.', {input});
+        throw new Error('Financial data retrieval failed.');
     }
-    // If we reach here, Genkit has successfully validated the output against GenerateSavingsReportOutputSchema
-    return output;
+    
+    // Step 2: Generate visualization using the tool
+    const visualizationUrl = await generateVisualizationTool({
+      financialDataJson: financialDataJson,
+      visualizationType: input.visualizationType,
+    });
+
+    if (!visualizationUrl) {
+        console.error('Failed to retrieve visualization URL from generateVisualizationTool.', {input, financialDataJson});
+        throw new Error('Visualization generation failed.');
+    }
+
+    // Step 3: Generate textual summary using the LLM
+    const llmSummaryResponse = await summarizeDataPrompt({
+        schoolName: input.schoolName,
+        reportType: input.reportType,
+        financialDataJson: financialDataJson,
+    });
+
+    if (!llmSummaryResponse.output || !llmSummaryResponse.output.summary) {
+        console.error('LLM call to summarizeDataPrompt did not produce a valid summary.', {input, financialDataJson, llmUsage: llmSummaryResponse.usage});
+        throw new Error('Failed to generate report summary: The AI model did not return the expected text data.');
+    }
+
+    // Step 4: Assemble and return the final output
+    return {
+      report: llmSummaryResponse.output.summary,
+      visualization: visualizationUrl,
+    };
   }
 );
 
 export async function generateSavingsReport(input: GenerateSavingsReportInput): Promise<GenerateSavingsReportOutput> {
-  return generateSavingsReportFlow(input);
+  try {
+    return await generateSavingsReportFlow(input);
+  } catch (error) {
+    console.error("Error in generateSavingsReport function:", error);
+    // Re-throw the error or handle it by returning a user-friendly error object
+    // For this example, re-throwing to be caught by the UI
+    throw error; 
+  }
 }
 
 export type {DataVisualizationTypeSchema};
+
+
+    
