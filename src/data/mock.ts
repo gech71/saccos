@@ -1,5 +1,6 @@
 
-import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment } from '@/types';
+
+import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment, ServiceChargeType, AppliedServiceCharge } from '@/types';
 
 export const mockSchools: School[] = [
   { id: 'school-1', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' },
@@ -238,5 +239,48 @@ export const mockDividends: Dividend[] = [
     distributionDate: new Date(2023, 11, 31).toISOString(),
     shareCountAtDistribution: 30, // sum of shares for member-2
   },
+];
+
+export const mockServiceChargeTypes: ServiceChargeType[] = [
+    { id: 'sc-annual', name: 'Annual Membership Fee', description: 'Standard annual fee for all members.', amount: 20.00, frequency: 'yearly' },
+    { id: 'sc-latepay', name: 'Late Payment Penalty', description: 'Penalty for overdue contributions.', amount: 5.00, frequency: 'once' },
+    { id: 'sc-idcard', name: 'ID Card Replacement', description: 'Fee for replacing a lost member ID card.', amount: 2.50, frequency: 'once' },
+    { id: 'sc-monthly-admin', name: 'Monthly Admin Fee', description: 'Small fee for account maintenance.', amount: 1.00, frequency: 'monthly' },
+];
+
+export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
+    {
+        id: 'asc-1',
+        memberId: 'member-1',
+        memberName: 'John Doe',
+        serviceChargeTypeId: 'sc-annual',
+        serviceChargeTypeName: 'Annual Membership Fee',
+        amountCharged: 20.00,
+        dateApplied: new Date(2024, 0, 1).toISOString(),
+        status: 'pending',
+        notes: 'Annual fee for 2024',
+    },
+    {
+        id: 'asc-2',
+        memberId: 'member-2',
+        memberName: 'Jane Smith',
+        serviceChargeTypeId: 'sc-latepay',
+        serviceChargeTypeName: 'Late Payment Penalty',
+        amountCharged: 5.00,
+        dateApplied: new Date(2024, 2, 15).toISOString(),
+        status: 'pending',
+        notes: 'Late payment for Feb 2024 savings.',
+    },
+     {
+        id: 'asc-3',
+        memberId: 'member-1',
+        memberName: 'John Doe',
+        serviceChargeTypeId: 'sc-monthly-admin',
+        serviceChargeTypeName: 'Monthly Admin Fee',
+        amountCharged: 1.00,
+        dateApplied: new Date(2024, 0, 31).toISOString(),
+        status: 'paid',
+        notes: 'Jan 2024 Admin Fee',
+    },
 ];
 

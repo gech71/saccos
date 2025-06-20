@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -12,7 +13,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks } from 'lucide-react'; // Added ListChecks
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { title: 'Share Types', href: '/share-types', icon: Shapes },
   { title: 'Shares', href: '/shares', icon: PieChart },
   { title: 'Dividends', href: '/dividends', icon: Landmark },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText },
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
   { title: 'Reports', href: '/reports', icon: FileText },
 ];
@@ -79,3 +81,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+

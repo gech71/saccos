@@ -1,4 +1,5 @@
 
+
 export interface School {
   id: string;
   name: string;
@@ -86,7 +87,7 @@ export interface Share {
   paymentDetails?: {
     sourceName?: string;
     transactionReference?: string;
-    evidenceUrl?: string; // For consistency, though not implemented in UI for shares yet
+    evidenceUrl?: string; 
   };
 }
 
@@ -98,6 +99,28 @@ export interface Dividend {
   distributionDate: string; // ISO date string
   shareCountAtDistribution: number; // Could be refined to be per share type if dividends vary
 }
+
+export interface ServiceChargeType {
+  id: string;
+  name: string;
+  description?: string;
+  amount: number;
+  frequency: 'once' | 'monthly' | 'yearly'; // Informational for now, auto-application is future scope
+}
+
+export interface AppliedServiceCharge {
+  id: string;
+  memberId: string;
+  memberName?: string; // Denormalized for display
+  serviceChargeTypeId: string;
+  serviceChargeTypeName: string; // Denormalized for display
+  amountCharged: number;
+  dateApplied: string; // ISO date string
+  status: 'pending' | 'paid' | 'waived';
+  notes?: string;
+  // paymentTransactionId?: string; // Future: link to a master payment transaction
+}
+
 
 export interface NavItem {
   title: string;

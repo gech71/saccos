@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart } from 'lucide-react'; // Added PieChart
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FilePlus2, ReceiptText } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,8 +33,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes } from '@/data/mock';
-import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
+import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes, mockServiceChargeTypes, mockAppliedServiceCharges } from '@/data/mock';
+import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType, ServiceChargeType, AppliedServiceCharge } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -41,8 +42,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 const initialMemberFormState: Partial<Member> = {
   fullName: '',
@@ -61,19 +65,35 @@ const initialMemberFormState: Partial<Member> = {
   expectedMonthlySaving: 0,
 };
 
+const initialApplyChargeFormState: Partial<Omit<AppliedServiceCharge, 'id' | 'memberName' | 'serviceChargeTypeName' | 'status'>> = {
+    memberId: '',
+    serviceChargeTypeId: '',
+    amountCharged: 0,
+    dateApplied: new Date().toISOString().split('T')[0],
+    notes: '',
+};
+
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>(mockMembers);
   const [schools] = useState<School[]>(mockSchools);
   const [shareTypes] = useState<ShareType[]>(mockShareTypes);
   const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [serviceChargeTypes] = useState<ServiceChargeType[]>(mockServiceChargeTypes);
+  const [appliedServiceCharges, setAppliedServiceCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
+
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingMember, setIsEditingMember] = useState(false);
+  
+  const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
+  const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
+  const [memberToApplyCharge, setMemberToApplyCharge] = useState<Member | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleMemberInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const nameParts = name.split('.');
 
@@ -94,7 +114,7 @@ export default function MembersPage() {
     }
   };
 
-  const handleSelectChange = (name: keyof Member, value: string) => {
+  const handleMemberSelectChange = (name: keyof Member, value: string) => {
     setCurrentMember(prev => ({ ...prev, [name]: value }));
     if (name === 'savingAccountTypeId') {
         const selectedAccountType = savingAccountTypes.find(sat => sat.id === value);
@@ -114,7 +134,6 @@ export default function MembersPage() {
         ...updatedCommitments[index],
         shareTypeId: value as string,
         shareTypeName: selectedType?.name || '',
-        // Keep existing monthlyCommittedAmount if shareTypeId changes
         monthlyCommittedAmount: updatedCommitments[index]?.monthlyCommittedAmount || 0,
       };
     } else if (field === 'monthlyCommittedAmount') {
@@ -138,7 +157,7 @@ export default function MembersPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleMemberSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School, Savings Account #).' });
@@ -146,19 +165,16 @@ export default function MembersPage() {
     }
 
     const validCommitments = (currentMember.shareCommitments || []).filter(c => c.shareTypeId && c.monthlyCommittedAmount > 0);
-    
     const selectedSavingAccountType = savingAccountTypes.find(sat => sat.id === currentMember.savingAccountTypeId);
-
     const memberDataToSave = {
         ...currentMember,
         shareCommitments: validCommitments,
         savingAccountTypeName: selectedSavingAccountType?.name || '',
         expectedMonthlySaving: currentMember.expectedMonthlySaving ?? selectedSavingAccountType?.expectedMonthlyContribution ?? 0,
     };
-
     const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;
 
-    if (isEditing && memberDataToSave.id) {
+    if (isEditingMember && memberDataToSave.id) {
       setMembers(prev => prev.map(m => m.id === memberDataToSave.id ? { ...m, ...memberDataToSave, schoolName } as Member : m));
       toast({ title: 'Success', description: 'Member updated successfully.' });
     } else {
@@ -171,18 +187,18 @@ export default function MembersPage() {
       setMembers(prev => [newMember, ...prev]);
       toast({ title: 'Success', description: 'Member added successfully.' });
     }
-    setIsModalOpen(false);
+    setIsMemberModalOpen(false);
     setCurrentMember(initialMemberFormState);
-    setIsEditing(false);
+    setIsEditingMember(false);
   };
 
-  const openAddModal = () => {
+  const openAddMemberModal = () => {
     setCurrentMember(initialMemberFormState);
-    setIsEditing(false);
-    setIsModalOpen(true);
+    setIsEditingMember(false);
+    setIsMemberModalOpen(true);
   };
 
-  const openEditModal = (member: Member) => {
+  const openEditMemberModal = (member: Member) => {
     const selectedAccountType = savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
     setCurrentMember({
       ...member,
@@ -190,16 +206,70 @@ export default function MembersPage() {
       shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
       expectedMonthlySaving: member.expectedMonthlySaving ?? selectedAccountType?.expectedMonthlyContribution ?? 0,
     });
-    setIsEditing(true);
-    setIsModalOpen(true);
+    setIsEditingMember(true);
+    setIsMemberModalOpen(true);
   };
 
-  const handleDelete = (memberId: string) => {
+  const handleDeleteMember = (memberId: string) => {
     if (window.confirm('Are you sure you want to delete this member?')) {
       setMembers(prev => prev.filter(m => m.id !== memberId));
       toast({ title: 'Success', description: 'Member deleted successfully.' });
     }
   };
+
+  const openApplyChargeModal = (member: Member) => {
+    setMemberToApplyCharge(member);
+    setApplyChargeForm({
+        ...initialApplyChargeFormState,
+        memberId: member.id,
+    });
+    setIsApplyChargeModalOpen(true);
+  };
+
+  const handleApplyChargeFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setApplyChargeForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleApplyChargeSelectChange = (name: keyof typeof applyChargeForm, value: string) => {
+    if (name === 'serviceChargeTypeId') {
+        const selectedType = serviceChargeTypes.find(sct => sct.id === value);
+        setApplyChargeForm(prev => ({ ...prev, serviceChargeTypeId: value, amountCharged: selectedType?.amount || 0 }));
+    } else {
+        setApplyChargeForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleApplyChargeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!applyChargeForm.serviceChargeTypeId || !memberToApplyCharge) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a service charge type.' });
+      return;
+    }
+    const selectedChargeType = serviceChargeTypes.find(sct => sct.id === applyChargeForm.serviceChargeTypeId);
+    if (!selectedChargeType) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Invalid service charge type selected.'});
+        return;
+    }
+
+    const newAppliedCharge: AppliedServiceCharge = {
+      id: `asc-${Date.now()}`,
+      memberId: memberToApplyCharge.id,
+      memberName: memberToApplyCharge.fullName,
+      serviceChargeTypeId: selectedChargeType.id,
+      serviceChargeTypeName: selectedChargeType.name,
+      amountCharged: selectedChargeType.amount,
+      dateApplied: applyChargeForm.dateApplied || new Date().toISOString().split('T')[0],
+      status: 'pending',
+      notes: applyChargeForm.notes,
+    };
+    setAppliedServiceCharges(prev => [newAppliedCharge, ...prev]);
+    toast({ title: 'Service Charge Applied', description: `${selectedChargeType.name} for $${selectedChargeType.amount.toFixed(2)} applied to ${memberToApplyCharge.fullName}.` });
+    setIsApplyChargeModalOpen(false);
+    setApplyChargeForm(initialApplyChargeFormState);
+    setMemberToApplyCharge(null);
+  };
+
 
   const filteredMembers = useMemo(() => {
     return members.filter(member => {
@@ -213,7 +283,7 @@ export default function MembersPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Member Management" subtitle="Manage all members of your association.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+        <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Add Member
         </Button>
       </PageTitle>
@@ -291,11 +361,15 @@ export default function MembersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(member)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
+                      <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
+                        <Edit className="mr-2 h-4 w-4" /> Edit Member
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                       <DropdownMenuItem onClick={() => openApplyChargeModal(member)}>
+                        <ReceiptText className="mr-2 h-4 w-4" /> Apply Service Charge
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleDeleteMember(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Member
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -317,30 +391,31 @@ export default function MembersPage() {
         </div>
       )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl"> {/* Increased width for more fields */}
+      {/* Member Add/Edit Modal */}
+      <Dialog open={isMemberModalOpen} onOpenChange={setIsMemberModalOpen}>
+        <DialogContent className="sm:max-w-2xl"> 
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Member' : 'Add New Member'}</DialogTitle>
+            <DialogTitle className="font-headline">{isEditingMember ? 'Edit Member' : 'Add New Member'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update the details for this member.' : 'Enter the details for the new member.'}
+              {isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             {/* Personal Info Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleInputChange} required />
+                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required />
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleInputChange} required />
+                <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleMemberInputChange} required />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="sex">Sex</Label>
-                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required>
+                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required>
                   <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Male">Male</SelectItem>
@@ -351,41 +426,38 @@ export default function MembersPage() {
               </div>
               <div>
                 <Label htmlFor="phoneNumber">Phone Number</Label>
-                <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleInputChange} required />
+                <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleMemberInputChange} required />
               </div>
             </div>
             
-            {/* Address Section */}
             <Separator className="my-4" />
             <Label className="font-semibold text-base text-primary">Address</Label>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleInputChange} /></div>
-                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleInputChange} /></div>
-                <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleInputChange} /></div>
+                <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleMemberInputChange} /></div>
+                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleMemberInputChange} /></div>
+                <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleMemberInputChange} /></div>
             </div>
 
-            {/* Emergency Contact Section */}
             <Separator className="my-4" />
             <Label className="font-semibold text-base text-primary">Emergency Contact</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="emergencyContact.name">Representative Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleInputChange} /></div>
-                <div><Label htmlFor="emergencyContact.phone">Representative Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleInputChange} /></div>
+                <div><Label htmlFor="emergencyContact.name">Representative Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleMemberInputChange} /></div>
+                <div><Label htmlFor="emergencyContact.phone">Representative Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleMemberInputChange} /></div>
             </div>
             
-            {/* School & Financial Info Section */}
             <Separator className="my-4" />
              <Label className="font-semibold text-base text-primary">School &amp; Financial Information</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="schoolId">School</Label>
-                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleSelectChange('schoolId', value)} required>
+                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required>
                   <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
                   <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="joinDate">Join Date</Label>
-                <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleInputChange} required />
+                <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required />
               </div>
             </div>
 
@@ -394,12 +466,12 @@ export default function MembersPage() {
                     <Label htmlFor="savingsAccountNumber">Savings Account Number</Label>
                     <div className="relative">
                         <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleInputChange} placeholder="e.g., SA10023" required className="pl-8" />
+                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleMemberInputChange} placeholder="e.g., SA10023" required className="pl-8" />
                     </div>
                 </div>
                 <div>
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
-                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleSelectChange('savingAccountTypeId', value)}>
+                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
                         <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, ${sat.expectedMonthlyContribution?.toFixed(2) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
@@ -410,14 +482,14 @@ export default function MembersPage() {
                 <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleInputChange} className="pl-7"/>
+                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7"/>
                 </div>
               </div>
                <div>
                 <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
                 <div className="relative">
                     <LucidePieChart className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleInputChange} className="pl-7"/>
+                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7"/>
                 </div>
               </div>
               <div>
@@ -430,7 +502,7 @@ export default function MembersPage() {
                         type="number" 
                         step="0.01" 
                         value={currentMember.expectedMonthlySaving || 0} 
-                        onChange={handleInputChange} 
+                        onChange={handleMemberInputChange} 
                         className="pl-7 bg-muted/50" 
                         readOnly 
                     />
@@ -438,7 +510,6 @@ export default function MembersPage() {
               </div>
             </div>
 
-            {/* Share Commitments Section */}
             <Separator className="my-4" />
             <div className="flex justify-between items-center">
                 <Label className="font-semibold text-base text-primary">Share Commitments</Label>
@@ -487,7 +558,51 @@ export default function MembersPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Member'}</Button>
+              <Button type="submit">{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply Service Charge Modal */}
+      <Dialog open={isApplyChargeModalOpen} onOpenChange={setIsApplyChargeModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Apply Service Charge to {memberToApplyCharge?.fullName}</DialogTitle>
+            <DialogDescription>
+              Select a service charge type to apply to this member.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleApplyChargeSubmit} className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="serviceChargeTypeId">Service Charge Type</Label>
+              <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId || ''} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
+                <SelectTrigger id="serviceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
+                <SelectContent>
+                  {serviceChargeTypes.map(sct => (
+                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toFixed(2)}, {sct.frequency})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+             <div>
+                <Label htmlFor="applyChargeAmount">Amount ($) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
+                <div className="relative">
+                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="applyChargeAmount" name="amountCharged" type="number" value={applyChargeForm.amountCharged || ''} readOnly className="pl-7 bg-muted/50" />
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="dateApplied">Date Applied</Label>
+                <Input id="dateApplied" name="dateApplied" type="date" value={applyChargeForm.dateApplied || ''} onChange={handleApplyChargeFormChange} required />
+            </div>
+            <div>
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea id="notes" name="notes" value={applyChargeForm.notes || ''} onChange={handleApplyChargeFormChange} placeholder="E.g., Reason for charge application"/>
+            </div>
+            <DialogFooter className="pt-4">
+              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+              <Button type="submit">Apply Charge</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -495,5 +610,3 @@ export default function MembersPage() {
     </div>
   );
 }
-
-    

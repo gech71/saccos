@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -31,11 +32,11 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { mockMembers, mockSchools, mockShares, mockSavings, mockShareTypes } from '@/data/mock';
-import type { Member, School, Share, Saving, ShareType, MemberShareCommitment } from '@/types';
+import { mockMembers, mockSchools, mockShares, mockSavings, mockShareTypes, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
+import type { Member, School, Share, Saving, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInMonths, parseISO, format } from 'date-fns';
-import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, UploadCloud, Banknote, Wallet } from 'lucide-react';
+import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
+import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, UploadCloud, Banknote, Wallet, ReceiptText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -59,6 +60,8 @@ interface OverdueMemberInfo {
   savingsBalance: number;
   overdueSavingsAmount: number;
   overdueSharesDetails: OverdueShareDetail[];
+  pendingServiceCharges: AppliedServiceCharge[];
+  totalOverdueServiceCharges: number;
   hasAnyOverdue: boolean;
   shareCommitments?: MemberShareCommitment[];
   sharesCount: number;
@@ -66,7 +69,8 @@ interface OverdueMemberInfo {
 
 interface PaymentFormState {
   savingsAmount: number;
-  shareAmounts: Record<string, number>; // Key: shareTypeId, Value: amount for that share type
+  shareAmounts: Record<string, number>; 
+  serviceChargeAmount: number;
   date: string;
   depositMode: 'Cash' | 'Bank' | 'Wallet';
   paymentDetails: {
@@ -79,6 +83,7 @@ interface PaymentFormState {
 const initialPaymentFormState: PaymentFormState = {
   savingsAmount: 0,
   shareAmounts: {},
+  serviceChargeAmount: 0,
   date: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
   paymentDetails: {
@@ -94,6 +99,7 @@ export default function OverduePaymentsPage() {
   const [allShares, setAllShares] = useState<Share[]>(mockShares);
   const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
   const [allShareTypes] = useState<ShareType[]>(mockShareTypes);
+  const [appliedServiceCharges, setAppliedServiceCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
@@ -115,31 +121,22 @@ export default function OverduePaymentsPage() {
         }
         contributionPeriods = Math.max(0, contributionPeriods);
 
+        // Savings Overdue
         const expectedMonthlySaving = member.expectedMonthlySaving || 0;
         const totalExpectedSavings = expectedMonthlySaving * contributionPeriods;
         const memberSavingsBalance = member.savingsBalance;
         const overdueSavingsAmount = Math.max(0, totalExpectedSavings - memberSavingsBalance);
 
+        // Shares Overdue
         const overdueSharesDetails: OverdueShareDetail[] = (member.shareCommitments || [])
           .map(commitment => {
             const shareType = allShareTypes.find(st => st.id === commitment.shareTypeId);
-            if (!shareType || (commitment.monthlyCommittedAmount || 0) === 0) {
-                return null;
-            }
-
+            if (!shareType || (commitment.monthlyCommittedAmount || 0) === 0) return null;
             const monthlyCommitted = commitment.monthlyCommittedAmount || 0;
             const totalExpectedShareContributionForType = monthlyCommitted * contributionPeriods;
-            
-            const memberSharesOfType = allShares.filter(
-              s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId
-            );
-            const totalAllocatedValueForShareType = memberSharesOfType.reduce(
-              (sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)),
-              0
-            );
-            
+            const memberSharesOfType = allShares.filter(s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId);
+            const totalAllocatedValueForShareType = memberSharesOfType.reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0);
             const overdueAmount = Math.max(0, totalExpectedShareContributionForType - totalAllocatedValueForShareType);
-            
             if (overdueAmount > 0) {
                 return {
                   shareTypeId: commitment.shareTypeId,
@@ -153,8 +150,12 @@ export default function OverduePaymentsPage() {
             return null;
           })
           .filter((detail): detail is OverdueShareDetail => detail !== null);
+        
+        // Service Charges Overdue
+        const pendingServiceCharges = appliedServiceCharges.filter(asc => asc.memberId === member.id && asc.status === 'pending');
+        const totalOverdueServiceCharges = pendingServiceCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
           
-        const hasAnyOverdue = overdueSavingsAmount > 0 || overdueSharesDetails.some(s => s.overdueAmount > 0);
+        const hasAnyOverdue = overdueSavingsAmount > 0 || overdueSharesDetails.some(s => s.overdueAmount > 0) || totalOverdueServiceCharges > 0;
 
         return {
           memberId: member.id,
@@ -166,13 +167,15 @@ export default function OverduePaymentsPage() {
           savingsBalance: member.savingsBalance,
           overdueSavingsAmount,
           overdueSharesDetails,
+          pendingServiceCharges,
+          totalOverdueServiceCharges,
           hasAnyOverdue,
           shareCommitments: member.shareCommitments,
           sharesCount: member.sharesCount,
         };
       })
       .filter(memberInfo => memberInfo.hasAnyOverdue);
-  }, [allMembers, allShares, allSavings, allShareTypes, allSchools]);
+  }, [allMembers, allShares, allSavings, allShareTypes, allSchools, appliedServiceCharges]);
 
 
   const filteredOverdueMembers = useMemo(() => {
@@ -193,6 +196,7 @@ export default function OverduePaymentsPage() {
     setPaymentForm({
         savingsAmount: member.overdueSavingsAmount,
         shareAmounts: initialShareAmounts,
+        serviceChargeAmount: member.totalOverdueServiceCharges,
         date: new Date().toISOString().split('T')[0],
         depositMode: 'Cash',
         paymentDetails: { sourceName: '', transactionReference: '', evidenceUrl: '' },
@@ -202,13 +206,16 @@ export default function OverduePaymentsPage() {
 
   const handlePaymentFormInputChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string, shareTypeId?: string) => {
     const { value } = e.target;
+    const numericValue = parseFloat(value) || 0;
 
     if (fieldName === 'savingsAmount') {
-      setPaymentForm(prev => ({ ...prev, savingsAmount: parseFloat(value) || 0 }));
+      setPaymentForm(prev => ({ ...prev, savingsAmount: numericValue }));
+    } else if (fieldName === 'serviceChargeAmount') {
+      setPaymentForm(prev => ({ ...prev, serviceChargeAmount: numericValue }));
     } else if (fieldName === 'shareAmount' && shareTypeId) {
       setPaymentForm(prev => ({
         ...prev,
-        shareAmounts: { ...prev.shareAmounts, [shareTypeId]: parseFloat(value) || 0 },
+        shareAmounts: { ...prev.shareAmounts, [shareTypeId]: numericValue },
       }));
     } else if (fieldName === 'date') {
       setPaymentForm(prev => ({ ...prev, date: value }));
@@ -233,8 +240,8 @@ export default function OverduePaymentsPage() {
     e.preventDefault();
     if (!selectedOverdueMemberForPayment) return;
 
-    const { savingsAmount, shareAmounts, date, depositMode, paymentDetails } = paymentForm;
-    const totalPaymentMade = savingsAmount + Object.values(shareAmounts).reduce((sum, amt) => sum + amt, 0);
+    const { savingsAmount, shareAmounts, serviceChargeAmount, date, depositMode, paymentDetails } = paymentForm;
+    const totalPaymentMade = savingsAmount + Object.values(shareAmounts).reduce((sum, amt) => sum + amt, 0) + serviceChargeAmount;
 
     if (totalPaymentMade <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Total payment amount must be positive.' });
@@ -302,12 +309,42 @@ export default function OverduePaymentsPage() {
             ? { ...m, sharesCount: (m.sharesCount || 0) + sharesToAllocate } 
             : m
           ));
-          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s) (valued at $${totalValueForAllocation.toFixed(2)} from $${amount.toFixed(2)} contribution)`);
+          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s) (valued at $${totalValueForAllocation.toFixed(2)})`);
         } else {
           toastMessages.push(`$${amount.toFixed(2)} for ${shareType.name} (insufficient for one share)`);
         }
       }
     });
+
+    // Process Service Charge Payments
+    if (serviceChargeAmount > 0) {
+        let remainingServiceChargePayment = serviceChargeAmount;
+        const updatedAppliedCharges = [...appliedServiceCharges];
+        
+        // Sort pending charges by dateApplied (oldest first) to pay them off in order
+        const memberPendingCharges = updatedAppliedCharges
+            .filter(asc => asc.memberId === selectedOverdueMemberForPayment.memberId && asc.status === 'pending')
+            .sort((a, b) => compareDesc(new Date(b.dateApplied), new Date(a.dateApplied))); // Oldest first
+        
+        for (const charge of memberPendingCharges) {
+            if (remainingServiceChargePayment <= 0) break;
+            const amountToPayForThisCharge = Math.min(remainingServiceChargePayment, charge.amountCharged);
+            // In a real system, you might partially pay a charge. Here, we simplify to fully pay if possible.
+            // For this prototype, let's assume we fully pay if payment covers it.
+            if (remainingServiceChargePayment >= charge.amountCharged) {
+                 const chargeIndex = updatedAppliedCharges.findIndex(c => c.id === charge.id);
+                 if(chargeIndex !== -1) {
+                    updatedAppliedCharges[chargeIndex] = { ...updatedAppliedCharges[chargeIndex], status: 'paid' };
+                    remainingServiceChargePayment -= charge.amountCharged;
+                 }
+            } else {
+                // Partial payment logic could be added here if needed
+                // For now, if not fully paid, it remains pending.
+            }
+        }
+        setAppliedServiceCharges(updatedAppliedCharges);
+        toastMessages.push(`$${(serviceChargeAmount - remainingServiceChargePayment).toFixed(2)} for service charges`);
+    }
     
     let finalToastMessage = `Payment recorded for ${selectedOverdueMemberForPayment.fullName}.`;
     if(toastMessages.length > 0) {
@@ -330,16 +367,20 @@ export default function OverduePaymentsPage() {
     }, 0);
   }, [filteredOverdueMembers]);
 
+  const totalOverdueServiceChargesGlobal = useMemo(() => {
+    return filteredOverdueMembers.reduce((sum, member) => sum + member.totalOverdueServiceCharges, 0);
+  }, [filteredOverdueMembers]);
+
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Overdue Payments" subtitle="Track and manage members with outstanding savings or share contributions.">
+      <PageTitle title="Overdue Payments" subtitle="Track and manage members with outstanding savings, share contributions, or service charges.">
       </PageTitle>
 
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Members with Overdue Payments</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Members with Overdue</CardTitle>
                 <ListChecks className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
@@ -348,7 +389,7 @@ export default function OverduePaymentsPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Savings (in view)</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Savings</CardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
@@ -357,11 +398,20 @@ export default function OverduePaymentsPage() {
         </Card>
          <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Shares Value (in view)</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Shares Value</CardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold text-destructive">${totalOverdueSharesValue.toFixed(2)}</div>
+            </CardContent>
+        </Card>
+        <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Service Charges</CardTitle>
+                <ReceiptText className="h-5 w-5 text-destructive" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold text-destructive">${totalOverdueServiceChargesGlobal.toFixed(2)}</div>
             </CardContent>
         </Card>
       </div>
@@ -402,6 +452,7 @@ export default function OverduePaymentsPage() {
               <TableHead>School</TableHead>
               <TableHead className="text-right text-destructive">Overdue Savings ($)</TableHead>
               <TableHead className="text-left">Overdue Shares Details</TableHead>
+              <TableHead className="text-right text-destructive">Overdue Service Charges ($)</TableHead>
               <TableHead className="text-center w-[150px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -424,6 +475,18 @@ export default function OverduePaymentsPage() {
                     </ul>
                   ) : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
+                <TableCell className="text-right font-semibold text-destructive">
+                   {member.totalOverdueServiceCharges > 0 ? (
+                    <div className="flex flex-col items-end">
+                      <span>${member.totalOverdueServiceCharges.toFixed(2)}</span>
+                      <ul className="list-disc list-inside text-xs text-right">
+                        {member.pendingServiceCharges.map(sc => (
+                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: ${sc.amountCharged.toFixed(2)}</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : <span className="text-muted-foreground/70">-</span>}
+                </TableCell>
                 <TableCell className="text-center">
                   {member.hasAnyOverdue && (
                     <Button
@@ -440,7 +503,7 @@ export default function OverduePaymentsPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No overdue payments found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -460,7 +523,7 @@ export default function OverduePaymentsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Record Payment for {selectedOverdueMemberForPayment?.fullName}</DialogTitle>
             <DialogDescription>
-              Enter payment amounts for overdue savings and/or shares.
+              Enter payment amounts for overdue savings, shares, and/or service charges.
             </DialogDescription>
           </DialogHeader>
           {selectedOverdueMemberForPayment && (
@@ -469,7 +532,7 @@ export default function OverduePaymentsPage() {
               {selectedOverdueMemberForPayment.overdueSavingsAmount > 0 && (
                 <div className="p-3 border rounded-md bg-background shadow-sm">
                   <Label htmlFor="savingsAmount" className="font-semibold text-primary">Savings Payment</Label>
-                  <p className="text-xs text-muted-foreground mb-1">Overdue: ${selectedOverdueMemberForPayment.overdueSavingsAmount.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${selectedOverdueMemberForPayment.overdueSavingsAmount.toFixed(2)}</p>
                   <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -492,7 +555,7 @@ export default function OverduePaymentsPage() {
                   {selectedOverdueMemberForPayment.overdueSharesDetails.map(detail => (
                     <div key={detail.shareTypeId} className="ml-1 pl-2 border-l-2 border-accent/50">
                       <Label htmlFor={`shareAmount-${detail.shareTypeId}`}>{detail.shareTypeName}</Label>
-                      <p className="text-xs text-muted-foreground mb-1">Overdue: ${detail.overdueAmount.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${detail.overdueAmount.toFixed(2)}</p>
                       <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -508,6 +571,26 @@ export default function OverduePaymentsPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {selectedOverdueMemberForPayment.totalOverdueServiceCharges > 0 && (
+                 <div className="p-3 border rounded-md bg-background shadow-sm">
+                  <Label htmlFor="serviceChargeAmount" className="font-semibold text-primary">Service Charge Payment</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${selectedOverdueMemberForPayment.totalOverdueServiceCharges.toFixed(2)}</p>
+                  <div className="relative">
+                    <ReceiptText className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        id="serviceChargeAmount" 
+                        name="serviceChargeAmount" 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        value={paymentForm.serviceChargeAmount || ''} 
+                        onChange={(e) => handlePaymentFormInputChange(e, 'serviceChargeAmount')} 
+                        className="pl-7"
+                    />
+                  </div>
                 </div>
               )}
               
