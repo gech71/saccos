@@ -279,7 +279,7 @@ export default function DividendsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {members.map(member => (
-                    <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+                    <SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -308,3 +308,5 @@ export default function DividendsPage() {
     </div>
   );
 }
+
+    

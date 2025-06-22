@@ -409,7 +409,7 @@ export default function SharesPage() {
               <Label htmlFor="memberIdShare">Member</Label>
               <Select name="memberId" value={currentShare.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
                 <SelectTrigger id="memberIdShare"><SelectValue placeholder="Select a member" /></SelectTrigger>
-                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>))}</SelectContent>
+                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
               </Select>
             </div>
              <div>
@@ -517,3 +517,5 @@ export default function SharesPage() {
     </div>
   );
 }
+
+    

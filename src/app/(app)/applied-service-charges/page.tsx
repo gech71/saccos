@@ -355,7 +355,7 @@ export default function AppliedServiceChargesPage() {
               <Label htmlFor="applyChargeMemberId">Member</Label>
               <Select name="memberId" value={applyChargeForm.memberId || ''} onValueChange={(value) => handleApplyChargeSelectChange('memberId', value)} required>
                 <SelectTrigger id="applyChargeMemberId"><SelectValue placeholder="Select member" /></SelectTrigger>
-                <SelectContent>{allMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>))}</SelectContent>
+                <SelectContent>{allMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.fullName} ({m.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div>
@@ -394,4 +394,6 @@ export default function AppliedServiceChargesPage() {
     </div>
   );
 }
+    
+
     
