@@ -202,6 +202,17 @@ export const mockSavings: Saving[] = [
     transactionType: 'withdrawal',
     status: 'pending',
   },
+  {
+    id: 'saving-rejected-1',
+    memberId: 'member-4',
+    memberName: 'Sarah Williams',
+    amount: 500.00,
+    date: new Date(2024, 2, 20).toISOString(),
+    month: 'March 2024',
+    transactionType: 'withdrawal',
+    status: 'rejected',
+    notes: 'Withdrawal amount exceeds member\'s current savings balance.'
+  },
 ];
 
 export const mockShares: Share[] = [
@@ -339,4 +350,3 @@ export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
         notes: 'Jan 2024 Admin Fee',
     },
 ];
-

@@ -316,7 +316,7 @@ export default function SavingsPage() {
           </TableHeader>
           <TableBody>
             {filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
-              <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-red-500/10' : ''}>
+              <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A'}</TableCell>
                 <TableCell>
                   <span className={`flex items-center gap-1 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
