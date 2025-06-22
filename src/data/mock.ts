@@ -181,6 +181,27 @@ export const mockSavings: Saving[] = [
     transactionType: 'withdrawal',
     status: 'approved',
   },
+  {
+    id: 'saving-pending-1',
+    memberId: 'member-2',
+    memberName: 'Jane Smith',
+    amount: 25.00,
+    date: new Date(2024, 2, 28).toISOString(),
+    month: 'March 2024',
+    transactionType: 'deposit',
+    status: 'pending',
+    depositMode: 'Cash',
+  },
+  {
+    id: 'saving-pending-2',
+    memberId: 'member-3',
+    memberName: 'Mike Johnson',
+    amount: 100.00,
+    date: new Date(2024, 2, 29).toISOString(),
+    month: 'March 2024',
+    transactionType: 'withdrawal',
+    status: 'pending',
+  },
 ];
 
 export const mockShares: Share[] = [
@@ -228,6 +249,21 @@ export const mockShares: Share[] = [
     depositMode: 'Wallet',
     paymentDetails: { sourceName: 'EduPay Wallet', transactionReference: 'EDUPAY002'}
   },
+  {
+    id: 'share-pending-1',
+    memberId: 'member-3',
+    memberName: 'Mike Johnson',
+    shareTypeId: 'st-regular',
+    shareTypeName: 'Regular Share',
+    count: 10,
+    allocationDate: new Date(2024, 2, 25).toISOString(),
+    valuePerShare: 10.00,
+    status: 'pending',
+    contributionAmount: 100.00,
+    totalValueForAllocation: 100.00,
+    depositMode: 'Bank',
+    paymentDetails: { sourceName: 'Capital One', transactionReference: 'CO-SHARE-001'}
+  },
 ];
 
 export const mockDividends: Dividend[] = [
@@ -248,6 +284,16 @@ export const mockDividends: Dividend[] = [
     distributionDate: new Date(2023, 11, 31).toISOString(),
     shareCountAtDistribution: 30, // sum of shares for member-2
     status: 'approved',
+  },
+  {
+    id: 'dividend-pending-1',
+    memberId: 'member-4',
+    memberName: 'Sarah Williams',
+    amount: 50.00,
+    distributionDate: new Date(2024, 2, 30).toISOString(),
+    shareCountAtDistribution: 0, // No approved shares for this member yet
+    status: 'pending',
+    notes: 'Project-based dividend proposal'
   },
 ];
 
@@ -293,3 +339,4 @@ export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
         notes: 'Jan 2024 Admin Fee',
     },
 ];
+
