@@ -120,6 +120,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 0, 15).toISOString(),
     month: 'January 2024',
     transactionType: 'deposit',
+    status: 'approved',
     depositMode: 'Bank',
     paymentDetails: {
       sourceName: 'Bank of Academ',
@@ -135,6 +136,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 0, 20).toISOString(),
     month: 'January 2024',
     transactionType: 'deposit',
+    status: 'approved',
     depositMode: 'Cash',
   },
   {
@@ -145,6 +147,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 1, 15).toISOString(),
     month: 'February 2024',
     transactionType: 'deposit',
+    status: 'approved',
     depositMode: 'Wallet',
     paymentDetails: {
       sourceName: 'AcademPay Wallet',
@@ -160,6 +163,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 1, 18).toISOString(),
     month: 'February 2024',
     transactionType: 'deposit',
+    status: 'approved',
     depositMode: 'Bank',
     paymentDetails: {
         sourceName: 'Investment Bank Inc.',
@@ -175,6 +179,7 @@ export const mockSavings: Saving[] = [
     date: new Date(2024, 2, 5).toISOString(),
     month: 'March 2024',
     transactionType: 'withdrawal',
+    status: 'approved',
   },
 ];
 
@@ -188,6 +193,7 @@ export const mockShares: Share[] = [
     count: 50,
     allocationDate: new Date(2023, 6, 1).toISOString(),
     valuePerShare: 10.00,
+    status: 'approved',
     contributionAmount: 500.00,
     totalValueForAllocation: 500.00,
     depositMode: 'Bank',
@@ -202,6 +208,7 @@ export const mockShares: Share[] = [
     count: 30,
     allocationDate: new Date(2023, 6, 1).toISOString(),
     valuePerShare: 10.00,
+    status: 'approved',
     contributionAmount: 300.00,
     totalValueForAllocation: 300.00,
     depositMode: 'Cash',
@@ -215,6 +222,7 @@ export const mockShares: Share[] = [
     count: 20,
     allocationDate: new Date(2023, 8, 1).toISOString(),
     valuePerShare: 15.00,
+    status: 'approved',
     contributionAmount: 300.00,
     totalValueForAllocation: 300.00,
     depositMode: 'Wallet',
@@ -230,6 +238,7 @@ export const mockDividends: Dividend[] = [
     amount: 25.00,
     distributionDate: new Date(2023, 11, 31).toISOString(),
     shareCountAtDistribution: 70, // sum of shares for member-1
+    status: 'approved',
   },
   {
     id: 'dividend-2',
@@ -238,6 +247,7 @@ export const mockDividends: Dividend[] = [
     amount: 15.00,
     distributionDate: new Date(2023, 11, 31).toISOString(),
     shareCountAtDistribution: 30, // sum of shares for member-2
+    status: 'approved',
   },
 ];
 
@@ -283,4 +293,3 @@ export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
         notes: 'Jan 2024 Admin Fee',
     },
 ];
-

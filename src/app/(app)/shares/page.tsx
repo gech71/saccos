@@ -69,7 +69,7 @@ export default function SharesPage() {
   const [members, setMembersState] = useState<Member[]>(mockMembers);
   const [shareTypes, setShareTypesState] = useState<ShareType[]>(mockShareTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentShare, setCurrentShare] = useState<Partial<Omit<Share, 'id' | 'count' | 'paymentDetails'>> & { contributionAmount?: number, paymentDetails?: Share['paymentDetails'] }>(initialShareFormState);
+  const [currentShare, setCurrentShare] = useState<Partial<Omit<Share, 'id' | 'count' | 'paymentDetails' | 'status'>> & { contributionAmount?: number, paymentDetails?: Share['paymentDetails'] }>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
@@ -148,13 +148,13 @@ export default function SharesPage() {
     const memberName = members.find(m => m.id === currentShare.memberId)?.fullName;
     const totalValueForAllocation = calculatedShares * selectedType.valuePerShare;
 
-    let shareDataToSave: Share = {
-        id: isEditing && currentShare.id ? currentShare.id : `share-${Date.now()}`,
+    let shareDataToSave: Omit<Share, 'id'> & { id?: string } = {
         memberId: currentShare.memberId!,
         memberName,
         shareTypeId: currentShare.shareTypeId!,
         shareTypeName: selectedType.name,
         count: calculatedShares,
+        status: 'pending',
         allocationDate: currentShare.allocationDate || new Date().toISOString().split('T')[0],
         valuePerShare: selectedType.valuePerShare,
         contributionAmount: currentShare.contributionAmount,
@@ -165,23 +165,15 @@ export default function SharesPage() {
 
 
     if (isEditing && currentShare.id) {
-      setShares(prev => prev.map(s => s.id === shareDataToSave.id ? shareDataToSave : s));
-      toast({ title: 'Success', description: `${calculatedShares} share(s) record updated for ${memberName}.` });
+      shareDataToSave.id = currentShare.id;
+      setShares(prev => prev.map(s => s.id === shareDataToSave.id ? shareDataToSave as Share : s));
+      toast({ title: 'Success', description: `Share record for ${memberName} updated and is pending re-approval.` });
     } else {
-      setShares(prev => [shareDataToSave, ...prev]);
-      toast({ title: 'Success', description: `${calculatedShares} share(s) allocated to ${memberName} for $${(currentShare.contributionAmount || 0).toFixed(2)}.` });
+      shareDataToSave.id = `share-${Date.now()}`;
+      setShares(prev => [shareDataToSave as Share, ...prev]);
+      toast({ title: 'Submitted for Approval', description: `${calculatedShares} share(s) allocation for ${memberName} submitted.` });
     }
     
-    setMembersState(prevMembers => prevMembers.map(mem => {
-        if (mem.id === shareDataToSave.memberId) {
-            const memberTotalShares = shares
-                .filter(s => s.memberId === mem.id && s.id !== shareDataToSave.id) 
-                .reduce((acc, curr) => acc + curr.count, 0) + shareDataToSave.count; 
-            return { ...mem, sharesCount: memberTotalShares };
-        }
-        return mem;
-    }));
-
     setIsModalOpen(false);
     setCurrentShare(initialShareFormState);
     setCalculatedShares(0);
@@ -211,7 +203,7 @@ export default function SharesPage() {
         const shareToDelete = shares.find(s => s.id === shareId);
         setShares(prev => prev.filter(s => s.id !== shareId));
         
-        if (shareToDelete) {
+        if (shareToDelete && shareToDelete.status === 'approved') {
             setMembersState(prevMembers => prevMembers.map(mem => {
                 if (mem.id === shareToDelete.memberId) {
                     return { ...mem, sharesCount: Math.max(0, mem.sharesCount - shareToDelete.count) };
@@ -232,8 +224,18 @@ export default function SharesPage() {
     });
   }, [shares, members, searchTerm, selectedMemberFilter]);
 
-  const totalSharesAllocated = useMemo(() => filteredShares.reduce((sum, s) => sum + s.count, 0), [filteredShares]);
-  const totalSharesValue = useMemo(() => filteredShares.reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
+  const totalSharesAllocated = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.count, 0), [filteredShares]);
+  const totalSharesValue = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
+  
+  const getStatusBadgeVariant = (status: 'pending' | 'approved' | 'rejected') => {
+    switch (status) {
+        case 'pending': return 'secondary';
+        case 'approved': return 'default';
+        case 'rejected': return 'destructive';
+        default: return 'outline';
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -246,7 +248,7 @@ export default function SharesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Shares Allocated (in view)</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
                 <LucidePieChart className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -255,7 +257,7 @@ export default function SharesPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Shares (in view)</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -294,11 +296,9 @@ export default function SharesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all share records" />
-              </TableHead>
               <TableHead>Member Name</TableHead>
               <TableHead>Share Type</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
@@ -335,12 +335,10 @@ export default function SharesPage() {
               }
 
               return (
-                <TableRow key={share.id}>
-                  <TableCell>
-                    <Checkbox aria-label={`Select share record for ${share.memberName}`} />
-                  </TableCell>
+                <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
                   <TableCell className="font-medium">{share.memberName || member?.fullName}</TableCell>
                   <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
+                  <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-semibold">${currentAllocationValue.toFixed(2)}</TableCell>
@@ -366,7 +364,7 @@ export default function SharesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditModal(share)}>
+                        <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -398,7 +396,7 @@ export default function SharesPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Record Share Contribution & Allocation'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this share allocation.' : 'Enter monetary contribution to allocate shares.'}
+              {isEditing ? 'Update this share allocation.' : 'Enter monetary contribution to allocate shares. This will be sent for approval.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
@@ -506,7 +504,7 @@ export default function SharesPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit" disabled={calculatedShares <= 0 && (currentShare.contributionAmount || 0) > 0}>{isEditing ? 'Save Changes' : 'Record Contribution'}</Button>
+              <Button type="submit" disabled={calculatedShares <= 0 && (currentShare.contributionAmount || 0) > 0}>{isEditing ? 'Save Changes' : 'Submit for Approval'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -13,7 +13,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
   { title: 'Savings', href: '/savings', icon: PiggyBank },
   { title: 'Group Collections', href: '/group-collections', icon: Library },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare },
   { title: 'Share Types', href: '/share-types', icon: Shapes },
   { title: 'Shares', href: '/shares', icon: PieChart },
   { title: 'Dividends', href: '/dividends', icon: Landmark },
@@ -82,4 +83,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-

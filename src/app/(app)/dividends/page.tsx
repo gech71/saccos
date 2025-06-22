@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -84,16 +85,18 @@ export default function DividendsPage() {
     const memberName = members.find(m => m.id === currentDividend.memberId)?.fullName;
 
     if (isEditing && currentDividend.id) {
-      setDividends(prev => prev.map(d => d.id === currentDividend.id ? { ...d, ...currentDividend, memberName } as Dividend : d));
-      toast({ title: 'Success', description: 'Dividend record updated.' });
+      const updatedDividend = { ...currentDividend, memberName, status: 'pending' } as Dividend;
+      setDividends(prev => prev.map(d => d.id === currentDividend.id ? updatedDividend : d));
+      toast({ title: 'Dividend Updated', description: 'Dividend record updated and sent for re-approval.' });
     } else {
       const newDividend: Dividend = {
         id: `dividend-${Date.now()}`,
         ...currentDividend,
         memberName,
+        status: 'pending',
       } as Dividend;
       setDividends(prev => [newDividend, ...prev]);
-      toast({ title: 'Success', description: 'Dividend record added.' });
+      toast({ title: 'Dividend Submitted', description: 'Dividend distribution sent for approval.' });
     }
     setIsModalOpen(false);
     setCurrentDividend(initialDividendFormState);
@@ -131,13 +134,22 @@ export default function DividendsPage() {
     });
   }, [dividends, members, searchTerm, selectedMemberFilter]);
 
-  const totalDividendsDistributed = useMemo(() => filteredDividends.reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
+  const totalDividendsDistributed = useMemo(() => filteredDividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
   const averageDividendPerShare = useMemo(() => {
-    const totalAmount = filteredDividends.reduce((sum, d) => sum + d.amount, 0);
-    const totalShares = filteredDividends.reduce((sum, d) => sum + d.shareCountAtDistribution, 0);
+    const approvedDividends = filteredDividends.filter(d => d.status === 'approved');
+    const totalAmount = approvedDividends.reduce((sum, d) => sum + d.amount, 0);
+    const totalShares = approvedDividends.reduce((sum, d) => sum + d.shareCountAtDistribution, 0);
     return totalShares > 0 ? totalAmount / totalShares : 0;
   }, [filteredDividends]);
 
+  const getStatusBadgeVariant = (status: 'pending' | 'approved' | 'rejected') => {
+    switch (status) {
+        case 'pending': return 'secondary';
+        case 'approved': return 'default';
+        case 'rejected': return 'destructive';
+        default: return 'outline';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -150,7 +162,7 @@ export default function DividendsPage() {
        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Dividends Distributed</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Dividends Distributed</ShadcnCardTitle>
                 <LucideLandmark className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -159,7 +171,7 @@ export default function DividendsPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Avg. Dividend Per Share</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Avg. Dividend Per Share (Approved)</ShadcnCardTitle>
                 <TrendingUp className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -199,10 +211,8 @@ export default function DividendsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all dividend records" />
-              </TableHead>
               <TableHead>Member Name</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Dividend Amount</TableHead>
               <TableHead className="text-right">Shares Held</TableHead>
               <TableHead>Distribution Date</TableHead>
@@ -211,11 +221,9 @@ export default function DividendsPage() {
           </TableHeader>
           <TableBody>
             {filteredDividends.length > 0 ? filteredDividends.map(dividend => (
-              <TableRow key={dividend.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select dividend record for ${dividend.memberName}`} />
-                </TableCell>
+               <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
+                <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
                 <TableCell className="text-right font-semibold">${dividend.amount.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
@@ -228,7 +236,7 @@ export default function DividendsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(dividend)}>
+                      <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -259,7 +267,7 @@ export default function DividendsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Dividend Record' : 'Distribute New Dividend'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this dividend distribution.' : 'Enter details for new dividend distribution.'}
+              {isEditing ? 'Update this dividend distribution. This will require re-approval.' : 'Enter details for new dividend distribution to be sent for approval.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
@@ -292,7 +300,7 @@ export default function DividendsPage() {
               <DialogClose asChild>
                 <Button type="button" variant="outline">Cancel</Button>
               </DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Distribute Dividend'}</Button>
+              <Button type="submit">{isEditing ? 'Save Changes' : 'Submit for Approval'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

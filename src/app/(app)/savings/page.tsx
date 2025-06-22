@@ -57,7 +57,7 @@ const initialIndividualTransactionFormState: Partial<Saving> = {
   },
 };
 
-const initialGroupTransactionFormState: Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month'> & { memberIds?: string[] } = {
+const initialGroupTransactionFormState: Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month' | 'status'> & { memberIds?: string[] } = {
   amount: 0,
   date: new Date().toISOString().split('T')[0],
   transactionType: 'deposit',
@@ -81,7 +81,7 @@ export default function SavingsPage() {
   const [isEditingIndividualTransaction, setIsEditingIndividualTransaction] = useState(false);
 
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [currentGroupTransactionData, setCurrentGroupTransactionData] = useState<Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month'>>(initialGroupTransactionFormState);
+  const [currentGroupTransactionData, setCurrentGroupTransactionData] = useState<Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month' | 'status'>>(initialGroupTransactionFormState);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
 
@@ -172,7 +172,7 @@ export default function SavingsPage() {
     }
 
     const memberName = members.find(m => m.id === currentIndividualTransaction.memberId)?.fullName;
-    let transactionDataToSave = { ...currentIndividualTransaction, memberName };
+    let transactionDataToSave = { ...currentIndividualTransaction, memberName, status: 'pending' as const };
 
     if (transactionDataToSave.transactionType === 'withdrawal' || transactionDataToSave.depositMode === 'Cash') {
         transactionDataToSave.paymentDetails = undefined;
@@ -181,31 +181,22 @@ export default function SavingsPage() {
         transactionDataToSave.depositMode = undefined;
     }
     
+    // For editing, we will just update the existing record. The approval status must be handled on the approval page.
     if (isEditingIndividualTransaction && transactionDataToSave.id) {
         setSavingsTransactions(prev => prev.map(st => st.id === transactionDataToSave.id ? {...st, ...transactionDataToSave} as Saving : st));
-        toast({ title: 'Success', description: `Savings transaction updated for ${memberName}. Balance recalculation might be needed separately.` });
+        toast({ title: 'Success', description: `Savings transaction for ${memberName} updated. It may require re-approval.` });
 
     } else {
         const newTransaction: Saving = {
           id: `saving-${Date.now()}`,
           ...initialIndividualTransactionFormState, 
           ...transactionDataToSave,
-          amount: transactionDataToSave.amount || 0, 
+          amount: transactionDataToSave.amount || 0,
+          status: 'pending',
         } as Saving;
         setSavingsTransactions(prev => [newTransaction, ...prev]);
         
-        if (transactionDataToSave.memberId) {
-            setMembers(prevMembers => prevMembers.map(mem => {
-                if (mem.id === transactionDataToSave.memberId) {
-                    const newBalance = transactionDataToSave.transactionType === 'deposit' 
-                        ? mem.savingsBalance + (transactionDataToSave.amount || 0)
-                        : mem.savingsBalance - (transactionDataToSave.amount || 0);
-                    return {...mem, savingsBalance: newBalance < 0 ? 0 : newBalance };
-                }
-                return mem;
-            }));
-        }
-        toast({ title: 'Success', description: `Savings transaction recorded for ${memberName}.` });
+        toast({ title: 'Transaction Submitted', description: `Savings transaction for ${memberName} sent for approval.` });
     }
     
     setIsIndividualModalOpen(false);
@@ -282,10 +273,9 @@ export default function SavingsPage() {
     }
 
     const newTransactions: Saving[] = [];
-    const updatedMembers = [...members];
 
     selectedMemberIds.forEach(memberId => {
-        const member = updatedMembers.find(m => m.id === memberId);
+        const member = members.find(m => m.id === memberId);
         if (!member) return;
 
         const transactionDataForMember = { ...currentGroupTransactionData };
@@ -310,21 +300,14 @@ export default function SavingsPage() {
             transactionType: transactionDataForMember.transactionType,
             depositMode: transactionDataForMember.depositMode,
             paymentDetails: transactionDataForMember.paymentDetails,
+            status: 'pending',
         };
         newTransactions.push(newTransaction);
-
-        const memberIndex = updatedMembers.findIndex(m => m.id === memberId);
-        const currentBalance = updatedMembers[memberIndex].savingsBalance;
-        const newBalance = transactionDataForMember.transactionType === 'deposit'
-            ? currentBalance + transactionDataForMember.amount
-            : currentBalance - transactionDataForMember.amount;
-        updatedMembers[memberIndex] = { ...updatedMembers[memberIndex], savingsBalance: newBalance < 0 ? 0 : newBalance };
     });
 
     setSavingsTransactions(prev => [...newTransactions, ...prev]);
-    setMembers(updatedMembers);
 
-    toast({ title: 'Success', description: `Group transaction recorded for ${selectedMemberIds.length} members.` });
+    toast({ title: 'Success', description: `Group transaction for ${selectedMemberIds.length} members submitted for approval.` });
     setIsGroupModalOpen(false);
     setCurrentGroupTransactionData(initialGroupTransactionFormState);
     setSelectedMemberIds([]);
@@ -639,7 +622,7 @@ export default function SavingsPage() {
             )}
             <DialogFooter className="pt-6">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditingIndividualTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+              <Button type="submit">{isEditingIndividualTransaction ? 'Save Changes' : 'Submit for Approval'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -729,7 +712,7 @@ export default function SavingsPage() {
             )}
             <DialogFooter className="pt-6">
               <DialogClose asChild><Button type="button" variant="outline" onClick={() => setSelectedMemberIds([])}>Cancel</Button></DialogClose>
-              <Button type="submit">Post Group Transaction</Button>
+              <Button type="submit">Submit Group Transaction</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -737,4 +720,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-

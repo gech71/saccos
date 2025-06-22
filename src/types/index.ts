@@ -64,6 +64,8 @@ export interface Saving {
   date: string; // ISO date string
   month: string; // e.g., "January 2024"
   transactionType: 'deposit' | 'withdrawal';
+  status: 'pending' | 'approved' | 'rejected';
+  notes?: string; // For rejection reasons or other comments
   depositMode?: 'Cash' | 'Bank' | 'Wallet'; // Only applicable for deposits
   paymentDetails?: { // Only applicable for 'Bank' or 'Wallet' deposits
     sourceName?: string; // e.g., Bank Name or Wallet Provider Name
@@ -81,6 +83,8 @@ export interface Share {
   count: number; // Number of shares allocated
   allocationDate: string; // ISO date string
   valuePerShare: number; // Value per share at the time of allocation
+  status: 'pending' | 'approved' | 'rejected';
+  notes?: string; // For rejection reasons or other comments
   contributionAmount?: number; // The monetary amount input by the user for this specific allocation
   totalValueForAllocation?: number; // Actual value of shares allocated (count * valuePerShare)
   depositMode?: 'Cash' | 'Bank' | 'Wallet';
@@ -98,6 +102,8 @@ export interface Dividend {
   amount: number;
   distributionDate: string; // ISO date string
   shareCountAtDistribution: number; // Could be refined to be per share type if dividends vary
+  status: 'pending' | 'approved' | 'rejected';
+  notes?: string; // For rejection reasons or other comments
 }
 
 export interface ServiceChargeType {
@@ -135,4 +141,3 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
-

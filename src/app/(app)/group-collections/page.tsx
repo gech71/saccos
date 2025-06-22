@@ -41,7 +41,7 @@ const months = [
   { value: 9, label: 'October' }, { value: 10, label: 'November' }, { value: 11, label: 'December' }
 ];
 
-const initialBatchTransactionState: Partial<Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month'>> & { paymentDetails?: Saving['paymentDetails'] } = {
+const initialBatchTransactionState: Partial<Omit<Saving, 'id' | 'memberId' | 'memberName' | 'month' | 'status'>> & { paymentDetails?: Saving['paymentDetails'] } = {
   date: new Date().toISOString().split('T')[0],
   transactionType: 'deposit',
   depositMode: 'Cash',
@@ -173,10 +173,9 @@ export default function GroupCollectionsPage() {
     const transactionMonthString = `${months.find(m => m.value === transactionDateObj.getMonth())?.label} ${transactionDateObj.getFullYear()}`;
     
     const newTransactions: Saving[] = [];
-    const updatedMembersList = [...allMembers];
 
     selectedMemberIds.forEach(memberId => {
-      const member = updatedMembersList.find(m => m.id === memberId);
+      const member = allMembers.find(m => m.id === memberId);
       if (!member || (member.expectedMonthlySaving || 0) <= 0) return; 
 
       const newTransaction: Saving = {
@@ -187,19 +186,16 @@ export default function GroupCollectionsPage() {
         date: transactionDate,
         month: transactionMonthString,
         transactionType: 'deposit', 
+        status: 'pending',
         depositMode: batchDetails.depositMode,
         paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
       };
       newTransactions.push(newTransaction);
-
-      const memberIndex = updatedMembersList.findIndex(m => m.id === memberId);
-      updatedMembersList[memberIndex].savingsBalance += (member.expectedMonthlySaving || 0);
     });
 
     setTimeout(() => {
       setAllSavings(prev => [...newTransactions, ...prev]);
-      setAllMembers(updatedMembersList); 
-      toast({ title: 'Collection Posted', description: `Successfully posted monthly SAVINGS collection for ${newTransactions.length} members.` });
+      toast({ title: 'Collection Submitted', description: `Successfully submitted monthly SAVINGS collection for ${newTransactions.length} members for approval.` });
       setIsPosting(false);
       setEligibleMembers([]); 
       setSelectedMemberIds([]);
@@ -333,7 +329,7 @@ export default function GroupCollectionsPage() {
                 <Separator className="my-6" />
                 
                 <Label className="text-lg font-semibold text-primary mb-2 block">Batch Transaction Details (For Savings)</Label>
-                 <p className="text-xs text-muted-foreground mb-3">Note: This form currently posts collections for EXPECTED MONTHLY SAVINGS only.</p>
+                 <p className="text-xs text-muted-foreground mb-3">Note: This form currently posts collections for EXPECTED MONTHLY SAVINGS only. Transactions will be sent for approval.</p>
                 <div className="space-y-4">
                     <div>
                         <Label htmlFor="batchDetails.date">Transaction Date</Label>
@@ -392,7 +388,7 @@ export default function GroupCollectionsPage() {
               <CardFooter>
                 <Button onClick={handleSubmitCollection} disabled={isPosting || selectedMemberIds.length === 0} className="w-full md:w-auto ml-auto">
                   {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Post Savings Collection for {summaryForSelection.count} Members
+                  Submit Savings Collection for {summaryForSelection.count} Members
                 </Button>
               </CardFooter>
             </Card>
@@ -412,15 +408,15 @@ export default function GroupCollectionsPage() {
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <div>
-                        <CardTitle className="font-headline text-primary">Posted Collection Transactions</CardTitle>
-                        <CardDescription>Review the SAVINGS transactions that were just processed. For corrections, a formal reversal process is needed (not implemented in this view).</CardDescription>
+                        <CardTitle className="font-headline text-primary">Collection Submitted for Approval</CardTitle>
+                        <CardDescription>The following SAVINGS transactions were submitted for approval. They will not reflect on member balances until approved.</CardDescription>
                     </div>
                     <Button onClick={startNewGroupCollection} variant="outline">
                         <RotateCcw className="mr-2 h-4 w-4" /> Start New Group Collection
                     </Button>
                 </div>
                  <p className="text-sm text-muted-foreground mt-2">
-                    Total Savings Transactions Posted: {postedTransactions.length}
+                    Total Savings Transactions Submitted: {postedTransactions.length}
                 </p>
             </CardHeader>
             <CardContent>
@@ -472,4 +468,3 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
-

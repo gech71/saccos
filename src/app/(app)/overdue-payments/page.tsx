@@ -134,7 +134,7 @@ export default function OverduePaymentsPage() {
             if (!shareType || (commitment.monthlyCommittedAmount || 0) === 0) return null;
             const monthlyCommitted = commitment.monthlyCommittedAmount || 0;
             const totalExpectedShareContributionForType = monthlyCommitted * contributionPeriods;
-            const memberSharesOfType = allShares.filter(s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId);
+            const memberSharesOfType = allShares.filter(s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId && s.status === 'approved');
             const totalAllocatedValueForShareType = memberSharesOfType.reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0);
             const overdueAmount = Math.max(0, totalExpectedShareContributionForType - totalAllocatedValueForShareType);
             if (overdueAmount > 0) {
@@ -266,15 +266,11 @@ export default function OverduePaymentsPage() {
         date: date,
         month: monthYear,
         transactionType: 'deposit',
+        status: 'pending',
         depositMode: depositMode,
         paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
       };
       setAllSavings(prev => [...prev, newSaving]);
-      setAllMembers(prev => prev.map(m => 
-        m.id === selectedOverdueMemberForPayment.memberId 
-        ? { ...m, savingsBalance: m.savingsBalance + savingsAmount } 
-        : m
-      ));
       toastMessages.push(`$${savingsAmount.toFixed(2)} for savings`);
     }
 
@@ -298,18 +294,14 @@ export default function OverduePaymentsPage() {
             count: sharesToAllocate,
             allocationDate: date,
             valuePerShare: shareType.valuePerShare,
+            status: 'pending',
             contributionAmount: amount,
             totalValueForAllocation,
             depositMode: depositMode,
             paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
           };
           setAllShares(prev => [...prev, newShare]);
-          setAllMembers(prev => prev.map(m => 
-            m.id === selectedOverdueMemberForPayment.memberId 
-            ? { ...m, sharesCount: (m.sharesCount || 0) + sharesToAllocate } 
-            : m
-          ));
-          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s) (valued at $${totalValueForAllocation.toFixed(2)})`);
+          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s)`);
         } else {
           toastMessages.push(`$${amount.toFixed(2)} for ${shareType.name} (insufficient for one share)`);
         }
@@ -321,32 +313,25 @@ export default function OverduePaymentsPage() {
         let remainingServiceChargePayment = serviceChargeAmount;
         const updatedAppliedCharges = [...appliedServiceCharges];
         
-        // Sort pending charges by dateApplied (oldest first) to pay them off in order
         const memberPendingCharges = updatedAppliedCharges
             .filter(asc => asc.memberId === selectedOverdueMemberForPayment.memberId && asc.status === 'pending')
-            .sort((a, b) => compareDesc(new Date(b.dateApplied), new Date(a.dateApplied))); // Oldest first
+            .sort((a, b) => compareDesc(new Date(b.dateApplied), new Date(a.dateApplied)));
         
         for (const charge of memberPendingCharges) {
             if (remainingServiceChargePayment <= 0) break;
-            const amountToPayForThisCharge = Math.min(remainingServiceChargePayment, charge.amountCharged);
-            // In a real system, you might partially pay a charge. Here, we simplify to fully pay if possible.
-            // For this prototype, let's assume we fully pay if payment covers it.
             if (remainingServiceChargePayment >= charge.amountCharged) {
                  const chargeIndex = updatedAppliedCharges.findIndex(c => c.id === charge.id);
                  if(chargeIndex !== -1) {
                     updatedAppliedCharges[chargeIndex] = { ...updatedAppliedCharges[chargeIndex], status: 'paid' };
                     remainingServiceChargePayment -= charge.amountCharged;
                  }
-            } else {
-                // Partial payment logic could be added here if needed
-                // For now, if not fully paid, it remains pending.
             }
         }
         setAppliedServiceCharges(updatedAppliedCharges);
         toastMessages.push(`$${(serviceChargeAmount - remainingServiceChargePayment).toFixed(2)} for service charges`);
     }
     
-    let finalToastMessage = `Payment recorded for ${selectedOverdueMemberForPayment.fullName}.`;
+    let finalToastMessage = `Payment transactions for ${selectedOverdueMemberForPayment.fullName} submitted for approval.`;
     if(toastMessages.length > 0) {
         finalToastMessage += ` Details: ${toastMessages.join(', ')}.`;
     }
@@ -523,7 +508,7 @@ export default function OverduePaymentsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Record Payment for {selectedOverdueMemberForPayment?.fullName}</DialogTitle>
             <DialogDescription>
-              Enter payment amounts for overdue savings, shares, and/or service charges.
+              Enter payment amounts for overdue savings, shares, and/or service charges. Payments will be submitted for approval.
             </DialogDescription>
           </DialogHeader>
           {selectedOverdueMemberForPayment && (
@@ -654,7 +639,7 @@ export default function OverduePaymentsPage() {
 
               <DialogFooter className="pt-6">
                 <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                <Button type="submit">Record Payment</Button>
+                <Button type="submit">Submit Payment for Approval</Button>
               </DialogFooter>
             </form>
           )}
@@ -663,4 +648,3 @@ export default function OverduePaymentsPage() {
     </div>
   );
 }
-
