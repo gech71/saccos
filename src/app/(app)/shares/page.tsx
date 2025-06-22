@@ -218,7 +218,12 @@ export default function SharesPage() {
   const filteredShares = useMemo(() => {
     return shares.filter(share => {
       const member = members.find(m => m.id === share.memberId);
-      const matchesSearchTerm = member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      if (!member) return false;
+
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTermLower) ||
+                                (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower));
+
       const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
       return matchesSearchTerm && matchesMemberFilter;
     });
@@ -271,7 +276,7 @@ export default function SharesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or account #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
