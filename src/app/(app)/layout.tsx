@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { title: 'Members', href: '/members', icon: Users },
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
   { title: 'Savings', href: '/savings', icon: PiggyBank },
+  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards },
   { title: 'Group Collections', href: '/group-collections', icon: Library },
   { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare },
   { title: 'Share Types', href: '/share-types', icon: Shapes },
