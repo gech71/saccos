@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, Banknote, AlertTriangle, CheckCircle, ShieldQuestion } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, Banknote, AlertTriangle, CheckCircle, ShieldQuestion, CalendarDays } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -52,6 +52,7 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   loanTerm: 12,
   repaymentFrequency: 'monthly',
   nplInterestRate: 0,
+  nplGracePeriodDays: 30,
   allowConcurrent: false,
 };
 
@@ -67,7 +68,7 @@ export default function LoanTypesPage() {
     const { name, value } = e.target;
     setCurrentLoanType(prev => ({
       ...prev,
-      [name]: (name === 'interestRate' || name === 'nplInterestRate' || name === 'loanTerm') ? parseFloat(value) : value
+      [name]: (name === 'interestRate' || name === 'nplInterestRate' || name === 'loanTerm' || name === 'nplGracePeriodDays') ? parseFloat(value) : value
     }));
   };
   
@@ -89,6 +90,10 @@ export default function LoanTypesPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'NPL Interest Rate must be a non-negative number.' });
         return;
     }
+    if (currentLoanType.nplGracePeriodDays !== undefined && currentLoanType.nplGracePeriodDays < 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'NPL Grace Period cannot be negative.' });
+        return;
+    }
     
     // Convert percentage inputs back to decimal for storage
     const dataToSave = {
@@ -108,6 +113,7 @@ export default function LoanTypesPage() {
         loanTerm: dataToSave.loanTerm || 12,
         repaymentFrequency: dataToSave.repaymentFrequency || 'monthly',
         nplInterestRate: dataToSave.nplInterestRate || 0,
+        nplGracePeriodDays: dataToSave.nplGracePeriodDays || 0,
         description: dataToSave.description,
         allowConcurrent: dataToSave.allowConcurrent || false,
       };
@@ -189,6 +195,7 @@ export default function LoanTypesPage() {
               <TableHead className="text-right">Loan Term (Months)</TableHead>
               <TableHead className="text-center">Repayment</TableHead>
               <TableHead className="text-right">NPL Rate (Annual)</TableHead>
+              <TableHead className="text-right">NPL Grace (Days)</TableHead>
               <TableHead className="text-center">
                 <TooltipProvider>
                   <Tooltip>
@@ -215,6 +222,7 @@ export default function LoanTypesPage() {
                   <Badge variant="outline">{getFrequencyLabel(loanType.repaymentFrequency)}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-semibold text-destructive">{(loanType.nplInterestRate * 100).toFixed(2)}%</TableCell>
+                <TableCell className="text-right">{loanType.nplGracePeriodDays || 0}</TableCell>
                  <TableCell className="text-center">
                   <Badge variant={loanType.allowConcurrent ? 'default' : 'secondary'}>
                     {loanType.allowConcurrent ? 'Yes' : 'No'}
@@ -241,7 +249,7 @@ export default function LoanTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No loan types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -263,7 +271,7 @@ export default function LoanTypesPage() {
               <Label htmlFor="name">Loan Type Name</Label>
               <Input id="name" name="name" value={currentLoanType.name || ''} onChange={handleInputChange} required />
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <Label htmlFor="interestRate">Interest Rate (Annual %)</Label>
                     <div className="relative">
@@ -278,7 +286,7 @@ export default function LoanTypesPage() {
                             onChange={handleInputChange} 
                             required 
                             className="pr-7"
-                            placeholder="e.g., 8.5 for 8.5%"
+                            placeholder="e.g., 8.5"
                         />
                     </div>
                 </div>
@@ -295,7 +303,24 @@ export default function LoanTypesPage() {
                             value={currentLoanType.nplInterestRate || ''} 
                             onChange={handleInputChange}
                             className="pr-7"
-                            placeholder="e.g., 15 for 15%"
+                            placeholder="e.g., 15"
+                        />
+                    </div>
+                </div>
+                 <div>
+                    <Label htmlFor="nplGracePeriodDays">NPL Grace Period (Days)</Label>
+                    <div className="relative">
+                        <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="nplGracePeriodDays" 
+                            name="nplGracePeriodDays" 
+                            type="number" 
+                            step="1" 
+                            min="0"
+                            value={currentLoanType.nplGracePeriodDays || ''} 
+                            onChange={handleInputChange}
+                            className="pl-8"
+                            placeholder="e.g., 30"
                         />
                     </div>
                 </div>
@@ -356,4 +381,3 @@ export default function LoanTypesPage() {
     </div>
   );
 }
-

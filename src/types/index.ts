@@ -31,6 +31,7 @@ export interface LoanType {
   loanTerm: number; // in months
   repaymentFrequency: 'monthly' | 'quarterly' | 'yearly';
   nplInterestRate: number; // Non-Performing Loan interest rate, annual
+  nplGracePeriodDays?: number; // Days after due date before NPL rate applies
   allowConcurrent?: boolean;
 }
 

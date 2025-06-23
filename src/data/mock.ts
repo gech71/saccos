@@ -31,6 +31,7 @@ export const mockLoanTypes: LoanType[] = [
     loanTerm: 12, // 12 months
     repaymentFrequency: 'monthly',
     nplInterestRate: 0.18, // 18%
+    nplGracePeriodDays: 30,
     allowConcurrent: true,
   },
   {
@@ -41,6 +42,7 @@ export const mockLoanTypes: LoanType[] = [
     loanTerm: 10, // 10 months
     repaymentFrequency: 'monthly',
     nplInterestRate: 0.15, // 15%
+    nplGracePeriodDays: 15,
     allowConcurrent: false,
   },
   {
@@ -51,6 +53,7 @@ export const mockLoanTypes: LoanType[] = [
     loanTerm: 24, // 24 months
     repaymentFrequency: 'monthly',
     nplInterestRate: 0.16, // 16%
+    nplGracePeriodDays: 45,
     allowConcurrent: false,
   },
 ];
