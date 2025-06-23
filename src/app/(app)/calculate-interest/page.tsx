@@ -21,8 +21,10 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { mockMembers, mockSavingAccountTypes, mockSavings } from '@/data/mock';
-import type { Member, SavingAccountType, Saving } from '@/types';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
+import { mockMembers, mockSavingAccountTypes, mockSavings, mockSchools } from '@/data/mock';
+import type { Member, SavingAccountType, Saving, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Percent, Calculator, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -51,20 +53,52 @@ export default function CalculateInterestPage() {
   const [allMembers] = useState<Member[]>(mockMembers);
   const [allSavingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
   const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
+  const [allSchools] = useState<School[]>(mockSchools);
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString()); // Default to previous month
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString());
+
+  const [calculationScope, setCalculationScope] = useState<'all' | 'school' | 'member' | 'accountType'>('all');
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [selectedAccountTypeId, setSelectedAccountTypeId] = useState<string>('');
+
 
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
 
   const handleCalculateInterest = () => {
+    // Validation
+    if (calculationScope === 'school' && !selectedSchoolId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a school to calculate for.' });
+      return;
+    }
+    if (calculationScope === 'member' && !selectedMemberId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a member to calculate for.' });
+      return;
+    }
+    if (calculationScope === 'accountType' && !selectedAccountTypeId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a saving account type to calculate for.' });
+      return;
+    }
+
     setIsLoading(true);
     setCalculationResults(null);
 
+    // Filtering logic
+    let membersToProcess = [...allMembers];
+
+    if (calculationScope === 'school' && selectedSchoolId) {
+        membersToProcess = membersToProcess.filter(m => m.schoolId === selectedSchoolId);
+    } else if (calculationScope === 'member' && selectedMemberId) {
+        membersToProcess = membersToProcess.filter(m => m.id === selectedMemberId);
+    } else if (calculationScope === 'accountType' && selectedAccountTypeId) {
+        membersToProcess = membersToProcess.filter(m => m.savingAccountTypeId === selectedAccountTypeId);
+    }
+
     setTimeout(() => {
-      const results: InterestCalculationResult[] = allMembers.map(member => {
+      const results: InterestCalculationResult[] = membersToProcess.map(member => {
         const accountType = allSavingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
         if (!accountType || accountType.interestRate <= 0) {
           return null; // Skip members with no applicable interest rate
@@ -88,9 +122,9 @@ export default function CalculateInterestPage() {
       setCalculationResults(results);
       setIsLoading(false);
       if (results.length > 0) {
-        toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} members.` });
+        toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} members based on your criteria.` });
       } else {
-        toast({ title: 'Calculation Complete', description: 'No members were eligible for interest calculation for the selected period.' });
+        toast({ title: 'Calculation Complete', description: 'No members were eligible for interest calculation for the selected criteria.' });
       }
     }, 500);
   };
@@ -132,35 +166,90 @@ export default function CalculateInterestPage() {
     return calculationResults.reduce((sum, res) => sum + res.calculatedInterest, 0);
   }, [calculationResults]);
 
+  const handleScopeChange = (value: 'all' | 'school' | 'member' | 'accountType') => {
+    setCalculationScope(value);
+    // Reset selections when scope changes
+    setSelectedSchoolId('');
+    setSelectedMemberId('');
+    setSelectedAccountTypeId('');
+  };
+
   return (
     <div className="space-y-8">
-      <PageTitle title="Calculate Savings Interest" subtitle="Calculate and post monthly interest for all eligible member savings accounts." />
+      <PageTitle title="Calculate Savings Interest" subtitle="Calculate and post monthly interest based on various criteria." />
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-primary">Calculation Period</CardTitle>
-          <CardDescription>Select the year and month for which you want to calculate interest.</CardDescription>
+          <CardTitle className="font-headline text-primary">Interest Calculation Criteria</CardTitle>
+          <CardDescription>Select the period and scope for which you want to calculate interest.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-          <div>
-            <Label htmlFor="yearFilter">Year</Label>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
-              <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
-            </Select>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="yearFilter">Year</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="monthFilter">Month</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
+                <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <Separator />
+          
           <div>
-            <Label htmlFor="monthFilter">Month</Label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
-              <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
-            </Select>
+            <Label className="font-medium">Calculation Scope</Label>
+            <RadioGroup value={calculationScope} onValueChange={handleScopeChange} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
+              <div className="flex items-center space-x-2"><RadioGroupItem value="all" id="scope-all" /><Label htmlFor="scope-all">All Members</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="school" id="scope-school" /><Label htmlFor="scope-school">By School</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="member" id="scope-member" /><Label htmlFor="scope-member">By Member</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="accountType" id="scope-accountType" /><Label htmlFor="scope-accountType">By Account Type</Label></div>
+            </RadioGroup>
           </div>
-          <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto">
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-            Calculate Interest
-          </Button>
+          
+          <div className="animate-in fade-in duration-300">
+            {calculationScope === 'school' && (
+              <div>
+                <Label htmlFor="schoolSelect">School</Label>
+                <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
+                  <SelectTrigger id="schoolSelect"><SelectValue placeholder="Select a school..." /></SelectTrigger>
+                  <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            {calculationScope === 'member' && (
+              <div>
+                <Label htmlFor="memberSelect">Member</Label>
+                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                  <SelectTrigger id="memberSelect"><SelectValue placeholder="Select a member..." /></SelectTrigger>
+                  <SelectContent>{allMembers.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} ({m.savingsAccountNumber})</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            {calculationScope === 'accountType' && (
+              <div>
+                <Label htmlFor="accountTypeSelect">Saving Account Type</Label>
+                <Select value={selectedAccountTypeId} onValueChange={setSelectedAccountTypeId}>
+                  <SelectTrigger id="accountTypeSelect"><SelectValue placeholder="Select an account type..." /></SelectTrigger>
+                  <SelectContent>{allSavingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          
         </CardContent>
+        <CardFooter>
+            <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto ml-auto">
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                Calculate Interest
+            </Button>
+        </CardFooter>
       </Card>
       
       {calculationResults && (
