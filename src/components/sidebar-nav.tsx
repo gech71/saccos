@@ -43,35 +43,41 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
     <SidebarContent className={cn("flex flex-col justify-between", className)}>
       <SidebarMenu>
         {navItems.map((item, index) => {
+          if (item.isGroupLabel) {
+            return (
+              <li key={index} className="px-2 pt-5 pb-1 text-xs font-semibold uppercase text-sidebar-foreground/70 tracking-wider group-data-[state=collapsed]/sidebar-wrapper:hidden">
+                {item.title}
+              </li>
+            );
+          }
+
           const Icon = item.icon;
+          if (!Icon || !item.href) {
+              return null;
+          }
+          
           const isActive = item.href === '/' ? pathname === item.href : pathname.startsWith(item.href);
           return (
-            item.href && (
-              <SidebarMenuItem key={index}>
-                <Link href={item.disabled ? '#' : item.href} asChild>
-                  {/* SidebarMenuButton does NOT use its own asChild here. It becomes the <a> tag. */}
-                  <SidebarMenuButton
-                    variant={isActive ? 'default' : 'ghost'}
-                    className={cn(
-                      isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                      item.disabled && 'cursor-not-allowed opacity-80'
-                    )}
-                    onClick={() => {
-                      // Navigation is handled by Link asChild.
-                      // This onClick is for other actions like closing mobile sidebar,
-                      // or handling disabled state if Link didn't prevent navigation for it.
-                      if (item.disabled) return; 
-                      if (setOpenMobile) setOpenMobile(false);
-                    }}
-                    disabled={item.disabled} // Pass disabled to SidebarMenuButton for styling/aria if needed
-                    tooltip={item.title}
-                  >
-                    <Icon className="mr-2 h-5 w-5" />
-                    <span className="truncate">{item.title}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            )
+            <SidebarMenuItem key={index}>
+              <Link href={item.disabled ? '#' : item.href} asChild>
+                <SidebarMenuButton
+                  variant={isActive ? 'default' : 'ghost'}
+                  className={cn(
+                    isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    item.disabled && 'cursor-not-allowed opacity-80'
+                  )}
+                  onClick={() => {
+                    if (item.disabled) return; 
+                    if (setOpenMobile) setOpenMobile(false);
+                  }}
+                  disabled={item.disabled}
+                  tooltip={item.title}
+                >
+                  <Icon className="mr-2 h-5 w-5" />
+                  <span className="truncate">{item.title}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
           );
         })}
       </SidebarMenu>

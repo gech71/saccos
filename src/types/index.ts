@@ -142,11 +142,12 @@ export interface AppliedServiceCharge {
 
 export interface NavItem {
   title: string;
-  href: string;
-  icon: React.ElementType;
+  href?: string;
+  icon?: React.ElementType;
   disabled?: boolean;
   external?: boolean;
   label?: string;
+  isGroupLabel?: boolean;
   description?: string;
   active?: boolean;
   roles?: ('admin' | 'member')[];
