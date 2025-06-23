@@ -262,7 +262,7 @@ export default function MembersPage() {
               <TableHead>Saving Account Type</TableHead>
               <TableHead className="text-right">Expected Monthly Saving ($)</TableHead>
               <TableHead className="text-right">Current Savings Balance ($)</TableHead>
-              <TableHead className="text-right">Shares</TableHead>
+              <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -284,7 +284,21 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
                 <TableCell className="text-right">${member.savingsBalance.toFixed(2)}</TableCell>
-                <TableCell className="text-right">{member.sharesCount}</TableCell>
+                <TableCell>
+                  <div className="font-medium">{member.sharesCount} Shares</div>
+                  {member.shareCommitments && member.shareCommitments.length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                      {member.shareCommitments.map((commitment) => (
+                        <li key={commitment.shareTypeId}>
+                          <span>{commitment.shareTypeName || shareTypes.find(st => st.id === commitment.shareTypeId)?.name}: </span>
+                          <span className="font-semibold text-foreground">${commitment.monthlyCommittedAmount.toFixed(2)}/mo</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">No monthly commitments</div>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
