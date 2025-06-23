@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Filter, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, RotateCcw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface LoanWithMemberInfo extends Loan {
   schoolId: string;
@@ -55,6 +56,7 @@ export default function GroupLoanRepaymentsPage() {
   const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [eligibleLoans, setEligibleLoans] = useState<LoanWithMemberInfo[]>([]);
+  const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
 
   const [repaymentAmounts, setRepaymentAmounts] = useState<Record<string, number>>({});
   const [batchDetails, setBatchDetails] = useState(initialBatchTransactionState);
@@ -77,12 +79,12 @@ export default function GroupLoanRepaymentsPage() {
       
       setEligibleLoans(filteredLoans);
       
-      // Pre-fill repayment amounts with expected monthly payment
       const initialRepayments: Record<string, number> = {};
       filteredLoans.forEach(loan => {
           initialRepayments[loan.id] = loan.monthlyRepaymentAmount || 0;
       });
       setRepaymentAmounts(initialRepayments);
+      setSelectedLoanIds(filteredLoans.map(l => l.id));
       
       setIsLoadingLoans(false);
       if (filteredLoans.length === 0) {
@@ -90,14 +92,29 @@ export default function GroupLoanRepaymentsPage() {
       }
     }, 500);
   };
+  
+  const handleSelectAllChange = (checked: boolean) => {
+    setSelectedLoanIds(checked ? eligibleLoans.map(loan => loan.id) : []);
+  };
+
+  const handleRowSelectChange = (loanId: string, checked: boolean) => {
+    setSelectedLoanIds(prev =>
+      checked ? [...prev, loanId] : prev.filter(id => id !== loanId)
+    );
+  };
+  
+  const isAllSelected = eligibleLoans.length > 0 && selectedLoanIds.length === eligibleLoans.length;
+
 
   const handleRepaymentAmountChange = (loanId: string, amount: string) => {
     setRepaymentAmounts(prev => ({ ...prev, [loanId]: parseFloat(amount) || 0 }));
   };
 
   const totalToCollect = useMemo(() => {
-    return Object.values(repaymentAmounts).reduce((sum, amount) => sum + amount, 0);
-  }, [repaymentAmounts]);
+    return selectedLoanIds.reduce((sum, loanId) => {
+        return sum + (repaymentAmounts[loanId] || 0);
+    }, 0);
+  }, [repaymentAmounts, selectedLoanIds]);
 
   const handleBatchDetailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -125,9 +142,15 @@ export default function GroupLoanRepaymentsPage() {
   };
 
   const handleSubmitCollection = () => {
-    const loansWithPayments = Object.entries(repaymentAmounts).filter(([, amount]) => amount > 0);
-    if (loansWithPayments.length === 0) {
-      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one loan.' });
+    const loansToProcess = selectedLoanIds
+        .map(loanId => ({
+            loanId,
+            amountPaid: repaymentAmounts[loanId] || 0,
+        }))
+        .filter(({ amountPaid }) => amountPaid > 0);
+
+    if (loansToProcess.length === 0) {
+      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan.' });
       return;
     }
     if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.paymentDetails?.sourceName) {
@@ -139,7 +162,7 @@ export default function GroupLoanRepaymentsPage() {
     const newRepayments: LoanRepayment[] = [];
     const updatedLoans = [...allLoans];
 
-    loansWithPayments.forEach(([loanId, amountPaid]) => {
+    loansToProcess.forEach(({loanId, amountPaid}) => {
       const loan = eligibleLoans.find(l => l.id === loanId);
       if (loan) {
         const newRepayment: LoanRepayment = {
@@ -217,7 +240,7 @@ export default function GroupLoanRepaymentsPage() {
               <CardHeader>
                 <CardTitle className="font-headline text-primary">Active Loans for {allSchools.find(s => s.id === selectedSchool)?.name}</CardTitle>
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
-                    <span>{eligibleLoans.length} active/overdue loans found.</span>
+                    <span>{eligibleLoans.length} active/overdue loans found. {selectedLoanIds.length} selected.</span>
                     <span className="font-bold text-primary">Total Amount to be Collected: ${totalToCollect.toFixed(2)}</span>
                 </div>
               </CardHeader>
@@ -226,6 +249,13 @@ export default function GroupLoanRepaymentsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px] px-2">
+                          <Checkbox
+                            checked={isAllSelected}
+                            onCheckedChange={handleSelectAllChange}
+                            aria-label="Select all loans"
+                          />
+                        </TableHead>
                         <TableHead>Member Name</TableHead>
                         <TableHead>Loan Acct. #</TableHead>
                         <TableHead>Remaining Balance</TableHead>
@@ -235,7 +265,14 @@ export default function GroupLoanRepaymentsPage() {
                     </TableHeader>
                     <TableBody>
                       {eligibleLoans.map(loan => (
-                        <TableRow key={loan.id}>
+                        <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>
+                           <TableCell className="px-2">
+                            <Checkbox
+                              checked={selectedLoanIds.includes(loan.id)}
+                              onCheckedChange={(checked) => handleRowSelectChange(loan.id, !!checked)}
+                              aria-label={`Select loan for ${loan.memberName}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">{loan.memberName}</TableCell>
                           <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                           <TableCell className="text-right">${loan.remainingBalance.toFixed(2)}</TableCell>
@@ -248,6 +285,7 @@ export default function GroupLoanRepaymentsPage() {
                               value={repaymentAmounts[loan.id] || ''}
                               onChange={(e) => handleRepaymentAmountChange(loan.id, e.target.value)}
                               className="text-right"
+                              disabled={!selectedLoanIds.includes(loan.id)}
                             />
                           </TableCell>
                         </TableRow>
@@ -292,7 +330,7 @@ export default function GroupLoanRepaymentsPage() {
               <CardFooter>
                 <Button onClick={handleSubmitCollection} disabled={isPosting || totalToCollect <= 0} className="w-full md:w-auto ml-auto">
                   {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Record {Object.values(repaymentAmounts).filter(amt => amt > 0).length} Repayments
+                  Record Repayments for {selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length} Loans
                 </Button>
               </CardFooter>
             </Card>
