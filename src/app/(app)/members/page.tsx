@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FilePlus2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -75,6 +75,7 @@ export default function MembersPage() {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
+  const [isViewingOnly, setIsViewingOnly] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
@@ -146,6 +147,8 @@ export default function MembersPage() {
 
   const handleMemberSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isViewingOnly) return;
+    
     if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School, Savings Account #).' });
         return;
@@ -178,14 +181,8 @@ export default function MembersPage() {
     setCurrentMember(initialMemberFormState);
     setIsEditingMember(false);
   };
-
-  const openAddMemberModal = () => {
-    setCurrentMember(initialMemberFormState);
-    setIsEditingMember(false);
-    setIsMemberModalOpen(true);
-  };
-
-  const openEditMemberModal = (member: Member) => {
+  
+  const prepMemberForModal = (member: Member) => {
     const selectedAccountType = savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
     setCurrentMember({
       ...member,
@@ -193,8 +190,26 @@ export default function MembersPage() {
       shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
       expectedMonthlySaving: member.expectedMonthlySaving ?? selectedAccountType?.expectedMonthlyContribution ?? 0,
     });
-    setIsEditingMember(true);
     setIsMemberModalOpen(true);
+  };
+
+  const openAddMemberModal = () => {
+    setCurrentMember(initialMemberFormState);
+    setIsEditingMember(false);
+    setIsViewingOnly(false);
+    setIsMemberModalOpen(true);
+  };
+
+  const openEditMemberModal = (member: Member) => {
+    prepMemberForModal(member);
+    setIsEditingMember(true);
+    setIsViewingOnly(false);
+  };
+  
+  const openViewMemberModal = (member: Member) => {
+    prepMemberForModal(member);
+    setIsEditingMember(false);
+    setIsViewingOnly(true);
   };
 
   const handleDeleteMember = (memberId: string) => {
@@ -308,6 +323,9 @@ export default function MembersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                       <DropdownMenuItem onClick={() => openViewMemberModal(member)}>
+                        <FileText className="mr-2 h-4 w-4" /> View Details
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
                       </DropdownMenuItem>
@@ -335,13 +353,20 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* Member Add/Edit Modal */}
-      <Dialog open={isMemberModalOpen} onOpenChange={setIsMemberModalOpen}>
+      {/* Member Add/Edit/View Modal */}
+      <Dialog open={isMemberModalOpen} onOpenChange={(isOpen) => {
+        setIsMemberModalOpen(isOpen);
+        if (!isOpen) {
+            setIsViewingOnly(false);
+        }
+      }}>
         <DialogContent className="sm:max-w-2xl"> 
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditingMember ? 'Edit Member' : 'Add New Member'}</DialogTitle>
+            <DialogTitle className="font-headline">
+                {isViewingOnly ? 'Member Details' : isEditingMember ? 'Edit Member' : 'Add New Member'}
+            </DialogTitle>
             <DialogDescription>
-              {isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}
+              {isViewingOnly ? 'Viewing member information. All fields are read-only.' : isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
@@ -349,17 +374,17 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fullName">Full Name</Label>
-                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required />
+                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleMemberInputChange} required />
+                <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="sex">Sex</Label>
-                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required>
+                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Male">Male</SelectItem>
@@ -370,23 +395,23 @@ export default function MembersPage() {
               </div>
               <div>
                 <Label htmlFor="phoneNumber">Phone Number</Label>
-                <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleMemberInputChange} required />
+                <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
             
             <Separator className="my-4" />
             <Label className="font-semibold text-base text-primary">Address</Label>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleMemberInputChange} /></div>
-                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleMemberInputChange} /></div>
-                <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleMemberInputChange} /></div>
+                <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+                <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
             </div>
 
             <Separator className="my-4" />
             <Label className="font-semibold text-base text-primary">Emergency Contact</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="emergencyContact.name">Representative Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleMemberInputChange} /></div>
-                <div><Label htmlFor="emergencyContact.phone">Representative Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleMemberInputChange} /></div>
+                <div><Label htmlFor="emergencyContact.name">Representative Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+                <div><Label htmlFor="emergencyContact.phone">Representative Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
             </div>
             
             <Separator className="my-4" />
@@ -394,14 +419,14 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="schoolId">School</Label>
-                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required>
+                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
                   <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="joinDate">Join Date</Label>
-                <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required />
+                <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
 
@@ -410,12 +435,12 @@ export default function MembersPage() {
                     <Label htmlFor="savingsAccountNumber">Savings Account Number</Label>
                     <div className="relative">
                         <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleMemberInputChange} placeholder="e.g., SA10023" required className="pl-8" />
+                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleMemberInputChange} placeholder="e.g., SA10023" required className="pl-8" readOnly={isViewingOnly} />
                     </div>
                 </div>
                 <div>
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
-                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)}>
+                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} disabled={isViewingOnly}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
                         <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, ${sat.expectedMonthlyContribution?.toFixed(2) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
@@ -426,14 +451,14 @@ export default function MembersPage() {
                 <Label htmlFor="savingsBalance">Initial Savings Balance ($)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7"/>
+                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly}/>
                 </div>
               </div>
                <div>
                 <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
                 <div className="relative">
                     <LucidePieChart className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7"/>
+                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly}/>
                 </div>
               </div>
               <div>
@@ -457,9 +482,11 @@ export default function MembersPage() {
             <Separator className="my-4" />
             <div className="flex justify-between items-center">
                 <Label className="font-semibold text-base text-primary">Share Commitments</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addShareCommitment}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Commitment
-                </Button>
+                {!isViewingOnly && (
+                    <Button type="button" variant="outline" size="sm" onClick={addShareCommitment} disabled={isViewingOnly}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Commitment
+                    </Button>
+                )}
             </div>
             {(currentMember.shareCommitments || []).map((commitment, index) => (
                 <div key={index} className="grid grid-cols-1 gap-3 p-3 border rounded-md md:grid-cols-[1fr_auto_auto] md:gap-3 md:items-end">
@@ -468,6 +495,7 @@ export default function MembersPage() {
                         <Select
                             value={commitment.shareTypeId}
                             onValueChange={(value) => handleShareCommitmentChange(index, 'shareTypeId', value)}
+                            disabled={isViewingOnly}
                         >
                             <SelectTrigger id={`commitment-type-${index}`}><SelectValue placeholder="Select share type" /></SelectTrigger>
                             <SelectContent>
@@ -489,20 +517,29 @@ export default function MembersPage() {
                                 onChange={(e) => handleShareCommitmentChange(index, 'monthlyCommittedAmount', e.target.value)}
                                 placeholder="0.00"
                                 className="pl-7"
+                                readOnly={isViewingOnly}
                             />
                         </div>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeShareCommitment(index)} className="text-destructive hover:bg-destructive/10">
-                        <MinusCircle className="h-5 w-5" />
-                        <span className="sr-only">Remove commitment</span>
-                    </Button>
+                     {!isViewingOnly && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeShareCommitment(index)} className="text-destructive hover:bg-destructive/10" disabled={isViewingOnly}>
+                            <MinusCircle className="h-5 w-5" />
+                            <span className="sr-only">Remove commitment</span>
+                        </Button>
+                     )}
                 </div>
             ))}
 
 
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+              {isViewingOnly ? (
+                 <DialogClose asChild><Button type="button">Close</Button></DialogClose>
+              ) : (
+                <>
+                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button type="submit">{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>
