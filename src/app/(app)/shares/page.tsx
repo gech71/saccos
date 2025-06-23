@@ -50,6 +50,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
+import { StatCard } from '@/components/stat-card';
 
 // Adjusted initial state: remove count, add contributionAmount
 const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
@@ -88,6 +89,22 @@ export default function SharesPage() {
     setUserRole(role);
     setLoggedInMemberId(memberId);
   }, []);
+
+  const memberData = useMemo(() => {
+    if (userRole === 'member' && loggedInMemberId) {
+        const member = members.find(m => m.id === loggedInMemberId);
+        if (!member) return null;
+        
+        const memberApprovedShares = shares.filter(s => s.memberId === loggedInMemberId && s.status === 'approved');
+        const totalValue = memberApprovedShares.reduce((sum, s) => sum + (s.totalValueForAllocation || s.count * s.valuePerShare), 0);
+
+        return {
+            ...member,
+            totalSharesValue: totalValue,
+        };
+    }
+    return null;
+  }, [userRole, loggedInMemberId, members, shares]);
 
   useEffect(() => {
     const { contributionAmount, valuePerShare } = currentShare;
@@ -288,6 +305,21 @@ export default function SharesPage() {
             </>
         )}
       </PageTitle>
+
+      {userRole === 'member' && memberData && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <StatCard
+                title="My Total Shares"
+                value={memberData.sharesCount.toString()}
+                icon={<LucidePieChart className="h-6 w-6 text-accent" />}
+            />
+            <StatCard
+                title="Total Value of My Shares"
+                value={`$${memberData.totalSharesValue.toFixed(2)}`}
+                icon={<DollarSign className="h-6 w-6 text-accent" />}
+            />
+        </div>
+      )}
 
       {userRole === 'admin' && (
         <>
@@ -564,3 +596,5 @@ export default function SharesPage() {
     </div>
   );
 }
+
+    

@@ -46,6 +46,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card'; // Renamed to avoid conflict
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
+import { StatCard } from '@/components/stat-card';
 
 const initialDividendFormState: Partial<Dividend> = {
   memberId: '',
@@ -75,6 +76,15 @@ export default function DividendsPage() {
     setUserRole(role);
     setLoggedInMemberId(memberId);
   }, []);
+
+  const memberTotalDividends = useMemo(() => {
+    if (userRole === 'member' && loggedInMemberId) {
+        return dividends
+            .filter(d => d.memberId === loggedInMemberId && d.status === 'approved')
+            .reduce((sum, d) => sum + d.amount, 0);
+    }
+    return 0;
+  }, [userRole, loggedInMemberId, dividends]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -194,6 +204,17 @@ export default function DividendsPage() {
           </>
         )}
       </PageTitle>
+
+      {userRole === 'member' && (
+        <div className="mb-6">
+            <StatCard
+              title="My Total Dividends Received"
+              value={`$${memberTotalDividends.toFixed(2)}`}
+              icon={<TrendingUp className="h-6 w-6 text-accent" />}
+              description="Sum of all approved dividend payouts."
+            />
+        </div>
+      )}
 
       {userRole === 'admin' && (
         <>
@@ -380,3 +401,5 @@ export default function DividendsPage() {
     </div>
   );
 }
+
+    

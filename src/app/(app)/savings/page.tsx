@@ -89,6 +89,13 @@ export default function SavingsPage() {
     setLoggedInMemberId(memberId);
   }, []);
 
+  const member = useMemo(() => {
+    if (userRole === 'member' && loggedInMemberId) {
+        return members.find(m => m.id === loggedInMemberId);
+    }
+    return null;
+  }, [userRole, loggedInMemberId, members]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const nameParts = name.split('.');
@@ -282,6 +289,17 @@ export default function SavingsPage() {
         </>
        )}
       </PageTitle>
+
+      {userRole === 'member' && member && (
+        <div className="mb-6">
+            <StatCard
+              title="My Current Savings Balance"
+              value={`$${member.savingsBalance.toFixed(2)}`}
+              icon={<WalletCards className="h-6 w-6 text-accent" />}
+              description={`Account #: ${member.savingsAccountNumber}`}
+            />
+        </div>
+      )}
 
       {userRole === 'admin' && (
         <>
@@ -540,3 +558,5 @@ export default function SavingsPage() {
     </div>
   );
 }
+
+    
