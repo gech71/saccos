@@ -1,4 +1,5 @@
 
+
 export interface School {
   id: string;
   name: string;
@@ -20,6 +21,16 @@ export interface SavingAccountType {
   interestRate: number; // Store as decimal, e.g., 0.05 for 5%
   description?: string;
   expectedMonthlyContribution?: number;
+}
+
+export interface LoanType {
+  id: string;
+  name: string;
+  description?: string;
+  interestRate: number; // Annual interest rate, e.g., 0.08 for 8%
+  loanTerm: number; // in months
+  repaymentFrequency: 'monthly' | 'quarterly' | 'yearly';
+  nplInterestRate: number; // Non-Performing Loan interest rate, annual
 }
 
 export interface MemberShareCommitment {

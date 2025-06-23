@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -28,6 +28,7 @@ const allNavItems: NavItem[] = [
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, roles: ['admin'] },
   { title: 'Share Types', href: '/share-types', icon: Shapes, roles: ['admin'] },
   { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, roles: ['admin'] },
+  { title: 'Loan Types', href: '/loan-types', icon: Banknote, roles: ['admin'] },
 
   // Savings Management
   { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, roles: ['admin'] },

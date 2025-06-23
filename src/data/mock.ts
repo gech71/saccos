@@ -1,6 +1,6 @@
 
 
-import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment, ServiceChargeType, AppliedServiceCharge } from '@/types';
+import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment, ServiceChargeType, AppliedServiceCharge, LoanType } from '@/types';
 
 export const mockSchools: School[] = [
   { id: 'school-1', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' },
@@ -21,6 +21,37 @@ export const mockSavingAccountTypes: SavingAccountType[] = [
   { id: 'sat-premium', name: 'Premium Tier Savings', interestRate: 0.045, description: 'For members with higher balances, offering premium rates.', expectedMonthlyContribution: 100 },
   { id: 'sat-no-expect', name: 'Flexible Saver', interestRate: 0.01, description: 'Basic account with no minimum contribution expected.', expectedMonthlyContribution: 0 },
 ];
+
+export const mockLoanTypes: LoanType[] = [
+  {
+    id: 'lt-emergency',
+    name: 'Emergency Loan',
+    description: 'Short-term loan for unforeseen emergencies.',
+    interestRate: 0.12, // 12%
+    loanTerm: 12, // 12 months
+    repaymentFrequency: 'monthly',
+    nplInterestRate: 0.18, // 18%
+  },
+  {
+    id: 'lt-school-fees',
+    name: 'School Fee Loan',
+    description: 'Loan to cover school or tuition fees.',
+    interestRate: 0.08, // 8%
+    loanTerm: 10, // 10 months
+    repaymentFrequency: 'monthly',
+    nplInterestRate: 0.15, // 15%
+  },
+  {
+    id: 'lt-business',
+    name: 'Small Business Loan',
+    description: 'For starting or expanding a small business.',
+    interestRate: 0.10, // 10%
+    loanTerm: 24, // 24 months
+    repaymentFrequency: 'monthly',
+    nplInterestRate: 0.16, // 16%
+  },
+];
+
 
 export const mockMembers: Member[] = [
   {
