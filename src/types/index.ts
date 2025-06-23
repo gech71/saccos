@@ -172,6 +172,7 @@ export interface Loan {
   remainingBalance: number;
   nextDueDate?: string; // ISO
   notes?: string;
+  monthlyRepaymentAmount?: number;
 }
 
 export interface LoanRepayment {

@@ -40,6 +40,7 @@ export default function LoansPage() {
   const [currentLoan, setCurrentLoan] = useState<Partial<Loan>>(initialLoanFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
+  const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -53,6 +54,28 @@ export default function LoansPage() {
     setUserRole(role);
     setLoggedInMemberId(memberId);
   }, []);
+
+  useEffect(() => {
+    if (currentLoan.loanTypeId && currentLoan.principalAmount && currentLoan.principalAmount > 0) {
+        const loanType = loanTypes.find(lt => lt.id === currentLoan.loanTypeId);
+        if (loanType && loanType.interestRate > 0) {
+            const monthlyRate = loanType.interestRate / 12;
+            const numberOfPayments = loanType.loanTerm;
+            const principal = currentLoan.principalAmount;
+            
+            const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+            setMonthlyPayment(payment);
+        } else if (loanType && loanType.loanTerm > 0) { // Handle 0 interest rate
+             const payment = currentLoan.principalAmount / loanType.loanTerm;
+             setMonthlyPayment(payment);
+        }
+         else {
+            setMonthlyPayment(null);
+        }
+    } else {
+        setMonthlyPayment(null);
+    }
+}, [currentLoan.principalAmount, currentLoan.loanTypeId, loanTypes]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -85,7 +108,7 @@ export default function LoansPage() {
     const memberName = members.find(m => m.id === currentLoan.memberId)?.fullName;
 
     if (isEditing && currentLoan.id) {
-      const updatedLoan = { ...currentLoan, memberName, loanTypeName: selectedLoanType.name, status: 'pending' } as Loan;
+      const updatedLoan = { ...currentLoan, memberName, loanTypeName: selectedLoanType.name, status: 'pending', monthlyRepaymentAmount: monthlyPayment } as Loan;
       setLoans(prev => prev.map(l => l.id === currentLoan.id ? updatedLoan : l));
       toast({ title: 'Loan Updated', description: `Loan application for ${memberName} updated.` });
     } else {
@@ -100,6 +123,7 @@ export default function LoansPage() {
         loanTerm: selectedLoanType.loanTerm,
         repaymentFrequency: selectedLoanType.repaymentFrequency,
         remainingBalance: currentLoan.principalAmount!,
+        monthlyRepaymentAmount: monthlyPayment,
       } as Loan;
       setLoans(prev => [newLoan, ...prev]);
       toast({ title: 'Loan Application Submitted', description: `New loan application for ${memberName} submitted for approval.` });
@@ -295,6 +319,11 @@ export default function LoansPage() {
                 <Input id="disbursementDate" name="disbursementDate" type="date" value={currentLoan.disbursementDate} onChange={handleInputChange} required />
               </div>
             </div>
+            {monthlyPayment !== null && (
+              <div className="p-3 border rounded-md bg-muted text-sm">
+                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">${monthlyPayment.toFixed(2)}</span></p>
+              </div>
+            )}
             <div>
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Textarea id="notes" name="notes" value={currentLoan.notes || ''} onChange={handleInputChange} placeholder="E.g., Purpose of the loan, special conditions." />

@@ -405,6 +405,7 @@ export const mockLoans: Loan[] = [
     status: 'active',
     remainingBalance: 800,
     nextDueDate: new Date(2024, 4, 20).toISOString(),
+    monthlyRepaymentAmount: 88.85,
   },
   {
     id: 'loan-2',
@@ -421,6 +422,7 @@ export const mockLoans: Loan[] = [
     status: 'overdue',
     remainingBalance: 450,
     nextDueDate: new Date(2024, 3, 1).toISOString(), // This is in the past, so it's overdue
+    monthlyRepaymentAmount: 51.89,
   },
   {
     id: 'loan-3',
@@ -436,6 +438,7 @@ export const mockLoans: Loan[] = [
     disbursementDate: new Date(2024, 2, 10).toISOString(),
     status: 'pending',
     remainingBalance: 5000,
+    monthlyRepaymentAmount: 230.74,
   },
   {
     id: 'loan-4',
@@ -452,6 +455,7 @@ export const mockLoans: Loan[] = [
     status: 'active',
     remainingBalance: 300,
     nextDueDate: new Date(2024, 4, 15).toISOString(),
+    monthlyRepaymentAmount: 31.13,
   },
 ];
 

@@ -43,6 +43,7 @@ const allNavItems: NavItem[] = [
   // Loan Management
   { title: 'Loans', href: '/loans', icon: Banknote, roles: ['admin', 'member'], memberTitle: 'My Loans' },
   { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
+  { title: 'Group Repayments', href: '/group-loan-repayments', icon: Library, roles: ['admin'] },
 
   // Delinquency
   { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },
