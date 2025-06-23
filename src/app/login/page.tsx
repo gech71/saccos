@@ -28,7 +28,7 @@ export default function LoginPage() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Admin Login
+    // Admin Login Check
     if (email.toLowerCase() === 'admin@example.com') {
       if (password === 'password') {
         localStorage.setItem('isAuthenticated', 'true');
@@ -39,11 +39,18 @@ export default function LoginPage() {
           description: 'Welcome back, Administrator!',
         });
         router.push('/dashboard');
-        return; // Stop execution on success
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: 'Invalid password for admin user.',
+        });
+        setIsLoading(false);
       }
+      return; // Stop further execution
     }
 
-    // Member Login
+    // Member Login Check
     const member = mockMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
     if (member && password === 'password') { // Using 'password' for all members for demo purposes
       localStorage.setItem('isAuthenticated', 'true');
@@ -54,16 +61,15 @@ export default function LoginPage() {
         description: `Welcome back, ${member.fullName}!`,
       });
       router.push('/dashboard');
-      return; // Stop execution on success
+    } else {
+      // General failure for non-admin emails
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: 'Invalid email or password. Please try again.',
+      });
+      setIsLoading(false);
     }
-
-    // Fallback for all failure cases
-    toast({
-      variant: 'destructive',
-      title: 'Login Failed',
-      description: 'Invalid email or password. Please try again.',
-    });
-    setIsLoading(false);
   };
 
   return (
