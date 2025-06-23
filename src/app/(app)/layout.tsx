@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -30,6 +30,7 @@ const allNavItems: NavItem[] = [
   { title: 'Schools', href: '/schools', icon: School, roles: ['admin'] },
   { title: 'Members', href: '/members', icon: Users, roles: ['admin'] },
   { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, roles: ['admin'] },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
 
   { title: 'Configuration', isGroupLabel: true, roles: ['admin'] },
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, roles: ['admin'] },
@@ -38,10 +39,10 @@ const allNavItems: NavItem[] = [
   { title: 'Loan Types', href: '/loan-types', icon: Banknote, roles: ['admin'] },
   
   { title: 'Operations', isGroupLabel: true, roles: ['admin'] },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
   { title: 'Group Collections', href: '/group-collections', icon: Library, roles: ['admin'] },
   { title: 'Group Repayments', href: '/group-loan-repayments', icon: Library, roles: ['admin'] },
-  { title: 'Calculate Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
+  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
+  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, roles: ['admin'] },
   { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
   
   { title: 'Monitoring & Charges', isGroupLabel: true, roles: ['admin'] },

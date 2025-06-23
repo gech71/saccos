@@ -350,6 +350,7 @@ export const mockServiceChargeTypes: ServiceChargeType[] = [
     { id: 'sc-latepay', name: 'Late Payment Penalty', description: 'Penalty for overdue contributions.', amount: 5.00, frequency: 'once' },
     { id: 'sc-idcard', name: 'ID Card Replacement', description: 'Fee for replacing a lost member ID card.', amount: 2.50, frequency: 'once' },
     { id: 'sc-monthly-admin', name: 'Monthly Admin Fee', description: 'Small fee for account maintenance.', amount: 1.00, frequency: 'monthly' },
+    { id: 'sc-loan-interest', name: 'Monthly Loan Interest', description: 'Accrued interest on active loans.', amount: 0, frequency: 'monthly' },
 ];
 
 export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
