@@ -27,6 +27,7 @@ const initialLoanFormState: Partial<Loan> = {
   principalAmount: 0,
   disbursementDate: new Date().toISOString().split('T')[0],
   status: 'pending',
+  loanAccountNumber: '',
 };
 
 export default function LoansPage() {
@@ -92,6 +93,7 @@ export default function LoansPage() {
         ...initialLoanFormState,
         ...currentLoan,
         id: `loan-${Date.now()}`,
+        loanAccountNumber: currentLoan.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
         memberName,
         loanTypeName: selectedLoanType.name,
         interestRate: selectedLoanType.interestRate,
@@ -154,6 +156,7 @@ export default function LoansPage() {
 
   const handleExport = () => {
     const dataToExport = filteredLoans.map(loan => ({
+        'Loan Acct. #': loan.loanAccountNumber,
         'Member Name': loan.memberName || 'N/A',
         'Loan Type': loan.loanTypeName || 'N/A',
         'Status': loan.status,
@@ -202,6 +205,7 @@ export default function LoansPage() {
           <TableHeader>
             <TableRow>
               {userRole === 'admin' && <TableHead>Member</TableHead>}
+              <TableHead>Acct. #</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Principal ($)</TableHead>
@@ -215,6 +219,7 @@ export default function LoansPage() {
             {filteredLoans.length > 0 ? filteredLoans.map(loan => (
               <TableRow key={loan.id}>
                 {userRole === 'admin' && <TableCell className="font-medium">{loan.memberName}</TableCell>}
+                <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
                 <TableCell className="text-right">${loan.principalAmount.toFixed(2)}</TableCell>
@@ -232,7 +237,7 @@ export default function LoansPage() {
                 </TableCell>}
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={userRole === 'admin' ? 8 : 7} className="h-24 text-center">No loans found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={userRole === 'admin' ? 9 : 8} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -275,6 +280,10 @@ export default function LoansPage() {
                 <SelectTrigger><SelectValue placeholder="Select a loan type" /></SelectTrigger>
                 <SelectContent>{loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name} ({lt.interestRate*100}% Interest, {lt.loanTerm} mos)</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="loanAccountNumber">Loan Account Number (Optional)</Label>
+              <Input id="loanAccountNumber" name="loanAccountNumber" value={currentLoan.loanAccountNumber || ''} onChange={handleInputChange} placeholder="Auto-generated if blank" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

@@ -99,6 +99,7 @@ export default function OverdueLoansPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Member</TableHead>
+                            <TableHead>Loan Acct. #</TableHead>
                             <TableHead>Loan Type</TableHead>
                             <TableHead className="text-right">Remaining Balance ($)</TableHead>
                             <TableHead>Next Due Date</TableHead>
@@ -110,6 +111,7 @@ export default function OverdueLoansPage() {
                         {filteredOverdueLoans.length > 0 ? filteredOverdueLoans.map(loan => (
                             <TableRow key={loan.id} className="bg-destructive/5">
                                 <TableCell className="font-medium">{loan.memberName}</TableCell>
+                                <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                                 <TableCell>{loan.loanTypeName}</TableCell>
                                 <TableCell className="text-right font-semibold">${loan.remainingBalance.toFixed(2)}</TableCell>
                                 <TableCell>{new Date(loan.nextDueDate!).toLocaleDateString()}</TableCell>
@@ -121,7 +123,7 @@ export default function OverdueLoansPage() {
                                 </TableCell>
                             </TableRow>
                         )) : (
-                            <TableRow><TableCell colSpan={6} className="h-24 text-center">No overdue loans found.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={7} className="h-24 text-center">No overdue loans found.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>

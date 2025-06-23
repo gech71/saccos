@@ -158,6 +158,7 @@ export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
 
 export interface Loan {
   id: string;
+  loanAccountNumber?: string;
   memberId: string;
   memberName?: string;
   loanTypeId: string;

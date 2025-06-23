@@ -392,6 +392,7 @@ export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
 export const mockLoans: Loan[] = [
   {
     id: 'loan-1',
+    loanAccountNumber: 'LN00001',
     memberId: 'member-1',
     memberName: 'John Doe',
     loanTypeId: 'lt-emergency',
@@ -407,6 +408,7 @@ export const mockLoans: Loan[] = [
   },
   {
     id: 'loan-2',
+    loanAccountNumber: 'LN00002',
     memberId: 'member-2',
     memberName: 'Jane Smith',
     loanTypeId: 'lt-school-fees',
@@ -422,6 +424,7 @@ export const mockLoans: Loan[] = [
   },
   {
     id: 'loan-3',
+    loanAccountNumber: 'LN00003',
     memberId: 'member-3',
     memberName: 'Mike Johnson',
     loanTypeId: 'lt-business',
@@ -436,6 +439,7 @@ export const mockLoans: Loan[] = [
   },
   {
     id: 'loan-4',
+    loanAccountNumber: 'LN00004',
     memberId: 'member-1',
     memberName: 'John Doe',
     loanTypeId: 'lt-school-fees',

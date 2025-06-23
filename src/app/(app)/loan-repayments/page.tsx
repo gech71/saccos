@@ -130,7 +130,7 @@ export default function LoanRepaymentsPage() {
   const handleExport = () => {
     const dataToExport = filteredRepayments.map(r => ({
       'Member Name': r.memberName || 'N/A',
-      'Loan ID': r.loanId,
+      'Loan Acct. #': loans.find(l => l.id === r.loanId)?.loanAccountNumber || r.loanId,
       'Amount Paid ($)': r.amountPaid,
       'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
       'Payment Mode': r.depositMode || 'N/A',
@@ -161,7 +161,7 @@ export default function LoanRepaymentsPage() {
           <TableHeader>
             <TableRow>
               {userRole === 'admin' && <TableHead>Member</TableHead>}
-              <TableHead>Loan ID</TableHead>
+              <TableHead>Loan Acct. #</TableHead>
               <TableHead className="text-right">Amount Paid ($)</TableHead>
               <TableHead>Payment Date</TableHead>
               <TableHead>Payment Mode</TableHead>
@@ -171,7 +171,7 @@ export default function LoanRepaymentsPage() {
             {filteredRepayments.length > 0 ? filteredRepayments.map(repayment => (
               <TableRow key={repayment.id}>
                 {userRole === 'admin' && <TableCell className="font-medium">{repayment.memberName}</TableCell>}
-                <TableCell>{repayment.loanId}</TableCell>
+                <TableCell className="font-mono text-xs">{loans.find(l => l.id === repayment.loanId)?.loanAccountNumber}</TableCell>
                 <TableCell className="text-right font-semibold text-green-600">${repayment.amountPaid.toFixed(2)}</TableCell>
                 <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
                 <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
@@ -195,7 +195,7 @@ export default function LoanRepaymentsPage() {
               <Popover open={openLoanCombobox} onOpenChange={setOpenLoanCombobox}>
                 <PopoverTrigger asChild>
                   <Button id="loanIdRepay" variant="outline" role="combobox" className="w-full justify-between">
-                    {currentRepayment.loanId ? `Loan #${currentRepayment.loanId.slice(-6)} - ${loans.find(l=>l.id === currentRepayment.loanId)?.memberName}` : "Select a loan..."}
+                    {currentRepayment.loanId ? `Acct #${loans.find(l=>l.id === currentRepayment.loanId)?.loanAccountNumber} - ${loans.find(l=>l.id === currentRepayment.loanId)?.memberName}` : "Select a loan..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -204,9 +204,9 @@ export default function LoanRepaymentsPage() {
                     <CommandInput placeholder="Search by member or loan ID..." />
                     <CommandList><CommandEmpty>No active loans found.</CommandEmpty><CommandGroup>
                         {activeLoans.map(loan => (
-                          <CommandItem key={loan.id} value={`${loan.memberName} ${loan.id}`} onSelect={() => { handleLoanSelect(loan.id); setOpenLoanCombobox(false); }}>
+                          <CommandItem key={loan.id} value={`${loan.memberName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { handleLoanSelect(loan.id); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.memberName} ({loan.loanTypeName}) - Bal: ${loan.remainingBalance.toFixed(2)}
+                            {loan.memberName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ${loan.remainingBalance.toFixed(2)}
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>
