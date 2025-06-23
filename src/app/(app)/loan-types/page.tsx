@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, Banknote, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, Banknote, AlertTriangle, CheckCircle, ShieldQuestion } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
@@ -51,6 +52,7 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   loanTerm: 12,
   repaymentFrequency: 'monthly',
   nplInterestRate: 0,
+  allowConcurrent: false,
 };
 
 export default function LoanTypesPage() {
@@ -71,6 +73,10 @@ export default function LoanTypesPage() {
   
    const handleSelectChange = (name: keyof LoanType, value: string) => {
     setCurrentLoanType(prev => ({ ...prev, [name]: value as LoanType['repaymentFrequency'] }));
+  };
+
+  const handleCheckboxChange = (name: keyof LoanType, checked: boolean) => {
+    setCurrentLoanType(prev => ({ ...prev, [name]: checked }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -103,6 +109,7 @@ export default function LoanTypesPage() {
         repaymentFrequency: dataToSave.repaymentFrequency || 'monthly',
         nplInterestRate: dataToSave.nplInterestRate || 0,
         description: dataToSave.description,
+        allowConcurrent: dataToSave.allowConcurrent || false,
       };
       setLoanTypes(prev => [newLoanType, ...prev]);
       toast({ title: 'Success', description: 'Loan type added successfully.' });
@@ -182,6 +189,18 @@ export default function LoanTypesPage() {
               <TableHead className="text-right">Loan Term (Months)</TableHead>
               <TableHead className="text-center">Repayment</TableHead>
               <TableHead className="text-right">NPL Rate (Annual)</TableHead>
+              <TableHead className="text-center">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="flex items-center gap-1 cursor-help">
+                      Concurrent <ShieldQuestion className="h-4 w-4 text-muted-foreground"/>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Can this loan be taken with other active loans?</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -196,6 +215,11 @@ export default function LoanTypesPage() {
                   <Badge variant="outline">{getFrequencyLabel(loanType.repaymentFrequency)}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-semibold text-destructive">{(loanType.nplInterestRate * 100).toFixed(2)}%</TableCell>
+                 <TableCell className="text-center">
+                  <Badge variant={loanType.allowConcurrent ? 'default' : 'secondary'}>
+                    {loanType.allowConcurrent ? 'Yes' : 'No'}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -217,7 +241,7 @@ export default function LoanTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No loan types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -311,6 +335,17 @@ export default function LoanTypesPage() {
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea id="description" name="description" value={currentLoanType.description || ''} onChange={handleInputChange} placeholder="E.g., For short-term personal needs" />
             </div>
+            <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                    id="allowConcurrent"
+                    name="allowConcurrent"
+                    checked={currentLoanType.allowConcurrent || false}
+                    onCheckedChange={(checked) => handleCheckboxChange('allowConcurrent', !!checked)}
+                />
+                <Label htmlFor="allowConcurrent" className="font-normal text-sm text-muted-foreground">
+                    Allow this loan to be taken with other active loans
+                </Label>
+            </div>
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit">{isEditing ? 'Save Changes' : 'Add Loan Type'}</Button>
@@ -321,3 +356,4 @@ export default function LoanTypesPage() {
     </div>
   );
 }
+
