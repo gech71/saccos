@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown } from 'lucide-react';
@@ -65,6 +65,16 @@ export default function DividendsPage() {
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
+
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
+    const memberId = localStorage.getItem('loggedInMemberId');
+    setUserRole(role);
+    setLoggedInMemberId(memberId);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -131,12 +141,15 @@ export default function DividendsPage() {
 
   const filteredDividends = useMemo(() => {
     return dividends.filter(dividend => {
+      if (userRole === 'member' && dividend.memberId !== loggedInMemberId) {
+        return false;
+      }
       const member = members.find(m => m.id === dividend.memberId);
-      const matchesSearchTerm = member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
-      const matchesMemberFilter = selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter;
+      const matchesSearchTerm = userRole === 'admin' ? (member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false) : true;
+      const matchesMemberFilter = userRole === 'admin' ? (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter) : true;
       return matchesSearchTerm && matchesMemberFilter;
     });
-  }, [dividends, members, searchTerm, selectedMemberFilter]);
+  }, [dividends, members, searchTerm, selectedMemberFilter, userRole, loggedInMemberId]);
 
   const totalDividendsDistributed = useMemo(() => filteredDividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
   const averageDividendPerShare = useMemo(() => {
@@ -169,84 +182,90 @@ export default function DividendsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Dividend Distribution" subtitle="Manage and record dividend payouts to members.">
-        <Button onClick={handleExport} variant="outline">
-            <FileDown className="mr-2 h-4 w-4" /> Export
-        </Button>
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
-        </Button>
+      <PageTitle title={userRole === 'member' ? 'My Dividends' : "Dividend Distribution"} subtitle={userRole === 'member' ? "View your dividend payout history" : "Manage and record dividend payouts to members."}>
+        {userRole === 'admin' && (
+          <>
+            <Button onClick={handleExport} variant="outline">
+                <FileDown className="mr-2 h-4 w-4" /> Export
+            </Button>
+            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+              <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
+            </Button>
+          </>
+        )}
       </PageTitle>
 
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Dividends Distributed</ShadcnCardTitle>
-                <LucideLandmark className="h-5 w-5 text-accent" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-primary">${totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </CardContent>
-        </Card>
-        <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Avg. Dividend Per Share (Approved)</ShadcnCardTitle>
-                <TrendingUp className="h-5 w-5 text-accent" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-primary">${averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </CardContent>
-        </Card>
-      </div>
-
-
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by member name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full"
-            aria-label="Search dividend records"
-          />
-        </div>
-        <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
-          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Filter by member" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Members</SelectItem>
-            {members.map(member => (
-              <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {userRole === 'admin' && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <Card className="shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Dividends Distributed</ShadcnCardTitle>
+                    <LucideLandmark className="h-5 w-5 text-accent" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-primary">${totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </CardContent>
+            </Card>
+            <Card className="shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Avg. Dividend Per Share (Approved)</ShadcnCardTitle>
+                    <TrendingUp className="h-5 w-5 text-accent" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-primary">${averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </CardContent>
+            </Card>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by member name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+                aria-label="Search dividend records"
+              />
+            </div>
+            <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
+              <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
+                <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Filter by member" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Members</SelectItem>
+                {members.map(member => (
+                  <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member Name</TableHead>
+              {userRole === 'admin' && <TableHead>Member Name</TableHead>}
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Dividend Amount</TableHead>
               <TableHead className="text-right">Shares Held</TableHead>
               <TableHead>Distribution Date</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredDividends.length > 0 ? filteredDividends.map(dividend => (
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
+                {userRole === 'admin' && <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>}
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
                 <TableCell className="text-right font-semibold">${dividend.amount.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
+                {userRole === 'admin' && <TableCell className="text-right">
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -263,11 +282,11 @@ export default function DividendsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
+                </TableCell>}
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={userRole === 'admin' ? 6 : 5} className="h-24 text-center">
                   No dividend records found.
                 </TableCell>
               </TableRow>

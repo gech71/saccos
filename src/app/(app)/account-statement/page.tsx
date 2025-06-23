@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,9 @@ interface StatementData {
 
 export default function AccountStatementPage() {
   const { toast } = useToast();
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+  
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -38,6 +41,16 @@ export default function AccountStatementPage() {
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
+    const memberId = localStorage.getItem('loggedInMemberId');
+    setUserRole(role);
+    setLoggedInMemberId(memberId);
+    if (role === 'member' && memberId) {
+      setSelectedMemberId(memberId);
+    }
+  }, []);
 
   const handleGenerateStatement = () => {
     if (!selectedMemberId || !dateRange?.from || !dateRange?.to) {
@@ -95,7 +108,7 @@ export default function AccountStatementPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Account Statement" subtitle="Generate a detailed savings account statement for a member." />
+      <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for a member." : "View and print your account statement for a selected period."} />
 
       <Card className="statement-form">
         <CardHeader>
@@ -113,6 +126,7 @@ export default function AccountStatementPage() {
                   role="combobox"
                   aria-expanded={openMemberCombobox}
                   className="w-full justify-between"
+                  disabled={userRole === 'member'}
                 >
                   {selectedMemberId
                     ? mockMembers.find((member) => member.id === selectedMemberId)?.fullName

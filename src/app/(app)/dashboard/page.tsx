@@ -1,10 +1,12 @@
+
 'use client';
 
+import React, { useEffect, useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { StatCard } from '@/components/stat-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, School, TrendingUp, ArrowRight, PiggyBank, PieChart as LucidePieChart, FileText } from 'lucide-react'; // Added missing imports
+import { DollarSign, Users, School, TrendingUp, ArrowRight, PiggyBank, PieChart as LucidePieChart, FileText } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -22,8 +24,9 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import React, { useEffect, useState } from 'react';
+import { mockMembers, mockSavings, mockShares, mockDividends } from '@/data/mock';
 
+// Data for Admin Dashboard
 const savingsData = [
   { month: 'Jan', savings: 4000, members: 20 },
   { month: 'Feb', savings: 3000, members: 22 },
@@ -47,39 +50,10 @@ const assetDistributionData = [
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--secondary))'];
 
 
-export default function DashboardPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) {
-    return (
-      <div className="space-y-8">
-        <PageTitle title="Dashboard" subtitle="Overview of your association's performance." />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="h-4 w-24 bg-muted rounded"></div>
-                <div className="h-6 w-6 bg-muted rounded-full"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 w-16 bg-muted rounded mb-1"></div>
-                <div className="h-3 w-32 bg-muted rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="animate-pulse h-[350px]"><CardContent className="p-6 h-full bg-muted rounded-lg"></CardContent></Card>
-          <Card className="animate-pulse h-[350px]"><CardContent className="p-6 h-full bg-muted rounded-lg"></CardContent></Card>
-        </div>
-      </div>
-    );
-  }
-  
+function AdminDashboard() {
   return (
     <div className="space-y-8">
-      <PageTitle title="Dashboard" subtitle="Welcome to AcademInvest. Here's an overview of your association." />
+      <PageTitle title="Admin Dashboard" subtitle="Welcome to AcademInvest. Here's an overview of your association." />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -164,54 +138,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1 shadow-lg">
-          <CardHeader>
-            <CardTitle className="font-headline text-primary">Asset Distribution</CardTitle>
-            <CardDescription>Current breakdown of association assets.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <RechartsPieChart>
-                <Pie
-                  data={assetDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="hsl(var(--primary))"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {assetDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                    contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)',
-                    }}
-                />
-              </RechartsPieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2 shadow-lg">
-          <CardHeader>
-            <CardTitle className="font-headline text-primary">Quick Actions</CardTitle>
-            <CardDescription>Access key features quickly.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <QuickActionLink href="/savings/record" title="Record Savings" icon={<PiggyBank className="text-primary"/>} />
-            <QuickActionLink href="/shares/allocate" title="Allocate Shares" icon={<LucidePieChart className="text-primary"/>} />
-            <QuickActionLink href="/reports" title="Generate Report" icon={<FileText className="text-primary"/>} />
-          </CardContent>
-        </Card>
-      </div>
+      
        <Card className="shadow-xl overflow-hidden">
         <Image 
           src="https://placehold.co/1200x300.png"
@@ -233,23 +160,124 @@ export default function DashboardPage() {
   );
 }
 
-interface QuickActionLinkProps {
-    href: string;
-    title: string;
-    icon: React.ReactNode;
+function MemberDashboard({ memberId }: { memberId: string }) {
+    const member = useMemo(() => mockMembers.find(m => m.id === memberId), [memberId]);
+    const memberSavings = useMemo(() => mockSavings.filter(s => s.memberId === memberId && s.status === 'approved'), [memberId]);
+    const memberDividends = useMemo(() => mockDividends.filter(d => d.memberId === memberId && d.status === 'approved'), [memberId]);
+    
+    const totalDividends = useMemo(() => memberDividends.reduce((sum, d) => sum + d.amount, 0), [memberDividends]);
+
+    const savingsHistory = useMemo(() => memberSavings.slice(-6).map(s => ({
+        date: new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric'}),
+        amount: s.transactionType === 'deposit' ? s.amount : -s.amount,
+    })), [memberSavings]);
+    
+    if (!member) {
+        return <div className="text-center py-10">Member data not found. Please log in again.</div>;
+    }
+
+    return (
+        <div className="space-y-8">
+            <PageTitle title={`Welcome, ${member.fullName}`} subtitle="Here is a summary of your account." />
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  title="My Savings Balance"
+                  value={`$${member.savingsBalance.toFixed(2)}`}
+                  icon={<PiggyBank className="h-6 w-6 text-accent" />}
+                  description={`Account: ${member.savingsAccountNumber}`}
+                />
+                <StatCard
+                  title="My Shares"
+                  value={member.sharesCount.toString()}
+                  icon={<LucidePieChart className="h-6 w-6 text-accent" />}
+                  description="Total shares owned"
+                />
+                <StatCard
+                  title="My Dividends (Total)"
+                  value={`$${totalDividends.toFixed(2)}`}
+                  icon={<TrendingUp className="h-6 w-6 text-accent" />}
+                  description="Total dividends received"
+                />
+                 <StatCard
+                  title="My School"
+                  value={member.schoolName || ''}
+                  icon={<School className="h-6 w-6 text-accent" />}
+                  description={`Joined: ${new Date(member.joinDate).toLocaleDateString()}`}
+                />
+            </div>
+            
+             <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="font-headline text-primary">My Recent Savings Activity</CardTitle>
+                <CardDescription>Your last 6 approved transactions.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={savingsHistory}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="amount" name="Amount ($)" fill="hsl(var(--primary))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xl overflow-hidden">
+                <CardContent className="p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground">
+                  <h3 className="text-2xl font-semibold mb-2">Want to see more details?</h3>
+                  <p className="mb-4">Generate a full statement of your account activity for any period.</p>
+                  <Button variant="secondary" asChild>
+                    <Link href="/account-statement">Generate My Statement <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                  </Button>
+                </CardContent>
+            </Card>
+        </div>
+    );
 }
 
-function QuickActionLink({ href, title, icon }: QuickActionLinkProps) {
-    return (
-        <Link href={href} passHref>
-            <Button variant="outline" className="w-full justify-start h-12 text-left group hover:bg-accent/10">
-                <div className="flex items-center gap-3">
-                    <span className="p-2 bg-accent/20 rounded-md group-hover:bg-accent/30 transition-colors">
-                        {icon}
-                    </span>
-                    <span className="font-medium text-primary group-hover:text-accent transition-colors">{title}</span>
-                </div>
-            </Button>
-        </Link>
-    )
+export default function DashboardPage() {
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
+    const id = localStorage.getItem('loggedInMemberId');
+    setUserRole(role);
+    setMemberId(id);
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+      return (
+        <div className="space-y-8">
+            <div className="h-8 w-64 bg-muted rounded animate-pulse"></div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div className="h-4 w-24 bg-muted rounded"></div>
+                    <div className="h-6 w-6 bg-muted rounded-full"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-8 w-16 bg-muted rounded mb-1"></div>
+                    <div className="h-3 w-32 bg-muted rounded"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+        </div>
+      );
+  }
+
+  if (userRole === 'member' && memberId) {
+    return <MemberDashboard memberId={memberId} />;
+  }
+
+  // Fallback to AdminDashboard
+  return <AdminDashboard />;
 }

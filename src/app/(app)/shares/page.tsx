@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -79,6 +78,16 @@ export default function SharesPage() {
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
   const [calculatedShares, setCalculatedShares] = useState(0);
+
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
+    const memberId = localStorage.getItem('loggedInMemberId');
+    setUserRole(role);
+    setLoggedInMemberId(memberId);
+  }, []);
 
   useEffect(() => {
     const { contributionAmount, valuePerShare } = currentShare;
@@ -221,17 +230,19 @@ export default function SharesPage() {
 
   const filteredShares = useMemo(() => {
     return shares.filter(share => {
+      if (userRole === 'member' && share.memberId !== loggedInMemberId) {
+        return false;
+      }
       const member = members.find(m => m.id === share.memberId);
       if (!member) return false;
 
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTermLower) ||
-                                (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower));
+      const matchesSearchTerm = userRole === 'admin' ? (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower))) : true;
 
-      const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
+      const matchesMemberFilter = userRole === 'admin' ? (selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter) : true;
       return matchesSearchTerm && matchesMemberFilter;
     });
-  }, [shares, members, searchTerm, selectedMemberFilter]);
+  }, [shares, members, searchTerm, selectedMemberFilter, userRole, loggedInMemberId]);
 
   const totalSharesAllocated = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.count, 0), [filteredShares]);
   const totalSharesValue = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
@@ -265,126 +276,98 @@ export default function SharesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Share Contribution & Allocation" subtitle="Record member share contributions and manage allocations.">
-        <Button onClick={handleExport} variant="outline">
-            <FileDown className="mr-2 h-4 w-4" /> Export
-        </Button>
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
-        </Button>
+      <PageTitle title={userRole === 'member' ? 'My Shares' : "Share Contribution & Allocation"} subtitle={userRole === 'member' ? 'View your share allocation history' : "Record member share contributions and manage allocations."}>
+        {userRole === 'admin' && (
+            <>
+                <Button onClick={handleExport} variant="outline">
+                    <FileDown className="mr-2 h-4 w-4" /> Export
+                </Button>
+                <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+                  <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
+                </Button>
+            </>
+        )}
       </PageTitle>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
-                <LucidePieChart className="h-5 w-5 text-accent" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-primary">{totalSharesAllocated.toLocaleString()}</div>
-            </CardContent>
-        </Card>
-        <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
-                <DollarSign className="h-5 w-5 text-accent" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by member name or account #..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full"
-            aria-label="Search share records"
-          />
-        </div>
-        <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
-          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Filter by member" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Members</SelectItem>
-            {members.map(member => (
-              <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {userRole === 'admin' && (
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <Card className="shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
+                        <LucidePieChart className="h-5 w-5 text-accent" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-primary">{totalSharesAllocated.toLocaleString()}</div>
+                    </CardContent>
+                </Card>
+                <Card className="shadow-md">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
+                        <DollarSign className="h-5 w-5 text-accent" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    </CardContent>
+                </Card>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search by member name or account #..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-full"
+                    aria-label="Search share records"
+                  />
+                </div>
+                <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
+                  <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
+                    <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Filter by member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Members</SelectItem>
+                    {members.map(member => (
+                      <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+            </div>
+        </>
+      )}
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member Name</TableHead>
+              {userRole === 'admin' && <TableHead>Member Name</TableHead>}
               <TableHead>Share Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
-              <TableHead className="text-right">Monthly Committed ($)</TableHead>
-              <TableHead className="text-right">Total Exp. Contrib. ($)</TableHead>
-              <TableHead className="text-center w-[150px]">Fulfillment %</TableHead>
               <TableHead>Allocation Date</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredShares.length > 0 ? filteredShares.map(share => {
               const member = members.find(m => m.id === share.memberId);
-              const commitment = member?.shareCommitments?.find(sc => sc.shareTypeId === share.shareTypeId);
-              const monthlyCommittedAmount = commitment?.monthlyCommittedAmount || 0;
-              
-              let totalExpectedContribution = 0;
-              let fulfillmentPercentage = 0;
               const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
-
-              if (member && monthlyCommittedAmount > 0) {
-                const joinDate = new Date(member.joinDate);
-                const currentDate = new Date();
-                let contributionPeriods = 0;
-                if (joinDate <= currentDate) {
-                    contributionPeriods = differenceInMonths(currentDate, joinDate) + 1;
-                }
-                contributionPeriods = Math.max(0, contributionPeriods);
-                totalExpectedContribution = monthlyCommittedAmount * contributionPeriods;
-                
-                if (totalExpectedContribution > 0) {
-                    fulfillmentPercentage = (currentAllocationValue / totalExpectedContribution) * 100;
-                }
-              }
 
               return (
                 <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                  <TableCell className="font-medium">{share.memberName || member?.fullName}</TableCell>
+                  {userRole === 'admin' && <TableCell className="font-medium">{share.memberName || member?.fullName}</TableCell>}
                   <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-semibold">${currentAllocationValue.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${monthlyCommittedAmount.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${totalExpectedContribution.toFixed(2)}</TableCell>
-                   <TableCell className="text-center">
-                    {totalExpectedContribution > 0 && monthlyCommittedAmount > 0 ? (
-                        <div className="flex flex-col items-center">
-                            <Progress value={Math.min(100, fulfillmentPercentage)} className="h-2 w-full" />
-                            <span className="text-xs mt-1">{Math.min(100, Math.max(0, fulfillmentPercentage)).toFixed(1)}%</span>
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground text-xs">N/A</span>
-                    )}
-                  </TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
+                  {userRole === 'admin' && <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -401,12 +384,12 @@ export default function SharesPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TableCell>
+                  </TableCell>}
                 </TableRow>
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={11} className="h-24 text-center">
+                <TableCell colSpan={userRole === 'admin' ? 8 : 7} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>

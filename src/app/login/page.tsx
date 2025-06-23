@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -6,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Corrected import
+import { useRouter } from 'next/navigation';
 import React, { useState, FormEvent } from 'react';
 import { Logo } from '@/components/logo';
 import { Eye, EyeOff } from 'lucide-react';
+import { mockMembers } from '@/data/mock';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,14 +26,31 @@ export default function LoginPage() {
     setIsLoading(true);
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    if (email === 'user@example.com' && password === 'password') {
-      // In a real app, you'd set a session/token here
+    // Admin Login
+    if (email.toLowerCase() === 'admin@example.com' && password === 'password') {
       localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userRole', 'admin');
+      localStorage.removeItem('loggedInMemberId');
+      toast({
+        title: 'Admin Login Successful',
+        description: 'Welcome back, Administrator!',
+      });
+      router.push('/dashboard');
+      setIsLoading(false);
+      return;
+    }
+
+    // Member Login
+    const member = mockMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
+    if (member && password === 'password') { // Using 'password' for all members for demo purposes
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userRole', 'member');
+      localStorage.setItem('loggedInMemberId', member.id);
       toast({
         title: 'Login Successful',
-        description: 'Welcome back to AcademInvest!',
+        description: `Welcome back, ${member.fullName}!`,
       });
       router.push('/dashboard');
     } else {
@@ -92,6 +111,9 @@ export default function LoginPage() {
                 </Button>
               </div>
             </div>
+            <p className="text-xs text-center text-muted-foreground">
+                Hint: Use `admin@example.com` or a member email (e.g., `john.doe@example.com`). The password is `password` for all users.
+            </p>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>

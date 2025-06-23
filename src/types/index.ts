@@ -1,5 +1,4 @@
 
-
 export interface School {
   id: string;
   name: string;
@@ -137,6 +136,8 @@ export interface NavItem {
   label?: string;
   description?: string;
   active?: boolean;
+  roles?: ('admin' | 'member')[];
+  memberTitle?: string;
 }
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';

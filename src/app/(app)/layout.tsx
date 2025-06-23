@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -17,39 +16,39 @@ import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   // Overview
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'member'] },
   
   // Core Entities
-  { title: 'Schools', href: '/schools', icon: School },
-  { title: 'Members', href: '/members', icon: Users },
+  { title: 'Schools', href: '/schools', icon: School, roles: ['admin'] },
+  { title: 'Members', href: '/members', icon: Users, roles: ['admin'] },
 
   // Configuration
-  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
-  { title: 'Share Types', href: '/share-types', icon: Shapes },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText },
+  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, roles: ['admin'] },
+  { title: 'Share Types', href: '/share-types', icon: Shapes, roles: ['admin'] },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, roles: ['admin'] },
 
   // Savings Management
-  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank },
-  { title: 'Group Collections', href: '/group-collections', icon: Library },
-  { title: 'Calculate Interest', href: '/calculate-interest', icon: Percent },
+  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, roles: ['admin'] },
+  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, roles: ['admin', 'member'], memberTitle: 'My Savings' },
+  { title: 'Group Collections', href: '/group-collections', icon: Library, roles: ['admin'] },
+  { title: 'Calculate Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
 
   // Shares & Dividends
-  { title: 'Share Allocations', href: '/shares', icon: PieChart },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark },
+  { title: 'Share Allocations', href: '/shares', icon: PieChart, roles: ['admin', 'member'], memberTitle: 'My Shares' },
+  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, roles: ['admin', 'member'], memberTitle: 'My Dividends' },
   
   // Charges & Payments
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
+  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },
+  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, roles: ['admin'] },
 
   // Controls & Approvals
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
 
   // Reporting
-  { title: 'AI Reports', href: '/reports', icon: FileText },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste },
+  { title: 'AI Reports', href: '/reports', icon: FileText, roles: ['admin'] },
+  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, roles: ['admin', 'member'], memberTitle: 'My Statement' },
 ];
 
 
@@ -57,18 +56,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     // Ensure localStorage is accessed only on the client side
     if (typeof window !== 'undefined') {
       const isAuthenticated = localStorage.getItem('isAuthenticated');
+      const role = localStorage.getItem('userRole');
+
       if (isAuthenticated !== 'true') {
         router.replace('/login');
       } else {
+        setUserRole(role);
         setIsAuthenticating(false);
       }
     }
-  }, [pathname, router]); 
+  }, [pathname, router]);
+
+  const navItems = allNavItems
+    .filter(item => item.roles?.includes(userRole || ''))
+    .map(item => ({
+      ...item,
+      title: userRole === 'member' && item.memberTitle ? item.memberTitle : item.title,
+    }));
+
 
   if (isAuthenticating) {
     return (
@@ -106,4 +117,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-

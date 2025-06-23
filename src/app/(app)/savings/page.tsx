@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown } from 'lucide-react';
@@ -68,7 +68,6 @@ const initialTransactionFormState: Partial<Saving> = {
 export default function SavingsPage() {
   const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings);
   const [members] = useState<Member[]>(mockMembers);
-  const [schools] = useState<School[]>(mockSchools);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState<Partial<Saving>>(initialTransactionFormState);
@@ -79,6 +78,16 @@ export default function SavingsPage() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const { toast } = useToast();
+
+  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
+  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
+    const memberId = localStorage.getItem('loggedInMemberId');
+    setUserRole(role);
+    setLoggedInMemberId(memberId);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -220,14 +229,17 @@ export default function SavingsPage() {
 
   const filteredTransactions = useMemo(() => {
     return savingsTransactions.filter(tx => {
+      if (userRole === 'member' && tx.memberId !== loggedInMemberId) {
+        return false;
+      }
       const member = members.find(m => m.id === tx.memberId);
       const memberName = tx.memberName || member?.fullName || '';
-      const matchesSearchTerm = memberName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearchTerm = userRole === 'admin' ? memberName.toLowerCase().includes(searchTerm.toLowerCase()) : true;
       const matchesStatus = selectedStatusFilter === 'all' || tx.status === selectedStatusFilter;
       const matchesType = selectedTypeFilter === 'all' || tx.transactionType === selectedTypeFilter;
       return matchesSearchTerm && matchesStatus && matchesType;
     });
-  }, [savingsTransactions, members, searchTerm, selectedStatusFilter, selectedTypeFilter]);
+  }, [savingsTransactions, members, searchTerm, selectedStatusFilter, selectedTypeFilter, userRole, loggedInMemberId]);
 
   const summaryStats = useMemo(() => {
     const approvedTransactions = filteredTransactions.filter(tx => tx.status === 'approved');
@@ -258,89 +270,97 @@ export default function SavingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Savings Transactions" subtitle="View and manage individual savings deposits and withdrawals.">
-        <Button onClick={handleExport} variant="outline">
-            <FileDown className="mr-2 h-4 w-4" /> Export
-        </Button>
-        <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
-        </Button>
+      <PageTitle title={userRole === 'member' ? 'My Savings' : "Savings Transactions"} subtitle={userRole === 'member' ? "View your savings transaction history." : "View and manage individual savings deposits and withdrawals."}>
+       {userRole === 'admin' && (
+        <>
+          <Button onClick={handleExport} variant="outline">
+              <FileDown className="mr-2 h-4 w-4" /> Export
+          </Button>
+          <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
+          </Button>
+        </>
+       )}
       </PageTitle>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-        <StatCard
-          title="Total Approved Deposits (in view)"
-          value={`$${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={<ArrowUpCircle className="h-6 w-6 text-green-600" />}
-          valueClassName="text-green-600"
-        />
-        <StatCard
-          title="Total Approved Withdrawals (in view)"
-          value={`$${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={<ArrowDownCircle className="h-6 w-6 text-destructive" />}
-          valueClassName="text-destructive"
-        />
-        <StatCard
-          title="Net Savings (in view)"
-          value={`$${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          icon={<DollarSign className="h-6 w-6 text-accent" />}
-        />
-      </div>
+      {userRole === 'admin' && (
+        <>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+            <StatCard
+              title="Total Approved Deposits (in view)"
+              value={`$${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowUpCircle className="h-6 w-6 text-green-600" />}
+              valueClassName="text-green-600"
+            />
+            <StatCard
+              title="Total Approved Withdrawals (in view)"
+              value={`$${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<ArrowDownCircle className="h-6 w-6 text-destructive" />}
+              valueClassName="text-destructive"
+            />
+            <StatCard
+              title="Net Savings (in view)"
+              value={`$${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              icon={<DollarSign className="h-6 w-6 text-accent" />}
+            />
+          </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by member name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full"
-            aria-label="Search savings transactions"
-          />
-        </div>
-        <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by transaction type">
-            <Filter className="mr-2 h-4 w-4" />
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="deposit">Deposits</SelectItem>
-            <SelectItem value="withdrawal">Withdrawals</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by status">
-            <Filter className="mr-2 h-4 w-4" />
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by member name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+                aria-label="Search savings transactions"
+              />
+            </div>
+            <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by transaction type">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="deposit">Deposits</SelectItem>
+                <SelectItem value="withdrawal">Withdrawals</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by status">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member</TableHead>
+              {userRole === 'admin' && <TableHead>Member</TableHead>}
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount ($)</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Deposit Mode</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
               <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
-                <TableCell className="font-medium">{tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A'}</TableCell>
+                {userRole === 'admin' && <TableCell className="font-medium">{tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A'}</TableCell>}
                 <TableCell>
                   <span className={`flex items-center gap-1 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
                     {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}
@@ -351,7 +371,7 @@ export default function SavingsPage() {
                 <TableCell className="text-right font-semibold">${tx.amount.toFixed(2)}</TableCell>
                 <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                 <TableCell>{tx.depositMode || 'N/A'}</TableCell>
-                <TableCell className="text-right">
+                {userRole === 'admin' && <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -368,12 +388,12 @@ export default function SavingsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
+                </TableCell>}
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  No savings transactions found matching your criteria.
+                <TableCell colSpan={userRole === 'admin' ? 7 : 6} className="h-24 text-center">
+                  No savings transactions found.
                 </TableCell>
               </TableRow>
             )}
