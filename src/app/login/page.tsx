@@ -29,17 +29,18 @@ export default function LoginPage() {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Admin Login
-    if (email.toLowerCase() === 'admin@example.com' && password === 'password') {
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', 'admin');
-      localStorage.removeItem('loggedInMemberId');
-      toast({
-        title: 'Admin Login Successful',
-        description: 'Welcome back, Administrator!',
-      });
-      router.push('/dashboard');
-      setIsLoading(false);
-      return;
+    if (email.toLowerCase() === 'admin@example.com') {
+      if (password === 'password') {
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', 'admin');
+        localStorage.removeItem('loggedInMemberId');
+        toast({
+          title: 'Admin Login Successful',
+          description: 'Welcome back, Administrator!',
+        });
+        router.push('/dashboard');
+        return; // Stop execution on success
+      }
     }
 
     // Member Login
@@ -53,13 +54,15 @@ export default function LoginPage() {
         description: `Welcome back, ${member.fullName}!`,
       });
       router.push('/dashboard');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
-      });
+      return; // Stop execution on success
     }
+
+    // Fallback for all failure cases
+    toast({
+      variant: 'destructive',
+      title: 'Login Failed',
+      description: 'Invalid email or password. Please try again.',
+    });
     setIsLoading(false);
   };
 
