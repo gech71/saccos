@@ -89,4 +89,23 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  @media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    .no-print {
+        display: none !important;
+    }
+    .printable-area {
+        display: block;
+    }
+    .statement-form {
+        display: none !important;
+    }
+    main {
+        padding: 0 !important;
+    }
+  }
 }
