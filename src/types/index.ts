@@ -155,3 +155,36 @@ export interface NavItem {
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
+
+export interface Loan {
+  id: string;
+  memberId: string;
+  memberName?: string;
+  loanTypeId: string;
+  loanTypeName?: string;
+  principalAmount: number;
+  interestRate: number; // annual rate at time of loan
+  loanTerm: number; // in months
+  repaymentFrequency: 'monthly' | 'quarterly' | 'yearly';
+  disbursementDate: string; // ISO
+  status: 'pending' | 'active' | 'paid_off' | 'rejected' | 'overdue';
+  remainingBalance: number;
+  nextDueDate?: string; // ISO
+  notes?: string;
+}
+
+export interface LoanRepayment {
+  id: string;
+  loanId: string;
+  memberId: string;
+  memberName?: string;
+  amountPaid: number;
+  paymentDate: string; // ISO
+  notes?: string;
+  depositMode?: 'Cash' | 'Bank' | 'Wallet';
+  paymentDetails?: {
+    sourceName?: string;
+    transactionReference?: string;
+    evidenceUrl?: string;
+  };
+}

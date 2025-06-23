@@ -1,6 +1,6 @@
 
 
-import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment, ServiceChargeType, AppliedServiceCharge, LoanType } from '@/types';
+import type { School, Member, Saving, Share, Dividend, ShareType, SavingAccountType, MemberShareCommitment, ServiceChargeType, AppliedServiceCharge, LoanType, Loan, LoanRepayment } from '@/types';
 
 export const mockSchools: School[] = [
   { id: 'school-1', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' },
@@ -386,4 +386,99 @@ export const mockAppliedServiceCharges: AppliedServiceCharge[] = [
         status: 'paid',
         notes: 'Jan 2024 Admin Fee',
     },
+];
+
+
+export const mockLoans: Loan[] = [
+  {
+    id: 'loan-1',
+    memberId: 'member-1',
+    memberName: 'John Doe',
+    loanTypeId: 'lt-emergency',
+    loanTypeName: 'Emergency Loan',
+    principalAmount: 1000,
+    interestRate: 0.12,
+    loanTerm: 12,
+    repaymentFrequency: 'monthly',
+    disbursementDate: new Date(2024, 0, 20).toISOString(),
+    status: 'active',
+    remainingBalance: 800,
+    nextDueDate: new Date(2024, 4, 20).toISOString(),
+  },
+  {
+    id: 'loan-2',
+    memberId: 'member-2',
+    memberName: 'Jane Smith',
+    loanTypeId: 'lt-school-fees',
+    loanTypeName: 'School Fee Loan',
+    principalAmount: 500,
+    interestRate: 0.08,
+    loanTerm: 10,
+    repaymentFrequency: 'monthly',
+    disbursementDate: new Date(2024, 1, 1).toISOString(),
+    status: 'overdue',
+    remainingBalance: 450,
+    nextDueDate: new Date(2024, 3, 1).toISOString(), // This is in the past, so it's overdue
+  },
+  {
+    id: 'loan-3',
+    memberId: 'member-3',
+    memberName: 'Mike Johnson',
+    loanTypeId: 'lt-business',
+    loanTypeName: 'Small Business Loan',
+    principalAmount: 5000,
+    interestRate: 0.10,
+    loanTerm: 24,
+    repaymentFrequency: 'monthly',
+    disbursementDate: new Date(2024, 2, 10).toISOString(),
+    status: 'pending',
+    remainingBalance: 5000,
+  },
+  {
+    id: 'loan-4',
+    memberId: 'member-1',
+    memberName: 'John Doe',
+    loanTypeId: 'lt-school-fees',
+    loanTypeName: 'School Fee Loan',
+    principalAmount: 300,
+    interestRate: 0.08,
+    loanTerm: 10,
+    repaymentFrequency: 'monthly',
+    disbursementDate: new Date(2024, 3, 15).toISOString(),
+    status: 'active',
+    remainingBalance: 300,
+    nextDueDate: new Date(2024, 4, 15).toISOString(),
+  },
+];
+
+export const mockLoanRepayments: LoanRepayment[] = [
+  {
+    id: 'repay-1',
+    loanId: 'loan-1',
+    memberId: 'member-1',
+    memberName: 'John Doe',
+    amountPaid: 100,
+    paymentDate: new Date(2024, 1, 20).toISOString(),
+    depositMode: 'Bank',
+    paymentDetails: { sourceName: 'Bank of Academ' },
+  },
+  {
+    id: 'repay-2',
+    loanId: 'loan-1',
+    memberId: 'member-1',
+    memberName: 'John Doe',
+    amountPaid: 100,
+    paymentDate: new Date(2024, 2, 20).toISOString(),
+    depositMode: 'Bank',
+    paymentDetails: { sourceName: 'Bank of Academ' },
+  },
+  {
+    id: 'repay-3',
+    loanId: 'loan-2',
+    memberId: 'member-2',
+    memberName: 'Jane Smith',
+    amountPaid: 50,
+    paymentDate: new Date(2024, 3, 1).toISOString(),
+    depositMode: 'Cash',
+  },
 ];

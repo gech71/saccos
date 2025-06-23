@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -40,9 +40,14 @@ const allNavItems: NavItem[] = [
   { title: 'Share Allocations', href: '/shares', icon: PieChart, roles: ['admin', 'member'], memberTitle: 'My Shares' },
   { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, roles: ['admin', 'member'], memberTitle: 'My Dividends' },
   
-  // Charges & Payments
+  // Loan Management
+  { title: 'Loans', href: '/loans', icon: Banknote, roles: ['admin', 'member'], memberTitle: 'My Loans' },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
+
+  // Delinquency
   { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, roles: ['admin'] },
+  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, roles: ['admin'] },
 
   // Controls & Approvals
   { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
