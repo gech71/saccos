@@ -21,10 +21,12 @@ import {
 } from '@/components/ui/select';
 import { mockMembers, mockSchools, mockSavingAccountTypes } from '@/data/mock';
 import type { Member, School, SavingAccountType } from '@/types';
-import { Search, Filter, SchoolIcon, DollarSign, Users, TrendingUp } from 'lucide-react';
+import { Search, Filter, SchoolIcon, DollarSign, Users, TrendingUp, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { differenceInMonths, parseISO } from 'date-fns';
+import { exportToExcel } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface MemberSavingsSummary {
   memberId: string;
@@ -88,9 +90,25 @@ export default function SavingsAccountsPage() {
     return { totalSavingsGlobal, averageSavings, memberCount: filteredMemberSummaries.length };
   }, [filteredMemberSummaries]);
 
+  const handleExport = () => {
+    const dataToExport = filteredMemberSummaries.map(summary => ({
+      'Member Name': summary.fullName,
+      'School': summary.schoolName,
+      'Account Number': summary.savingsAccountNumber || 'N/A',
+      'Account Type': summary.savingAccountTypeName || 'N/A',
+      'Current Balance ($)': summary.savingsBalance.toFixed(2),
+      'Contribution Fulfillment (%)': summary.fulfillmentPercentage.toFixed(1),
+    }));
+    exportToExcel(dataToExport, 'savings_accounts_summary_export');
+  };
+
   return (
     <div className="space-y-6">
-      <PageTitle title="Savings Accounts Summary" subtitle="View member savings balances and contribution fulfillment." />
+      <PageTitle title="Savings Accounts Summary" subtitle="View member savings balances and contribution fulfillment.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
+      </PageTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="shadow-md">

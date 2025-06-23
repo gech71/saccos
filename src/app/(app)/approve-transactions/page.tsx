@@ -25,9 +25,10 @@ import { Badge } from '@/components/ui/badge';
 import { mockMembers, mockSavings, mockShares, mockDividends } from '@/data/mock';
 import type { Member, Saving, Share, Dividend } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, HandCoins, PieChart, Landmark } from 'lucide-react';
+import { Check, X, HandCoins, PieChart, Landmark, FileDown } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { exportToExcel } from '@/lib/utils';
 
 type PendingTransaction = (Saving | Share | Dividend) & { transactionTypeLabel: string };
 
@@ -132,9 +133,30 @@ export default function ApproveTransactionsPage() {
       return null;
   };
 
+  const handleExport = () => {
+    const dataToExport = pendingTransactions.map(tx => {
+      let details = '';
+      if ('amount' in tx) details = `$${tx.amount.toFixed(2)}`;
+      else if ('count' in tx) details = `${tx.count} shares @ $${tx.valuePerShare.toFixed(2)}/share`;
+
+      return {
+        'Date': new Date(tx.date || tx.allocationDate).toLocaleDateString(),
+        'Member': tx.memberName || allMembers.find(m => m.id === tx.memberId)?.fullName,
+        'Transaction Type': tx.transactionTypeLabel,
+        'Amount / Details': details,
+        'Notes': tx.notes || '',
+      };
+    });
+    exportToExcel(dataToExport, 'pending_transactions_export');
+  };
+
   return (
     <div className="space-y-6">
-      <PageTitle title="Approve Transactions" subtitle={`Review and approve or reject pending financial transactions. ${pendingTransactions.length} transaction(s) awaiting approval.`} />
+      <PageTitle title="Approve Transactions" subtitle={`Review and approve or reject pending financial transactions. ${pendingTransactions.length} transaction(s) awaiting approval.`}>
+        <Button onClick={handleExport} variant="outline" disabled={pendingTransactions.length === 0}>
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
+      </PageTitle>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>

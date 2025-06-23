@@ -36,7 +36,7 @@ import { Badge } from '@/components/ui/badge';
 import { mockMembers, mockSchools, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
 import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, Check, ChevronsUpDown } from 'lucide-react';
+import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, Check, ChevronsUpDown, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +44,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { compareAsc, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/utils';
 
 interface MemberServiceChargeSummary {
   memberId: string;
@@ -225,10 +226,24 @@ export default function AppliedServiceChargesPage() {
     setApplyChargeForm(initialApplyChargeFormState);
   };
 
+  const handleExport = () => {
+    const dataToExport = filteredMemberSummaries.map(summary => ({
+      'Member Name': summary.fullName,
+      'School': summary.schoolName,
+      'Total Applied ($)': summary.totalApplied.toFixed(2),
+      'Total Paid ($)': summary.totalPaid.toFixed(2),
+      'Total Pending ($)': summary.totalPending.toFixed(2),
+      'Fulfillment (%)': summary.fulfillmentPercentage.toFixed(1),
+    }));
+    exportToExcel(dataToExport, 'applied_service_charges_export');
+  };
 
   return (
     <div className="space-y-6">
       <PageTitle title="Applied Service Charges" subtitle="View, apply, and manage service charges for members.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openApplyNewChargeModal} className="shadow-md hover:shadow-lg transition-shadow">
             <PlusCircle className="mr-2 h-5 w-5" /> Apply New Charge
         </Button>
@@ -438,6 +453,3 @@ export default function AppliedServiceChargesPage() {
     </div>
   );
 }
-    
-
-    

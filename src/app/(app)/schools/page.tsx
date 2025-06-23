@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users } from 'lucide-react'; // Added Users
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
+import { exportToExcel } from '@/lib/utils';
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -101,18 +102,21 @@ export default function SchoolsPage() {
       toast({ title: 'Success', description: 'School deleted successfully.' });
     }
   };
+  
+  const getMemberCount = (schoolId: string) => {
+    return members.filter(m => m.schoolId === schoolId).length;
+  };
 
   const filteredSchools = useMemo(() => {
-    return schools.filter(school => 
+    return schools.map(school => ({
+        ...school,
+        memberCount: getMemberCount(school.id)
+    })).filter(school => 
       school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (school.address && school.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (school.contactPerson && school.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [schools, searchTerm]);
-
-  const getMemberCount = (schoolId: string) => {
-    return members.filter(m => m.schoolId === schoolId).length;
-  };
+  }, [schools, searchTerm, members]);
   
   const totalSchools = filteredSchools.length;
   const totalMembersAcrossSchools = useMemo(() => {
@@ -120,10 +124,23 @@ export default function SchoolsPage() {
     return members.filter(m => schoolIds.has(m.schoolId)).length;
   }, [filteredSchools, members]);
 
+  const handleExport = () => {
+    const dataToExport = filteredSchools.map(s => ({
+        'School Name': s.name,
+        'Address': s.address || 'N/A',
+        'Contact Person': s.contactPerson || 'N/A',
+        'Member Count': s.memberCount,
+    }));
+    exportToExcel(dataToExport, 'schools_export');
+  };
+
 
   return (
     <div className="space-y-6">
       <PageTitle title="School Management" subtitle="Manage participating schools in the association.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Add School
         </Button>
@@ -185,7 +202,7 @@ export default function SchoolsPage() {
                 <TableCell className="font-medium">{school.name}</TableCell>
                 <TableCell>{school.address || 'N/A'}</TableCell>
                 <TableCell>{school.contactPerson || 'N/A'}</TableCell>
-                <TableCell className="text-center">{getMemberCount(school.id)}</TableCell>
+                <TableCell className="text-center">{school.memberCount}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

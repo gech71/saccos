@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { exportToExcel } from '@/lib/utils';
 
 const initialMemberFormState: Partial<Member> = {
   fullName: '',
@@ -228,9 +229,29 @@ export default function MembersPage() {
     });
   }, [members, searchTerm, selectedSchoolFilter]);
 
+  const handleExport = () => {
+    const dataToExport = filteredMembers.map(member => ({
+        'Full Name': member.fullName,
+        'Email': member.email,
+        'Phone': member.phoneNumber,
+        'School': member.schoolName || schools.find(s => s.id === member.schoolId)?.name,
+        'Saving Account #': member.savingsAccountNumber || 'N/A',
+        'Saving Account Type': member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A',
+        'Expected Monthly Saving ($)': member.expectedMonthlySaving || 0,
+        'Current Savings Balance ($)': member.savingsBalance,
+        'Total Shares': member.sharesCount,
+        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: $${c.monthlyCommittedAmount.toFixed(2)}/mo`).join('; '),
+        'Join Date': new Date(member.joinDate).toLocaleDateString(),
+    }));
+    exportToExcel(dataToExport, 'members_export');
+  };
+
   return (
     <div className="space-y-6">
       <PageTitle title="Member Management" subtitle="Manage all members of your association.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Add Member
         </Button>

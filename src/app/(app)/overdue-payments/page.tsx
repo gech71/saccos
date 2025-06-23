@@ -36,10 +36,11 @@ import { mockMembers, mockSchools, mockShares, mockSavings, mockShareTypes, mock
 import type { Member, School, Share, Saving, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
-import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, UploadCloud, Banknote, Wallet, ReceiptText } from 'lucide-react';
+import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, UploadCloud, Banknote, Wallet, ReceiptText, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { exportToExcel } from '@/lib/utils';
 
 interface OverdueShareDetail {
   shareTypeId: string;
@@ -356,10 +357,25 @@ export default function OverduePaymentsPage() {
     return filteredOverdueMembers.reduce((sum, member) => sum + member.totalOverdueServiceCharges, 0);
   }, [filteredOverdueMembers]);
 
+  const handleExport = () => {
+    const dataToExport = filteredOverdueMembers.map(member => ({
+        'Member Name': member.fullName,
+        'School': member.schoolName,
+        'Overdue Savings ($)': member.overdueSavingsAmount.toFixed(2),
+        'Total Overdue Shares ($)': member.overdueSharesDetails.reduce((sum, d) => sum + d.overdueAmount, 0).toFixed(2),
+        'Overdue Shares Details': member.overdueSharesDetails.map(d => `${d.shareTypeName}: $${d.overdueAmount.toFixed(2)}`).join('; '),
+        'Overdue Service Charges ($)': member.totalOverdueServiceCharges.toFixed(2),
+        'Pending Service Charges': member.pendingServiceCharges.map(sc => `${sc.serviceChargeTypeName}: $${sc.amountCharged.toFixed(2)}`).join('; '),
+    }));
+    exportToExcel(dataToExport, 'overdue_payments_export');
+  };
 
   return (
     <div className="space-y-6">
       <PageTitle title="Overdue Payments" subtitle="Track and manage members with outstanding savings, share contributions, or service charges.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
       </PageTitle>
 
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">

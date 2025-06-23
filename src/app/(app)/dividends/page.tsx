@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card'; // Renamed to avoid conflict
 import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/utils';
 
 const initialDividendFormState: Partial<Dividend> = {
   memberId: '',
@@ -154,9 +155,24 @@ export default function DividendsPage() {
     }
   };
 
+  const handleExport = () => {
+    const dataToExport = filteredDividends.map(d => ({
+        'Member Name': d.memberName || members.find(m => m.id === d.memberId)?.fullName || 'N/A',
+        'Status': d.status,
+        'Dividend Amount ($)': d.amount,
+        'Shares Held': d.shareCountAtDistribution,
+        'Distribution Date': new Date(d.distributionDate).toLocaleDateString(),
+        'Notes': d.notes || '',
+    }));
+    exportToExcel(dataToExport, 'dividends_export');
+  };
+
   return (
     <div className="space-y-6">
       <PageTitle title="Dividend Distribution" subtitle="Manage and record dividend payouts to members.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
         </Button>
@@ -345,5 +361,3 @@ export default function DividendsPage() {
     </div>
   );
 }
-
-    

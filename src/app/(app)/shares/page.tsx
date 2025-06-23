@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud, Check, ChevronsUpDown, FileDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -50,6 +50,7 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/utils';
 
 // Adjusted initial state: remove count, add contributionAmount
 const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
@@ -244,10 +245,30 @@ export default function SharesPage() {
     }
   };
 
+  const handleExport = () => {
+    const dataToExport = filteredShares.map(share => {
+      const member = members.find(m => m.id === share.memberId);
+      return {
+        'Member Name': share.memberName || member?.fullName || 'N/A',
+        'Share Type': share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name || 'N/A',
+        'Status': share.status,
+        'Share Count': share.count,
+        'Value per Share ($)': share.valuePerShare,
+        'Total Value ($)': share.totalValueForAllocation || (share.count * share.valuePerShare),
+        'Contribution Amount ($)': share.contributionAmount,
+        'Allocation Date': new Date(share.allocationDate).toLocaleDateString(),
+        'Deposit Mode': share.depositMode || 'N/A',
+      };
+    });
+    exportToExcel(dataToExport, 'shares_export');
+  };
 
   return (
     <div className="space-y-6">
       <PageTitle title="Share Contribution & Allocation" subtitle="Record member share contributions and manage allocations.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
         </Button>
@@ -560,5 +581,3 @@ export default function SharesPage() {
     </div>
   );
 }
-
-    

@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { exportToExcel } from '@/lib/utils';
 
 
 const initialTransactionFormState: Partial<Saving> = {
@@ -240,9 +241,27 @@ export default function SavingsPage() {
     };
   }, [filteredTransactions]);
 
+  const handleExport = () => {
+    const dataToExport = filteredTransactions.map(tx => ({
+        'Member Name': tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A',
+        'Type': tx.transactionType,
+        'Status': tx.status,
+        'Amount ($)': tx.amount,
+        'Date': new Date(tx.date).toLocaleDateString(),
+        'Deposit Mode': tx.depositMode || 'N/A',
+        'Source Name': tx.paymentDetails?.sourceName || '',
+        'Transaction Reference': tx.paymentDetails?.transactionReference || '',
+        'Notes': tx.notes || ''
+    }));
+    exportToExcel(dataToExport, 'savings_transactions_export');
+  };
+
   return (
     <div className="space-y-6">
       <PageTitle title="Savings Transactions" subtitle="View and manage individual savings deposits and withdrawals.">
+        <Button onClick={handleExport} variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
         <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
           <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
         </Button>
@@ -501,5 +520,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-
-    

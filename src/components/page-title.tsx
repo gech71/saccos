@@ -13,7 +13,7 @@ export function PageTitle({ title, subtitle, children }: PageTitleProps) {
         <h1 className="font-headline text-3xl font-bold text-primary">{title}</h1>
         {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
       </div>
-      {children && <div className="flex-shrink-0">{children}</div>}
+      {children && <div className="flex-shrink-0 flex items-center gap-2">{children}</div>}
     </div>
   );
 }
