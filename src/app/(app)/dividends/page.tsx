@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -31,7 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { mockDividends, mockMembers, mockShares } from '@/data/mock';
 import type { Dividend, Member, Share } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card'; // Renamed to avoid conflict
+import { cn } from '@/lib/utils';
 
 const initialDividendFormState: Partial<Dividend> = {
   memberId: '',
@@ -60,6 +62,7 @@ export default function DividendsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,16 +276,50 @@ export default function DividendsPage() {
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
               <Label htmlFor="memberId">Member</Label>
-              <Select name="memberId" value={currentDividend.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map(member => (
-                    <SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="memberId"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openMemberCombobox}
+                    className="w-full justify-between"
+                  >
+                    {currentDividend.memberId
+                      ? members.find((member) => member.id === currentDividend.memberId)?.fullName
+                      : "Select member..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {members.map((member) => (
+                          <CommandItem
+                            key={member.id}
+                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            onSelect={() => {
+                              handleSelectChange('memberId', member.id);
+                              setOpenMemberCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                currentDividend.memberId === member.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label htmlFor="shareCountAtDistribution">Shares Held at Distribution</Label>

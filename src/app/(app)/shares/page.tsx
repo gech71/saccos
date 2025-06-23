@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { mockShares, mockMembers, mockShareTypes } from '@/data/mock';
 import type { Share, Member, ShareType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +49,7 @@ import { differenceInMonths } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 // Adjusted initial state: remove count, add contributionAmount
 const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
@@ -73,6 +75,7 @@ export default function SharesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
   const [calculatedShares, setCalculatedShares] = useState(0);
 
@@ -407,10 +410,50 @@ export default function SharesPage() {
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
               <Label htmlFor="memberIdShare">Member</Label>
-              <Select name="memberId" value={currentShare.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger id="memberIdShare"><SelectValue placeholder="Select a member" /></SelectTrigger>
-                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
-              </Select>
+              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="memberIdShare"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openMemberCombobox}
+                    className="w-full justify-between"
+                  >
+                    {currentShare.memberId
+                      ? members.find((member) => member.id === currentShare.memberId)?.fullName
+                      : "Select member..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {members.map((member) => (
+                          <CommandItem
+                            key={member.id}
+                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            onSelect={() => {
+                              handleSelectChange('memberId', member.id);
+                              setOpenMemberCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                currentShare.memberId === member.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
              <div>
               <Label htmlFor="shareTypeIdShare">Share Type</Label>

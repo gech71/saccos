@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Table,
   TableBody,
@@ -26,8 +28,9 @@ import { Separator } from '@/components/ui/separator';
 import { mockMembers, mockSavingAccountTypes, mockSavings, mockSchools } from '@/data/mock';
 import type { Member, SavingAccountType, Saving, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Percent, Calculator, CheckCircle } from 'lucide-react';
+import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -62,6 +65,7 @@ export default function CalculateInterestPage() {
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [selectedAccountTypeId, setSelectedAccountTypeId] = useState<string>('');
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
 
 
   const [isLoading, setIsLoading] = useState(false);
@@ -226,10 +230,50 @@ export default function CalculateInterestPage() {
             {calculationScope === 'member' && (
               <div>
                 <Label htmlFor="memberSelect">Member</Label>
-                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                  <SelectTrigger id="memberSelect"><SelectValue placeholder="Select a member..." /></SelectTrigger>
-                  <SelectContent>{allMembers.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} ({m.savingsAccountNumber})</SelectItem>)}</SelectContent>
-                </Select>
+                <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="memberSelect"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openMemberCombobox}
+                      className="w-full justify-between"
+                    >
+                      {selectedMemberId
+                        ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
+                        : "Select member..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search member..." />
+                      <CommandList>
+                        <CommandEmpty>No member found.</CommandEmpty>
+                        <CommandGroup>
+                          {allMembers.map((member) => (
+                            <CommandItem
+                              key={member.id}
+                              value={`${member.fullName} ${member.savingsAccountNumber}`}
+                              onSelect={() => {
+                                setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
+                                setOpenMemberCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             {calculationScope === 'accountType' && (

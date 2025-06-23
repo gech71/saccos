@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Dialog,
   DialogContent,
@@ -34,13 +36,14 @@ import { Badge } from '@/components/ui/badge';
 import { mockMembers, mockSchools, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
 import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit } from 'lucide-react';
+import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, Check, ChevronsUpDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { compareAsc, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface MemberServiceChargeSummary {
   memberId: string;
@@ -75,6 +78,7 @@ export default function AppliedServiceChargesPage() {
   const searchParams = useSearchParams();
 
   const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
 
   useEffect(() => {
@@ -353,10 +357,50 @@ export default function AppliedServiceChargesPage() {
           <form onSubmit={handleApplyChargeSubmit} className="space-y-4 py-4">
             <div>
               <Label htmlFor="applyChargeMemberId">Member</Label>
-              <Select name="memberId" value={applyChargeForm.memberId || ''} onValueChange={(value) => handleApplyChargeSelectChange('memberId', value)} required>
-                <SelectTrigger id="applyChargeMemberId"><SelectValue placeholder="Select member" /></SelectTrigger>
-                <SelectContent>{allMembers.map(m => (<SelectItem key={m.id} value={m.id}>{m.fullName} ({m.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
-              </Select>
+              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="applyChargeMemberId"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openMemberCombobox}
+                    className="w-full justify-between"
+                  >
+                    {applyChargeForm.memberId
+                      ? allMembers.find((member) => member.id === applyChargeForm.memberId)?.fullName
+                      : "Select member..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {allMembers.map((member) => (
+                          <CommandItem
+                            key={member.id}
+                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            onSelect={() => {
+                              handleApplyChargeSelectChange('memberId', member.id);
+                              setOpenMemberCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                applyChargeForm.memberId === member.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label htmlFor="applyChargeServiceChargeTypeId">Service Charge Type</Label>

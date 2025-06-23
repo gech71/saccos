@@ -5,18 +5,19 @@ import React, { useState, useRef } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { mockMembers, mockSavings } from '@/data/mock';
 import type { Member, Saving } from '@/types';
-import { Calendar as CalendarIcon, Loader2, Printer } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Printer, Check, ChevronsUpDown } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format, compareAsc } from 'date-fns';
 import { Logo } from '@/components/logo';
+import { cn } from '@/lib/utils';
 
 interface StatementData {
   member: Member;
@@ -29,6 +30,7 @@ interface StatementData {
 export default function AccountStatementPage() {
   const { toast } = useToast();
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     to: new Date(),
@@ -103,18 +105,50 @@ export default function AccountStatementPage() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label htmlFor="member-select">Member</Label>
-            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-              <SelectTrigger id="member-select">
-                <SelectValue placeholder="Select a member..." />
-              </SelectTrigger>
-              <SelectContent>
-                {mockMembers.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.fullName} ({m.savingsAccountNumber || 'No Acct #'})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+             <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="member-select"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openMemberCombobox}
+                  className="w-full justify-between"
+                >
+                  {selectedMemberId
+                    ? mockMembers.find((member) => member.id === selectedMemberId)?.fullName
+                    : "Select member..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Search member by name or account..." />
+                  <CommandList>
+                    <CommandEmpty>No member found.</CommandEmpty>
+                    <CommandGroup>
+                      {mockMembers.map((member) => (
+                        <CommandItem
+                          key={member.id}
+                          value={`${member.fullName} ${member.savingsAccountNumber}`}
+                          onSelect={() => {
+                            setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
+                            setOpenMemberCombobox(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label htmlFor="date-range-picker">Statement Period</Label>
@@ -252,4 +286,3 @@ export default function AccountStatementPage() {
     </div>
   );
 }
-

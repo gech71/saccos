@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -31,6 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { mockSavings, mockMembers, mockSchools } from '@/data/mock';
 import type { Saving, Member, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -44,6 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 
 const initialTransactionFormState: Partial<Saving> = {
@@ -69,6 +72,7 @@ export default function SavingsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState<Partial<Saving>>(initialTransactionFormState);
   const [isEditing, setIsEditing] = useState(false);
+  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -370,10 +374,50 @@ export default function SavingsPage() {
           <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
               <Label htmlFor="memberId">Member</Label>
-              <Select name="memberId" value={currentTransaction.memberId || ''} onValueChange={(value) => handleSelectChange('memberId', value)} required>
-                <SelectTrigger id="memberId"><SelectValue placeholder="Select a member" /></SelectTrigger>
-                <SelectContent>{members.map(member => (<SelectItem key={member.id} value={member.id}>{member.fullName} ({member.savingsAccountNumber || 'No Acct #'})</SelectItem>))}</SelectContent>
-              </Select>
+              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="memberId"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openMemberCombobox}
+                    className="w-full justify-between"
+                  >
+                    {currentTransaction.memberId
+                      ? members.find((member) => member.id === currentTransaction.memberId)?.fullName
+                      : "Select member..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search member..." />
+                    <CommandList>
+                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandGroup>
+                        {members.map((member) => (
+                          <CommandItem
+                            key={member.id}
+                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            onSelect={() => {
+                              handleSelectChange('memberId', member.id);
+                              setOpenMemberCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                currentTransaction.memberId === member.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
