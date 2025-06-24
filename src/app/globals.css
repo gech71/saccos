@@ -91,28 +91,8 @@ body {
   }
 
   @media print {
-    body {
-      background: white !important;
-    }
     .no-print {
       display: none !important;
-    }
-    .printable-area {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: auto;
-      padding: 1rem;
-      margin: 0;
-    }
-    main {
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-    .printable-area .border {
-      border-width: 1px !important;
-      border-color: #e5e7eb !important;
     }
   }
 }

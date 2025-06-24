@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,6 @@ export default function AccountStatementPage() {
   });
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const printableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
@@ -221,7 +220,7 @@ export default function AccountStatementPage() {
               <Printer className="mr-2 h-4 w-4" /> Print Statement
             </Button>
           </CardHeader>
-          <CardContent ref={printableRef} className="printable-area">
+          <CardContent>
             <div className="p-6 border rounded-lg">
                 {/* Header */}
                 <div className="flex justify-between items-start pb-4 border-b mb-4">
