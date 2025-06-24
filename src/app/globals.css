@@ -91,21 +91,24 @@ body {
   }
 
   @media print {
-    body {
-        background: white !important;
-        color: black !important;
+    body * {
+      visibility: hidden;
     }
-    .no-print {
-        display: none !important;
+    .printable-area,
+    .printable-area * {
+      visibility: visible;
     }
     .printable-area {
-        display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
     }
-    .statement-form {
-        display: none !important;
+    body {
+      background: white !important;
     }
-    main {
-        padding: 0 !important;
+    .no-print, .statement-form {
+      display: none !important;
     }
   }
 }
