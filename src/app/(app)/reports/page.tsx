@@ -71,7 +71,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Reporting & Analytics" subtitle="Generate insightful reports and visualizations." />
+      <PageTitle title="AI Reporting & Analytics" subtitle="Generate insightful reports and visualizations using AI." />
 
       <Card className="shadow-lg">
         <CardHeader>
@@ -164,24 +164,23 @@ export default function ReportsPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-2 text-primary">Visualization</h3>
-              {reportOutput.visualization.startsWith('https://example.com') ? (
+              {reportOutput.visualization.startsWith('https://placehold.co') ? (
                  <div className="border rounded-md p-4 bg-muted/50 text-center">
-                    <p className="text-muted-foreground mb-2">This is a placeholder visualization.</p>
+                    <p className="text-muted-foreground mb-2">A placeholder image was returned. AI image generation may be busy or unavailable.</p>
                     <Image 
-                        src={`https://placehold.co/600x400.png?text=${selectedVizType}+Chart`}
+                        src={reportOutput.visualization}
                         alt={`${selectedVizType} chart placeholder`}
                         data-ai-hint={`${selectedVizType} chart`}
                         width={600} 
                         height={400} 
                         className="rounded-md shadow-md mx-auto" 
                     />
-                    <p className="text-xs mt-2 text-muted-foreground">Generated from: {reportOutput.visualization}</p>
                  </div>
               ) : (
                  <Image 
                     src={reportOutput.visualization} 
                     alt={`${selectedVizType} visualization`}
-                    data-ai-hint={`${selectedVizType} data`}
+                    data-ai-hint={`${selectedVizType} data chart`}
                     width={600} 
                     height={400} 
                     className="rounded-md shadow-md border" 
