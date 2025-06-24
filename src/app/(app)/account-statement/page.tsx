@@ -18,6 +18,8 @@ import { DateRange } from 'react-day-picker';
 import { format, compareAsc } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
+import { StatCard } from '@/components/stat-card';
+import { WalletCards } from 'lucide-react';
 
 interface StatementData {
   member: Member;
@@ -40,6 +42,13 @@ export default function AccountStatementPage() {
   });
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const member = useMemo(() => {
+    if (userRole === 'member' && loggedInMemberId) {
+        return mockMembers.find(m => m.id === loggedInMemberId);
+    }
+    return null;
+  }, [userRole, loggedInMemberId]);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
@@ -107,105 +116,118 @@ export default function AccountStatementPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for a member." : "View and print your account statement for a selected period."} />
+        <div className="no-print">
+            <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for a member." : "View and print your account statement for a selected period."} />
 
-      <Card className="statement-form no-print">
-        <CardHeader>
-          <CardTitle>Selection Criteria</CardTitle>
-          <CardDescription>Select a member and date range to generate their statement.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <Label htmlFor="member-select">Member</Label>
-             <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="member-select"
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={openMemberCombobox}
-                  className="w-full justify-between"
-                  disabled={userRole === 'member'}
-                >
-                  {selectedMemberId
-                    ? mockMembers.find((member) => member.id === selectedMemberId)?.fullName
-                    : "Select member..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                  <CommandInput placeholder="Search member by name or account..." />
-                  <CommandList>
-                    <CommandEmpty>No member found.</CommandEmpty>
-                    <CommandGroup>
-                      {mockMembers.map((member) => (
-                        <CommandItem
-                          key={member.id}
-                          value={`${member.fullName} ${member.savingsAccountNumber}`}
-                          onSelect={() => {
-                            setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
-                            setOpenMemberCombobox(false)
-                          }}
+            {userRole === 'member' && member && (
+                <div className="mb-6">
+                    <StatCard
+                      title="My Current Savings Balance"
+                      value={`$${member.savingsBalance.toFixed(2)}`}
+                      icon={<WalletCards className="h-6 w-6 text-accent" />}
+                      description={`Account #: ${member.savingsAccountNumber}`}
+                    />
+                </div>
+              )}
+
+            <Card className="statement-form">
+                <CardHeader>
+                <CardTitle>Selection Criteria</CardTitle>
+                <CardDescription>Select a member and date range to generate their statement.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <Label htmlFor="member-select">Member</Label>
+                    <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="member-select"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openMemberCombobox}
+                        className="w-full justify-between"
+                        disabled={userRole === 'member'}
                         >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedMemberId === member.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor="date-range-picker">Statement Period</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="date-range-picker"
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
-                      </>
-                    ) : (
-                      format(dateRange.from, 'LLL dd, y')
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
+                        {selectedMemberId
+                            ? mockMembers.find((member) => member.id === selectedMemberId)?.fullName
+                            : "Select member..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search member by name or account..." />
+                        <CommandList>
+                            <CommandEmpty>No member found.</CommandEmpty>
+                            <CommandGroup>
+                            {mockMembers.map((member) => (
+                                <CommandItem
+                                key={member.id}
+                                value={`${member.fullName} ${member.savingsAccountNumber}`}
+                                onSelect={() => {
+                                    setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
+                                    setOpenMemberCombobox(false)
+                                }}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                    </Popover>
+                </div>
+                <div>
+                    <Label htmlFor="date-range-picker">Statement Period</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="date-range-picker"
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                            dateRange.to ? (
+                            <>
+                                {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                            </>
+                            ) : (
+                            format(dateRange.from, 'LLL dd, y')
+                            )
+                        ) : (
+                            <span>Pick a date range</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                    </Popover>
+                </div>
+                </CardContent>
+                <CardFooter>
+                <Button onClick={handleGenerateStatement} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Generate Statement
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleGenerateStatement} disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Generate Statement
-          </Button>
-        </CardFooter>
-      </Card>
+                </CardFooter>
+            </Card>
+        </div>
 
       {statementData && (
         <Card>
@@ -221,7 +243,7 @@ export default function AccountStatementPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="p-6 border rounded-lg">
+            <div id="printable-statement" className="p-6 border rounded-lg">
                 {/* Header */}
                 <div className="flex justify-between items-start pb-4 border-b mb-4">
                     <div>
