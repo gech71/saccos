@@ -73,8 +73,10 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
                   disabled={item.disabled}
                   tooltip={item.title}
                 >
-                  <Icon className="mr-2 h-5 w-5" />
-                  <span className="truncate">{item.title}</span>
+                  <>
+                    <Icon className="mr-2 h-5 w-5" />
+                    <span className="truncate">{item.title}</span>
+                  </>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
@@ -91,8 +93,10 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
                     onClick={handleLogout}
                     tooltip="Logout"
                   >
-                    <LogOut className="mr-2 h-5 w-5" />
-                    <span className="truncate">Logout</span>
+                    <>
+                      <LogOut className="mr-2 h-5 w-5" />
+                      <span className="truncate">Logout</span>
+                    </>
                   </SidebarMenuButton>
             </SidebarMenuItem>
          </SidebarMenu>
@@ -100,4 +104,3 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
     </SidebarContent>
   );
 }
-
