@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { mockMembers, mockSavings } from '@/data/mock';
 import type { Member, Saving } from '@/types';
-import { Calendar as CalendarIcon, Loader2, Printer, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format, compareAsc } from 'date-fns';
 import { Logo } from '@/components/logo';
@@ -239,7 +239,7 @@ export default function AccountStatementPage() {
               </CardDescription>
             </div>
             <Button onClick={handlePrint} variant="outline">
-              <Printer className="mr-2 h-4 w-4" /> Print Statement
+              <FileDown className="mr-2 h-4 w-4" /> Download Report
             </Button>
           </CardHeader>
           <CardContent>
