@@ -20,6 +20,8 @@ import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
 import { WalletCards } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface StatementData {
   member: Member;
@@ -42,6 +44,7 @@ export default function AccountStatementPage() {
   });
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const member = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
@@ -110,9 +113,68 @@ export default function AccountStatementPage() {
     }, 500);
   };
   
-  const handlePrint = () => {
-    window.print();
-  }
+  const handleDownloadPdf = async () => {
+    const statementElement = document.getElementById('printable-statement-content');
+    if (!statementData || !statementElement) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Statement data is not available to download.',
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      const canvas = await html2canvas(statementElement, {
+        scale: 2,
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasWidth / canvasHeight;
+      
+      let imgWidth = pdfWidth - 40;
+      let imgHeight = imgWidth / ratio;
+      
+      if (imgHeight > pdfHeight - 40) {
+        imgHeight = pdfHeight - 40;
+        imgWidth = imgHeight * ratio;
+      }
+      
+      const x = (pdfWidth - imgWidth) / 2;
+      const y = 20;
+
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+
+      const fileName = `AcademInvest-Statement-${statementData.member.fullName.replace(/\s/g, '_')}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      pdf.save(fileName);
+      
+      toast({ title: 'Download Started', description: 'Your statement PDF is being downloaded.' });
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Download Failed',
+        description: 'An error occurred while generating the PDF.',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -238,21 +300,22 @@ export default function AccountStatementPage() {
                 For {statementData.member.fullName} from {format(statementData.dateRange.from!, 'PPP')} to {format(statementData.dateRange.to!, 'PPP')}
               </CardDescription>
             </div>
-            <Button onClick={handlePrint} variant="outline">
-              <FileDown className="mr-2 h-4 w-4" /> Download Report
+            <Button onClick={handleDownloadPdf} variant="outline" disabled={isDownloading}>
+              {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+              Download Report
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="p-6 border rounded-lg">
+            <div id="printable-statement-content" className="p-6 border rounded-lg bg-white text-black">
                 {/* Header */}
-                <div className="flex justify-between items-start pb-4 border-b mb-4">
+                <div className="flex justify-between items-start pb-4 border-b mb-4 border-gray-300">
                     <div>
                         <Logo />
-                        <p className="text-sm text-muted-foreground mt-1">Savings & Credit Association</p>
+                        <p className="text-sm text-gray-500 mt-1">Savings & Credit Association</p>
                     </div>
                     <div className="text-right">
                         <h2 className="text-2xl font-bold text-primary">Account Statement</h2>
-                        <p className="text-muted-foreground">
+                        <p className="text-gray-500">
                             Period: {format(statementData.dateRange.from!, 'PPP')} to {format(statementData.dateRange.to!, 'PPP')}
                         </p>
                     </div>
@@ -261,33 +324,33 @@ export default function AccountStatementPage() {
                 {/* Member Info */}
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
-                        <Label className="font-semibold">Member Name:</Label>
+                        <Label className="font-semibold text-gray-700">Member Name:</Label>
                         <p>{statementData.member.fullName}</p>
                     </div>
                      <div>
-                        <Label className="font-semibold">Account Number:</Label>
+                        <Label className="font-semibold text-gray-700">Account Number:</Label>
                         <p>{statementData.member.savingsAccountNumber}</p>
                     </div>
                     <div>
-                        <Label className="font-semibold">School:</Label>
+                        <Label className="font-semibold text-gray-700">School:</Label>
                         <p>{statementData.member.schoolName}</p>
                     </div>
                     <div>
-                        <Label className="font-semibold">Address:</Label>
+                        <Label className="font-semibold text-gray-700">Address:</Label>
                         <p>{`${statementData.member.address.wereda}, ${statementData.member.address.subCity}, ${statementData.member.address.city}`}</p>
                     </div>
                 </div>
 
                 {/* Transactions Table */}
-                <div className="overflow-x-auto rounded-lg border shadow-sm">
+                <div className="overflow-x-auto rounded-lg border border-gray-300 shadow-sm">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[120px]">Date</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Debit</TableHead>
-                                <TableHead className="text-right">Credit</TableHead>
-                                <TableHead className="text-right">Balance</TableHead>
+                            <TableRow className="bg-gray-100">
+                                <TableHead className="w-[120px] text-gray-600">Date</TableHead>
+                                <TableHead className="text-gray-600">Description</TableHead>
+                                <TableHead className="text-right text-gray-600">Debit</TableHead>
+                                <TableHead className="text-right text-gray-600">Credit</TableHead>
+                                <TableHead className="text-right text-gray-600">Balance</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -299,19 +362,19 @@ export default function AccountStatementPage() {
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                     <TableCell className="capitalize">{tx.transactionType} ({tx.notes || 'N/A'})</TableCell>
-                                    <TableCell className="text-right text-destructive">{tx.debit > 0 ? `$${tx.debit.toFixed(2)}` : '-'}</TableCell>
+                                    <TableCell className="text-right text-red-600">{tx.debit > 0 ? `$${tx.debit.toFixed(2)}` : '-'}</TableCell>
                                     <TableCell className="text-right text-green-600">{tx.credit > 0 ? `$${tx.credit.toFixed(2)}` : '-'}</TableCell>
                                     <TableCell className="text-right">${tx.balance.toFixed(2)}</TableCell>
                                 </TableRow>
                             ))}
-                             <TableRow className="font-semibold bg-muted/50">
+                             <TableRow className="font-semibold bg-gray-100">
                                 <TableCell colSpan={4}>Closing Balance as of {format(statementData.dateRange.to!, 'PPP')}</TableCell>
                                 <TableCell className="text-right">${statementData.closingBalance.toFixed(2)}</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
                 </div>
-                 <div className="text-center text-xs text-muted-foreground mt-4">
+                 <div className="text-center text-xs text-gray-500 mt-4">
                     <p>Thank you for being a valued member of AcademInvest.</p>
                 </div>
             </div>
