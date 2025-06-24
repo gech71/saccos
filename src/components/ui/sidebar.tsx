@@ -535,57 +535,61 @@ type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClic
 const SidebarMenuButton = React.forwardRef<
   HTMLElement,
   CombinedProps & { asChild?: boolean }
->(({ asChild, ...allProps }, ref) => {
-  const {
-    isActive = false,
-    variant = "default",
-    size = "default",
-    tooltip,
-    className,
-    children,
-    ...parentProvidedProps
-  } = allProps
+>(
+  (
+    {
+      asChild = false,
+      isActive = false,
+      variant = "default",
+      size = "default",
+      tooltip,
+      className,
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    const { isMobile, state } = useSidebar()
 
-  const { isMobile, state } = useSidebar()
+    const Comp = asChild ? Slot : props.href ? "a" : "button"
 
-  const Comp = asChild ? Slot : parentProvidedProps.href ? "a" : "button"
+    const buttonElement = (
+      <Comp
+        ref={ref as any}
+        data-sidebar="menu-button"
+        data-size={size}
+        data-active={isActive}
+        className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
+        {...props}
+      >
+        {children}
+      </Comp>
+    )
 
-  const buttonElement = (
-    <Comp
-      ref={ref as any}
-      data-sidebar="menu-button"
-      data-size={size}
-      data-active={isActive}
-      className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-      {...parentProvidedProps}
-    >
-      {children}
-    </Comp>
-  )
+    if (!tooltip) {
+      return buttonElement
+    }
 
-  if (!tooltip) {
-    return buttonElement
+    let tooltipProps: React.ComponentProps<typeof TooltipContent> = {}
+    if (typeof tooltip === "string") {
+      tooltipProps = { children: tooltip }
+    } else {
+      tooltipProps = tooltip
+    }
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
+        <TooltipContent
+          side="right"
+          align="center"
+          hidden={state !== "collapsed" || isMobile}
+          {...tooltipProps}
+        />
+      </Tooltip>
+    )
   }
-
-  let tooltipProps: React.ComponentProps<typeof TooltipContent> = {}
-  if (typeof tooltip === "string") {
-    tooltipProps = { children: tooltip }
-  } else {
-    tooltipProps = tooltip
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
-      <TooltipContent
-        side="right"
-        align="center"
-        hidden={state !== "collapsed" || isMobile}
-        {...tooltipProps}
-      />
-    </Tooltip>
-  )
-})
+)
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 const SidebarMenuAction = React.forwardRef<
