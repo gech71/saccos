@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -230,7 +230,7 @@ export default function AccountStatementPage() {
         </div>
 
       {statementData && (
-        <Card>
+        <Card id="printable-statement">
           <CardHeader className="flex flex-row justify-between items-center no-print">
             <div>
               <CardTitle>Generated Statement</CardTitle>
@@ -243,7 +243,7 @@ export default function AccountStatementPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div id="printable-statement" className="p-6 border rounded-lg">
+            <div className="p-6 border rounded-lg">
                 {/* Header */}
                 <div className="flex justify-between items-start pb-4 border-b mb-4">
                     <div>
