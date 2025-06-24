@@ -524,96 +524,69 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-// Modified CombinedProps to remove its own `asChild`
-type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> &
-                     Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'onClick'> &
-                     VariantProps<typeof sidebarMenuButtonVariants> & {
-  // asChild?: boolean; // Removed SidebarMenuButton's own asChild prop
-  isActive?: boolean;
-  tooltip?: string | React.ComponentProps<typeof TooltipContent>;
-  onClick?: React.MouseEventHandler<HTMLElement>;
-};
-
+type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> &
+  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "onClick"> &
+  VariantProps<typeof sidebarMenuButtonVariants> & {
+    isActive?: boolean
+    tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    onClick?: React.MouseEventHandler<HTMLElement>
+  }
 
 const SidebarMenuButton = React.forwardRef<
   HTMLElement,
-  CombinedProps
->(
-  (
-    allProps,
-    ref
-  ) => {
-    const {
-      // asChild prop is no longer explicitly destructured here
-      isActive = false,
-      variant = "default",
-      size = "default",
-      tooltip,
-      className,
-      children,
-      ...parentProvidedProps // `asChild` from Link (if passed) will be in here
-    } = allProps;
+  CombinedProps & { asChild?: boolean }
+>(({ asChild, ...allProps }, ref) => {
+  const {
+    isActive = false,
+    variant = "default",
+    size = "default",
+    tooltip,
+    className,
+    children,
+    ...parentProvidedProps
+  } = allProps
 
-    const { isMobile, state } = useSidebar();
+  const { isMobile, state } = useSidebar()
 
-    let Comp: React.ElementType;
-    let propsToSpread = { ...parentProvidedProps };
+  const Comp = asChild ? Slot : parentProvidedProps.href ? "a" : "button"
 
+  const buttonElement = (
+    <Comp
+      ref={ref as any}
+      data-sidebar="menu-button"
+      data-size={size}
+      data-active={isActive}
+      className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
+      {...parentProvidedProps}
+    >
+      {children}
+    </Comp>
+  )
 
-    if (propsToSpread.href) {
-      Comp = "a";
-    } else if (propsToSpread.asChild) { // Check if asChild was passed from parent
-      Comp = Slot;
-    } else {
-      Comp = "button";
-    }
-
-    // If Comp is a DOM element, ensure `asChild` is not passed to it.
-    if (Comp === "a" || Comp === "button") {
-      if ('asChild' in propsToSpread) {
-        delete (propsToSpread as any).asChild;
-      }
-    }
-    // If Comp is Slot, Slot will handle `asChild` if its child is another component.
-
-    const buttonElement = (
-      <Comp
-        ref={ref as any}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
-        {...propsToSpread}
-      >
-        {children}
-      </Comp>
-    );
-
-    if (!tooltip) {
-      return buttonElement;
-    }
-
-    let tooltipProps: React.ComponentProps<typeof TooltipContent> = {};
-    if (typeof tooltip === "string") {
-      tooltipProps = { children: tooltip };
-    } else {
-      tooltipProps = tooltip;
-    }
-    
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="center"
-          hidden={state !== "collapsed" || isMobile}
-          {...tooltipProps}
-        />
-      </Tooltip>
-    );
+  if (!tooltip) {
+    return buttonElement
   }
-);
-SidebarMenuButton.displayName = "SidebarMenuButton";
+
+  let tooltipProps: React.ComponentProps<typeof TooltipContent> = {}
+  if (typeof tooltip === "string") {
+    tooltipProps = { children: tooltip }
+  } else {
+    tooltipProps = tooltip
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
+      <TooltipContent
+        side="right"
+        align="center"
+        hidden={state !== "collapsed" || isMobile}
+        {...tooltipProps}
+      />
+    </Tooltip>
+  )
+})
+SidebarMenuButton.displayName = "SidebarMenuButton"
 
 const SidebarMenuAction = React.forwardRef<
   HTMLButtonElement,
@@ -782,4 +755,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
