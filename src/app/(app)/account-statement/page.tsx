@@ -110,7 +110,7 @@ export default function AccountStatementPage() {
     <div className="space-y-8">
       <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for a member." : "View and print your account statement for a selected period."} />
 
-      <Card className="statement-form">
+      <Card className="statement-form no-print">
         <CardHeader>
           <CardTitle>Selection Criteria</CardTitle>
           <CardDescription>Select a member and date range to generate their statement.</CardDescription>
