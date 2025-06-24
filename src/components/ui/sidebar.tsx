@@ -524,17 +524,13 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-type CombinedProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> &
-  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "onClick"> &
-  VariantProps<typeof sidebarMenuButtonVariants> & {
-    isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
-    onClick?: React.MouseEventHandler<HTMLElement>
-  }
-
 const SidebarMenuButton = React.forwardRef<
   HTMLElement,
-  CombinedProps & { asChild?: boolean }
+  React.ComponentProps<typeof sidebarMenuButtonVariants> & {
+    isActive?: boolean
+    tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    asChild?: boolean
+  }
 >(
   (
     {
@@ -550,7 +546,6 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const { isMobile, state } = useSidebar()
-
     const Comp = asChild ? Slot : props.href ? "a" : "button"
 
     const buttonElement = (
