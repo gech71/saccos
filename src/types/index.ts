@@ -51,6 +51,8 @@ export interface Member {
     city: string;
     subCity: string;
     wereda: string;
+    kebele?: string;
+    houseNumber?: string;
   };
   emergencyContact: {
     name: string;

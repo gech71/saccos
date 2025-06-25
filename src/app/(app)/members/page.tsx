@@ -54,7 +54,7 @@ const initialMemberFormState: Partial<Member> = {
   email: '',
   sex: 'Male',
   phoneNumber: '',
-  address: { city: '', subCity: '', wereda: '' },
+  address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' },
   emergencyContact: { name: '', phone: '' },
   schoolId: '',
   joinDate: new Date().toISOString().split('T')[0], // today
@@ -381,7 +381,7 @@ export default function MembersPage() {
             setIsViewingOnly(false);
         }
       }}>
-        <DialogContent className="sm:max-w-2xl"> 
+        <DialogContent className="sm:max-w-3xl"> 
           <DialogHeader>
             <DialogTitle className="font-headline">
                 {isViewingOnly ? 'Member Details' : isEditingMember ? 'Edit Member' : 'Add New Member'}
@@ -426,6 +426,10 @@ export default function MembersPage() {
                 <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
                 <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
                 <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div><Label htmlFor="address.kebele">Kebele</Label><Input id="address.kebele" name="address.kebele" value={currentMember.address?.kebele || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+                <div><Label htmlFor="address.houseNumber">House Number</Label><Input id="address.houseNumber" name="address.houseNumber" value={currentMember.address?.houseNumber || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
             </div>
 
             <Separator className="my-4" />
