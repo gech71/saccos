@@ -166,8 +166,11 @@ export default function GroupCollectionsPage() {
 
         const seenAccountNumbers = new Set<string>();
         const validatedData = jsonData.map((row): ParsedExcelData => {
-            const accountNumber = row['Savings Account Number']?.toString();
-            const amount = parseFloat(row['Amount']);
+            const accountNumberValue = row['Savings Account Number'] || row['Savings Account #'] || row['AccountNumber'];
+            const amountValue = row['Amount'] || row['Contribution'];
+            
+            const accountNumber = accountNumberValue?.toString().trim();
+            const amount = parseFloat(amountValue);
             
             if (!accountNumber || isNaN(amount) || amount <= 0) {
                 return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, status: 'Invalid Account Number' };
@@ -177,7 +180,7 @@ export default function GroupCollectionsPage() {
                 return { 'Savings Account Number': accountNumber, 'Amount': amount, status: 'Duplicate' };
             }
             
-            const member = allMembers.find(m => m.savingsAccountNumber === accountNumber);
+            const member = allMembers.find(m => m.savingsAccountNumber?.trim() === accountNumber);
             if (member) {
                 seenAccountNumbers.add(accountNumber);
                 return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, memberName: member.fullName, status: 'Valid' };
@@ -191,7 +194,7 @@ export default function GroupCollectionsPage() {
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Please ensure it has "Savings Account Number" and "Amount" columns.' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns for account number and amount.' });
       } finally {
         setIsParsing(false);
       }
@@ -417,7 +420,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Select an Excel file (.xlsx, .xls, .csv) with "Savings Account Number" and "Amount" columns. A "Member Name" column may also be included.</CardDescription>
+                        <CardDescription>Select an Excel file (.xlsx, .xls, .csv) with columns for savings account number and amount.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
