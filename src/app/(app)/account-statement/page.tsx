@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { WalletCards } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
+import { useSearchParams } from 'next/navigation';
 
 interface StatementData {
   member: Member;
@@ -43,8 +44,8 @@ const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
     }
 };
 
-
-export default function AccountStatementPage() {
+function AccountStatementContent() {
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function AccountStatementPage() {
   }, [selectedMemberId, allMembers]);
 
   useEffect(() => {
+    const memberIdFromQuery = searchParams.get('memberId');
     setAllMembers(loadFromLocalStorage('members', mockMembers));
     setAllSavings(loadFromLocalStorage('savings', mockSavings));
 
@@ -74,10 +76,13 @@ export default function AccountStatementPage() {
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
-    if (role === 'member' && memberId) {
+
+    if (memberIdFromQuery) {
+        setSelectedMemberId(memberIdFromQuery);
+    } else if (role === 'member' && memberId) {
       setSelectedMemberId(memberId);
     }
-  }, []);
+  }, [searchParams]);
   
   // Automatically set date range for closed accounts
   useEffect(() => {
@@ -429,4 +434,12 @@ export default function AccountStatementPage() {
       )}
     </div>
   );
+}
+
+export default function AccountStatementPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <AccountStatementContent />
+        </Suspense>
+    )
 }

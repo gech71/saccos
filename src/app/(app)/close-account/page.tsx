@@ -164,7 +164,7 @@ export default function CloseAccountPage() {
         
         const updatedMembers = allMembers.map(m => 
             m.id === selectedMember.id 
-            ? { ...m, savingsBalance: 0, status: 'inactive' } as Member
+            ? { ...m, savingsBalance: 0, status: 'inactive', closureDate: new Date().toISOString() } as Member
             : m
         );
         setAllMembers(updatedMembers);

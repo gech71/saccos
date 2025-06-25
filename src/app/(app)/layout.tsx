@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -33,6 +33,7 @@ const allNavItems: NavItem[] = [
   { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
   { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, roles: ['admin', 'member'], memberTitle: 'My Statement' },
   { title: 'Close Account', href: '/close-account', icon: UserX, roles: ['admin'] },
+  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, roles: ['admin'] },
 
   // LOAN RELATED
   { title: 'Loans', isGroupLabel: true, roles: ['admin'] },
