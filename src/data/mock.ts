@@ -8,6 +8,19 @@ export const mockSchools: School[] = [
   { id: 'school-3', name: 'Mountain View School', address: '789 Maple Dr', contactPerson: 'Charlie Brown' },
 ];
 
+export const mockSubcities: string[] = [
+  "Bole",
+  "Yeka",
+  "Nifas Silk-Lafto",
+  "Kirkos",
+  "Arada",
+  "Gullele",
+  "Lideta",
+  "Akaky Kaliti",
+  "Kolfe Keranio",
+  "Lemi Kura",
+];
+
 export const mockShareTypes: ShareType[] = [
   { id: 'st-regular', name: 'Regular Share', description: 'Standard membership share.', valuePerShare: 10, expectedMonthlyContribution: 20 },
   { id: 'st-education', name: 'Educational Support Share', description: 'Dedicated to funding educational initiatives.', valuePerShare: 15, expectedMonthlyContribution: 10 },
@@ -66,7 +79,7 @@ export const mockMembers: Member[] = [
     email: 'john.doe@example.com',
     sex: 'Male',
     phoneNumber: '123-456-7890',
-    address: { city: 'Greenville', subCity: 'Downtown', wereda: '01', kebele: '05', houseNumber: '123-A' },
+    address: { city: 'Greenville', subCity: 'Bole', wereda: '01', kebele: '05', houseNumber: '123-A' },
     emergencyContact: { name: 'Jane Doe', phone: '111-222-3333' },
     schoolId: 'school-1',
     schoolName: 'Greenwood High',
@@ -89,7 +102,7 @@ export const mockMembers: Member[] = [
     email: 'jane.smith@example.com',
     sex: 'Female',
     phoneNumber: '987-654-3210',
-    address: { city: 'Rivertown', subCity: 'Riverside', wereda: '02', kebele: '03', houseNumber: '45-B' },
+    address: { city: 'Rivertown', subCity: 'Yeka', wereda: '02', kebele: '03', houseNumber: '45-B' },
     emergencyContact: { name: 'John Smith', phone: '444-555-6666' },
     schoolId: 'school-2',
     schoolName: 'Riverside Academy',
@@ -111,7 +124,7 @@ export const mockMembers: Member[] = [
     email: 'mike.johnson@example.com',
     sex: 'Male',
     phoneNumber: '555-123-4567',
-    address: { city: 'Greenville', subCity: 'Uptown', wereda: '03', kebele: '01', houseNumber: 'Z-890' },
+    address: { city: 'Greenville', subCity: 'Nifas Silk-Lafto', wereda: '03', kebele: '01', houseNumber: 'Z-890' },
     emergencyContact: { name: 'Mary Johnson', phone: '777-888-9999' },
     schoolId: 'school-1',
     schoolName: 'Greenwood High',
@@ -134,7 +147,7 @@ export const mockMembers: Member[] = [
     email: 'sarah.williams@example.com',
     sex: 'Female',
     phoneNumber: '222-333-4444',
-    address: { city: 'Mountain City', subCity: 'Valley View', wereda: '04', kebele: '12', houseNumber: 'C-Block-1' },
+    address: { city: 'Mountain City', subCity: 'Kirkos', wereda: '04', kebele: '12', houseNumber: 'C-Block-1' },
     emergencyContact: { name: 'David Williams', phone: '000-111-2222' },
     schoolId: 'school-3',
     schoolName: 'Mountain View School',
@@ -422,7 +435,7 @@ export const mockLoans: Loan[] = [
         },
         address: {
           city: 'Greenville',
-          subCity: 'Downtown',
+          subCity: 'Bole',
           wereda: '01',
           kebele: '06',
           houseNumber: '456-B'

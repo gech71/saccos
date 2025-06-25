@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PageTitle } from '@/components/page-title';
@@ -9,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import React, { useState, useEffect } from 'react';
+import { mockSubcities } from '@/data/mock';
+import { Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -18,13 +21,25 @@ export default function SettingsPage() {
     pushActivity: true,
   });
   const [darkMode, setDarkMode] = useState(false);
+  const [subcities, setSubcities] = useState<string[]>([]);
+  const [newSubcity, setNewSubcity] = useState('');
 
   useEffect(() => {
+    // Theme setup
     const storedTheme = localStorage.getItem('theme');
     if (storedTheme) {
       setDarkMode(storedTheme === 'dark');
     } else {
       setDarkMode(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    
+    // Subcities setup
+    const storedSubcities = localStorage.getItem('subcities');
+    if (storedSubcities) {
+        setSubcities(JSON.parse(storedSubcities));
+    } else {
+        setSubcities(mockSubcities);
+        localStorage.setItem('subcities', JSON.stringify(mockSubcities));
     }
   }, []);
 
@@ -42,6 +57,25 @@ export default function SettingsPage() {
   const handleSaveChanges = () => {
     // Simulate saving settings
     toast({ title: 'Settings Saved', description: 'Your preferences have been updated.' });
+  };
+
+  const handleAddSubcity = () => {
+    if (newSubcity && !subcities.includes(newSubcity.trim())) {
+        const updatedSubcities = [...subcities, newSubcity.trim()];
+        setSubcities(updatedSubcities);
+        localStorage.setItem('subcities', JSON.stringify(updatedSubcities));
+        setNewSubcity('');
+        toast({ title: 'Subcity Added', description: `"${newSubcity.trim()}" has been added.` });
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Subcity name is empty or already exists.' });
+    }
+  };
+
+  const handleRemoveSubcity = (subcityToRemove: string) => {
+    const updatedSubcities = subcities.filter(sc => sc !== subcityToRemove);
+    setSubcities(updatedSubcities);
+    localStorage.setItem('subcities', JSON.stringify(updatedSubcities));
+    toast({ title: 'Subcity Removed', description: `"${subcityToRemove}" has been removed.` });
   };
 
   return (
@@ -157,6 +191,36 @@ export default function SettingsPage() {
               <Button onClick={handleSaveChanges} className="ml-auto">Save Notifications</Button>
             </CardFooter>
           </Card>
+          
+           <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-headline text-primary">Manage Subcities</CardTitle>
+              <CardDescription>Add or remove subcities available in address forms across the application.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                  <Label>Current Subcities</Label>
+                  <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-1">
+                      {subcities.length > 0 ? subcities.sort((a, b) => a.localeCompare(b)).map(sc => (
+                          <div key={sc} className="flex items-center justify-between p-1.5 rounded-md hover:bg-muted">
+                              <span className="text-sm">{sc}</span>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveSubcity(sc)}>
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Remove {sc}</span>
+                              </Button>
+                          </div>
+                      )) : <p className="text-sm text-muted-foreground p-2">No subcities defined.</p>}
+                  </div>
+              </div>
+              <div className="flex items-end gap-2 pt-2">
+                  <div className="flex-grow">
+                      <Label htmlFor="newSubcity">New Subcity Name</Label>
+                      <Input id="newSubcity" value={newSubcity} onChange={(e) => setNewSubcity(e.target.value)} placeholder="e.g., Bole"/>
+                  </div>
+                  <Button onClick={handleAddSubcity}>Add Subcity</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
@@ -191,4 +255,3 @@ function NotificationItem({id, label, description, checked, onCheckedChange}: No
         </div>
     )
 }
-

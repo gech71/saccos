@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes } from '@/data/mock';
+import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes, mockSubcities } from '@/data/mock';
 import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +72,7 @@ export default function MembersPage() {
   const [schools] = useState<School[]>(mockSchools);
   const [shareTypes] = useState<ShareType[]>(mockShareTypes);
   const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
+  const [subcities, setSubcities] = useState<string[]>([]);
   
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
@@ -81,6 +82,15 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const storedSubcities = localStorage.getItem('subcities');
+    if (storedSubcities) {
+        setSubcities(JSON.parse(storedSubcities));
+    } else {
+        setSubcities(mockSubcities);
+    }
+  }, []);
 
   const handleMemberInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -100,6 +110,23 @@ export default function MembersPage() {
         });
     } else {
         setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' || name === 'expectedMonthlySaving' ? parseFloat(value) : value }));
+    }
+  };
+
+  const handleNestedSelectChange = (name: string, value: string) => {
+    const nameParts = name.split('.');
+    if (nameParts.length > 1) {
+        const [parentKey, childKey] = nameParts as [keyof Member, string];
+        setCurrentMember(prev => {
+            const currentParentValue = prev[parentKey] || {};
+            return {
+                ...prev,
+                [parentKey]: {
+                    ...(currentParentValue as object),
+                    [childKey]: value
+                }
+            };
+        });
     }
   };
 
@@ -424,7 +451,21 @@ export default function MembersPage() {
             <Label className="font-semibold text-base text-primary">Address</Label>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><Label htmlFor="address.city">City</Label><Input id="address.city" name="address.city" value={currentMember.address?.city || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
-                <div><Label htmlFor="address.subCity">Sub City</Label><Input id="address.subCity" name="address.subCity" value={currentMember.address?.subCity || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
+                <div>
+                  <Label htmlFor="address.subCity">Sub City</Label>
+                  <Select
+                    value={currentMember.address?.subCity || ''}
+                    onValueChange={(value) => handleNestedSelectChange('address.subCity', value)}
+                    disabled={isViewingOnly}
+                  >
+                    <SelectTrigger id="address.subCity">
+                        <SelectValue placeholder="Select a subcity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {subcities.map(sc => (<SelectItem key={sc} value={sc}>{sc}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div><Label htmlFor="address.wereda">Wereda</Label><Input id="address.wereda" name="address.wereda" value={currentMember.address?.wereda || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} /></div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

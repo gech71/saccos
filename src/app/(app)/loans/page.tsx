@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -13,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { mockLoans, mockMembers, mockLoanTypes } from '@/data/mock';
+import { mockLoans, mockMembers, mockLoanTypes, mockSubcities } from '@/data/mock';
 import type { Loan, Member, LoanType, Collateral } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -36,6 +37,7 @@ export default function LoansPage() {
   const [loans, setLoans] = useState<Loan[]>(mockLoans);
   const [members] = useState<Member[]>(mockMembers);
   const [loanTypes] = useState<LoanType[]>(mockLoanTypes);
+  const [subcities, setSubcities] = useState<string[]>([]);
   const { toast } = useToast();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,6 +57,13 @@ export default function LoansPage() {
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
+
+    const storedSubcities = localStorage.getItem('subcities');
+    if (storedSubcities) {
+        setSubcities(JSON.parse(storedSubcities));
+    } else {
+        setSubcities(mockSubcities);
+    }
   }, []);
 
   useEffect(() => {
@@ -423,7 +432,20 @@ export default function LoansPage() {
                   <Label className="font-semibold pt-2 block">Guarantor's Address</Label>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div><Label htmlFor={`collateral-addr-city-${index}`}>City</Label><Input id={`collateral-addr-city-${index}`} name="address.city" value={collateral.address?.city || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
-                      <div><Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label><Input id={`collateral-addr-subcity-${index}`} name="address.subCity" value={collateral.address?.subCity || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                      <div>
+                        <Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label>
+                        <Select
+                          value={collateral.address?.subCity || ''}
+                          onValueChange={(value) => handleCollateralChange(index, 'address.subCity', value)}
+                        >
+                          <SelectTrigger id={`collateral-addr-subcity-${index}`}>
+                              <SelectValue placeholder="Select a subcity" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {subcities.map(sc => (<SelectItem key={sc} value={sc}>{sc}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div><Label htmlFor={`collateral-addr-wereda-${index}`}>Wereda</Label><Input id={`collateral-addr-wereda-${index}`} name="address.wereda" value={collateral.address?.wereda || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
                   </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
