@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -55,6 +54,7 @@ const initialBatchTransactionState: Partial<Omit<Saving, 'id' | 'memberId' | 'me
 };
 
 interface ParsedExcelData {
+  'Member Name'?: string;
   'Savings Account Number': string;
   'Amount': number;
   memberName?: string;
@@ -83,6 +83,8 @@ export default function GroupCollectionsPage() {
   const [eligibleMembers, setEligibleMembers] = useState<Member[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [collectionAmounts, setCollectionAmounts] = useState<Record<string, number>>({});
+
   
   // EXCEL-BASED COLLECTION STATE
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -111,6 +113,13 @@ export default function GroupCollectionsPage() {
       );
       setEligibleMembers(filtered);
       setSelectedMemberIds(filtered.map(m => m.id)); 
+      
+      const initialAmounts: Record<string, number> = {};
+      filtered.forEach(m => {
+          initialAmounts[m.id] = m.expectedMonthlySaving || 0;
+      });
+      setCollectionAmounts(initialAmounts);
+
       setIsLoadingMembers(false);
       if (filtered.length === 0) {
         toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving/share contribution for the selected account type.' });
@@ -127,17 +136,23 @@ export default function GroupCollectionsPage() {
       checked ? [...prev, memberId] : prev.filter(id => id !== memberId)
     );
   };
+  
+  const handleCollectionAmountChange = (memberId: string, amount: string) => {
+    setCollectionAmounts(prev => ({ ...prev, [memberId]: parseFloat(amount) || 0 }));
+  };
 
   const isAllSelected = eligibleMembers.length > 0 && selectedMemberIds.length === eligibleMembers.length;
 
   const summaryForSelection = useMemo(() => {
-    const membersInSelection = eligibleMembers.filter(m => selectedMemberIds.includes(m.id));
-    const totalExpectedSaving = membersInSelection.reduce((sum, m) => sum + (m.expectedMonthlySaving || 0), 0);
+    const membersInSelection = selectedMemberIds.length;
+    const totalAmountToCollect = selectedMemberIds.reduce((sum, memberId) => {
+        return sum + (collectionAmounts[memberId] || 0);
+    }, 0);
     return {
-      count: membersInSelection.length,
-      totalExpectedSaving,
+      count: membersInSelection,
+      totalExpectedSaving: totalAmountToCollect,
     };
-  }, [eligibleMembers, selectedMemberIds]);
+  }, [selectedMemberIds, collectionAmounts]);
 
 
   // EXCEL-BASED COLLECTION LOGIC
@@ -179,11 +194,11 @@ export default function GroupCollectionsPage() {
             const amount = parseFloat(row[row.length - 1]);
             
             if (!accountNumber || isNaN(amount) || amount <= 0) {
-                return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, memberName: providedMemberName, status: 'Invalid Account Number' };
+                return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
             }
             
             if (seenAccountNumbers.has(accountNumber)) {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, memberName: providedMemberName, status: 'Duplicate' };
+                return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Duplicate' };
             }
             
             const member = allMembers.find(m => m.savingsAccountNumber?.trim() === accountNumber);
@@ -191,7 +206,7 @@ export default function GroupCollectionsPage() {
                 seenAccountNumbers.add(accountNumber);
                 return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, memberName: member.fullName, status: 'Valid' };
             } else {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, memberName: providedMemberName, status: 'Invalid Account Number' };
+                return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
             }
         });
 
@@ -250,17 +265,24 @@ export default function GroupCollectionsPage() {
     let newTransactions: Saving[] = [];
 
     if (collectionMode === 'filter') {
-        if (selectedMemberIds.length === 0) {
-            toast({ variant: 'destructive', title: 'No Members Selected', description: 'Please select members to process collection for.' });
+        const membersToProcess = selectedMemberIds
+            .map(memberId => ({
+                member: allMembers.find(m => m.id === memberId)!,
+                amount: collectionAmounts[memberId] || 0,
+            }))
+            .filter(({ amount }) => amount > 0);
+
+        if (membersToProcess.length === 0) {
+            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select members and ensure their collection amounts are greater than zero.' });
             return;
         }
-        newTransactions = selectedMemberIds.map(memberId => {
-          const member = allMembers.find(m => m.id === memberId)!;
+
+        newTransactions = membersToProcess.map(({member, amount}) => {
           return {
-            id: `saving-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${memberId}`,
+            id: `saving-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${member.id}`,
             memberId: member.id,
             memberName: member.fullName,
-            amount: member.expectedMonthlySaving || 0,
+            amount: amount,
             date: transactionDate,
             month: transactionMonthString,
             transactionType: 'deposit',
@@ -268,7 +290,7 @@ export default function GroupCollectionsPage() {
             depositMode: batchDetails.depositMode,
             paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
           };
-        }).filter(tx => tx.amount > 0);
+        });
 
     } else { // Excel mode
         const validRows = parsedData.filter(d => d.status === 'Valid');
@@ -403,6 +425,7 @@ export default function GroupCollectionsPage() {
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Account Number</TableHead>
                                 <TableHead className="text-right">Exp. Monthly Saving ($)</TableHead>
+                                <TableHead className="w-[200px] text-right">Amount to Collect ($)</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -414,6 +437,17 @@ export default function GroupCollectionsPage() {
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                                   <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      value={collectionAmounts[member.id] || ''}
+                                      onChange={(e) => handleCollectionAmountChange(member.id, e.target.value)}
+                                      className="text-right"
+                                      disabled={!selectedMemberIds.includes(member.id)}
+                                    />
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -426,7 +460,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). The file should have columns in this order: Member Name, Saving Account #, ..., Amount.</CardDescription>
+                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: Col 1: Member Name, Col 2: Saving Account #, Last Col: Amount.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
@@ -453,7 +487,7 @@ export default function GroupCollectionsPage() {
                                <TableBody>
                                 {parsedData.map((row, index) => (
                                     <TableRow key={index}>
-                                        <TableCell>{row.memberName || 'N/A'}</TableCell>
+                                        <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
                                         <TableCell>{row['Savings Account Number']}</TableCell>
                                         <TableCell className="text-right">${row.Amount.toFixed(2)}</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
@@ -522,7 +556,7 @@ export default function GroupCollectionsPage() {
                                                 setBatchDetails(prev => ({
                                                     ...prev,
                                                     paymentDetails: {
-                                                        ...(prev?.paymentDetails || {}),
+                                                        ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
                                                         evidenceUrl: newValue,
                                                     }
                                                 }));
@@ -536,7 +570,7 @@ export default function GroupCollectionsPage() {
                     <CardFooter>
                        <Button 
                         onClick={handleSubmitCollection} 
-                        disabled={isPosting || (collectionMode === 'filter' && selectedMemberIds.length === 0) || (collectionMode === 'excel' && excelSummary.count === 0)} 
+                        disabled={isPosting || (collectionMode === 'filter' && summaryForSelection.totalExpectedSaving <= 0) || (collectionMode === 'excel' && excelSummary.count === 0)} 
                         className="w-full md:w-auto ml-auto"
                        >
                           {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
