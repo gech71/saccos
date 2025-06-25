@@ -411,6 +411,24 @@ export const mockLoans: Loan[] = [
     remainingBalance: 800,
     nextDueDate: new Date(2024, 4, 20).toISOString(),
     monthlyRepaymentAmount: 88.85,
+    collateral: [
+      {
+        id: 'col-1',
+        fullName: 'Guarantor Person',
+        organization: {
+          name: 'Secure Inc.',
+          address: '1 Secure Plaza',
+          phone: '555-555-5555'
+        },
+        address: {
+          city: 'Greenville',
+          subCity: 'Downtown',
+          wereda: '01',
+          kebele: '06',
+          houseNumber: '456-B'
+        }
+      }
+    ]
   },
   {
     id: 'loan-2',

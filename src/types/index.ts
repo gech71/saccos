@@ -160,6 +160,23 @@ export interface NavItem {
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
 export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
 
+export interface Collateral {
+  id: string;
+  fullName: string;
+  organization?: {
+    name: string;
+    address: string;
+    phone: string;
+  };
+  address: {
+    city: string;
+    subCity: string;
+    wereda: string;
+    kebele?: string;
+    houseNumber?: string;
+  };
+}
+
 export interface Loan {
   id: string;
   loanAccountNumber?: string;
@@ -177,6 +194,7 @@ export interface Loan {
   nextDueDate?: string; // ISO
   notes?: string;
   monthlyRepaymentAmount?: number;
+  collateral?: Collateral[];
 }
 
 export interface LoanRepayment {

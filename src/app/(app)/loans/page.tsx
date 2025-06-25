@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -14,12 +14,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { mockLoans, mockMembers, mockLoanTypes } from '@/data/mock';
-import type { Loan, Member, LoanType } from '@/types';
+import type { Loan, Member, LoanType, Collateral } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const initialLoanFormState: Partial<Loan> = {
   memberId: '',
@@ -28,6 +29,7 @@ const initialLoanFormState: Partial<Loan> = {
   disbursementDate: new Date().toISOString().split('T')[0],
   status: 'pending',
   loanAccountNumber: '',
+  collateral: [],
 };
 
 export default function LoansPage() {
@@ -84,6 +86,48 @@ export default function LoansPage() {
 
   const handleSelectChange = (name: keyof Loan, value: string) => {
     setCurrentLoan(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addCollateral = () => {
+    const newCollateral: Collateral = {
+        id: `collateral-${Date.now()}`,
+        fullName: '',
+        organization: { name: '', address: '', phone: '' },
+        address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' }
+    };
+    setCurrentLoan(prev => ({
+        ...prev,
+        collateral: [...(prev.collateral || []), newCollateral]
+    }));
+  };
+
+  const removeCollateral = (index: number) => {
+      setCurrentLoan(prev => ({
+          ...prev,
+          collateral: (prev.collateral || []).filter((_, i) => i !== index)
+      }));
+  };
+
+  const handleCollateralChange = (index: number, field: string, value: string) => {
+    const updatedCollaterals = [...(currentLoan.collateral || [])];
+    const fieldParts = field.split('.');
+
+    if (fieldParts.length > 1) {
+        const [parentKey, childKey] = fieldParts as [keyof Collateral, string];
+        const currentParentValue = updatedCollaterals[index][parentKey as 'organization' | 'address'] || {};
+        updatedCollaterals[index] = {
+            ...updatedCollaterals[index],
+            [parentKey]: {
+                ...(currentParentValue as object),
+                [childKey]: value
+            }
+        };
+    } else {
+        const key = field as keyof Collateral;
+        (updatedCollaterals[index] as any)[key] = value;
+    }
+    
+    setCurrentLoan(prev => ({...prev, collateral: updatedCollaterals}));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -143,6 +187,7 @@ export default function LoansPage() {
     setCurrentLoan({
       ...loan,
       disbursementDate: loan.disbursementDate ? new Date(loan.disbursementDate).toISOString().split('T')[0] : '',
+      collateral: loan.collateral ? [...loan.collateral] : [],
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -236,6 +281,7 @@ export default function LoansPage() {
               <TableHead className="text-right">Balance ($)</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead>Next Due</TableHead>
+              <TableHead>Collateral</TableHead>
               {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -250,6 +296,13 @@ export default function LoansPage() {
                 <TableCell className="text-right font-semibold">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
+                <TableCell>
+                  {loan.collateral && loan.collateral.length > 0 ? (
+                    <Badge variant="secondary">{loan.collateral.length} Guarantor(s)</Badge>
+                  ) : (
+                    <Badge variant="outline">None</Badge>
+                  )}
+                </TableCell>
                 {userRole === 'admin' && <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><span className="sr-only">Menu</span><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -261,19 +314,19 @@ export default function LoansPage() {
                 </TableCell>}
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={userRole === 'admin' ? 9 : 8} className="h-24 text-center">No loans found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={userRole === 'admin' ? 10 : 9} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Loan Application' : 'New Loan Application'}</DialogTitle>
             <DialogDescription>{isEditing ? 'Update the details for this loan application.' : 'Submit a new loan application for a member for approval.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div>
               <Label htmlFor="loanMemberId">Member</Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
@@ -328,6 +381,60 @@ export default function LoansPage() {
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Textarea id="notes" name="notes" value={currentLoan.notes || ''} onChange={handleInputChange} placeholder="E.g., Purpose of the loan, special conditions." />
             </div>
+
+            <Separator className="my-6" />
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                  <Label className="font-semibold text-base text-primary">Collateral / Guarantor Information</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addCollateral}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Guarantor
+                  </Button>
+              </div>
+
+              {(currentLoan.collateral || []).map((collateral, index) => (
+                <div key={collateral.id} className="space-y-4 p-4 border rounded-md relative">
+                   <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
+                      <MinusCircle className="h-5 w-5" />
+                      <span className="sr-only">Remove Guarantor</span>
+                  </Button>
+                  <h4 className="font-medium text-md">Guarantor {index + 1}</h4>
+                  <div>
+                    <Label htmlFor={`collateral-fullName-${index}`}>Guarantor Full Name</Label>
+                    <Input id={`collateral-fullName-${index}`} name="fullName" value={collateral.fullName} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} required />
+                  </div>
+                  
+                  <Label className="font-semibold">Guarantor's Organization</Label>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`collateral-org-name-${index}`}>Organization Name</Label>
+                      <Input id={`collateral-org-name-${index}`} name="organization.name" value={collateral.organization?.name || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                    </div>
+                     <div>
+                      <Label htmlFor={`collateral-org-phone-${index}`}>Organization Phone</Label>
+                      <Input id={`collateral-org-phone-${index}`} name="organization.phone" value={collateral.organization?.phone || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                      <Label htmlFor={`collateral-org-address-${index}`}>Organization Address</Label>
+                      <Input id={`collateral-org-address-${index}`} name="organization.address" value={collateral.organization?.address || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                  </div>
+                  
+                  <Label className="font-semibold pt-2 block">Guarantor's Address</Label>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div><Label htmlFor={`collateral-addr-city-${index}`}>City</Label><Input id={`collateral-addr-city-${index}`} name="address.city" value={collateral.address?.city || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                      <div><Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label><Input id={`collateral-addr-subcity-${index}`} name="address.subCity" value={collateral.address?.subCity || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                      <div><Label htmlFor={`collateral-addr-wereda-${index}`}>Wereda</Label><Input id={`collateral-addr-wereda-${index}`} name="address.wereda" value={collateral.address?.wereda || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                  </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div><Label htmlFor={`collateral-addr-kebele-${index}`}>Kebele</Label><Input id={`collateral-addr-kebele-${index}`} name="address.kebele" value={collateral.address?.kebele || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                      <div><Label htmlFor={`collateral-addr-house-${index}`}>House Number</Label><Input id={`collateral-addr-house-${index}`} name="address.houseNumber" value={collateral.address?.houseNumber || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit">{isEditing ? 'Save Changes' : 'Submit Application'}</Button>
