@@ -68,8 +68,8 @@ export default function GroupCollectionsPage() {
   
   // SHARED STATE
   const [allSchools] = useState<School[]>(mockSchools);
-  const [allMembers, setAllMembers] = useState<Member[]>(mockMembers); 
-  const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
+  const [allMembers, setAllMembers] = useState<Member[]>([]); 
+  const [allSavings, setAllSavings] = useState<Saving[]>([]);
   const [batchDetails, setBatchDetails] = useState(initialBatchTransactionState);
   const [isPosting, setIsPosting] = useState(false);
   const [postedTransactions, setPostedTransactions] = useState<Saving[] | null>(null);
@@ -90,6 +90,14 @@ export default function GroupCollectionsPage() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedExcelData[]>([]);
+
+  useEffect(() => {
+    // Load data from localStorage on component mount
+    const storedMembers = localStorage.getItem('members');
+    const storedSavings = localStorage.getItem('savings');
+    if (storedMembers) setAllMembers(JSON.parse(storedMembers)); else setAllMembers(mockMembers);
+    if (storedSavings) setAllSavings(JSON.parse(storedSavings)); else setAllSavings(mockSavings);
+  }, []);
 
   // FILTER-BASED COLLECTION LOGIC
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (value: string) => {
@@ -319,7 +327,10 @@ export default function GroupCollectionsPage() {
 
     setIsPosting(true);
     setTimeout(() => {
-      setAllSavings(prev => [...newTransactions, ...prev]);
+      const updatedSavings = [...allSavings, ...newTransactions];
+      setAllSavings(updatedSavings);
+      localStorage.setItem('savings', JSON.stringify(updatedSavings));
+      
       toast({ title: 'Collection Submitted', description: `Successfully submitted ${newTransactions.length} savings collections for approval.` });
       setIsPosting(false);
       setEligibleMembers([]); 
@@ -642,5 +653,3 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
-
-    

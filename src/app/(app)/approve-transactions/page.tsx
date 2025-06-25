@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,16 +32,46 @@ import { exportToExcel } from '@/lib/utils';
 
 type PendingTransaction = (Saving | Share | Dividend) & { transactionTypeLabel: string };
 
+// Helper function to get data from localStorage or fall back to mock data
+const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
+    if (typeof window === 'undefined') {
+        return mockData;
+    }
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : mockData;
+    } catch (error) {
+        console.error(`Error reading ${key} from localStorage`, error);
+        return mockData;
+    }
+};
+
+// Helper function to save data to localStorage
+const saveToLocalStorage = (key: string, data: any) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(data));
+    }
+};
+
+
 export default function ApproveTransactionsPage() {
-  const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
-  const [allShares, setAllShares] = useState<Share[]>(mockShares);
-  const [allDividends, setAllDividends] = useState<Dividend[]>(mockDividends);
-  const [allMembers, setAllMembers] = useState<Member[]>(mockMembers);
+  const [allSavings, setAllSavings] = useState<Saving[]>([]);
+  const [allShares, setAllShares] = useState<Share[]>([]);
+  const [allDividends, setAllDividends] = useState<Dividend[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
   const { toast } = useToast();
 
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [transactionToReject, setTransactionToReject] = useState<PendingTransaction | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  useEffect(() => {
+    // Load initial data from localStorage or mock
+    setAllSavings(loadFromLocalStorage('savings', mockSavings));
+    setAllShares(loadFromLocalStorage('shares', mockShares));
+    setAllDividends(loadFromLocalStorage('dividends', mockDividends));
+    setAllMembers(loadFromLocalStorage('members', mockMembers));
+  }, []);
 
   const pendingTransactions = useMemo((): PendingTransaction[] => {
     const pendingSavings: PendingTransaction[] = allSavings
@@ -63,29 +93,42 @@ export default function ApproveTransactionsPage() {
 
   const handleApprove = (tx: PendingTransaction) => {
     if (tx.transactionTypeLabel.startsWith('Savings')) {
-      const savingTx = tx as Saving;
-      setAllSavings(prev => prev.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s));
-      setAllMembers(prevMembers => prevMembers.map(m => {
-        if (m.id === tx.memberId) {
-          const newBalance = savingTx.transactionType === 'deposit'
-            ? m.savingsBalance + savingTx.amount
-            : m.savingsBalance - savingTx.amount;
-          return { ...m, savingsBalance: newBalance < 0 ? 0 : newBalance };
-        }
-        return m;
-      }));
+        const savingTx = tx as Saving;
+        const updatedSavings = allSavings.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s);
+        setAllSavings(updatedSavings);
+        saveToLocalStorage('savings', updatedSavings);
+        
+        const updatedMembers = allMembers.map(m => {
+            if (m.id === tx.memberId) {
+                const newBalance = savingTx.transactionType === 'deposit'
+                    ? m.savingsBalance + savingTx.amount
+                    : m.savingsBalance - savingTx.amount;
+                return { ...m, savingsBalance: newBalance < 0 ? 0 : newBalance };
+            }
+            return m;
+        });
+        setAllMembers(updatedMembers);
+        saveToLocalStorage('members', updatedMembers);
+
     } else if (tx.transactionTypeLabel === 'Share Allocation') {
-      const shareTx = tx as Share;
-      setAllShares(prev => prev.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s));
-      setAllMembers(prevMembers => prevMembers.map(m => {
-        if (m.id === tx.memberId) {
-          return { ...m, sharesCount: (m.sharesCount || 0) + shareTx.count };
-        }
-        return m;
-      }));
+        const shareTx = tx as Share;
+        const updatedShares = allShares.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s);
+        setAllShares(updatedShares);
+        saveToLocalStorage('shares', updatedShares);
+        
+        const updatedMembers = allMembers.map(m => {
+            if (m.id === tx.memberId) {
+                return { ...m, sharesCount: (m.sharesCount || 0) + shareTx.count };
+            }
+            return m;
+        });
+        setAllMembers(updatedMembers);
+        saveToLocalStorage('members', updatedMembers);
+
     } else if (tx.transactionTypeLabel === 'Dividend Distribution') {
-      setAllDividends(prev => prev.map(d => d.id === tx.id ? { ...d, status: 'approved' } : d));
-      // Note: Approving a dividend doesn't change a balance in this simplified model.
+        const updatedDividends = allDividends.map(d => d.id === tx.id ? { ...d, status: 'approved' } : d);
+        setAllDividends(updatedDividends);
+        saveToLocalStorage('dividends', updatedDividends);
     }
     toast({ title: 'Transaction Approved', description: `${tx.transactionTypeLabel} for ${tx.memberName} has been approved.` });
   };
@@ -107,11 +150,17 @@ export default function ApproveTransactionsPage() {
       const reason = rejectionReason;
       
       if (tx.transactionTypeLabel.startsWith('Savings')) {
-        setAllSavings(prev => prev.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s));
+        const updatedSavings = allSavings.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s);
+        setAllSavings(updatedSavings);
+        saveToLocalStorage('savings', updatedSavings);
       } else if (tx.transactionTypeLabel === 'Share Allocation') {
-        setAllShares(prev => prev.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s));
+        const updatedShares = allShares.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s);
+        setAllShares(updatedShares);
+        saveToLocalStorage('shares', updatedShares);
       } else if (tx.transactionTypeLabel === 'Dividend Distribution') {
-        setAllDividends(prev => prev.map(d => d.id === tx.id ? { ...d, status: 'rejected', notes: reason } : d));
+        const updatedDividends = allDividends.map(d => d.id === tx.id ? { ...d, status: 'rejected', notes: reason } : d);
+        setAllDividends(updatedDividends);
+        saveToLocalStorage('dividends', updatedDividends);
       }
       
       toast({ title: 'Transaction Rejected', description: `${tx.transactionTypeLabel} for ${tx.memberName} has been rejected.` });
