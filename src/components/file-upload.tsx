@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { FileText, X, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,19 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ value, onValueChange, label, id }: FileUploadProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onValueChange(file.name);
+    }
+  };
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+  
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
@@ -35,12 +48,19 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
         </div>
       ) : (
         <div className="mt-2">
-            <Button id={id} type="button" variant="outline" className="w-full" onClick={() => onValueChange('simulated_evidence.pdf')}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              id={id}
+            />
+            <Button type="button" variant="outline" className="w-full" onClick={handleAttachClick}>
                 <UploadCloud className="mr-2 h-4 w-4" />
-                Attach File (Simulated)
+                Attach File
             </Button>
             <p className="text-xs text-muted-foreground mt-1">
-              File uploads are simulated. Clicking will attach a placeholder document.
+              Select a file. The file itself is not uploaded in this prototype.
             </p>
         </div>
       )}
