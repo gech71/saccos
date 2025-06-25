@@ -17,43 +17,50 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 const allNavItems: NavItem[] = [
-  // SHARED
+  // Always visible
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'member'] },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, roles: ['admin', 'member'], memberTitle: 'My Savings' },
-  { title: 'Share Allocations', href: '/shares', icon: PieChart, roles: ['admin', 'member'], memberTitle: 'My Shares' },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, roles: ['admin', 'member'], memberTitle: 'My Dividends' },
-  { title: 'Loans', href: '/loans', icon: Banknote, roles: ['admin', 'member'], memberTitle: 'My Loans' },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, roles: ['admin', 'member'], memberTitle: 'My Statement' },
 
-  // ADMIN ONLY
-  { title: 'Management', isGroupLabel: true, roles: ['admin'] },
+  // BASIC INFORMATION
+  { title: 'Basic Information', isGroupLabel: true, roles: ['admin'] },
   { title: 'Schools', href: '/schools', icon: School, roles: ['admin'] },
   { title: 'Members', href: '/members', icon: Users, roles: ['admin'] },
+  
+  // SAVING RELATED
+  { title: 'Savings', isGroupLabel: true, roles: ['admin'] },
+  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, roles: ['admin', 'member'], memberTitle: 'My Savings' },
   { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, roles: ['admin'] },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
+  { title: 'Group Collections', href: '/group-collections', icon: Library, roles: ['admin'] },
+  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
+  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, roles: ['admin', 'member'], memberTitle: 'My Statement' },
+  { title: 'Close Account', href: '/close-account', icon: UserX, roles: ['admin'] },
 
+  // LOAN RELATED
+  { title: 'Loans', isGroupLabel: true, roles: ['admin'] },
+  { title: 'Loans', href: '/loans', icon: Banknote, roles: ['admin', 'member'], memberTitle: 'My Loans' },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, roles: ['admin'] },
+  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, roles: ['admin'] },
+  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, roles: ['admin'] },
+  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, roles: ['admin'] },
+  
+  // DIVIDEND/SHARE RELATED
+  { title: 'Shares & Dividends', isGroupLabel: true, roles: ['admin', 'member'] },
+  { title: 'Share Allocations', href: '/shares', icon: PieChart, roles: ['admin', 'member'], memberTitle: 'My Shares' },
+  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, roles: ['admin', 'member'], memberTitle: 'My Dividends' },
+  
+  // ADMINISTRATION (Covers Settings, Operations, Monitoring)
+  { title: 'Administration', isGroupLabel: true, roles: ['admin'] },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
+  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },
+  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, roles: ['admin'] },
+  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, roles: ['admin'] },
+  { title: 'AI Reports', href: '/reports', icon: FileText, roles: ['admin'] },
+
+  // CONFIGURATION
   { title: 'Configuration', isGroupLabel: true, roles: ['admin'] },
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, roles: ['admin'] },
   { title: 'Share Types', href: '/share-types', icon: Shapes, roles: ['admin'] },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, roles: ['admin'] },
   { title: 'Loan Types', href: '/loan-types', icon: Banknote, roles: ['admin'] },
-  
-  { title: 'Operations', isGroupLabel: true, roles: ['admin'] },
-  { title: 'Group Collections', href: '/group-collections', icon: Library, roles: ['admin'] },
-  { title: 'Group Repayments', href: '/group-loan-repayments', icon: Library, roles: ['admin'] },
-  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, roles: ['admin'] },
-  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
-  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, roles: ['admin'] },
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
-  { title: 'Close Account', href: '/close-account', icon: UserX, roles: ['admin'] },
-  
-  { title: 'Monitoring & Charges', isGroupLabel: true, roles: ['admin'] },
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, roles: ['admin'] },
-  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, roles: ['admin'] },
-
-  { title: 'Reporting', isGroupLabel: true, roles: ['admin'] },
-  { title: 'AI Reports', href: '/reports', icon: FileText, roles: ['admin'] },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, roles: ['admin'] },
 ];
 
 
