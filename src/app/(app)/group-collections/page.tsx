@@ -191,7 +191,7 @@ export default function GroupCollectionsPage() {
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Please ensure it is a valid Excel file and has the correct columns ("Savings Account Number", "Amount").' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Please ensure it has "Savings Account Number" and "Amount" columns.' });
       } finally {
         setIsParsing(false);
       }
@@ -417,7 +417,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Select an Excel file (.xlsx, .xls, .csv) with columns: "Savings Account Number" and "Amount".</CardDescription>
+                        <CardDescription>Select an Excel file (.xlsx, .xls, .csv) with "Savings Account Number" and "Amount" columns. A "Member Name" column may also be included.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
@@ -599,3 +599,5 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
+    
