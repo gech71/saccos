@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -45,6 +45,7 @@ const allNavItems: NavItem[] = [
   { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, roles: ['admin'] },
   { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, roles: ['admin'] },
   { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, roles: ['admin'] },
+  { title: 'Close Account', href: '/close-account', icon: UserX, roles: ['admin'] },
   
   { title: 'Monitoring & Charges', isGroupLabel: true, roles: ['admin'] },
   { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, roles: ['admin'] },

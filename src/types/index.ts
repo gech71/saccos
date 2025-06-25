@@ -66,6 +66,7 @@ export interface Member {
   savingAccountTypeId?: string;
   savingAccountTypeName?: string; // Denormalized for display
   expectedMonthlySaving?: number; 
+  status?: 'active' | 'inactive';
 }
 
 export interface Saving {

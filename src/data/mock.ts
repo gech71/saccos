@@ -81,6 +81,7 @@ export const mockMembers: Member[] = [
     savingAccountTypeId: 'sat-regular',
     savingAccountTypeName: 'Regular Savings',
     expectedMonthlySaving: 50,
+    status: 'active',
   },
   {
     id: 'member-2',
@@ -102,6 +103,7 @@ export const mockMembers: Member[] = [
     savingAccountTypeId: 'sat-youth',
     savingAccountTypeName: 'Youth Saver Account',
     expectedMonthlySaving: 25,
+    status: 'active',
   },
   {
     id: 'member-3',
@@ -124,6 +126,7 @@ export const mockMembers: Member[] = [
     savingAccountTypeId: 'sat-premium',
     savingAccountTypeName: 'Premium Tier Savings',
     expectedMonthlySaving: 100,
+    status: 'active',
   },
   {
     id: 'member-4',
@@ -145,6 +148,7 @@ export const mockMembers: Member[] = [
     savingAccountTypeId: 'sat-no-expect',
     savingAccountTypeName: 'Flexible Saver',
     expectedMonthlySaving: 0,
+    status: 'active',
   },
 ];
 
