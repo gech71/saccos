@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -48,6 +49,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
+import { FileUpload } from '@/components/file-upload';
 
 
 const initialTransactionFormState: Partial<Saving> = {
@@ -524,25 +526,20 @@ export default function SavingsPage() {
                                 </div>
                             </div>
                             <div className="pl-3">
-                                <Label htmlFor="paymentDetails.evidenceUrl">Evidence Attachment</Label>
-                                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                                    <div className="space-y-1 text-center">
-                                        <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                                        <div className="flex text-sm text-muted-foreground">
-                                            <p className="pl-1">Upload a file or drag and drop</p>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-                                    </div>
-                                </div>
-                                <Input
+                                <FileUpload
                                     id="paymentDetails.evidenceUrl"
-                                    name="paymentDetails.evidenceUrl"
-                                    placeholder="Enter URL or filename for reference"
+                                    label="Evidence Attachment"
                                     value={currentTransaction.paymentDetails?.evidenceUrl || ''}
-                                    onChange={handleInputChange}
-                                    className="mt-2"
+                                    onValueChange={(newValue) => {
+                                        setCurrentTransaction(prev => ({
+                                            ...prev,
+                                            paymentDetails: {
+                                                ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
+                                                evidenceUrl: newValue,
+                                            }
+                                        }));
+                                    }}
                                 />
-                                <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
                             </div>
                         </div>
                     )}

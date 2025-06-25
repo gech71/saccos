@@ -41,6 +41,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { exportToExcel } from '@/lib/utils';
+import { FileUpload } from '@/components/file-upload';
 
 interface OverdueShareDetail {
   shareTypeId: string;
@@ -630,25 +631,20 @@ export default function OverduePaymentsPage() {
                     </div>
                   </div>
                   <div className="pl-3">
-                    <Label htmlFor="paymentDetails.evidenceUrl">Evidence Attachment</Label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                        <div className="space-y-1 text-center">
-                            <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                            <div className="flex text-sm text-muted-foreground">
-                                <p className="pl-1">Upload a file or drag and drop</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-                        </div>
-                    </div>
-                    <Input
-                        id="paymentDetails.evidenceUrl"
-                        name="paymentDetails.evidenceUrl"
-                        placeholder="Enter URL or filename for reference"
+                    <FileUpload
+                        id="overduePaymentEvidence"
+                        label="Evidence Attachment"
                         value={paymentForm.paymentDetails.evidenceUrl}
-                        onChange={(e) => handlePaymentFormInputChange(e, 'paymentDetails.evidenceUrl')}
-                        className="mt-2"
+                        onValueChange={(newValue) => {
+                            setPaymentForm(prev => ({
+                                ...prev,
+                                paymentDetails: {
+                                    ...prev.paymentDetails,
+                                    evidenceUrl: newValue,
+                                }
+                            }));
+                        }}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
                   </div>
                 </div>
               )}

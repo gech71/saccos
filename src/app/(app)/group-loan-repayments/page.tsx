@@ -30,6 +30,7 @@ import { Filter, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FileUpload } from '@/components/file-upload';
 
 interface LoanWithMemberInfo extends Loan {
   schoolId: string;
@@ -322,6 +323,22 @@ export default function GroupLoanRepaymentsPage() {
                                     <Label htmlFor="paymentDetails.transactionReferenceBatch">Transaction Reference</Label>
                                     <Input id="paymentDetails.transactionReferenceBatch" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.paymentDetails?.transactionReference || ''} onChange={handleBatchDetailChange} />
                                 </div>
+                            </div>
+                             <div className="pl-3">
+                                <FileUpload
+                                    id="groupLoanRepaymentEvidence"
+                                    label="Evidence Attachment"
+                                    value={batchDetails.paymentDetails?.evidenceUrl || ''}
+                                    onValueChange={(newValue) => {
+                                        setBatchDetails(prev => ({
+                                            ...prev,
+                                            paymentDetails: {
+                                                ...(prev?.paymentDetails || {}),
+                                                evidenceUrl: newValue,
+                                            }
+                                        }));
+                                    }}
+                                />
                             </div>
                         </div>
                     )}

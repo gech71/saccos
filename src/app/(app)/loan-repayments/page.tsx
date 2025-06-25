@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { FileUpload } from '@/components/file-upload';
 
 const initialRepaymentFormState: Partial<LoanRepayment> = {
   loanId: '',
@@ -244,6 +245,22 @@ export default function LoanRepaymentsPage() {
                     <Label htmlFor="paymentDetails.transactionReference">Transaction Ref</Label>
                     <Input id="paymentDetails.transactionReference" name="paymentDetails.transactionReference" value={currentRepayment.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
                   </div>
+                </div>
+                 <div className="pl-1 pt-4">
+                    <FileUpload
+                        id="repaymentEvidence"
+                        label="Evidence Attachment"
+                        value={currentRepayment.paymentDetails?.evidenceUrl || ''}
+                        onValueChange={(newValue) => {
+                            setCurrentRepayment(prev => ({
+                                ...prev,
+                                paymentDetails: {
+                                    ...(prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
+                                    evidenceUrl: newValue,
+                                }
+                            }));
+                        }}
+                    />
                 </div>
               </div>
             )}

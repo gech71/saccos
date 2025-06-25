@@ -14,6 +14,7 @@ import { DollarSign, Banknote, Wallet, UploadCloud, ArrowLeft } from 'lucide-rea
 import { Separator } from '@/components/ui/separator';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { FileUpload } from '@/components/file-upload';
 
 interface RecordPaymentFormState {
     amount: number;
@@ -194,25 +195,17 @@ function RecordPaymentFormComponent() {
                   </div>
                 </div>
                 <div className="pl-3">
-                  <Label htmlFor="paymentDetails.evidenceUrlRecord">Evidence Attachment</Label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                    <div className="space-y-1 text-center">
-                      <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                      <div className="flex text-sm text-muted-foreground">
-                        <p className="pl-1">Upload a file or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-                    </div>
-                  </div>
-                  <Input
-                    id="paymentDetails.evidenceUrlRecord"
-                    name="paymentDetails.evidenceUrl"
-                    placeholder="Enter URL or filename for reference"
-                    value={recordPaymentForm.paymentDetails.evidenceUrl}
-                    onChange={handleRecordPaymentFormChange}
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
+                    <FileUpload
+                        id="paymentDetails.evidenceUrlRecord"
+                        label="Evidence Attachment"
+                        value={recordPaymentForm.paymentDetails.evidenceUrl}
+                        onValueChange={(newValue) => {
+                            setRecordPaymentForm(prev => ({
+                              ...prev,
+                              paymentDetails: { ...prev.paymentDetails, evidenceUrl: newValue },
+                            }));
+                        }}
+                    />
                 </div>
               </div>
             )}

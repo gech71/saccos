@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -51,6 +52,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
+import { FileUpload } from '@/components/file-upload';
 
 // Adjusted initial state: remove count, add contributionAmount
 const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
@@ -563,25 +565,20 @@ export default function SharesPage() {
                         </div>
                     </div>
                     <div className="pl-3">
-                        <Label htmlFor="paymentDetails.evidenceUrlShare">Evidence Attachment</Label>
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                            <div className="space-y-1 text-center">
-                                <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                                <div className="flex text-sm text-muted-foreground">
-                                   <p className="pl-1">Upload a file or drag and drop</p>
-                                </div>
-                                <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-                            </div>
-                        </div>
-                        <Input
+                         <FileUpload
                             id="paymentDetails.evidenceUrlShare"
-                            name="paymentDetails.evidenceUrl"
-                            placeholder="Enter URL or filename for reference"
+                            label="Evidence Attachment"
                             value={currentShare.paymentDetails?.evidenceUrl || ''}
-                            onChange={handleInputChange}
-                            className="mt-2"
+                            onValueChange={(newValue) => {
+                                setCurrentShare(prev => ({
+                                    ...prev,
+                                    paymentDetails: {
+                                        ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
+                                        evidenceUrl: newValue,
+                                    }
+                                }));
+                            }}
                         />
-                         <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
                     </div>
                 </div>
             )}

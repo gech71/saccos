@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Filter, Users, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, ListChecks, Trash2, RotateCcw, Shapes } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { FileUpload } from '@/components/file-upload';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -361,25 +362,20 @@ export default function GroupCollectionsPage() {
                                 </div>
                             </div>
                             <div className="pl-3">
-                                <Label htmlFor="paymentDetails.evidenceUrlBatch">Evidence Attachment</Label>
-                                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                                    <div className="space-y-1 text-center">
-                                        <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-                                        <div className="flex text-sm text-muted-foreground">
-                                            <p className="pl-1">Upload a file or drag and drop</p>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-                                    </div>
-                                </div>
-                                <Input
+                                <FileUpload
                                     id="paymentDetails.evidenceUrlBatch"
-                                    name="paymentDetails.evidenceUrl"
-                                    placeholder="Enter URL or filename for reference"
+                                    label="Evidence Attachment"
                                     value={batchDetails.paymentDetails?.evidenceUrl || ''}
-                                    onChange={handleBatchDetailChange}
-                                    className="mt-2"
+                                    onValueChange={(newValue) => {
+                                        setBatchDetails(prev => ({
+                                            ...prev,
+                                            paymentDetails: {
+                                                ...(prev?.paymentDetails || {}),
+                                                evidenceUrl: newValue,
+                                            }
+                                        }));
+                                    }}
                                 />
-                                <p className="text-xs text-muted-foreground mt-1">Actual file upload is not functional. Enter a reference URL or filename above.</p>
                             </div>
                         </div>
                     )}
