@@ -162,22 +162,28 @@ export default function GroupCollectionsPage() {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+        // This will give an array of arrays, ignoring headers.
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1 });
+
+        // Skip header row if it exists and is not empty
+        const dataRows = (jsonData.length > 0 && jsonData[0].length > 0) ? jsonData.slice(1) : [];
 
         const seenAccountNumbers = new Set<string>();
-        const validatedData = jsonData.map((row): ParsedExcelData => {
-            const accountNumberValue = row['Savings Account Number'] || row['Savings Account #'] || row['AccountNumber'];
-            const amountValue = row['Amount'] || row['Contribution'];
+        const validatedData = dataRows.map((row: any[]): ParsedExcelData => {
+            if (!Array.isArray(row) || row.length < 2) {
+                 return { 'Savings Account Number': 'N/A', 'Amount': 0, status: 'Invalid Account Number' };
+            }
             
-            const accountNumber = accountNumberValue?.toString().trim();
-            const amount = parseFloat(amountValue);
+            const providedMemberName = row[0]?.toString().trim();
+            const accountNumber = row[1]?.toString().trim();
+            const amount = parseFloat(row[row.length - 1]);
             
             if (!accountNumber || isNaN(amount) || amount <= 0) {
-                return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, status: 'Invalid Account Number' };
+                return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, memberName: providedMemberName, status: 'Invalid Account Number' };
             }
             
             if (seenAccountNumbers.has(accountNumber)) {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, status: 'Duplicate' };
+                return { 'Savings Account Number': accountNumber, 'Amount': amount, memberName: providedMemberName, status: 'Duplicate' };
             }
             
             const member = allMembers.find(m => m.savingsAccountNumber?.trim() === accountNumber);
@@ -185,16 +191,16 @@ export default function GroupCollectionsPage() {
                 seenAccountNumbers.add(accountNumber);
                 return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, memberName: member.fullName, status: 'Valid' };
             } else {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, status: 'Invalid Account Number' };
+                return { 'Savings Account Number': accountNumber, 'Amount': amount, memberName: providedMemberName, status: 'Invalid Account Number' };
             }
         });
 
         setParsedData(validatedData);
-        toast({ title: 'File Processed', description: `Found ${jsonData.length} records in the file. See validation status below.` });
+        toast({ title: 'File Processed', description: `Found ${dataRows.length} records in the file. See validation status below.` });
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns for account number and amount.' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it follows the format: Member Name, Saving Account #, ..., Amount.' });
       } finally {
         setIsParsing(false);
       }
@@ -420,7 +426,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Select an Excel file (.xlsx, .xls, .csv) with columns for savings account number and amount.</CardDescription>
+                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). The file should have columns in this order: Member Name, Saving Account #, ..., Amount.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
