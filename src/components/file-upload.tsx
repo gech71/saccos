@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { UploadCloud, FileText, X } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,9 +20,9 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
 
   return (
     <div>
-      <Label>{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
       {value ? (
-        <div className="mt-2 flex items-center justify-between p-3 border rounded-md bg-muted/50">
+        <div className="mt-2 flex items-center justify-between p-2 pl-3 border rounded-md bg-muted/50">
           <div className="flex items-center gap-2 truncate">
             <FileText className="h-5 w-5 flex-shrink-0 text-primary" />
             <span className="truncate text-sm font-medium">{value}</span>
@@ -39,28 +39,18 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
           </Button>
         </div>
       ) : (
-        <>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-            <div className="space-y-1 text-center">
-              <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
-              <div className="flex text-sm text-muted-foreground">
-                <p className="pl-1">Upload a file or drag and drop</p>
-              </div>
-              <p className="text-xs text-muted-foreground">PNG, JPG, PDF up to 10MB (mock)</p>
-            </div>
-          </div>
-          <Input
-            id={inputId}
-            name="evidenceUrl"
-            placeholder="Enter URL or filename for reference"
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            className="mt-2"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Actual file upload is not functional. Enter a reference URL or filename above to simulate an attachment.
-          </p>
-        </>
+        <div className="mt-2">
+            <Input
+              id={inputId}
+              name="evidenceUrl"
+              placeholder="Enter URL or filename for reference"
+              value={value}
+              onChange={(e) => onValueChange(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Actual file upload is not functional. Enter a reference URL or filename to simulate.
+            </p>
+        </div>
       )}
     </div>
   );
