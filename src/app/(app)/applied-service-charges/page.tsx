@@ -119,7 +119,7 @@ export default function AppliedServiceChargesPage() {
       }
 
       setAppliedServiceCharges(updatedCharges);
-      toast({ title: 'Payment Recorded', description: `$${amountPaid.toFixed(2)} payment processed for ${memberFullName} via ${depositMode}.` });
+      toast({ title: 'Payment Recorded', description: `$${amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} payment processed for ${memberFullName} via ${depositMode}.` });
 
       // Clean up URL query parameters
       const currentPath = window.location.pathname;
@@ -221,7 +221,7 @@ export default function AppliedServiceChargesPage() {
       notes: applyChargeForm.notes,
     };
     setAppliedServiceCharges(prev => [newAppliedCharge, ...prev]);
-    toast({ title: 'Service Charge Applied', description: `${selectedChargeType.name} for $${(applyChargeForm.amountCharged || selectedChargeType.amount).toFixed(2)} applied to ${member.fullName}.` });
+    toast({ title: 'Service Charge Applied', description: `${selectedChargeType.name} for $${(applyChargeForm.amountCharged || selectedChargeType.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} applied to ${member.fullName}.` });
     setIsApplyChargeModalOpen(false);
     setApplyChargeForm(initialApplyChargeFormState);
   };
@@ -255,21 +255,21 @@ export default function AppliedServiceChargesPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Applied Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalAppliedGlobal.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Paid Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">${globalSummaryStats.totalPaidGlobal.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-green-600">${globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Pending Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-destructive">${globalSummaryStats.totalPendingGlobal.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-destructive">${globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
       </div>
 
@@ -318,10 +318,10 @@ export default function AppliedServiceChargesPage() {
               <TableRow key={summary.memberId} className={summary.totalPending > 0 ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
-                <TableCell className="text-right">${summary.totalApplied.toFixed(2)}</TableCell>
-                <TableCell className="text-right text-green-600 font-semibold">${summary.totalPaid.toFixed(2)}</TableCell>
+                <TableCell className="text-right">${summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-green-600 font-semibold">${summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right text-destructive font-semibold">
-                  {summary.totalPending > 0 ? `$${summary.totalPending.toFixed(2)}` : <span className="text-muted-foreground/70">-</span>}
+                  {summary.totalPending > 0 ? `$${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell className="text-center">
                     {summary.totalApplied > 0 ? (
@@ -423,7 +423,7 @@ export default function AppliedServiceChargesPage() {
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
                   {serviceChargeTypes.map(sct => (
-                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toFixed(2)}, {sct.frequency})</SelectItem>
+                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

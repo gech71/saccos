@@ -183,7 +183,7 @@ function MemberDashboard({ memberId }: { memberId: string }) {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                   title="My Savings Balance"
-                  value={`$${member.savingsBalance.toFixed(2)}`}
+                  value={`$${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   icon={<PiggyBank className="h-6 w-6 text-accent" />}
                   description={`Account: ${member.savingsAccountNumber}`}
                 />
@@ -195,7 +195,7 @@ function MemberDashboard({ memberId }: { memberId: string }) {
                 />
                 <StatCard
                   title="My Dividends (Total)"
-                  value={`$${totalDividends.toFixed(2)}`}
+                  value={`$${totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   icon={<TrendingUp className="h-6 w-6 text-accent" />}
                   description="Total dividends received"
                 />

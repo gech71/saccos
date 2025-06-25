@@ -436,7 +436,7 @@ export default function GroupCollectionsPage() {
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toFixed(2)}</TableCell>
+                                  <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
@@ -489,7 +489,7 @@ export default function GroupCollectionsPage() {
                                     <TableRow key={index}>
                                         <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
                                         <TableCell>{row['Savings Account Number']}</TableCell>
-                                        <TableCell className="text-right">${row.Amount.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">${row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -515,7 +515,7 @@ export default function GroupCollectionsPage() {
                             <CardContent className="p-0 pt-2">
                                 <div className="text-lg font-bold text-primary flex justify-between items-center">
                                     <span>Total Collection Amount:</span>
-                                    <span>${collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toFixed(2) : excelSummary.totalAmount.toFixed(2)}</span>
+                                    <span>${collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </CardContent>
                           </Card>
@@ -615,7 +615,7 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map(transaction => (
                                 <TableRow key={transaction.id}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="text-right">${transaction.amount.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">${transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                     <TableCell>{transaction.month}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

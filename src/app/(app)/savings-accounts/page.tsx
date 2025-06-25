@@ -116,14 +116,14 @@ export default function SavingsAccountsPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Savings Balance (in view)</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalSavingsGlobal.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalSavingsGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Average Savings Balance (in view)</ShadcnCardTitle>
                 <TrendingUp className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.averageSavings.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.averageSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -180,7 +180,7 @@ export default function SavingsAccountsPage() {
                 <TableCell>{summary.schoolName}</TableCell>
                 <TableCell>{summary.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{summary.savingAccountTypeName || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold text-green-600">${summary.savingsBalance.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold text-green-600">${summary.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-center">
                     {(allMembers.find(m=>m.id === summary.memberId)?.expectedMonthlySaving || 0) > 0 ? (
                       <div className="flex flex-col items-center">

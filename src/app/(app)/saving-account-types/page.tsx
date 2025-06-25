@@ -164,7 +164,7 @@ export default function SavingAccountTypesPage() {
                 <TableCell className="font-medium">{accountType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{accountType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">{(accountType.interestRate * 100).toFixed(2)}%</TableCell>
-                <TableCell className="text-right font-semibold">${(accountType.expectedMonthlyContribution || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${(accountType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

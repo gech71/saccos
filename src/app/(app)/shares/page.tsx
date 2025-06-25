@@ -317,7 +317,7 @@ export default function SharesPage() {
             />
             <StatCard
                 title="Total Value of My Shares"
-                value={`$${memberData.totalSharesValue.toFixed(2)}`}
+                value={`$${memberData.totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 icon={<DollarSign className="h-6 w-6 text-accent" />}
             />
         </div>
@@ -398,8 +398,8 @@ export default function SharesPage() {
                   <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
-                  <TableCell className="text-right">${share.valuePerShare.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-semibold">${currentAllocationValue.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-semibold">${currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
                   {userRole === 'admin' && <TableCell className="text-right">
                     <DropdownMenu>
@@ -497,7 +497,7 @@ export default function SharesPage() {
               <Label htmlFor="shareTypeIdShare">Share Type</Label>
               <Select name="shareTypeId" value={currentShare.shareTypeId || ''} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
                 <SelectTrigger id="shareTypeIdShare"><SelectValue placeholder="Select share type" /></SelectTrigger>
-                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare.toFixed(2)}/share)</SelectItem>))}</SelectContent>
+                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div>
@@ -527,9 +527,9 @@ export default function SharesPage() {
              {currentShare.contributionAmount! > 0 && currentShare.valuePerShare! > 0 && (
                 <div className="text-sm text-muted-foreground p-2 border rounded-md bg-accent/10">
                     <p>This contribution will allocate approximately <strong className="text-primary">{calculatedShares}</strong> share(s).</p>
-                    <p>Total value of allocated shares: <strong className="text-primary">${(calculatedShares * (currentShare.valuePerShare || 0)).toFixed(2)}</strong></p>
+                    <p>Total value of allocated shares: <strong className="text-primary">${(calculatedShares * (currentShare.valuePerShare || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
                     {currentShare.contributionAmount! > (calculatedShares * (currentShare.valuePerShare || 0)) && calculatedShares > 0 &&
-                        <p className="text-xs text-orange-600">Note: Remaining ${ (currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toFixed(2) } is not allocated as it's less than one share value.</p>
+                        <p className="text-xs text-orange-600">Note: Remaining ${ (currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) } is not allocated as it's less than one share value.</p>
                     }
                 </div>
             )}
@@ -593,5 +593,3 @@ export default function SharesPage() {
     </div>
   );
 }
-
-    

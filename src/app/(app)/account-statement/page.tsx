@@ -185,7 +185,7 @@ export default function AccountStatementPage() {
                 <div className="mb-6">
                     <StatCard
                       title="My Current Savings Balance"
-                      value={`$${member.savingsBalance.toFixed(2)}`}
+                      value={`$${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       icon={<WalletCards className="h-6 w-6 text-accent" />}
                       description={`Account #: ${member.savingsAccountNumber}`}
                     />
@@ -356,20 +356,20 @@ export default function AccountStatementPage() {
                         <TableBody>
                             <TableRow className="font-semibold">
                                 <TableCell colSpan={4}>Balance Brought Forward</TableCell>
-                                <TableCell className="text-right">${statementData.balanceBroughtForward.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">${statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                             {statementData.transactions.map(tx => (
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                     <TableCell className="capitalize">{tx.transactionType} ({tx.notes || 'N/A'})</TableCell>
-                                    <TableCell className="text-right text-red-600">{tx.debit > 0 ? `$${tx.debit.toFixed(2)}` : '-'}</TableCell>
-                                    <TableCell className="text-right text-green-600">{tx.credit > 0 ? `$${tx.credit.toFixed(2)}` : '-'}</TableCell>
-                                    <TableCell className="text-right">${tx.balance.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right text-red-600">{tx.debit > 0 ? `$${tx.debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
+                                    <TableCell className="text-right text-green-600">{tx.credit > 0 ? `$${tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
+                                    <TableCell className="text-right">${tx.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 </TableRow>
                             ))}
                              <TableRow className="font-semibold bg-gray-100">
                                 <TableCell colSpan={4}>Closing Balance as of {format(statementData.dateRange.to!, 'PPP')}</TableCell>
-                                <TableCell className="text-right">${statementData.closingBalance.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">${statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>

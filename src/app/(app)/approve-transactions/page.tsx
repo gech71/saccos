@@ -121,8 +121,8 @@ export default function ApproveTransactionsPage() {
   };
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if ('amount' in tx) return `$${tx.amount.toFixed(2)}`;
-    if ('count' in tx) return `${tx.count} shares @ $${tx.valuePerShare.toFixed(2)}/share (Value: $${(tx.count * tx.valuePerShare).toFixed(2)})`;
+    if ('amount' in tx) return `$${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if ('count' in tx) return `${tx.count} shares @ $${tx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share (Value: $${(tx.count * tx.valuePerShare).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
     return 'N/A';
   };
   

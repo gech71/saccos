@@ -74,7 +74,7 @@ export default function OverdueLoansPage() {
                         <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Balance</ShadcnCardTitle>
                         <AlertTriangle className="h-5 w-5 text-destructive" />
                     </CardHeader>
-                    <CardContent><div className="text-2xl font-bold text-destructive">${totalOverdueAmount.toFixed(2)}</div></CardContent>
+                    <CardContent><div className="text-2xl font-bold text-destructive">${totalOverdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
                 </Card>
             </div>
 
@@ -113,7 +113,7 @@ export default function OverdueLoansPage() {
                                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                                 <TableCell>{loan.loanTypeName}</TableCell>
-                                <TableCell className="text-right font-semibold">${loan.remainingBalance.toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-semibold">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell>{new Date(loan.nextDueDate!).toLocaleDateString()}</TableCell>
                                 <TableCell className="text-center font-bold text-destructive">{loan.daysOverdue}</TableCell>
                                 <TableCell className="text-center">

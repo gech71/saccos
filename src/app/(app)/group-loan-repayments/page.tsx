@@ -242,7 +242,7 @@ export default function GroupLoanRepaymentsPage() {
                 <CardTitle className="font-headline text-primary">Active Loans for {allSchools.find(s => s.id === selectedSchool)?.name}</CardTitle>
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
                     <span>{eligibleLoans.length} active/overdue loans found. {selectedLoanIds.length} selected.</span>
-                    <span className="font-bold text-primary">Total Amount to be Collected: ${totalToCollect.toFixed(2)}</span>
+                    <span className="font-bold text-primary">Total Amount to be Collected: ${totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -276,8 +276,8 @@ export default function GroupLoanRepaymentsPage() {
                           </TableCell>
                           <TableCell className="font-medium">{loan.memberName}</TableCell>
                           <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
-                          <TableCell className="text-right">${loan.remainingBalance.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${(loan.monthlyRepaymentAmount || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right">${(loan.monthlyRepaymentAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>
                             <Input
                               type="number"
@@ -385,7 +385,7 @@ export default function GroupLoanRepaymentsPage() {
                                 <TableRow key={transaction.id}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
                                     <TableCell className="font-mono text-xs">{allLoans.find(l=>l.id === transaction.loanId)?.loanAccountNumber}</TableCell>
-                                    <TableCell className="text-right">${transaction.amountPaid.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">${transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>
                                 </TableRow>

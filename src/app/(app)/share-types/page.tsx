@@ -158,8 +158,8 @@ export default function ShareTypesPage() {
                 </TableCell>
                 <TableCell className="font-medium">{shareType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{shareType.description || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold">${shareType.valuePerShare.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-semibold">${(shareType.expectedMonthlyContribution || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">${(shareType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

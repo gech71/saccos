@@ -209,7 +209,7 @@ export default function DividendsPage() {
         <div className="mb-6">
             <StatCard
               title="My Total Dividends Received"
-              value={`$${memberTotalDividends.toFixed(2)}`}
+              value={`$${memberTotalDividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               icon={<TrendingUp className="h-6 w-6 text-accent" />}
               description="Sum of all approved dividend payouts."
             />
@@ -283,7 +283,7 @@ export default function DividendsPage() {
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 {userRole === 'admin' && <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>}
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">${dividend.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
                 {userRole === 'admin' && <TableCell className="text-right">

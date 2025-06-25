@@ -113,7 +113,7 @@ export default function LoanRepaymentsPage() {
         return loan;
     }));
     
-    toast({ title: 'Repayment Recorded', description: `Repayment of $${newRepayment.amountPaid.toFixed(2)} for ${memberName} recorded.` });
+    toast({ title: 'Repayment Recorded', description: `Repayment of $${newRepayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for ${memberName} recorded.` });
     setIsModalOpen(false);
     setCurrentRepayment(initialRepaymentFormState);
   };
@@ -173,7 +173,7 @@ export default function LoanRepaymentsPage() {
               <TableRow key={repayment.id}>
                 {userRole === 'admin' && <TableCell className="font-medium">{repayment.memberName}</TableCell>}
                 <TableCell className="font-mono text-xs">{loans.find(l => l.id === repayment.loanId)?.loanAccountNumber}</TableCell>
-                <TableCell className="text-right font-semibold text-green-600">${repayment.amountPaid.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold text-green-600">${repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
                 <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
               </TableRow>
@@ -207,7 +207,7 @@ export default function LoanRepaymentsPage() {
                         {activeLoans.map(loan => (
                           <CommandItem key={loan.id} value={`${loan.memberName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { handleLoanSelect(loan.id); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.memberName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ${loan.remainingBalance.toFixed(2)}
+                            {loan.memberName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>

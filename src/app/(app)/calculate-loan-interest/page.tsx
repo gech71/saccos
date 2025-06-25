@@ -305,7 +305,7 @@ export default function CalculateLoanInterestPage() {
                 <CardTitle className="font-headline text-primary">Calculation Results</CardTitle>
                 <CardDescription>
                     Loan interest calculation for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
-                    Total calculated interest: <span className="font-bold text-primary">${totalCalculatedInterest.toFixed(2)}</span>
+                    Total calculated interest: <span className="font-bold text-primary">${totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -325,14 +325,14 @@ export default function CalculateLoanInterestPage() {
                                 <TableRow key={result.loanId}>
                                     <TableCell className="font-medium">{result.fullName}</TableCell>
                                     <TableCell className="font-mono text-xs">{result.loanAccountNumber || 'N/A'}</TableCell>
-                                    <TableCell className="text-right">${result.remainingBalance.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">${result.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell className="text-center">
                                         <Badge variant="secondary">
                                             <Percent className="mr-1.5 h-3 w-3"/>
                                             {(result.interestRate * 100).toFixed(2)}%
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right font-semibold text-destructive">${result.calculatedInterest.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-semibold text-destructive">${result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 </TableRow>
                             )) : (
                                 <TableRow>

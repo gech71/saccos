@@ -179,7 +179,7 @@ export default function ServiceChargeTypesPage() {
                 </TableCell>
                 <TableCell className="font-medium">{chargeType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{chargeType.description || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold">${chargeType.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${chargeType.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-center">
                   <Badge variant={chargeType.frequency === 'once' ? 'secondary' : chargeType.frequency === 'monthly' ? 'outline' : 'default'}>
                     <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
