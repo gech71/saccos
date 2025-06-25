@@ -22,6 +22,7 @@ import { StatCard } from '@/components/stat-card';
 import { WalletCards } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Badge } from '@/components/ui/badge';
 
 interface StatementData {
   member: Member;
@@ -31,11 +32,26 @@ interface StatementData {
   closingBalance: number;
 }
 
+const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
+    if (typeof window === 'undefined') return mockData;
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : mockData;
+    } catch (error) {
+        console.error(`Error reading ${key} from localStorage`, error);
+        return mockData;
+    }
+};
+
+
 export default function AccountStatementPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
   
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [allSavings, setAllSavings] = useState<Saving[]>([]);
+
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -46,14 +62,14 @@ export default function AccountStatementPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const member = useMemo(() => {
-    if (userRole === 'member' && loggedInMemberId) {
-        return mockMembers.find(m => m.id === loggedInMemberId);
-    }
-    return null;
-  }, [userRole, loggedInMemberId]);
+  const selectedMember = useMemo(() => {
+    return allMembers.find(m => m.id === selectedMemberId);
+  }, [selectedMemberId, allMembers]);
 
   useEffect(() => {
+    setAllMembers(loadFromLocalStorage('members', mockMembers));
+    setAllSavings(loadFromLocalStorage('savings', mockSavings));
+
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
@@ -62,6 +78,28 @@ export default function AccountStatementPage() {
       setSelectedMemberId(memberId);
     }
   }, []);
+  
+  // Automatically set date range for closed accounts
+  useEffect(() => {
+      if (selectedMember?.status === 'inactive') {
+          const lastTxDate = allSavings
+              .filter(s => s.memberId === selectedMember.id)
+              .map(s => new Date(s.date))
+              .sort((a, b) => b.getTime() - a.getTime())[0] || new Date();
+              
+          setDateRange({
+              from: new Date(selectedMember.joinDate),
+              to: lastTxDate,
+          });
+      }
+  }, [selectedMember, allSavings]);
+
+  const member = useMemo(() => {
+    if (userRole === 'member' && loggedInMemberId) {
+        return allMembers.find(m => m.id === loggedInMemberId);
+    }
+    return null;
+  }, [userRole, loggedInMemberId, allMembers]);
 
   const handleGenerateStatement = () => {
     if (!selectedMemberId || !dateRange?.from || !dateRange?.to) {
@@ -71,21 +109,20 @@ export default function AccountStatementPage() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const member = mockMembers.find(m => m.id === selectedMemberId);
-      if (!member) {
+      if (!selectedMember) {
         toast({ variant: 'destructive', title: 'Error', description: 'Selected member not found.' });
         setIsLoading(false);
         return;
       }
       
-      const allMemberTransactions = mockSavings
+      const allMemberTransactions = allSavings
         .filter(s => s.memberId === selectedMemberId && s.status === 'approved')
         .sort((a, b) => compareAsc(new Date(a.date), new Date(b.date)));
 
       const balanceBroughtForward = allMemberTransactions
         .filter(tx => new Date(tx.date) < dateRange.from!)
         .reduce((balance, tx) => {
-          if (tx.transactionType === 'deposit' || tx.transactionType === 'interest') return balance + tx.amount;
+          if (tx.transactionType === 'deposit' || tx.notes?.includes('interest')) return balance + tx.amount;
           if (tx.transactionType === 'withdrawal') return balance - tx.amount;
           return balance;
         }, 0);
@@ -94,14 +131,14 @@ export default function AccountStatementPage() {
       const transactionsInPeriod = allMemberTransactions
         .filter(tx => new Date(tx.date) >= dateRange.from! && new Date(tx.date) <= dateRange.to!)
         .map(tx => {
-          const credit = (tx.transactionType === 'deposit' || tx.transactionType === 'interest') ? tx.amount : 0;
+          const credit = (tx.transactionType === 'deposit' || tx.notes?.includes('interest')) ? tx.amount : 0;
           const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
           runningBalance = runningBalance + credit - debit;
           return { ...tx, debit, credit, balance: runningBalance };
         });
 
       setStatementData({
-        member,
+        member: selectedMember,
         dateRange,
         balanceBroughtForward,
         transactions: transactionsInPeriod,
@@ -109,7 +146,7 @@ export default function AccountStatementPage() {
       });
 
       setIsLoading(false);
-      toast({ title: 'Statement Generated', description: `Statement for ${member.fullName} is ready.` });
+      toast({ title: 'Statement Generated', description: `Statement for ${selectedMember.fullName} is ready.` });
     }, 500);
   };
   
@@ -179,7 +216,7 @@ export default function AccountStatementPage() {
   return (
     <div className="space-y-8">
         <div className="no-print">
-            <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for a member." : "View and print your account statement for a selected period."} />
+            <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for any member." : "View and print your account statement for a selected period."} />
 
             {userRole === 'member' && member && (
                 <div className="mb-6">
@@ -211,7 +248,7 @@ export default function AccountStatementPage() {
                         disabled={userRole === 'member'}
                         >
                         {selectedMemberId
-                            ? mockMembers.find((member) => member.id === selectedMemberId)?.fullName
+                            ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
                             : "Select member..."}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -222,7 +259,7 @@ export default function AccountStatementPage() {
                         <CommandList>
                             <CommandEmpty>No member found.</CommandEmpty>
                             <CommandGroup>
-                            {mockMembers.map((member) => (
+                            {allMembers.map((member) => (
                                 <CommandItem
                                 key={member.id}
                                 value={`${member.fullName} ${member.savingsAccountNumber}`}
@@ -238,6 +275,7 @@ export default function AccountStatementPage() {
                                     )}
                                 />
                                 {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                                {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                                 </CommandItem>
                             ))}
                             </CommandGroup>
@@ -254,6 +292,7 @@ export default function AccountStatementPage() {
                         id="date-range-picker"
                         variant="outline"
                         className="w-full justify-start text-left font-normal"
+                        disabled={selectedMember?.status === 'inactive'}
                         >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {dateRange?.from ? (
@@ -314,7 +353,9 @@ export default function AccountStatementPage() {
                         <p className="text-sm text-gray-500 mt-1">Savings & Credit Association</p>
                     </div>
                     <div className="text-right">
-                        <h2 className="text-2xl font-bold text-primary">Account Statement</h2>
+                        <h2 className="text-2xl font-bold text-primary">
+                             {statementData.member.status === 'inactive' ? 'Final Account Statement' : 'Account Statement'}
+                        </h2>
                         <p className="text-gray-500">
                             Period: {format(statementData.dateRange.from!, 'PPP')} to {format(statementData.dateRange.to!, 'PPP')}
                         </p>
@@ -336,8 +377,10 @@ export default function AccountStatementPage() {
                         <p>{statementData.member.schoolName}</p>
                     </div>
                     <div>
-                        <Label className="font-semibold text-gray-700">Address:</Label>
-                        <p>{`${statementData.member.address.wereda}, ${statementData.member.address.subCity}, ${statementData.member.address.city}`}</p>
+                        <Label className="font-semibold text-gray-700">Member Status:</Label>
+                         <p>
+                            <Badge variant={statementData.member.status === 'inactive' ? 'destructive' : 'default'}>{statementData.member.status || 'Active'}</Badge>
+                        </p>
                     </div>
                 </div>
 
@@ -361,7 +404,7 @@ export default function AccountStatementPage() {
                             {statementData.transactions.map(tx => (
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                                    <TableCell className="capitalize">{tx.transactionType} ({tx.notes || 'N/A'})</TableCell>
+                                    <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
                                     <TableCell className="text-right text-red-600">{tx.debit > 0 ? `$${tx.debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
                                     <TableCell className="text-right text-green-600">{tx.credit > 0 ? `$${tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
                                     <TableCell className="text-right">${tx.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -375,7 +418,10 @@ export default function AccountStatementPage() {
                     </Table>
                 </div>
                  <div className="text-center text-xs text-gray-500 mt-4">
-                    <p>Thank you for being a valued member of AcademInvest.</p>
+                    {statementData.member.status === 'inactive'
+                        ? <p>This is the final statement for this closed account.</p>
+                        : <p>Thank you for being a valued member of AcademInvest.</p>
+                    }
                 </div>
             </div>
           </CardContent>

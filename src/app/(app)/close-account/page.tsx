@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,13 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
@@ -32,6 +25,24 @@ import { Loader2, Check, ChevronsUpDown, Calculator, UserX, Banknote, Wallet } f
 import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+// Helper functions for localStorage
+const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
+    if (typeof window === 'undefined') return mockData;
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : mockData;
+    } catch (error) {
+        console.error(`Error reading ${key} from localStorage`, error);
+        return mockData;
+    }
+};
+
+const saveToLocalStorage = (key: string, data: any) => {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(data));
+    }
+};
 
 interface CalculationResult {
   currentBalance: number;
@@ -49,8 +60,9 @@ const initialPayoutDetails = {
 export default function CloseAccountPage() {
   const { toast } = useToast();
 
-  const [members, setMembers] = useState<Member[]>(mockMembers.filter(m => m.status !== 'inactive'));
-  const [savings, setSavings] = useState<Saving[]>(mockSavings);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [activeMembers, setActiveMembers] = useState<Member[]>([]);
+  const [allSavings, setAllSavings] = useState<Saving[]>([]);
   const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
@@ -61,9 +73,17 @@ export default function CloseAccountPage() {
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
   const [payoutDetails, setPayoutDetails] = useState(initialPayoutDetails);
 
+  useEffect(() => {
+    const loadedMembers = loadFromLocalStorage('members', mockMembers);
+    const loadedSavings = loadFromLocalStorage('savings', mockSavings);
+    setAllMembers(loadedMembers);
+    setAllSavings(loadedSavings);
+    setActiveMembers(loadedMembers.filter(m => m.status !== 'inactive'));
+  }, []);
+
   const selectedMember = useMemo(() => {
-    return members.find(m => m.id === selectedMemberId);
-  }, [selectedMemberId, members]);
+    return allMembers.find(m => m.id === selectedMemberId);
+  }, [selectedMemberId, allMembers]);
 
   const handleCalculate = () => {
     if (!selectedMember) {
@@ -77,8 +97,6 @@ export default function CloseAccountPage() {
       const accountType = savingAccountTypes.find(sat => sat.id === selectedMember.savingAccountTypeId);
       const interestRate = accountType?.interestRate || 0.01; // Fallback interest rate
       
-      // Simplified interest calculation for prototype purposes
-      // Assume interest for 15 days on average
       const accruedInterest = selectedMember.savingsBalance * (interestRate / 12) * 0.5;
 
       setCalculationResult({
@@ -114,7 +132,6 @@ export default function CloseAccountPage() {
     setIsClosing(true);
     
     setTimeout(() => {
-        // Create interest deposit transaction
         const interestDeposit: Saving = {
             id: `saving-interest-${Date.now()}`,
             memberId: selectedMember.id,
@@ -127,7 +144,6 @@ export default function CloseAccountPage() {
             notes: 'Final interest on account closure.'
         };
 
-        // Create final withdrawal transaction
         const finalWithdrawal: Saving = {
             id: `saving-final-${Date.now()}`,
             memberId: selectedMember.id,
@@ -142,18 +158,22 @@ export default function CloseAccountPage() {
             paymentDetails: payoutDetails.depositMode !== 'Cash' ? payoutDetails : undefined
         };
         
-        setSavings(prev => [...prev, interestDeposit, finalWithdrawal]);
+        const updatedSavings = [...allSavings, interestDeposit, finalWithdrawal];
+        setAllSavings(updatedSavings);
+        saveToLocalStorage('savings', updatedSavings);
         
-        // Update member status
-        setMembers(prev => prev.map(m => 
+        const updatedMembers = allMembers.map(m => 
             m.id === selectedMember.id 
             ? { ...m, savingsBalance: 0, status: 'inactive' } as Member
             : m
-        ).filter(m => m.id !== selectedMember.id));
+        );
+        setAllMembers(updatedMembers);
+        saveToLocalStorage('members', updatedMembers);
+
+        setActiveMembers(updatedMembers.filter(m => m.status !== 'inactive'));
 
         toast({ title: 'Account Closed', description: `${selectedMember.fullName}'s account has been successfully closed and payout processed.` });
         
-        // Reset state
         setSelectedMemberId('');
         setCalculationResult(null);
         setPayoutDetails(initialPayoutDetails);
@@ -186,7 +206,7 @@ export default function CloseAccountPage() {
                     disabled={isCalculating || isClosing}
                     >
                     {selectedMemberId
-                        ? members.find((member) => member.id === selectedMemberId)?.fullName
+                        ? activeMembers.find((member) => member.id === selectedMemberId)?.fullName
                         : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -197,7 +217,7 @@ export default function CloseAccountPage() {
                     <CommandList>
                         <CommandEmpty>No active members found.</CommandEmpty>
                         <CommandGroup>
-                        {members.map((member) => (
+                        {activeMembers.map((member) => (
                             <CommandItem
                             key={member.id}
                             value={`${member.fullName} ${member.savingsAccountNumber}`}
