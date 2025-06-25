@@ -1,10 +1,8 @@
-
 'use client';
 
 import React from 'react';
-import { FileText, X } from 'lucide-react';
+import { FileText, X, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 interface FileUploadProps {
@@ -15,12 +13,9 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ value, onValueChange, label, id }: FileUploadProps) {
-  // Use a unique id for the input field to avoid label conflicts
-  const inputId = `${id}-input`;
-
   return (
     <div>
-      <Label htmlFor={inputId}>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       {value ? (
         <div className="mt-2 flex items-center justify-between p-2 pl-3 border rounded-md bg-muted/50">
           <div className="flex items-center gap-2 truncate">
@@ -40,15 +35,12 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
         </div>
       ) : (
         <div className="mt-2">
-            <Input
-              id={inputId}
-              name="evidenceUrl"
-              placeholder="Enter URL or filename for reference"
-              value={value}
-              onChange={(e) => onValueChange(e.target.value)}
-            />
+            <Button id={id} type="button" variant="outline" className="w-full" onClick={() => onValueChange('simulated_evidence.pdf')}>
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Attach File (Simulated)
+            </Button>
             <p className="text-xs text-muted-foreground mt-1">
-              Actual file upload is not functional. Enter a reference URL or filename to simulate.
+              File uploads are simulated. Clicking will attach a placeholder document.
             </p>
         </div>
       )}
