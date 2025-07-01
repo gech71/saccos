@@ -91,43 +91,54 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         throw new Error('Authentication token is missing. You must be logged in to register a user.');
     }
     
-    // 1. Register user with the external auth provider
-    const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        password: data.password,
-    }, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    });
-
-    if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
-        console.error("External registration failed. API Response:", registerResponse.data);
-        const errorMessage = registerResponse.data.errors?.join(' ') || 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.';
-        throw new Error(errorMessage);
-    }
-    
-    const externalUserId = registerResponse.data.userId;
-
-    // 2. Create the user in the local Prisma database
-    const newUser = await prisma.user.create({
-        data: {
-            userId: externalUserId,
-            name: `${data.firstName} ${data.lastName}`,
-            email: data.email,
+    try {
+        // 1. Register user with the external auth provider
+        const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
-            roles: {
-                connect: roleIds.map(id => ({ id })),
-            },
-        },
-    });
+            email: data.email,
+            phoneNumber: data.phoneNumber,
+            password: data.password,
+        }, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-    revalidatePath('/settings');
-    return newUser;
+        if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
+            console.error("External registration failed. API Response:", registerResponse.data);
+            const errorMessage = registerResponse.data.errors?.join(' ') || 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.';
+            throw new Error(errorMessage);
+        }
+        
+        const externalUserId = registerResponse.data.userId;
+
+        // 2. Create the user in the local Prisma database
+        const newUser = await prisma.user.create({
+            data: {
+                userId: externalUserId,
+                name: `${data.firstName} ${data.lastName}`,
+                email: data.email,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                roles: {
+                    connect: roleIds.map(id => ({ id })),
+                },
+            },
+        });
+
+        revalidatePath('/settings');
+        return newUser;
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            console.error('API Error:', error.response.data);
+            const apiErrors = error.response.data.errors || [error.response.data.message] || ['The server returned a bad request.'];
+            const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'External registration failed. Please check the details and try again.';
+            throw new Error(errorMessage);
+        }
+        console.error('Generic Error during registration:', error);
+        throw new Error('An unexpected error occurred during registration.');
+    }
 }
 
 
