@@ -158,6 +158,13 @@ const generateVisualizationTool = ai.defineTool({
   },
 });
 
+const ReportSummarySchema = z.object({
+  title: z.string().describe("A short, descriptive title for the report summary."),
+  keyInsights: z.array(z.string()).describe("A list of 2-3 key bullet points highlighting the most important findings from the data."),
+  narrativeSummary: z.string().describe("A detailed, paragraph-form summary of the financial data, explaining the trends and key figures."),
+  dataBreakdownAnalysis: z.string().describe("A brief analysis of the breakdown data (e.g., performance per month, by share type, etc.).")
+});
+
 const summarizeDataPrompt = ai.definePrompt({
     name: 'summarizeFinancialDataPrompt',
     input: { schema: z.object({
@@ -165,9 +172,15 @@ const summarizeDataPrompt = ai.definePrompt({
         reportType: z.string().describe('The type of report being summarized.'),
         financialDataJson: z.string().describe('The financial data for the school, as a JSON string.'),
     }) },
-    output: { schema: z.string() }, 
-    prompt: `You are a financial analyst. Analyze the following JSON data for {{schoolName}} regarding their {{reportType}} report and provide a concise, human-readable summary.
-Focus on the key figures and provide a clear, professional summary.
+    output: { schema: ReportSummarySchema }, 
+    prompt: `You are a financial analyst for AcademInvest. Your task is to analyze the provided JSON data and generate a structured, professional financial report summary.
+
+Analyze the data for {{schoolName}} regarding their {{reportType}} report.
+
+Provide a clear title for the summary.
+Extract 2-3 key insights and present them as a list of bullet points.
+Write a comprehensive narrative summary explaining the key figures like totals and counts.
+Finally, analyze the data breakdown to describe trends or distributions.
 
 Financial Data:
 \`\`\`json
@@ -204,9 +217,9 @@ const generateSavingsReportFlow = ai.defineFlow(
     ]);
 
     const visualizationUrl = visualizationResult;
-    const summaryText = summaryResult.output;
+    const summaryObject = summaryResult.output;
     
-    if (!summaryText) {
+    if (!summaryObject) {
         console.error('LLM call to summarizeDataPrompt did not produce a valid summary.', {input, financialDataJson, llmUsage: summaryResult.usage, outputReceived: summaryResult.output});
         throw new Error('Failed to generate report summary: The AI model did not return the expected text data.');
     }
@@ -216,8 +229,20 @@ const generateSavingsReportFlow = ai.defineFlow(
       throw new Error('Visualization generation failed.');
     }
 
+    const formattedReport = `${summaryObject.title}
+
+Key Insights:
+${summaryObject.keyInsights.map(insight => `• ${insight}`).join('\n')}
+
+Narrative Summary:
+${summaryObject.narrativeSummary}
+
+Breakdown Analysis:
+${summaryObject.dataBreakdownAnalysis}
+    `.trim();
+
     return {
-      report: summaryText,
+      report: formattedReport,
       visualization: visualizationUrl,
     };
   }
