@@ -114,6 +114,18 @@ export default function SettingsPage() {
     });
   };
 
+  const handleGroupPermissionChange = (groupPermissions: string[], checked: boolean) => {
+    setCurrentRole(prev => {
+      const currentPermissions = new Set(prev.permissions || []);
+      if (checked) {
+        groupPermissions.forEach(p => currentPermissions.add(p));
+      } else {
+        groupPermissions.forEach(p => currentPermissions.delete(p));
+      }
+      return { ...prev, permissions: Array.from(currentPermissions) };
+    });
+  };
+
   const handleRoleSave = async () => {
     if (!currentRole.name) {
         toast({ variant: 'destructive', title: 'Error', description: 'Role name cannot be empty.' });
@@ -319,29 +331,47 @@ export default function SettingsPage() {
                     <Label>Permissions</Label>
                     <div className="mt-2 border rounded-md max-h-80 overflow-y-auto">
                         <Accordion type="multiple" className="w-full">
-                            {Object.entries(permissionsByGroup).map(([groupName, perms]) => (
-                                <AccordionItem value={groupName} key={groupName}>
-                                    <AccordionTrigger className="px-4 py-3 text-base font-medium hover:no-underline">
-                                        {groupName}
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="pl-8 pr-4 pt-2 pb-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
-                                            {perms.map(permission => (
-                                                <div key={permission.id} className="flex items-center space-x-3">
-                                                    <Checkbox 
-                                                        id={`perm-${permission.id}`}
-                                                        checked={(currentRole.permissions || []).includes(permission.id)}
-                                                        onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
-                                                    />
-                                                    <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize cursor-pointer">
-                                                        {permission.label}
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
+                            {Object.entries(permissionsByGroup).map(([groupName, perms]) => {
+                                const groupPermissionIds = perms.map(p => p.id);
+                                const selectedPermissionsInGroup = groupPermissionIds.filter(pId => (currentRole.permissions || []).includes(pId));
+                                const allSelected = selectedPermissionsInGroup.length > 0 && selectedPermissionsInGroup.length === groupPermissionIds.length;
+                                const someSelected = selectedPermissionsInGroup.length > 0 && !allSelected;
+
+                                return (
+                                    <AccordionItem value={groupName} key={groupName}>
+                                        <AccordionTrigger className="px-4 py-3 text-base font-medium hover:no-underline hover:bg-muted/50 rounded-md data-[state=open]:rounded-b-none">
+                                            <div className="flex items-center gap-3 w-full">
+                                                <Checkbox
+                                                  id={`group-select-${groupName}`}
+                                                  checked={allSelected ? true : (someSelected ? 'indeterminate' : false)}
+                                                  onCheckedChange={(checked) => {
+                                                    handleGroupPermissionChange(groupPermissionIds, !!checked);
+                                                  }}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  aria-label={`Select all permissions for ${groupName}`}
+                                                />
+                                                <span className="flex-1 text-left">{groupName}</span>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="pl-8 pr-4 pt-2 pb-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                                                {perms.map(permission => (
+                                                    <div key={permission.id} className="flex items-center space-x-3">
+                                                        <Checkbox 
+                                                            id={`perm-${permission.id}`}
+                                                            checked={(currentRole.permissions || []).includes(permission.id)}
+                                                            onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
+                                                        />
+                                                        <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize cursor-pointer">
+                                                            {permission.label}
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                );
+                            })}
                         </Accordion>
                     </div>
                 </div>
