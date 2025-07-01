@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,12 +25,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { mockMembers, mockSavingAccountTypes, mockSavings, mockSchools } from '@/data/mock';
-import type { Member, SavingAccountType, Saving, School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getCalculationPageData, calculateInterest, postInterestTransactions, type CalculationPageData, type InterestCalculationResult } from './actions';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -38,28 +37,17 @@ const months = [
   { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
   { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
   { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
-  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
+  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', 'label': 'December' }
 ];
-
-interface InterestCalculationResult {
-  memberId: string;
-  fullName: string;
-  savingsAccountNumber?: string;
-  savingsBalance: number;
-  interestRate: number;
-  calculatedInterest: number;
-}
 
 export default function CalculateInterestPage() {
   const { toast } = useToast();
   
-  const [allMembers] = useState<Member[]>(mockMembers);
-  const [allSavingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-  const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
-  const [allSchools] = useState<School[]>(mockSchools);
+  const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], savingAccountTypes: [] });
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString()); // Default to last month
 
   const [calculationScope, setCalculationScope] = useState<'all' | 'school' | 'member' | 'accountType'>('all');
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
@@ -72,7 +60,21 @@ export default function CalculateInterestPage() {
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
 
-  const handleCalculateInterest = () => {
+  useEffect(() => {
+    async function fetchData() {
+        setIsPageLoading(true);
+        try {
+            const data = await getCalculationPageData();
+            setPageData(data);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+        }
+        setIsPageLoading(false);
+    }
+    fetchData();
+  }, [toast]);
+
+  const handleCalculateInterest = async () => {
     // Validation
     if (calculationScope === 'school' && !selectedSchoolId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school to calculate for.' });
@@ -89,80 +91,54 @@ export default function CalculateInterestPage() {
 
     setIsLoading(true);
     setCalculationResults(null);
+    try {
+        const results = await calculateInterest({
+            scope: calculationScope,
+            schoolId: selectedSchoolId,
+            memberId: selectedMemberId,
+            accountTypeId: selectedAccountTypeId,
+        });
 
-    // Filtering logic
-    let membersToProcess = [...allMembers];
-
-    if (calculationScope === 'school' && selectedSchoolId) {
-        membersToProcess = membersToProcess.filter(m => m.schoolId === selectedSchoolId);
-    } else if (calculationScope === 'member' && selectedMemberId) {
-        membersToProcess = membersToProcess.filter(m => m.id === selectedMemberId);
-    } else if (calculationScope === 'accountType' && selectedAccountTypeId) {
-        membersToProcess = membersToProcess.filter(m => m.savingAccountTypeId === selectedAccountTypeId);
-    }
-
-    setTimeout(() => {
-      const results: InterestCalculationResult[] = membersToProcess.map(member => {
-        const accountType = allSavingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
-        if (!accountType || accountType.interestRate <= 0) {
-          return null; // Skip members with no applicable interest rate
+        setCalculationResults(results);
+        if (results.length > 0) {
+            toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} members based on your criteria.` });
+        } else {
+            toast({ title: 'Calculation Complete', description: 'No members were eligible for interest calculation for the selected criteria.' });
         }
-
-        // Simplified interest calculation: (Balance * AnnualRate) / 12
-        // A real-world app might use average daily balance, but this is a good starting point.
-        const monthlyRate = accountType.interestRate / 12;
-        const calculatedInterest = member.savingsBalance * monthlyRate;
-
-        return {
-          memberId: member.id,
-          fullName: member.fullName,
-          savingsAccountNumber: member.savingsAccountNumber,
-          savingsBalance: member.savingsBalance,
-          interestRate: accountType.interestRate,
-          calculatedInterest,
-        };
-      }).filter((res): res is InterestCalculationResult => res !== null && res.calculatedInterest > 0);
-
-      setCalculationResults(results);
-      setIsLoading(false);
-      if (results.length > 0) {
-        toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} members based on your criteria.` });
-      } else {
-        toast({ title: 'Calculation Complete', description: 'No members were eligible for interest calculation for the selected criteria.' });
-      }
-    }, 500);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to calculate interest.' });
+    } finally {
+        setIsLoading(false);
+    }
   };
 
-  const handlePostInterest = () => {
+  const handlePostInterest = async () => {
     if (!calculationResults || calculationResults.length === 0) {
       toast({ variant: 'destructive', title: 'No Results', description: 'There are no calculation results to post.' });
       return;
     }
     setIsPosting(true);
     
-    const newInterestTransactions: Saving[] = calculationResults.map(result => ({
-      id: `interest-${Date.now()}-${result.memberId}`,
-      memberId: result.memberId,
-      memberName: result.fullName,
-      amount: result.calculatedInterest,
-      date: new Date(parseInt(selectedYear), parseInt(selectedMonth) + 1, 0).toISOString(), // End of selected month
-      month: `${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}`,
-      transactionType: 'deposit', // Interest is treated as a deposit
-      status: 'pending', // All new transactions must be approved
-      notes: `Monthly interest posting for ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}`,
-      depositMode: 'Bank', // System-generated transactions might be categorized differently
-      paymentDetails: {
-        sourceName: 'Internal System Posting',
-        transactionReference: `INT-${selectedYear}${parseInt(selectedMonth)+1}-${result.memberId}`
-      }
-    }));
-    
-    setTimeout(() => {
-        setAllSavings(prev => [...prev, ...newInterestTransactions]);
-        toast({ title: 'Interest Posted', description: `${newInterestTransactions.length} interest transactions have been submitted for approval.` });
-        setCalculationResults(null); // Clear results after posting
+    const monthLabel = months.find(m => m.value === selectedMonth)?.label;
+    if (!monthLabel) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Invalid month selected.' });
         setIsPosting(false);
-    }, 1000);
+        return;
+    }
+    
+    try {
+        const result = await postInterestTransactions(calculationResults, { month: monthLabel, year: selectedYear });
+        if (result.success) {
+            toast({ title: 'Interest Posted', description: result.message });
+            setCalculationResults(null); // Clear results after posting
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred while posting interest.' });
+    } finally {
+        setIsPosting(false);
+    }
   };
   
   const totalCalculatedInterest = useMemo(() => {
@@ -177,6 +153,10 @@ export default function CalculateInterestPage() {
     setSelectedMemberId('');
     setSelectedAccountTypeId('');
   };
+
+  if (isPageLoading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -223,7 +203,7 @@ export default function CalculateInterestPage() {
                 <Label htmlFor="schoolSelect">School</Label>
                 <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
                   <SelectTrigger id="schoolSelect"><SelectValue placeholder="Select a school..." /></SelectTrigger>
-                  <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             )}
@@ -240,7 +220,7 @@ export default function CalculateInterestPage() {
                       className="w-full justify-between"
                     >
                       {selectedMemberId
-                        ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
+                        ? pageData.members.find((member) => member.id === selectedMemberId)?.fullName
                         : "Select member..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -251,7 +231,7 @@ export default function CalculateInterestPage() {
                       <CommandList>
                         <CommandEmpty>No member found.</CommandEmpty>
                         <CommandGroup>
-                          {allMembers.map((member) => (
+                          {pageData.members.map((member) => (
                             <CommandItem
                               key={member.id}
                               value={`${member.fullName} ${member.savingsAccountNumber}`}
@@ -281,7 +261,7 @@ export default function CalculateInterestPage() {
                 <Label htmlFor="accountTypeSelect">Saving Account Type</Label>
                 <Select value={selectedAccountTypeId} onValueChange={setSelectedAccountTypeId}>
                   <SelectTrigger id="accountTypeSelect"><SelectValue placeholder="Select an account type..." /></SelectTrigger>
-                  <SelectContent>{allSavingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             )}
