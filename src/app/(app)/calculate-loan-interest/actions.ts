@@ -67,7 +67,7 @@ export async function calculateInterest(criteria: {
     return {
       loanId: loan.id,
       memberId: loan.memberId,
-      fullName: loan.memberName || loan.member.fullName,
+      fullName: loan.member.fullName,
       loanAccountNumber: loan.loanAccountNumber,
       remainingBalance: loan.remainingBalance,
       interestRate: loan.interestRate,
@@ -108,7 +108,6 @@ export async function postInterestCharges(charges: InterestCalculationResult[], 
         dateApplied: dateApplied,
         status: 'pending',
         notes: `Monthly loan interest for ${monthName} ${period.year} on Loan ${result.loanAccountNumber}`,
-        serviceChargeTypeName: loanInterestChargeType.name,
       })),
     });
 
