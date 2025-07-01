@@ -1,10 +1,11 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2, MoreVertical, FileText } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -75,7 +76,7 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
 
 type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>;
 
-export default function SavingsPage() {
+function SavingsPageContent() {
   const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>([]);
   const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,29 +94,45 @@ export default function SavingsPage() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const { toast } = useToast();
+  
+  const searchParams = useSearchParams();
 
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
   
-  const fetchPageData = async () => {
-    setIsLoading(true);
-    try {
-        const data = await getSavingsPageData();
-        setSavingsTransactions(data.savings);
-        setMembers(data.members);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
-    }
-    setIsLoading(false);
-  };
-
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
+    
+    async function fetchPageData() {
+      setIsLoading(true);
+      try {
+          const data = await getSavingsPageData();
+          setSavingsTransactions(data.savings);
+          setMembers(data.members);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
+      }
+      setIsLoading(false);
+    }
     fetchPageData();
   }, [toast]);
+  
+  useEffect(() => {
+    const memberIdFromQuery = searchParams.get('memberId');
+    if (memberIdFromQuery && members.length > 0 && !isModalOpen) {
+        const memberExists = members.find(m => m.id === memberIdFromQuery);
+        if (memberExists) {
+            setCurrentTransaction({ ...initialTransactionFormState, memberId: memberIdFromQuery });
+            setIsEditing(false);
+            setIsModalOpen(true);
+        } else {
+            toast({ variant: 'destructive', title: 'Member Not Found', description: 'The specified member could not be found.' });
+        }
+    }
+  }, [searchParams, members, isModalOpen, toast]);
 
   const member = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
@@ -200,7 +217,9 @@ export default function SavingsPage() {
             toast({ title: 'Transaction Submitted', description: `Savings transaction sent for approval.` });
         }
         
-        await fetchPageData();
+        const data = await getSavingsPageData();
+        setSavingsTransactions(data.savings);
+        setMembers(data.members);
         setIsModalOpen(false);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
@@ -235,7 +254,9 @@ export default function SavingsPage() {
     const result = await deleteSavingTransaction(transactionToDelete);
     if (result.success) {
         toast({ title: 'Success', description: result.message });
-        await fetchPageData();
+        const data = await getSavingsPageData();
+        setSavingsTransactions(data.savings);
+        setMembers(data.members);
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -414,7 +435,7 @@ export default function SavingsPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -586,4 +607,12 @@ export default function SavingsPage() {
       </AlertDialog>
     </div>
   );
+}
+
+export default function SavingsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            <SavingsPageContent />
+        </Suspense>
+    )
 }
