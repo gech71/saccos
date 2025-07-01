@@ -20,7 +20,7 @@ body {
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 231 48% 48%; /* Blue */
+    --accent: 27 50% 40%; /* Brown */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -28,7 +28,7 @@ body {
     --input: 240 5.9% 90%;
     --ring: 48 96% 53%; /* Match new primary */
     --chart-1: 48 96% 53%;
-    --chart-2: 231 48% 48%;
+    --chart-2: 27 50% 40%; /* Brown */
     --chart-3: 210 40% 96.1%;
     --chart-4: 220 70% 50%;
     --chart-5: 30 80% 55%;
@@ -58,7 +58,7 @@ body {
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 231 48% 48%; /* Blue */
+    --accent: 27 50% 50%; /* Lighter Brown */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
@@ -66,7 +66,7 @@ body {
     --input: 240 3.7% 15.9%;
     --ring: 48 96% 53%; /* Match new primary */
     --chart-1: 48 96% 53%;
-    --chart-2: 231 48% 48%;
+    --chart-2: 27 50% 50%; /* Lighter Brown */
     --chart-3: 210 40% 96.1%;
     --chart-4: 220 70% 50%;
     --chart-5: 30 80% 55%;
