@@ -339,22 +339,23 @@ export default function SettingsPage() {
 
                                 return (
                                     <AccordionItem value={groupName} key={groupName}>
-                                        <AccordionTrigger className="px-4 py-3 text-base font-medium hover:no-underline hover:bg-muted/50 rounded-md data-[state=open]:rounded-b-none">
-                                            <div className="flex items-center gap-3 w-full">
-                                                <Checkbox
+                                        <div className="flex items-center">
+                                            <div className="px-4 py-3">
+                                                 <Checkbox
                                                   id={`group-select-${groupName}`}
                                                   checked={allSelected ? true : (someSelected ? 'indeterminate' : false)}
                                                   onCheckedChange={(checked) => {
                                                     handleGroupPermissionChange(groupPermissionIds, !!checked);
                                                   }}
-                                                  onClick={(e) => e.stopPropagation()}
                                                   aria-label={`Select all permissions for ${groupName}`}
                                                 />
-                                                <span className="flex-1 text-left">{groupName}</span>
                                             </div>
-                                        </AccordionTrigger>
+                                            <AccordionTrigger className="flex-1 py-3 pr-4 text-base font-medium hover:no-underline">
+                                                <span className="flex-1 text-left">{groupName}</span>
+                                            </AccordionTrigger>
+                                        </div>
                                         <AccordionContent>
-                                            <div className="pl-8 pr-4 pt-2 pb-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                                            <div className="pl-12 pr-4 pt-2 pb-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                                                 {perms.map(permission => (
                                                     <div key={permission.id} className="flex items-center space-x-3">
                                                         <Checkbox 
