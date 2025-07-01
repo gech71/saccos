@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,102 +22,83 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { mockSchools, mockSavingAccountTypes, mockMembers, mockShareTypes } from '@/data/mock';
-import type { School, SavingAccountType, Member, ShareType } from '@/types';
+import type { School, SavingAccountType, ShareType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Filter, Loader2, DollarSign, Users, FileDown } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
+import { getForecastPageData, getCollectionForecast, type ForecastPageData, type ForecastResult } from './actions';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 const months = [
-  { value: 0, label: 'January' }, { value: 1, label: 'February' }, { value: 2, label: 'March' },
-  { value: 3, label: 'April' }, { value: 4, label: 'May' }, { value: 5, label: 'June' },
-  { value: 6, label: 'July' }, { value: 7, label: 'August' }, { value: 8, label: 'September' },
-  { value: 9, 'label': 'October' }, { value: 10, 'label': 'November' }, { value: 11, 'label': 'December' }
+  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
+  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
+  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
+  { value: '9', 'label': 'October' }, { value: '10', 'label': 'November' }, { value: '11', 'label': 'December' }
 ];
-
-interface ForecastResult {
-    memberId: string;
-    fullName: string;
-    schoolName: string;
-    expectedContribution: number;
-}
 
 export default function CollectionForecastPage() {
   const { toast } = useToast();
   
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [allSavingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-  const [allShareTypes] = useState<ShareType[]>(mockShareTypes);
-  const [allMembers] = useState<Member[]>(mockMembers);
+  const [pageData, setPageData] = useState<ForecastPageData | null>(null);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   
   const [collectionType, setCollectionType] = useState<'savings' | 'shares'>('savings');
-  const [selectedSavingAccountType, setSelectedSavingAccountType] = useState<string>('');
-  const [selectedShareType, setSelectedShareType] = useState<string>('');
+  const [selectedTypeId, setSelectedTypeId] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastResult[] | null>(null);
 
-  const handleLoadForecast = () => {
-    if (!selectedSchool) {
-      toast({ variant: 'destructive', title: 'Missing Filter', description: 'Please select a school.' });
+  useEffect(() => {
+    async function fetchData() {
+        setIsPageLoading(true);
+        try {
+            const data = await getForecastPageData();
+            setPageData(data);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+        } finally {
+            setIsPageLoading(false);
+        }
+    }
+    fetchData();
+  }, [toast]);
+  
+  useEffect(() => {
+      setSelectedTypeId(''); // Reset type selection when collection type changes
+  }, [collectionType]);
+
+  const handleLoadForecast = async () => {
+    if (!selectedSchool || !selectedTypeId) {
+      toast({ variant: 'destructive', title: 'Missing Filter', description: 'Please select a school and a collection type.' });
       return;
-    }
-    if (collectionType === 'savings' && !selectedSavingAccountType) {
-        toast({ variant: 'destructive', title: 'Missing Filter', description: 'Please select a saving account type.' });
-        return;
-    }
-    if (collectionType === 'shares' && !selectedShareType) {
-        toast({ variant: 'destructive', title: 'Missing Filter', description: 'Please select a share type.' });
-        return;
     }
     
     setIsLoading(true);
     setForecastData(null);
     
-    setTimeout(() => {
-        let results: ForecastResult[] = [];
-        const filteredMembersBySchool = allMembers.filter(m => m.schoolId === selectedSchool);
-
-        if (collectionType === 'savings') {
-            results = filteredMembersBySchool
-                .filter(m => m.savingAccountTypeId === selectedSavingAccountType && (m.expectedMonthlySaving || 0) > 0)
-                .map(m => ({
-                    memberId: m.id,
-                    fullName: m.fullName,
-                    schoolName: m.schoolName || '',
-                    expectedContribution: m.expectedMonthlySaving || 0,
-                }));
-        } else { // 'shares'
-            results = filteredMembersBySchool
-                .map(m => {
-                    const commitment = m.shareCommitments?.find(sc => sc.shareTypeId === selectedShareType);
-                    if (commitment && commitment.monthlyCommittedAmount > 0) {
-                        return {
-                            memberId: m.id,
-                            fullName: m.fullName,
-                            schoolName: m.schoolName || '',
-                            expectedContribution: commitment.monthlyCommittedAmount,
-                        };
-                    }
-                    return null;
-                })
-                .filter((r): r is ForecastResult => r !== null);
-        }
+    try {
+        const results = await getCollectionForecast({
+            schoolId: selectedSchool,
+            collectionType,
+            typeId: selectedTypeId,
+        });
 
         setForecastData(results);
-        setIsLoading(false);
         if (results.length > 0) {
-            toast({ title: 'Forecast Generated', description: `Found ${results.length} expected collections for ${allSchools.find(s => s.id === selectedSchool)?.name}.` });
+            toast({ title: 'Forecast Generated', description: `Found ${results.length} expected collections for ${pageData?.schools.find(s => s.id === selectedSchool)?.name}.` });
         } else {
             toast({ title: 'No Collections Found', description: 'No members match the selected criteria for the forecast.' });
         }
-    }, 500);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate forecast.' });
+    } finally {
+        setIsLoading(false);
+    }
   };
   
   const summaryStats = useMemo(() => {
@@ -131,7 +112,7 @@ export default function CollectionForecastPage() {
   }, [forecastData]);
 
   const handleExport = () => {
-    if (!forecastData || forecastData.length === 0) {
+    if (!forecastData || forecastData.length === 0 || !pageData) {
         toast({ variant: 'destructive', title: 'No Data', description: 'There is no forecast data to export.' });
         return;
     }
@@ -140,12 +121,17 @@ export default function CollectionForecastPage() {
       'School': item.schoolName,
       'Expected Contribution ($)': item.expectedContribution.toFixed(2),
     }));
+    
     const collectionTypeName = collectionType === 'savings' 
-        ? allSavingAccountTypes.find(s => s.id === selectedSavingAccountType)?.name 
-        : allShareTypes.find(s => s.id === selectedShareType)?.name;
+        ? pageData.savingAccountTypes.find(s => s.id === selectedTypeId)?.name 
+        : pageData.shareTypes.find(s => s.id === selectedTypeId)?.name;
 
     exportToExcel(dataToExport, `collection_forecast_${collectionTypeName?.replace(/\s/g, '_') || ''}`);
   };
+
+  if (isPageLoading || !pageData) {
+      return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -162,7 +148,7 @@ export default function CollectionForecastPage() {
                   <Label htmlFor="schoolFilter">School</Label>
                   <Select value={selectedSchool} onValueChange={setSelectedSchool}>
                     <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
-                    <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
@@ -192,17 +178,17 @@ export default function CollectionForecastPage() {
                 {collectionType === 'savings' ? (
                     <div>
                         <Label htmlFor="savingTypeFilter">Saving Account Type</Label>
-                        <Select value={selectedSavingAccountType} onValueChange={setSelectedSavingAccountType}>
+                        <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
                             <SelectTrigger id="savingTypeFilter"><SelectValue placeholder="Select Saving Account Type" /></SelectTrigger>
-                            <SelectContent>{allSavingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                 ) : (
                     <div>
                         <Label htmlFor="shareTypeFilter">Share Type</Label>
-                        <Select value={selectedShareType} onValueChange={setSelectedShareType}>
+                        <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
                             <SelectTrigger id="shareTypeFilter"><SelectValue placeholder="Select Share Type" /></SelectTrigger>
-                            <SelectContent>{allShareTypes.map(st => <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{pageData.shareTypes.map(st => <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                 )}

@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +16,15 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { generateSavingsReport, type GenerateSavingsReportInput, type GenerateSavingsReportOutput } from '@/ai/flows/generate-savings-report';
-import { mockSchools } from '@/data/mock';
-import type { School, ReportType, VisualizationType } from '@/types';
+import type { ReportType, VisualizationType } from '@/types';
 import { Loader2, Download, FileText, BarChart2, PieChart, LineChart } from 'lucide-react';
 import Image from 'next/image';
+import { getSchoolsForReport } from './actions';
+
+type SchoolForSelect = {
+    id: string;
+    name: string;
+}
 
 const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'savings', label: 'Savings Report' },
@@ -34,17 +40,32 @@ const visualizationTypes: { value: VisualizationType, label: string, icon: React
 ];
 
 export default function ReportsPage() {
-  const [schools] = useState<School[]>(mockSchools);
-  const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [schools, setSchools] = useState<SchoolForSelect[]>([]);
+  const [selectedSchoolName, setSelectedSchoolName] = useState<string>('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
   const [selectedVizType, setSelectedVizType] = useState<VisualizationType>('bar');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingSchools, setIsFetchingSchools] = useState(true);
   const [reportOutput, setReportOutput] = useState<GenerateSavingsReportOutput | null>(null);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    async function fetchSchools() {
+        setIsFetchingSchools(true);
+        try {
+            const schoolsData = await getSchoolsForReport();
+            setSchools(schoolsData);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load schools.' });
+        }
+        setIsFetchingSchools(false);
+    }
+    fetchSchools();
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSchool || !selectedReportType || !selectedVizType) {
+    if (!selectedSchoolName || !selectedReportType || !selectedVizType) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all fields.' });
       return;
     }
@@ -52,9 +73,8 @@ export default function ReportsPage() {
     setReportOutput(null);
 
     try {
-      const schoolName = schools.find(s => s.id === selectedSchool)?.name || 'Selected School';
       const input: GenerateSavingsReportInput = {
-        schoolName,
+        schoolName: selectedSchoolName,
         reportType: selectedReportType,
         visualizationType: selectedVizType,
       };
@@ -83,13 +103,13 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <Label htmlFor="schoolName">School Name</Label>
-                <Select value={selectedSchool} onValueChange={(value) => setSelectedSchool(value)} required>
+                <Select value={selectedSchoolName} onValueChange={(value) => setSelectedSchoolName(value)} required disabled={isFetchingSchools}>
                   <SelectTrigger id="schoolName" aria-label="Select school">
-                    <SelectValue placeholder="Select a school" />
+                    <SelectValue placeholder={isFetchingSchools ? "Loading schools..." : "Select a school"} />
                   </SelectTrigger>
                   <SelectContent>
                     {schools.map(school => (
-                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
+                      <SelectItem key={school.id} value={school.name}>{school.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -131,7 +151,7 @@ export default function ReportsPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isLoading} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
+            <Button type="submit" disabled={isLoading || isFetchingSchools} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
@@ -150,7 +170,7 @@ export default function ReportsPage() {
             <CardTitle className="font-headline text-primary">Generated Report</CardTitle>
             <div className="flex justify-between items-center">
                 <CardDescription>
-                    Report for {schools.find(s => s.id === selectedSchool)?.name} - {reportTypes.find(rt => rt.value === selectedReportType)?.label}
+                    Report for {selectedSchoolName} - {reportTypes.find(rt => rt.value === selectedReportType)?.label}
                 </CardDescription>
                 <Button variant="outline" size="sm">
                     <Download className="mr-2 h-4 w-4" /> Download Report

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -31,43 +30,15 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { mockMembers, mockSchools, mockShares, mockSavings, mockShareTypes, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
-import type { Member, School, Share, Saving, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@/types';
+import type { School, ShareType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
-import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, UploadCloud, Banknote, Wallet, ReceiptText, FileDown } from 'lucide-react';
+import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, Banknote, Wallet, ReceiptText, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
-
-interface OverdueShareDetail {
-  shareTypeId: string;
-  shareTypeName: string;
-  monthlyCommittedAmount: number;
-  totalExpectedContribution: number;
-  totalAllocatedValue: number;
-  overdueAmount: number;
-}
-
-interface OverdueMemberInfo {
-  memberId: string;
-  fullName: string;
-  schoolName?: string;
-  schoolId: string;
-  joinDate: string;
-  expectedMonthlySaving: number;
-  savingsBalance: number;
-  overdueSavingsAmount: number;
-  overdueSharesDetails: OverdueShareDetail[];
-  pendingServiceCharges: AppliedServiceCharge[];
-  totalOverdueServiceCharges: number;
-  hasAnyOverdue: boolean;
-  shareCommitments?: MemberShareCommitment[];
-  sharesCount: number;
-}
+import { getOverduePaymentsPageData, recordOverduePayment, type OverduePageData, type OverdueMemberInfo, type OverduePaymentInput } from './actions';
 
 interface PaymentFormState {
   savingsAmount: number;
@@ -96,12 +67,9 @@ const initialPaymentFormState: PaymentFormState = {
 };
 
 export default function OverduePaymentsPage() {
-  const [allMembers, setAllMembers] = useState<Member[]>(mockMembers);
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [allShares, setAllShares] = useState<Share[]>(mockShares);
-  const [allSavings, setAllSavings] = useState<Saving[]>(mockSavings);
-  const [allShareTypes] = useState<ShareType[]>(mockShareTypes);
-  const [appliedServiceCharges, setAppliedServiceCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
+  const [pageData, setPageData] = useState<OverduePageData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
@@ -111,82 +79,30 @@ export default function OverduePaymentsPage() {
   const [selectedOverdueMemberForPayment, setSelectedOverdueMemberForPayment] = useState<OverdueMemberInfo | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(initialPaymentFormState);
 
+  const fetchPageData = async () => {
+      setIsLoading(true);
+      try {
+          const data = await getOverduePaymentsPageData();
+          setPageData(data);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load overdue payment data.' });
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
-  const overdueMembersData = useMemo((): OverdueMemberInfo[] => {
-    const currentDate = new Date();
-    return allMembers
-      .map(member => {
-        const joinDate = parseISO(member.joinDate);
-        let contributionPeriods = 0;
-        if (joinDate <= currentDate) {
-          contributionPeriods = differenceInMonths(currentDate, joinDate) + 1;
-        }
-        contributionPeriods = Math.max(0, contributionPeriods);
-
-        // Savings Overdue
-        const expectedMonthlySaving = member.expectedMonthlySaving || 0;
-        const totalExpectedSavings = expectedMonthlySaving * contributionPeriods;
-        const memberSavingsBalance = member.savingsBalance;
-        const overdueSavingsAmount = Math.max(0, totalExpectedSavings - memberSavingsBalance);
-
-        // Shares Overdue
-        const overdueSharesDetails: OverdueShareDetail[] = (member.shareCommitments || [])
-          .map(commitment => {
-            const shareType = allShareTypes.find(st => st.id === commitment.shareTypeId);
-            if (!shareType || (commitment.monthlyCommittedAmount || 0) === 0) return null;
-            const monthlyCommitted = commitment.monthlyCommittedAmount || 0;
-            const totalExpectedShareContributionForType = monthlyCommitted * contributionPeriods;
-            const memberSharesOfType = allShares.filter(s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId && s.status === 'approved');
-            const totalAllocatedValueForShareType = memberSharesOfType.reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0);
-            const overdueAmount = Math.max(0, totalExpectedShareContributionForType - totalAllocatedValueForShareType);
-            if (overdueAmount > 0) {
-                return {
-                  shareTypeId: commitment.shareTypeId,
-                  shareTypeName: commitment.shareTypeName || shareType.name,
-                  monthlyCommittedAmount: monthlyCommitted,
-                  totalExpectedContribution: totalExpectedShareContributionForType,
-                  totalAllocatedValue: totalAllocatedValueForShareType,
-                  overdueAmount,
-                };
-            }
-            return null;
-          })
-          .filter((detail): detail is OverdueShareDetail => detail !== null);
-        
-        // Service Charges Overdue
-        const pendingServiceCharges = appliedServiceCharges.filter(asc => asc.memberId === member.id && asc.status === 'pending');
-        const totalOverdueServiceCharges = pendingServiceCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
-          
-        const hasAnyOverdue = overdueSavingsAmount > 0 || overdueSharesDetails.some(s => s.overdueAmount > 0) || totalOverdueServiceCharges > 0;
-
-        return {
-          memberId: member.id,
-          fullName: member.fullName,
-          schoolName: member.schoolName || allSchools.find(s => s.id === member.schoolId)?.name,
-          schoolId: member.schoolId,
-          joinDate: member.joinDate,
-          expectedMonthlySaving: member.expectedMonthlySaving || 0,
-          savingsBalance: member.savingsBalance,
-          overdueSavingsAmount,
-          overdueSharesDetails,
-          pendingServiceCharges,
-          totalOverdueServiceCharges,
-          hasAnyOverdue,
-          shareCommitments: member.shareCommitments,
-          sharesCount: member.sharesCount,
-        };
-      })
-      .filter(memberInfo => memberInfo.hasAnyOverdue);
-  }, [allMembers, allShares, allSavings, allShareTypes, allSchools, appliedServiceCharges]);
-
+  useEffect(() => {
+    fetchPageData();
+  }, [toast]);
 
   const filteredOverdueMembers = useMemo(() => {
-    return overdueMembersData.filter(member => {
+    if (!pageData) return [];
+    return pageData.overdueMembers.filter(member => {
       const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
-  }, [overdueMembersData, searchTerm, selectedSchoolFilter]);
+  }, [pageData, searchTerm, selectedSchoolFilter]);
   
   
   const handleOpenPaymentModal = (member: OverdueMemberInfo) => {
@@ -231,14 +147,10 @@ export default function OverduePaymentsPage() {
   };
   
   const handlePaymentDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setPaymentForm(prev => ({
-      ...prev,
-      depositMode: value,
-      paymentDetails: value === 'Cash' ? { sourceName: '', transactionReference: '', evidenceUrl: '' } : prev.paymentDetails,
-    }));
+    setPaymentForm(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleSubmitPayment = (e: React.FormEvent) => {
+  const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOverdueMemberForPayment) return;
 
@@ -253,95 +165,28 @@ export default function OverduePaymentsPage() {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${depositMode} Name.` });
         return;
     }
-
-    const dateObj = new Date(date);
-    const monthYear = format(dateObj, 'MMMM yyyy');
-    let toastMessages: string[] = [];
-
-    // Process Savings Payment
-    if (savingsAmount > 0) {
-      const newSaving: Saving = {
-        id: `saving-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        memberId: selectedOverdueMemberForPayment.memberId,
-        memberName: selectedOverdueMemberForPayment.fullName,
-        amount: savingsAmount,
-        date: date,
-        month: monthYear,
-        transactionType: 'deposit',
-        status: 'pending',
-        depositMode: depositMode,
-        paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
-      };
-      setAllSavings(prev => [...prev, newSaving]);
-      toastMessages.push(`$${savingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for savings`);
-    }
-
-    // Process Share Payments
-    Object.entries(shareAmounts).forEach(([shareTypeId, amount]) => {
-      if (amount > 0) {
-        const shareType = allShareTypes.find(st => st.id === shareTypeId);
-        if (!shareType) {
-          console.error(`Share type ${shareTypeId} not found during payment processing.`);
-          return; 
-        }
-        const sharesToAllocate = Math.floor(amount / shareType.valuePerShare);
-        if (sharesToAllocate > 0) {
-          const totalValueForAllocation = sharesToAllocate * shareType.valuePerShare;
-          const newShare: Share = {
-            id: `share-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    
+    setIsSubmitting(true);
+    try {
+        const paymentData: OverduePaymentInput = {
             memberId: selectedOverdueMemberForPayment.memberId,
             memberName: selectedOverdueMemberForPayment.fullName,
-            shareTypeId: shareType.id,
-            shareTypeName: shareType.name,
-            count: sharesToAllocate,
-            allocationDate: date,
-            valuePerShare: shareType.valuePerShare,
-            status: 'pending',
-            contributionAmount: amount,
-            totalValueForAllocation,
-            depositMode: depositMode,
+            savingsAmount,
+            shareAmounts,
+            serviceChargeAmount,
+            paymentDate: date,
+            depositMode,
             paymentDetails: depositMode === 'Cash' ? undefined : paymentDetails,
-          };
-          setAllShares(prev => [...prev, newShare]);
-          toastMessages.push(`${sharesToAllocate} ${shareType.name}(s)`);
-        } else {
-          toastMessages.push(`$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for ${shareType.name} (insufficient for one share)`);
         }
-      }
-    });
-
-    // Process Service Charge Payments
-    if (serviceChargeAmount > 0) {
-        let remainingServiceChargePayment = serviceChargeAmount;
-        const updatedAppliedCharges = [...appliedServiceCharges];
-        
-        const memberPendingCharges = updatedAppliedCharges
-            .filter(asc => asc.memberId === selectedOverdueMemberForPayment.memberId && asc.status === 'pending')
-            .sort((a, b) => compareDesc(new Date(b.dateApplied), new Date(a.dateApplied)));
-        
-        for (const charge of memberPendingCharges) {
-            if (remainingServiceChargePayment <= 0) break;
-            if (remainingServiceChargePayment >= charge.amountCharged) {
-                 const chargeIndex = updatedAppliedCharges.findIndex(c => c.id === charge.id);
-                 if(chargeIndex !== -1) {
-                    updatedAppliedCharges[chargeIndex] = { ...updatedAppliedCharges[chargeIndex], status: 'paid' };
-                    remainingServiceChargePayment -= charge.amountCharged;
-                 }
-            }
-        }
-        setAppliedServiceCharges(updatedAppliedCharges);
-        toastMessages.push(`$${(serviceChargeAmount - remainingServiceChargePayment).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for service charges`);
+        await recordOverduePayment(paymentData);
+        toast({ title: 'Success', description: `Payment transactions for ${selectedOverdueMemberForPayment.fullName} submitted for approval.` });
+        setIsPaymentModalOpen(false);
+        await fetchPageData(); // Refresh the data
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to record payment.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    
-    let finalToastMessage = `Payment transactions for ${selectedOverdueMemberForPayment.fullName} submitted for approval.`;
-    if(toastMessages.length > 0) {
-        finalToastMessage += ` Details: ${toastMessages.join(', ')}.`;
-    }
-
-    toast({ title: 'Success', description: finalToastMessage });
-    setIsPaymentModalOpen(false);
-    setPaymentForm(initialPaymentFormState);
-    setSelectedOverdueMemberForPayment(null);
   };
   
   const totalOverdueSavings = useMemo(() => {
@@ -371,10 +216,14 @@ export default function OverduePaymentsPage() {
     exportToExcel(dataToExport, 'overdue_payments_export');
   };
 
+  if (isLoading || !pageData) {
+      return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
   return (
     <div className="space-y-6">
       <PageTitle title="Overdue Payments" subtitle="Track and manage members with outstanding savings, share contributions, or service charges.">
-        <Button onClick={handleExport} variant="outline">
+        <Button onClick={handleExport} variant="outline" disabled={filteredOverdueMembers.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
       </PageTitle>
@@ -439,7 +288,7 @@ export default function OverduePaymentsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Schools</SelectItem>
-            {allSchools.map(school => (
+            {pageData.schools.map(school => (
               <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
             ))}
           </SelectContent>
@@ -513,13 +362,7 @@ export default function OverduePaymentsPage() {
           </TableBody>
         </Table>
       </div>
-       {filteredOverdueMembers.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More Members</Button>
-        </div>
-      )}
 
-      {/* Payment Modal */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -650,8 +493,11 @@ export default function OverduePaymentsPage() {
               )}
 
               <DialogFooter className="pt-6">
-                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                <Button type="submit">Submit Payment for Approval</Button>
+                <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Payment for Approval
+                </Button>
               </DialogFooter>
             </form>
           )}

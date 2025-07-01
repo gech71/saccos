@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import prisma from '@/lib/prisma';
 
 const DataVisualizationTypeSchema = z.enum(['bar', 'pie', 'line', 'table']);
 
@@ -47,23 +48,72 @@ const getSchoolFinancialDataTool = ai.defineTool({
   }),
   outputSchema: z.string().describe('A JSON string containing the financial data.'),
   async fn(input) {
-    // This is a placeholder implementation.
     console.log(`Tool 'getSchoolFinancialData' was called with ${input.schoolName} and ${input.reportType}`);
-    const data = {
-      school: input.schoolName,
-      reportType: input.reportType,
-      totalSavings: Math.floor(Math.random() * 500000) + 500000,
-      totalShares: Math.floor(Math.random() * 20000) + 30000,
-      totalDividends: Math.floor(Math.random() * 5000) + 5000,
-      membersAffected: Math.floor(Math.random() * 100) + 50,
-      period: "Last Fiscal Year",
-      breakdown: [
-          { month: 'Jan', value: Math.floor(Math.random() * 10000) + 5000 },
-          { month: 'Feb', value: Math.floor(Math.random() * 10000) + 5000 },
-          { month: 'Mar', value: Math.floor(Math.random() * 10000) + 5000 },
-          { month: 'Apr', value: Math.floor(Math.random() * 10000) + 5000 },
-      ]
+    
+    const school = await prisma.school.findUnique({
+      where: { name: input.schoolName },
+      include: { members: { select: { id: true } } },
+    });
+
+    if (!school) {
+      return JSON.stringify({ error: `School not found: ${input.schoolName}` });
+    }
+    
+    const memberIds = school.members.map(m => m.id);
+    let data: any = {
+        school: input.schoolName,
+        reportType: input.reportType,
+        period: "All Time (Approved)",
     };
+
+    switch(input.reportType) {
+        case 'savings':
+            const savingsData = await prisma.saving.aggregate({
+                where: { memberId: { in: memberIds }, status: 'approved' },
+                _sum: { amount: true },
+                _count: { id: true },
+            });
+            const savingsBreakdown = await prisma.saving.groupBy({
+                by: ['month'],
+                where: { memberId: { in: memberIds }, status: 'approved', transactionType: 'deposit' },
+                _sum: { amount: true },
+                orderBy: { month: 'asc' }, // Simple sort for now
+            });
+            data.totalSavings = savingsData._sum.amount || 0;
+            data.transactionCount = savingsData._count.id || 0;
+            data.breakdown = savingsBreakdown.map(b => ({ month: b.month, value: b._sum.amount }));
+            break;
+            
+        case 'share allocations':
+            const sharesData = await prisma.share.aggregate({
+                where: { memberId: { in: memberIds }, status: 'approved' },
+                _sum: { count: true },
+            });
+             const sharesBreakdown = await prisma.share.groupBy({
+                by: ['shareTypeName'],
+                where: { memberId: { in: memberIds }, status: 'approved' },
+                _sum: { count: true },
+            });
+            data.totalShares = sharesData._sum.count || 0;
+            data.breakdown = sharesBreakdown.map(b => ({ type: b.shareTypeName, value: b._sum.count }));
+            break;
+            
+        case 'dividend distributions':
+            const dividendsData = await prisma.dividend.aggregate({
+                 where: { memberId: { in: memberIds }, status: 'approved' },
+                _sum: { amount: true },
+            });
+            const dividendBreakdown = await prisma.dividend.groupBy({
+                by: ['distributionDate'],
+                 where: { memberId: { in: memberIds }, status: 'approved' },
+                _sum: { amount: true },
+                 orderBy: { distributionDate: 'asc' },
+            });
+            data.totalDividends = dividendsData._sum.amount || 0;
+            data.breakdown = dividendBreakdown.map(b => ({ date: b.distributionDate.toISOString().split('T')[0], value: b._sum.amount }));
+            break;
+    }
+    
     return JSON.stringify(data);
   },
 });
@@ -115,7 +165,6 @@ const summarizeDataPrompt = ai.definePrompt({
         reportType: z.string().describe('The type of report being summarized.'),
         financialDataJson: z.string().describe('The financial data for the school, as a JSON string.'),
     }) },
-    // Output is now just a string, which is more robust.
     output: { schema: z.string() }, 
     prompt: `You are a financial analyst. Analyze the following JSON data for {{schoolName}} regarding their {{reportType}} report and provide a concise, human-readable summary.
 Focus on the key figures and provide a clear, professional summary.
@@ -135,13 +184,11 @@ const generateSavingsReportFlow = ai.defineFlow(
     outputSchema: GenerateSavingsReportOutputSchema,
   },
   async (input) => {
-    // Step 1: Get financial data
     const financialDataJson = await getSchoolFinancialDataTool({
       schoolName: input.schoolName,
       reportType: input.reportType,
     });
     
-    // Step 2 & 3 can run in parallel for better performance
     const [visualizationResult, summaryResult] = await Promise.all([
         generateVisualizationTool({
             financialDataJson,
@@ -169,7 +216,6 @@ const generateSavingsReportFlow = ai.defineFlow(
       throw new Error('Visualization generation failed.');
     }
 
-    // Step 4: Assemble and return the final output
     return {
       report: summaryText,
       visualization: visualizationUrl,

@@ -33,31 +33,19 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { mockMembers, mockSchools, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
-import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@/types';
+import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Edit, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { Search, Filter, PlusCircle, DollarSign, SchoolIcon, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { compareAsc, parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
+import { getAppliedChargesPageData, applyServiceCharge, type AppliedChargeInput, type AppliedChargesPageData, type MemberServiceChargeSummary } from './actions';
 
-interface MemberServiceChargeSummary {
-  memberId: string;
-  fullName: string;
-  schoolName?: string;
-  schoolId: string;
-  totalApplied: number;
-  totalPaid: number;
-  totalPending: number;
-  fulfillmentPercentage: number;
-}
-
-const initialApplyChargeFormState: Partial<Omit<AppliedServiceCharge, 'id' | 'memberName' | 'serviceChargeTypeName' | 'status'>> = {
+const initialApplyChargeFormState: Partial<AppliedChargeInput> = {
     memberId: '',
     serviceChargeTypeId: '',
     amountCharged: 0,
@@ -65,116 +53,51 @@ const initialApplyChargeFormState: Partial<Omit<AppliedServiceCharge, 'id' | 'me
     notes: '',
 };
 
-
 export default function AppliedServiceChargesPage() {
-  const [allMembers, setAllMembers] = useState<Member[]>(mockMembers);
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [appliedServiceCharges, setAppliedServiceCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
-  const [serviceChargeTypes] = useState<ServiceChargeType[]>(mockServiceChargeTypes);
+  const [pageData, setPageData] = useState<AppliedChargesPageData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
 
-  useEffect(() => {
-    const paymentRecordedForMemberId = searchParams.get('payment_recorded_for_member');
-    const amountPaidStr = searchParams.get('amount_paid');
-    const paymentDate = searchParams.get('payment_date');
-    const depositMode = searchParams.get('deposit_mode');
-    // const sourceName = searchParams.get('source_name'); // Available if needed for richer toast/logic
-    // const transactionRef = searchParams.get('transaction_ref');
-    // const evidenceUrl = searchParams.get('evidence_url');
-
-
-    if (paymentRecordedForMemberId && amountPaidStr && paymentDate && depositMode) {
-      const amountPaid = parseFloat(amountPaidStr);
-      const member = allMembers.find(m => m.id === paymentRecordedForMemberId);
-      const memberFullName = member?.fullName || 'the member';
-
-      let remainingPayment = amountPaid;
-      const updatedCharges = [...appliedServiceCharges]; // Work with a mutable copy
-
-      const chargesToUpdate = updatedCharges
-        .filter(c => c.memberId === paymentRecordedForMemberId && c.status === 'pending')
-        .sort((a, b) => compareAsc(new Date(a.dateApplied), new Date(b.dateApplied))); // Oldest first
-
-      for (const chargeToPay of chargesToUpdate) {
-        if (remainingPayment <= 0) break;
-        const chargeIndexInOriginal = updatedCharges.findIndex(c => c.id === chargeToPay.id);
-        if (chargeIndexInOriginal === -1) continue;
-
-        if (remainingPayment >= chargeToPay.amountCharged) {
-          updatedCharges[chargeIndexInOriginal] = { ...updatedCharges[chargeIndexInOriginal], status: 'paid' };
-          remainingPayment -= chargeToPay.amountCharged;
-        } else {
-          // For simplicity, if payment doesn't cover the whole charge, it remains pending.
-          // Partial payment on a single charge item is not handled in this simplified version.
-        }
-      }
-
-      setAppliedServiceCharges(updatedCharges);
-      toast({ title: 'Payment Recorded', description: `$${amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} payment processed for ${memberFullName} via ${depositMode}.` });
-
-      // Clean up URL query parameters
-      const currentPath = window.location.pathname;
-      const newSearchParams = new URLSearchParams(searchParams.toString());
-      newSearchParams.delete('payment_recorded_for_member');
-      newSearchParams.delete('amount_paid');
-      newSearchParams.delete('payment_date');
-      newSearchParams.delete('deposit_mode');
-      newSearchParams.delete('source_name');
-      newSearchParams.delete('transaction_ref');
-      newSearchParams.delete('evidence_url');
-      router.replace(`${currentPath}?${newSearchParams.toString()}`, { scroll: false });
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getAppliedChargesPageData();
+        setPageData(data);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // Only re-run when searchParams change
+    setIsLoading(false);
+  }
 
-
-  const memberChargeSummaries = useMemo((): MemberServiceChargeSummary[] => {
-    return allMembers.map(member => {
-      const memberCharges = appliedServiceCharges.filter(asc => asc.memberId === member.id);
-      const totalApplied = memberCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
-      const totalPaid = memberCharges
-        .filter(asc => asc.status === 'paid')
-        .reduce((sum, asc) => sum + asc.amountCharged, 0);
-      const totalPending = totalApplied - totalPaid;
-      const fulfillmentPercentage = totalApplied > 0 ? (totalPaid / totalApplied) * 100 : 100; // Show 100% if no charges
-
-      return {
-        memberId: member.id,
-        fullName: member.fullName,
-        schoolName: member.schoolName || allSchools.find(s => s.id === member.schoolId)?.name,
-        schoolId: member.schoolId,
-        totalApplied,
-        totalPaid,
-        totalPending,
-        fulfillmentPercentage,
-      };
-    });
-  }, [allMembers, appliedServiceCharges, allSchools]);
+  useEffect(() => {
+    fetchPageData();
+  }, []);
 
   const filteredMemberSummaries = useMemo(() => {
-    return memberChargeSummaries.filter(summary => {
+    if (!pageData) return [];
+    return pageData.summaries.filter(summary => {
       const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
-  }, [memberChargeSummaries, searchTerm, selectedSchoolFilter]);
+  }, [pageData, searchTerm, selectedSchoolFilter]);
 
   const globalSummaryStats = useMemo(() => {
+    if (!filteredMemberSummaries) return { totalAppliedGlobal: 0, totalPaidGlobal: 0, totalPendingGlobal: 0 };
     const totalAppliedGlobal = filteredMemberSummaries.reduce((sum, m) => sum + m.totalApplied, 0);
     const totalPaidGlobal = filteredMemberSummaries.reduce((sum, m) => sum + m.totalPaid, 0);
     const totalPendingGlobal = filteredMemberSummaries.reduce((sum, m) => sum + m.totalPending, 0);
     return { totalAppliedGlobal, totalPaidGlobal, totalPendingGlobal };
   }, [filteredMemberSummaries]);
-
 
   const openApplyNewChargeModal = () => {
     setApplyChargeForm(initialApplyChargeFormState);
@@ -187,43 +110,33 @@ export default function AppliedServiceChargesPage() {
   };
 
   const handleApplyChargeSelectChange = (name: keyof typeof applyChargeForm, value: string) => {
-     if (name === 'serviceChargeTypeId') {
-        const selectedType = serviceChargeTypes.find(sct => sct.id === value);
+     if (name === 'serviceChargeTypeId' && pageData?.serviceChargeTypes) {
+        const selectedType = pageData.serviceChargeTypes.find(sct => sct.id === value);
         setApplyChargeForm(prev => ({ ...prev, serviceChargeTypeId: value, amountCharged: selectedType?.amount || 0 }));
     } else {
         setApplyChargeForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleApplyChargeSubmit = (e: React.FormEvent) => {
+  const handleApplyChargeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!applyChargeForm.memberId || !applyChargeForm.serviceChargeTypeId) {
+    if (!applyChargeForm.memberId || !applyChargeForm.serviceChargeTypeId || !pageData?.members) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and a service charge type.' });
       return;
     }
-    const selectedChargeType = serviceChargeTypes.find(sct => sct.id === applyChargeForm.serviceChargeTypeId);
-    const member = allMembers.find(m => m.id === applyChargeForm.memberId);
-
-    if (!selectedChargeType || !member) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid member or service charge type selected.'});
-        return;
+    
+    setIsSubmitting(true);
+    try {
+        await applyServiceCharge(applyChargeForm as AppliedChargeInput);
+        const memberName = pageData.members.find(m => m.id === applyChargeForm.memberId)?.fullName || '';
+        toast({ title: 'Service Charge Applied', description: `Charge applied to ${memberName}.` });
+        setIsApplyChargeModalOpen(false);
+        await fetchPageData();
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to apply service charge.' });
+    } finally {
+        setIsSubmitting(false);
     }
-
-    const newAppliedCharge: AppliedServiceCharge = {
-      id: `asc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      memberId: member.id,
-      memberName: member.fullName,
-      serviceChargeTypeId: selectedChargeType.id,
-      serviceChargeTypeName: selectedChargeType.name,
-      amountCharged: applyChargeForm.amountCharged || selectedChargeType.amount, // Use form amount if somehow set, else default
-      dateApplied: applyChargeForm.dateApplied || new Date().toISOString().split('T')[0],
-      status: 'pending',
-      notes: applyChargeForm.notes,
-    };
-    setAppliedServiceCharges(prev => [newAppliedCharge, ...prev]);
-    toast({ title: 'Service Charge Applied', description: `${selectedChargeType.name} for $${(applyChargeForm.amountCharged || selectedChargeType.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} applied to ${member.fullName}.` });
-    setIsApplyChargeModalOpen(false);
-    setApplyChargeForm(initialApplyChargeFormState);
   };
 
   const handleExport = () => {
@@ -238,10 +151,14 @@ export default function AppliedServiceChargesPage() {
     exportToExcel(dataToExport, 'applied_service_charges_export');
   };
 
+  if (isLoading || !pageData) {
+      return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
   return (
     <div className="space-y-6">
       <PageTitle title="Applied Service Charges" subtitle="View, apply, and manage service charges for members.">
-        <Button onClick={handleExport} variant="outline">
+        <Button onClick={handleExport} variant="outline" disabled={filteredMemberSummaries.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
         <Button onClick={openApplyNewChargeModal} className="shadow-md hover:shadow-lg transition-shadow">
@@ -293,7 +210,7 @@ export default function AppliedServiceChargesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Schools</SelectItem>
-            {allSchools.map(school => (
+            {pageData.schools.map(school => (
               <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
             ))}
           </SelectContent>
@@ -354,13 +271,7 @@ export default function AppliedServiceChargesPage() {
           </TableBody>
         </Table>
       </div>
-       {filteredMemberSummaries.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More Members</Button>
-        </div>
-      )}
 
-      {/* Apply New Charge Modal */}
       <Dialog open={isApplyChargeModalOpen} onOpenChange={setIsApplyChargeModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -382,7 +293,7 @@ export default function AppliedServiceChargesPage() {
                     className="w-full justify-between"
                   >
                     {applyChargeForm.memberId
-                      ? allMembers.find((member) => member.id === applyChargeForm.memberId)?.fullName
+                      ? pageData.members.find((member) => member.id === applyChargeForm.memberId)?.fullName
                       : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -393,7 +304,7 @@ export default function AppliedServiceChargesPage() {
                     <CommandList>
                       <CommandEmpty>No member found.</CommandEmpty>
                       <CommandGroup>
-                        {allMembers.map((member) => (
+                        {pageData.members.map((member) => (
                           <CommandItem
                             key={member.id}
                             value={`${member.fullName} ${member.savingsAccountNumber}`}
@@ -422,7 +333,7 @@ export default function AppliedServiceChargesPage() {
               <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId || ''} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
-                  {serviceChargeTypes.map(sct => (
+                  {pageData.serviceChargeTypes.map(sct => (
                     <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
                   ))}
                 </SelectContent>
@@ -444,8 +355,11 @@ export default function AppliedServiceChargesPage() {
                 <Textarea id="applyChargeNotes" name="notes" value={applyChargeForm.notes || ''} onChange={handleApplyChargeFormChange} placeholder="E.g., Reason for charge application"/>
             </div>
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">Apply Charge</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Apply Charge
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

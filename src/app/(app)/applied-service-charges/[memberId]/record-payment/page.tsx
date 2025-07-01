@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -10,67 +9,66 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, Banknote, Wallet, UploadCloud, ArrowLeft } from 'lucide-react';
+import { DollarSign, Banknote, Wallet, ArrowLeft, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FileUpload } from '@/components/file-upload';
+import { getPaymentFormInitialData, recordChargePayment } from './actions';
 
 interface RecordPaymentFormState {
     amount: number;
     paymentDate: string;
     depositMode: 'Cash' | 'Bank' | 'Wallet';
-    paymentDetails: {
-        sourceName: string;
-        transactionReference: string;
-        evidenceUrl: string;
-    };
+    sourceName: string;
+    transactionReference: string;
+    evidenceUrl: string;
 }
 
 const initialRecordPaymentFormState: RecordPaymentFormState = {
     amount: 0,
     paymentDate: new Date().toISOString().split('T')[0],
     depositMode: 'Cash',
-    paymentDetails: {
-        sourceName: '',
-        transactionReference: '',
-        evidenceUrl: '',
-    },
+    sourceName: '',
+    transactionReference: '',
+    evidenceUrl: '',
 };
 
 function RecordPaymentFormComponent() {
   const router = useRouter();
   const params = useParams();
-  const searchParamsHook = useSearchParams(); // Renamed to avoid conflict with searchParams in parent scope
   const { toast } = useToast();
 
   const memberId = params.memberId as string;
-  const totalPendingStr = searchParamsHook.get('pending');
-  const memberName = searchParamsHook.get('name') || 'Member';
-  const totalPending = totalPendingStr ? parseFloat(totalPendingStr) : 0;
 
-  const [recordPaymentForm, setRecordPaymentForm] = useState<RecordPaymentFormState>({
-    ...initialRecordPaymentFormState,
-    amount: totalPending, // Pre-fill with total pending
-  });
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [memberName, setMemberName] = useState('Member');
+  const [totalPending, setTotalPending] = useState(0);
 
+  const [recordPaymentForm, setRecordPaymentForm] = useState<RecordPaymentFormState>(initialRecordPaymentFormState);
+  
   useEffect(() => {
-    // Pre-fill amount if totalPending changes (e.g., if query param updates)
-    setRecordPaymentForm(prev => ({ ...prev, amount: totalPending }));
-  }, [totalPending]);
+    async function fetchData() {
+        if (!memberId) return;
+        setIsLoading(true);
+        try {
+            const data = await getPaymentFormInitialData(memberId);
+            setMemberName(data.memberName);
+            setTotalPending(data.totalPending);
+            setRecordPaymentForm(prev => ({ ...prev, amount: data.totalPending }));
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load payment data.' });
+        }
+        setIsLoading(false);
+    }
+    fetchData();
+  }, [memberId, toast]);
 
   const handleRecordPaymentFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const nameParts = name.split('.');
-
-    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
-      const detailKey = nameParts[1] as keyof RecordPaymentFormState['paymentDetails'];
-      setRecordPaymentForm(prev => ({
-        ...prev,
-        paymentDetails: { ...prev.paymentDetails, [detailKey]: value },
-      }));
-    } else if (name === 'amount') {
+    if (name === 'amount') {
       setRecordPaymentForm(prev => ({ ...prev, amount: parseFloat(value) || 0 }));
     } else {
       setRecordPaymentForm(prev => ({ ...prev, [name]: value }));
@@ -78,14 +76,10 @@ function RecordPaymentFormComponent() {
   };
   
   const handleRecordPaymentDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setRecordPaymentForm(prev => ({
-      ...prev,
-      depositMode: value,
-      paymentDetails: value === 'Cash' ? initialRecordPaymentFormState.paymentDetails : prev.paymentDetails,
-    }));
+    setRecordPaymentForm(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (recordPaymentForm.amount <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Payment amount must be positive.' });
@@ -95,26 +89,25 @@ function RecordPaymentFormComponent() {
       toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed total pending ($${totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).` });
       return;
     }
-    if ((recordPaymentForm.depositMode === 'Bank' || recordPaymentForm.depositMode === 'Wallet') && !recordPaymentForm.paymentDetails.sourceName) {
+    if ((recordPaymentForm.depositMode === 'Bank' || recordPaymentForm.depositMode === 'Wallet') && !recordPaymentForm.sourceName) {
       toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${recordPaymentForm.depositMode} Name.` });
       return;
     }
 
     setIsSubmitting(true);
-    // In a real app, this would be an API call. Here, we navigate back with query params.
-    const queryParams = new URLSearchParams();
-    queryParams.set('payment_recorded_for_member', memberId);
-    queryParams.set('amount_paid', recordPaymentForm.amount.toString());
-    queryParams.set('payment_date', recordPaymentForm.paymentDate);
-    queryParams.set('deposit_mode', recordPaymentForm.depositMode);
-    if (recordPaymentForm.depositMode !== 'Cash') {
-        queryParams.set('source_name', recordPaymentForm.paymentDetails.sourceName);
-        queryParams.set('transaction_ref', recordPaymentForm.paymentDetails.transactionReference);
-        queryParams.set('evidence_url', recordPaymentForm.paymentDetails.evidenceUrl);
+    try {
+        await recordChargePayment(memberId, recordPaymentForm);
+        toast({ title: 'Payment Recorded', description: 'The member\'s service charges have been updated.' });
+        router.push(`/applied-service-charges`);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to record payment.' });
+        setIsSubmitting(false);
     }
-    
-    router.push(`/applied-service-charges?${queryParams.toString()}`);
   };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -186,23 +179,23 @@ function RecordPaymentFormComponent() {
                     <div className="relative">
                       {recordPaymentForm.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                       {recordPaymentForm.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                      <Input id="paymentDetails.sourceNameRecord" name="paymentDetails.sourceName" placeholder={`Enter ${recordPaymentForm.depositMode} Name`} value={recordPaymentForm.paymentDetails.sourceName} onChange={handleRecordPaymentFormChange} className="pl-8" />
+                      <Input id="paymentDetails.sourceNameRecord" name="sourceName" placeholder={`Enter ${recordPaymentForm.depositMode} Name`} value={recordPaymentForm.sourceName} onChange={handleRecordPaymentFormChange} className="pl-8" />
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="paymentDetails.transactionReferenceRecord">Transaction Reference</Label>
-                    <Input id="paymentDetails.transactionReferenceRecord" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={recordPaymentForm.paymentDetails.transactionReference} onChange={handleRecordPaymentFormChange} />
+                    <Input id="paymentDetails.transactionReferenceRecord" name="transactionReference" placeholder="e.g., TRN123XYZ" value={recordPaymentForm.transactionReference} onChange={handleRecordPaymentFormChange} />
                   </div>
                 </div>
                 <div className="pl-3">
                     <FileUpload
                         id="paymentDetails.evidenceUrlRecord"
                         label="Evidence Attachment"
-                        value={recordPaymentForm.paymentDetails.evidenceUrl}
+                        value={recordPaymentForm.evidenceUrl}
                         onValueChange={(newValue) => {
                             setRecordPaymentForm(prev => ({
                               ...prev,
-                              paymentDetails: { ...prev.paymentDetails, evidenceUrl: newValue },
+                              evidenceUrl: newValue,
                             }));
                         }}
                     />
@@ -211,9 +204,9 @@ function RecordPaymentFormComponent() {
             )}
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Processing...' : 'Record Payment'}
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Record Payment'}
             </Button>
           </CardFooter>
         </form>
