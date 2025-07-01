@@ -13,77 +13,64 @@ import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus } from 'lucide-react';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
 
-const allNavItems: NavItem[] = [
+const navItems: NavItem[] = [
   // Always visible
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
+  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
 
   // BASIC INFORMATION
   { title: 'Basic Information', isGroupLabel: true },
-  { title: 'Schools', href: '/schools', icon: School, permission: 'school:view' },
-  { title: 'Members', href: '/members', icon: Users, permission: 'member:view' },
+  { title: 'Schools', href: '/schools', icon: School },
+  { title: 'Members', href: '/members', icon: Users },
   
   // SAVING RELATED
   { title: 'Savings', isGroupLabel: true },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
-  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'savingAccount:view' },
-  { title: 'Group Collections', href: '/group-collections', icon: Library, permission: 'groupCollection:view' },
-  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'interestCalculation:view' },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'accountStatement:view' },
-  { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'accountClosure:view' },
-  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, permission: 'closedAccount:view' },
+  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank },
+  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards },
+  { title: 'Group Collections', href: '/group-collections', icon: Library },
+  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent },
+  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste },
+  { title: 'Close Account', href: '/close-account', icon: UserX },
+  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive },
 
   // LOAN RELATED
   { title: 'Loans', isGroupLabel: true },
-  { title: 'Loans', href: '/loans', icon: Banknote, permission: 'loan:view' },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'loanRepayment:view' },
-  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, permission: 'groupLoanRepayment:view' },
-  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'interestCalculation:view' },
-  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
+  { title: 'Loans', href: '/loans', icon: Banknote },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste },
+  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library },
+  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator },
+  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle },
   
   // DIVIDEND/SHARE RELATED
   { title: 'Shares & Dividends', isGroupLabel: true },
-  { title: 'Share Allocations', href: '/shares', icon: PieChart, permission: 'share:view' },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'dividend:view' },
+  { title: 'Share Allocations', href: '/shares', icon: PieChart },
+  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark },
   
   // ADMINISTRATION (Covers Settings, Operations, Monitoring)
   { title: 'Administration', isGroupLabel: true },
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'transactionApproval:view' },
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'serviceCharge:view' },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
-  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'report:view' },
-  { title: 'AI Reports', href: '/reports', icon: FileText, permission: 'report:view' },
-  { title: 'Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare },
+  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList },
+  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
+  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck },
+  { title: 'AI Reports', href: '/reports', icon: FileText },
+  { title: 'Settings', href: '/settings', icon: Settings },
 
   // CONFIGURATION
   { title: 'Configuration', isGroupLabel: true },
-  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'configuration:view' },
-  { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'configuration:view' },
-  { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'configuration:view' },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'configuration:view' },
+  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
+  { title: 'Share Types', href: '/share-types', icon: Shapes },
+  { title: 'Loan Types', href: '/loan-types', icon: Banknote },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText },
 ];
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuth();
-  
-  const navItems = useMemo(() => {
-    if (!user?.permissions) return [];
-    
-    const userPermissions = new Set(user.permissions);
-    
-    return allNavItems.filter(item => {
-        if (!item.permission) return true; // Group labels and items without specific permissions
-        return userPermissions.has(item.permission);
-    });
-
-  }, [user]);
-
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
