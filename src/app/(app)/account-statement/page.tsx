@@ -317,21 +317,21 @@ function AccountStatementContent() {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                         <Label className="font-semibold text-gray-700">Member Name:</Label>
-                        <p>{statementData.member.fullName}</p>
+                        <div>{statementData.member.fullName}</div>
                     </div>
                      <div>
                         <Label className="font-semibold text-gray-700">Account Number:</Label>
-                        <p>{statementData.member.savingsAccountNumber}</p>
+                        <div>{statementData.member.savingsAccountNumber}</div>
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">School:</Label>
-                        <p>{statementData.schoolName}</p>
+                        <div>{statementData.schoolName}</div>
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">Member Status:</Label>
-                         <p>
+                         <div>
                             <Badge variant={statementData.member.status === 'inactive' ? 'destructive' : 'default'}>{statementData.member.status || 'Active'}</Badge>
-                        </p>
+                        </div>
                     </div>
                 </div>
 
