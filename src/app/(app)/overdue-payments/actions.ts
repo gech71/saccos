@@ -73,7 +73,7 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
             return {
               shareTypeId: commitment.shareTypeId,
               shareTypeName: shareType.name,
-              monthlyCommittedAmount,
+              monthlyCommittedAmount: monthlyCommitted,
               totalExpectedContribution: totalExpectedShareContribution,
               totalAllocatedValue,
               overdueAmount,
