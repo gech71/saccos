@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -33,7 +32,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockMembers, mockSchools, mockShareTypes, mockSavingAccountTypes, mockSubcities } from '@/data/mock';
 import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -42,12 +40,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuGroup,
-  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { exportToExcel } from '@/lib/utils';
+import { getMembersPageData, addMember, updateMember, deleteMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
+
 
 const initialMemberFormState: Partial<Member> = {
   fullName: '',
@@ -57,7 +55,7 @@ const initialMemberFormState: Partial<Member> = {
   address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' },
   emergencyContact: { name: '', phone: '' },
   schoolId: '',
-  joinDate: new Date().toISOString().split('T')[0], // today
+  joinDate: new Date().toISOString().split('T')[0],
   savingsBalance: 0,
   savingsAccountNumber: '',
   sharesCount: 0,
@@ -68,10 +66,13 @@ const initialMemberFormState: Partial<Member> = {
 
 
 export default function MembersPage() {
-  const [members, setMembers] = useState<Member[]>(mockMembers);
-  const [schools] = useState<School[]>(mockSchools);
-  const [shareTypes] = useState<ShareType[]>(mockShareTypes);
-  const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [members, setMembers] = useState<MemberWithDetails[]>([]);
+  const [schools, setSchools] = useState<MembersPageData['schools']>([]);
+  const [shareTypes, setShareTypes] = useState<MembersPageData['shareTypes']>([]);
+  const [savingAccountTypes, setSavingAccountTypes] = useState<MembersPageData['savingAccountTypes']>([]);
   const [subcities, setSubcities] = useState<string[]>([]);
   
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -83,14 +84,25 @@ export default function MembersPage() {
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const storedSubcities = localStorage.getItem('subcities');
-    if (storedSubcities) {
-        setSubcities(JSON.parse(storedSubcities));
-    } else {
-        setSubcities(mockSubcities);
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getMembersPageData();
+      setMembers(data.members);
+      setSchools(data.schools);
+      setShareTypes(data.shareTypes);
+      setSavingAccountTypes(data.savingAccountTypes);
+      setSubcities(data.subcities);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch member data.' });
+    } finally {
+        setIsLoading(false);
     }
-  }, []);
+  }
+
+  useEffect(() => {
+    fetchPageData();
+  }, [toast]);
 
   const handleMemberInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -135,7 +147,7 @@ export default function MembersPage() {
     if (name === 'savingAccountTypeId') {
         const selectedAccountType = savingAccountTypes.find(sat => sat.id === value);
         setCurrentMember(prev => ({ 
-            ...prev, 
+            ...prev,
             savingAccountTypeName: selectedAccountType?.name || '',
             expectedMonthlySaving: selectedAccountType?.expectedMonthlyContribution || 0,
         }));
@@ -173,7 +185,7 @@ export default function MembersPage() {
     }));
   };
 
-  const handleMemberSubmit = (e: React.FormEvent) => {
+  const handleMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isViewingOnly) return;
     
@@ -182,35 +194,46 @@ export default function MembersPage() {
         return;
     }
 
-    const validCommitments = (currentMember.shareCommitments || []).filter(c => c.shareTypeId && c.monthlyCommittedAmount > 0);
-    const selectedSavingAccountType = savingAccountTypes.find(sat => sat.id === currentMember.savingAccountTypeId);
-    const memberDataToSave = {
-        ...currentMember,
-        shareCommitments: validCommitments,
-        savingAccountTypeName: selectedSavingAccountType?.name || '',
-        expectedMonthlySaving: currentMember.expectedMonthlySaving ?? selectedSavingAccountType?.expectedMonthlyContribution ?? 0,
-    };
-    const schoolName = schools.find(s => s.id === memberDataToSave.schoolId)?.name;
+    setIsSubmitting(true);
+    try {
+        const memberInputData: MemberInput = {
+            fullName: currentMember.fullName!,
+            email: currentMember.email!,
+            sex: currentMember.sex!,
+            phoneNumber: currentMember.phoneNumber!,
+            address: currentMember.address,
+            emergencyContact: currentMember.emergencyContact,
+            schoolId: currentMember.schoolId!,
+            joinDate: currentMember.joinDate!,
+            savingsBalance: currentMember.savingsBalance || 0,
+            savingsAccountNumber: currentMember.savingsAccountNumber,
+            sharesCount: currentMember.sharesCount || 0,
+            shareCommitments: (currentMember.shareCommitments || [])
+              .filter(sc => sc.shareTypeId && sc.monthlyCommittedAmount > 0)
+              .map(sc => ({ shareTypeId: sc.shareTypeId, monthlyCommittedAmount: sc.monthlyCommittedAmount})),
+            savingAccountTypeId: currentMember.savingAccountTypeId,
+            expectedMonthlySaving: currentMember.expectedMonthlySaving
+        };
 
-    if (isEditingMember && memberDataToSave.id) {
-      setMembers(prev => prev.map(m => m.id === memberDataToSave.id ? { ...m, ...memberDataToSave, schoolName } as Member : m));
-      toast({ title: 'Success', description: 'Member updated successfully.' });
-    } else {
-      const newMember: Member = {
-        id: `member-${Date.now()}`,
-        ...initialMemberFormState, 
-        ...memberDataToSave,
-        schoolName,
-      } as Member;
-      setMembers(prev => [newMember, ...prev]);
-      toast({ title: 'Success', description: 'Member added successfully.' });
+        if (isEditingMember && currentMember.id) {
+          await updateMember(currentMember.id, memberInputData);
+          toast({ title: 'Success', description: 'Member updated successfully.' });
+        } else {
+          await addMember(memberInputData);
+          toast({ title: 'Success', description: 'Member added successfully.' });
+        }
+
+        setIsMemberModalOpen(false);
+        await fetchPageData(); // Refresh data from server
+
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`});
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsMemberModalOpen(false);
-    setCurrentMember(initialMemberFormState);
-    setIsEditingMember(false);
   };
   
-  const prepMemberForModal = (member: Member) => {
+  const prepMemberForModal = (member: MemberWithDetails) => {
     const selectedAccountType = savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
     setCurrentMember({
       ...member,
@@ -228,22 +251,27 @@ export default function MembersPage() {
     setIsMemberModalOpen(true);
   };
 
-  const openEditMemberModal = (member: Member) => {
+  const openEditMemberModal = (member: MemberWithDetails) => {
     prepMemberForModal(member);
     setIsEditingMember(true);
     setIsViewingOnly(false);
   };
   
-  const openViewMemberModal = (member: Member) => {
+  const openViewMemberModal = (member: MemberWithDetails) => {
     prepMemberForModal(member);
     setIsEditingMember(false);
     setIsViewingOnly(true);
   };
 
-  const handleDeleteMember = (memberId: string) => {
-    if (window.confirm('Are you sure you want to delete this member?')) {
-      setMembers(prev => prev.filter(m => m.id !== memberId));
-      toast({ title: 'Success', description: 'Member deleted successfully.' });
+  const handleDeleteMember = async (memberId: string) => {
+    if (window.confirm('Are you sure you want to delete this member? This cannot be undone.')) {
+      const result = await deleteMember(memberId);
+       if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchPageData(); // Refresh data
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+      }
     }
   };
 
@@ -261,9 +289,9 @@ export default function MembersPage() {
         'Full Name': member.fullName,
         'Email': member.email,
         'Phone': member.phoneNumber,
-        'School': member.schoolName || schools.find(s => s.id === member.schoolId)?.name,
+        'School': member.school?.name,
         'Saving Account #': member.savingsAccountNumber || 'N/A',
-        'Saving Account Type': member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A',
+        'Saving Account Type': member.savingAccountTypeName || member.savingAccountType?.name || 'N/A',
         'Expected Monthly Saving ($)': member.expectedMonthlySaving || 0,
         'Current Savings Balance ($)': member.savingsBalance,
         'Total Shares': member.sharesCount,
@@ -276,7 +304,7 @@ export default function MembersPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Member Management" subtitle="Manage all members of your association.">
-        <Button onClick={handleExport} variant="outline">
+        <Button onClick={handleExport} variant="outline" disabled={isLoading || members.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
         <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
@@ -296,7 +324,7 @@ export default function MembersPage() {
             aria-label="Search members"
           />
         </div>
-        <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter}>
+        <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter} disabled={isLoading}>
           <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by school">
             <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
             <SelectValue placeholder="Filter by school" />
@@ -318,33 +346,34 @@ export default function MembersPage() {
                 <Checkbox aria-label="Select all members" />
               </TableHead>
               <TableHead>Full Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
-              <TableHead>Saving Account #</TableHead>
-              <TableHead>Saving Account Type</TableHead>
-              <TableHead className="text-right">Expected Monthly Saving ($)</TableHead>
-              <TableHead className="text-right">Current Savings Balance ($)</TableHead>
+              <TableHead>Saving Acct. #</TableHead>
+              <TableHead>Saving Acct. Type</TableHead>
+              <TableHead className="text-right">Exp. Monthly Saving</TableHead>
+              <TableHead className="text-right">Current Savings</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMembers.length > 0 ? filteredMembers.map(member => (
+            {isLoading ? (
+              <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredMembers.length > 0 ? filteredMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell>
                   <Checkbox aria-label={`Select member ${member.fullName}`} />
                 </TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>{member.email}</TableCell>
-                <TableCell>{member.phoneNumber}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{member.schoolName || schools.find(s => s.id === member.schoolId)?.name}</Badge>
+                    <div className="text-sm">{member.email}</div>
+                    <div className="text-xs text-muted-foreground">{member.phoneNumber}</div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{member.school?.name}</Badge>
                 </TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                <TableCell>
-                    {member.savingAccountTypeName || (member.savingAccountTypeId && savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId)?.name) || 'N/A'}
-                </TableCell>
+                <TableCell>{member.savingAccountTypeName || member.savingAccountType?.name || 'N/A'}</TableCell>
                 <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>
@@ -353,7 +382,7 @@ export default function MembersPage() {
                     <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                       {member.shareCommitments.map((commitment) => (
                         <li key={commitment.shareTypeId}>
-                          <span>{commitment.shareTypeName || shareTypes.find(st => st.id === commitment.shareTypeId)?.name}: </span>
+                          <span>{commitment.shareTypeName}: </span>
                           <span className="font-semibold text-foreground">${commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</span>
                         </li>
                       ))}
@@ -377,7 +406,7 @@ export default function MembersPage() {
                       <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      <Separator />
                       <DropdownMenuItem onClick={() => handleDeleteMember(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Member
                       </DropdownMenuItem>
@@ -387,7 +416,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={11} className="h-24 text-center">
+                <TableCell colSpan={10} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -406,6 +435,7 @@ export default function MembersPage() {
         setIsMemberModalOpen(isOpen);
         if (!isOpen) {
             setIsViewingOnly(false);
+            setCurrentMember(initialMemberFormState);
         }
       }}>
         <DialogContent className="sm:max-w-3xl"> 
@@ -602,8 +632,11 @@ export default function MembersPage() {
                  <DialogClose asChild><Button type="button">Close</Button></DialogClose>
               ) : (
                 <>
-                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                    <Button type="submit">{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isEditingMember ? 'Save Changes' : 'Add Member'}
+                    </Button>
                 </>
               )}
             </DialogFooter>
