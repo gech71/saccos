@@ -90,8 +90,6 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
 
   const newLoan = await prisma.loan.create({
     data: {
-      memberId,
-      loanTypeId,
       principalAmount,
       status,
       notes,
@@ -101,11 +99,18 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       loanTerm: loanType.loanTerm,
       repaymentFrequency: loanType.repaymentFrequency,
       remainingBalance: principalAmount,
-      collaterals: collaterals ? { create: collaterals.map(c => ({
-        fullName: c.fullName,
-        organization: c.organization ? { create: c.organization } : undefined,
-        address: c.address ? { create: c.address } : undefined,
-      })) } : undefined,
+      member: { connect: { id: memberId } },
+      loanType: { connect: { id: loanTypeId } },
+      collaterals: collaterals ? { create: collaterals.map(c => {
+        // Strip out any potential IDs from the nested objects
+        const { id: orgId, ...restOfOrg } = (c.organization || {}) as any;
+        const { id: addrId, memberId: addrMemberId, collateralId: addrCollateralId, ...restOfAddr } = (c.address || {}) as any;
+        return {
+            fullName: c.fullName,
+            organization: c.organization ? { create: restOfOrg } : undefined,
+            address: c.address ? { create: restOfAddr } : undefined,
+        }
+      }) } : undefined,
     },
   });
   revalidatePath('/loans');
@@ -124,8 +129,6 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
     const updatedLoan = await prisma.loan.update({
         where: { id },
         data: {
-            memberId,
-            loanTypeId,
             principalAmount,
             status,
             loanAccountNumber,
@@ -135,13 +138,20 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
             loanTerm: loanType.loanTerm,
             repaymentFrequency: loanType.repaymentFrequency,
             remainingBalance: principalAmount,
+            member: { connect: { id: memberId } },
+            loanType: { connect: { id: loanTypeId } },
             collaterals: {
                 deleteMany: {},
-                create: collaterals ? collaterals.map(c => ({
-                    fullName: c.fullName,
-                    organization: c.organization ? { create: c.organization } : undefined,
-                    address: c.address ? { create: c.address } : undefined,
-                })) : undefined,
+                create: collaterals ? collaterals.map(c => {
+                    // Strip out any potential IDs from the nested objects
+                    const { id: orgId, ...restOfOrg } = (c.organization || {}) as any;
+                    const { id: addrId, memberId: addrMemberId, collateralId: addrCollateralId, ...restOfAddr } = (c.address || {}) as any;
+                    return {
+                        fullName: c.fullName,
+                        organization: c.organization ? { create: restOfOrg } : undefined,
+                        address: c.address ? { create: restOfAddr } : undefined,
+                    }
+                }) : undefined,
             }
         },
     });
