@@ -121,6 +121,7 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
                 email: data.email,
                 firstName: data.firstName,
                 lastName: data.lastName,
+                phoneNumber: data.phoneNumber,
                 roles: {
                     connect: roleIds.map(id => ({ id })),
                 },
@@ -134,18 +135,19 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         if (axios.isAxiosError(error) && error.response) {
             console.error('API Error:', error.response.data);
             // Try to get a specific error message from the API response
-            const apiErrors = error.response.data.errors || [error.response.data.message] || ['The server returned a bad request.'];
+            const apiErrors = error.response.data.errors || (error.response.data.message ? [error.response.data.message] : ['The server returned a bad request.']);
             const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'External registration failed. Please check the details and try again.';
             throw new Error(errorMessage);
         }
 
         // If it's a regular Error object (likely thrown from our own logic above), re-throw it to preserve the specific message.
         if (error instanceof Error) {
+            console.error('Generic Error during registration:', error);
             throw error;
         }
 
         // Fallback for any other kind of error
-        console.error('Generic Error during registration:', error);
+        console.error('Unexpected Error during registration:', error);
         throw new Error('An unexpected, non-standard error occurred during registration.');
     }
 }
