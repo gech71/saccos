@@ -102,7 +102,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       repaymentFrequency: loanType.repaymentFrequency,
       remainingBalance: principalAmount,
       collaterals: collaterals ? { create: collaterals.map(c => ({
-        ...c,
+        fullName: c.fullName,
         organization: c.organization ? { create: c.organization } : undefined,
         address: c.address ? { create: c.address } : undefined,
       })) } : undefined,
@@ -138,7 +138,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
             collaterals: {
                 deleteMany: {},
                 create: collaterals ? collaterals.map(c => ({
-                    ...c,
+                    fullName: c.fullName,
                     organization: c.organization ? { create: c.organization } : undefined,
                     address: c.address ? { create: c.address } : undefined,
                 })) : undefined,
