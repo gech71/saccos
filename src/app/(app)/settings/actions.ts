@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 import axios from 'axios';
 import { permissionsList } from './permissions';
 
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5160';
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -92,9 +92,9 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         throw new Error('Authentication token is missing. You must be logged in to register a user.');
     }
 
-    let registerResponse;
     try {
-        registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
+        // Step 1: Register user with the external auth provider
+        const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,
@@ -106,32 +106,23 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
             }
         });
 
-        if (!registerResponse.data.isSuccess) {
-            const message = (Array.isArray(registerResponse.data.errors) && registerResponse.data.errors.join(' '))
-                          || registerResponse.data.message
-                          || "Registration with auth service failed. The user might already exist, or the password may be too weak.";
-            throw new Error(message);
+        // Step 2: Validate the response from the auth service
+        if (!registerResponse.data || !registerResponse.data.isSuccess) {
+            const errorMessage = (registerResponse.data?.errors?.join(' ')) 
+                               || registerResponse.data?.message 
+                               || "External registration failed. Please ensure the password meets complexity requirements and the user details are unique.";
+            throw new Error(errorMessage);
         }
 
-        if (!registerResponse.data.userId) {
+        // Step 3: Extract the new user's ID from the response, checking common fields
+        const externalUserId = registerResponse.data.userId || registerResponse.data.id || registerResponse.data.sub;
+
+        if (!externalUserId) {
+            console.error("Auth service response did not contain a user ID:", registerResponse.data);
             throw new Error("Auth service succeeded but did not return a user ID.");
         }
-    } catch (error) {
-        console.error("Error during external auth registration:", error);
-        if (axios.isAxiosError(error)) {
-            const responseData = error.response?.data;
-            if (responseData) {
-                const message = (Array.isArray(responseData.errors) && responseData.errors.join(' ')) || responseData.message || "An unknown error occurred with the authentication service.";
-                throw new Error(message);
-            }
-        }
-        throw new Error(error instanceof Error ? error.message : "An external API error occurred.");
-    }
-    
-    // If we get here, external registration was successful. Now, save to local DB.
-    try {
-        const externalUserId = registerResponse.data.userId;
 
+        // Step 4: Save the new user to the local application database
         const newUser = await prisma.user.create({
             data: {
                 userId: externalUserId,
@@ -148,19 +139,37 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
 
         revalidatePath('/settings');
         return newUser;
-    } catch (error) {
-        console.error("Error saving user to local DB after successful auth registration:", error);
 
+    } catch (error) {
+        // Step 5: Provide detailed error handling
+        if (axios.isAxiosError(error)) {
+            const responseData = error.response?.data;
+            const message = (Array.isArray(responseData?.errors) && responseData.errors.join(' ')) 
+                          || responseData?.message 
+                          || "An unknown error occurred with the authentication service.";
+            console.error("Error during external auth registration:", message);
+            throw new Error(message);
+        }
+        
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            // Unique constraint failed
             if (error.code === 'P2002') {
                 const fields = error.meta?.target as string[] || ['field'];
                 const fieldName = fields.join(', ');
-                throw new Error(`Error: A user with this ${fieldName} already exists in the local database. This might be due to a previous failed registration. Please check the data or contact support.`);
+                const message = `A user with this ${fieldName} already exists in the local database. This could be due to a previous failed registration.`;
+                console.error("Prisma unique constraint error:", message);
+                throw new Error(message);
             }
         }
         
-        throw new Error("User was registered with the auth service, but saving to the local database failed. Please check for data inconsistencies.");
+        // Fallback for any other type of error
+        console.error('Generic Error during registration:', error);
+        if (error instanceof Error) {
+            // Re-throw the specific error message to be displayed to the user.
+            throw new Error(error.message);
+        }
+        
+        // Fallback for non-Error objects
+        throw new Error('An unexpected error occurred during registration.');
     }
 }
 
