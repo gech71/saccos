@@ -105,10 +105,20 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
             }
         });
 
+        // This block handles cases where the API returns a 200 OK but indicates a business logic failure.
         if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
-            console.error("External registration failed. API Response:", registerResponse.data);
-            const errorMessage = registerResponse.data.errors?.join(' ') || 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.';
-            throw new Error(errorMessage);
+            // Log the full API response for debugging on the server.
+            console.error("External registration failed. API Response:", JSON.stringify(registerResponse.data, null, 2));
+            
+            // Attempt to find a more specific error message from the API response.
+            let detailedErrorMessage = 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.'; // Default message
+            if (registerResponse.data.errors && registerResponse.data.errors.length > 0) {
+                detailedErrorMessage = registerResponse.data.errors.join(' ');
+            } else if (registerResponse.data.message) {
+                detailedErrorMessage = registerResponse.data.message;
+            }
+            
+            throw new Error(detailedErrorMessage);
         }
         
         const externalUserId = registerResponse.data.userId;
@@ -131,24 +141,25 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         revalidatePath('/settings');
         return newUser;
     } catch (error) {
-        // If it's an Axios error, it means the request failed (e.g. 400, 401, 500)
+        // This block handles network errors or non-2xx responses from the API.
         if (axios.isAxiosError(error) && error.response) {
-            console.error('API Error:', error.response.data);
-            // Try to get a specific error message from the API response
+            console.error('API Error Response:', JSON.stringify(error.response.data, null, 2));
+            
             const apiErrors = error.response.data.errors || (error.response.data.message ? [error.response.data.message] : ['The server returned a bad request.']);
-            const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'External registration failed. Please check the details and try again.';
+            const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'An external API error occurred.';
+            
             throw new Error(errorMessage);
         }
 
-        // If it's a regular Error object (likely thrown from our own logic above), re-throw it to preserve the specific message.
+        // This block handles errors thrown from our own logic (e.g., from the `try` block above).
         if (error instanceof Error) {
-            console.error('Generic Error during registration:', error);
-            throw error;
+            // Re-throw the specific error message to be displayed to the user.
+            throw new Error(error.message);
         }
 
-        // Fallback for any other kind of error
+        // Fallback for any other kind of unexpected error.
         console.error('Unexpected Error during registration:', error);
-        throw new Error('An unexpected, non-standard error occurred during registration.');
+        throw new Error('An unexpected error occurred during user registration.');
     }
 }
 
