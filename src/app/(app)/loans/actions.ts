@@ -1,10 +1,11 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Loan, Prisma, Member, LoanType, School, Collateral, Address, Organization } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export type LoanWithCollateral = Loan & { collateral: (Collateral & { organization: Organization | null, address: Address | null })[] };
+export type LoanWithCollateral = Loan & { collaterals: (Collateral & { organization: Organization | null, address: Address | null })[] };
 
 export interface LoansPageData {
   loans: LoanWithCollateral[];
@@ -52,11 +53,11 @@ export type CollateralInput = Omit<Collateral, 'id' | 'loanId'> & {
     address?: Prisma.AddressCreateWithoutCollateralInput;
 }
 
-export type LoanInput = Omit<Loan, 'id' | 'memberName' | 'loanTypeName' | 'interestRate' | 'loanTerm' | 'repaymentFrequency' | 'remainingBalance' | 'collaterals' | 'disbursementDate' | 'nextDueDate' | 'notes'> & {
+export type LoanInput = Omit<Loan, 'id' | 'loanTypeName' | 'interestRate' | 'loanTerm' | 'repaymentFrequency' | 'remainingBalance' | 'collaterals' | 'disbursementDate' | 'nextDueDate' | 'notes'> & {
     disbursementDate: string;
     notes?: string | null;
     collaterals?: CollateralInput[];
-}
+};
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
   const { collaterals, ...loanData } = data;
@@ -72,7 +73,6 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       ...loanData,
       disbursementDate: new Date(loanData.disbursementDate),
       loanAccountNumber: loanData.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
-      memberName: member.fullName,
       loanTypeName: loanType.name,
       interestRate: loanType.interestRate,
       loanTerm: loanType.loanTerm,

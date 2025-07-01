@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -26,7 +27,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
   };
 }
 
-export type SavingInput = Omit<Saving, 'id' | 'memberName' | 'status'>;
+export type SavingInput = Omit<Saving, 'id' | 'status'>;
 
 export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
@@ -40,7 +41,6 @@ export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
     data: {
       ...data,
       date: new Date(data.date),
-      memberName: member.fullName,
       status: 'pending',
     },
   });
@@ -63,7 +63,6 @@ export async function updateSavingTransaction(id: string, data: SavingInput): Pr
     data: {
       ...data,
       date: new Date(data.date),
-      memberName: member.fullName,
       status: 'pending', // Re-submit for approval on edit
     },
   });

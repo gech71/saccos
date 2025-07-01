@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -5,13 +6,14 @@ import type { Dividend, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface DividendsPageData {
-  dividends: Dividend[];
+  dividends: (Dividend & { memberName: string })[];
   members: Pick<Member, 'id' | 'fullName' | 'sharesCount'>[];
 }
 
 export async function getDividendsPageData(): Promise<DividendsPageData> {
   const [dividends, members] = await Promise.all([
     prisma.dividend.findMany({
+        include: { member: { select: { fullName: true } } },
         orderBy: { distributionDate: 'desc' }
     }),
     prisma.member.findMany({
@@ -22,12 +24,12 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
   ]);
 
   return {
-    dividends: dividends.map(d => ({ ...d, distributionDate: d.distributionDate.toISOString() })),
+    dividends: dividends.map(d => ({ ...d, memberName: d.member.fullName, distributionDate: d.distributionDate.toISOString() })),
     members,
   };
 }
 
-export type DividendInput = Omit<Dividend, 'id' | 'memberName' | 'status'>;
+export type DividendInput = Omit<Dividend, 'id' | 'status'>;
 
 export async function addDividend(data: DividendInput): Promise<Dividend> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
@@ -37,7 +39,6 @@ export async function addDividend(data: DividendInput): Promise<Dividend> {
     data: {
       ...data,
       distributionDate: new Date(data.distributionDate),
-      memberName: member.fullName,
       status: 'pending',
     },
   });
@@ -56,7 +57,6 @@ export async function updateDividend(id: string, data: Partial<DividendInput>): 
     data: {
       ...data,
       distributionDate: data.distributionDate ? new Date(data.distributionDate) : undefined,
-      memberName: member.fullName,
       status: 'pending', // Re-submit for approval on edit
     },
   });

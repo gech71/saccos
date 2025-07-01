@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -5,7 +6,7 @@ import type { Share, Member, ShareType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface SharesPageData {
-  shares: Share[];
+  shares: (Share & { memberName: string})[];
   members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
   shareTypes: ShareType[];
 }
@@ -31,7 +32,7 @@ export async function getSharesPageData(): Promise<SharesPageData> {
   };
 }
 
-export type ShareInput = Omit<Share, 'id' | 'count' | 'status' | 'memberName' | 'loanId' | 'totalValueForAllocation' | 'valuePerShare' | 'shareTypeName' | 'allocationDate'> & {
+export type ShareInput = Omit<Share, 'id' | 'count' | 'status' | 'loanId' | 'totalValueForAllocation' | 'valuePerShare' | 'shareTypeName' | 'allocationDate'> & {
     allocationDate: string;
 };
 
@@ -51,7 +52,6 @@ export async function addShare(data: ShareInput): Promise<Share> {
   const newShare = await prisma.share.create({
     data: {
       memberId: data.memberId,
-      memberName: member.fullName,
       shareTypeId: data.shareTypeId,
       shareTypeName: shareType.name,
       count,
@@ -88,7 +88,6 @@ export async function updateShare(id: string, data: ShareInput): Promise<Share> 
         where: { id },
         data: {
             memberId: data.memberId,
-            memberName: member.fullName,
             shareTypeId: data.shareTypeId,
             shareTypeName: shareType.name,
             count,

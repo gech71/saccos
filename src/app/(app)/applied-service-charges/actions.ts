@@ -64,7 +64,7 @@ export async function getAppliedChargesPageData(): Promise<AppliedChargesPageDat
   };
 }
 
-export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'memberName' | 'serviceChargeTypeName' | 'status'> & {
+export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'serviceChargeTypeName' | 'status'> & {
     dateApplied: string;
 };
 
@@ -82,7 +82,6 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<Appl
     data: {
       ...data,
       dateApplied: new Date(data.dateApplied),
-      memberName: member.fullName,
       serviceChargeTypeName: serviceChargeType.name,
       status: 'pending',
     },
