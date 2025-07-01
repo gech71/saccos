@@ -34,10 +34,12 @@ export type DividendInput = Omit<Dividend, 'id' | 'status'>;
 export async function addDividend(data: DividendInput): Promise<Dividend> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
+  
+  const { memberName, ...restOfData } = data;
 
   const newDividend = await prisma.dividend.create({
     data: {
-      ...data,
+      ...restOfData,
       distributionDate: new Date(data.distributionDate),
       status: 'pending',
     },
@@ -51,11 +53,13 @@ export async function addDividend(data: DividendInput): Promise<Dividend> {
 export async function updateDividend(id: string, data: Partial<DividendInput>): Promise<Dividend> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
+
+  const { memberName, ...restOfData } = data;
   
   const updatedDividend = await prisma.dividend.update({
     where: { id },
     data: {
-      ...data,
+      ...restOfData,
       distributionDate: data.distributionDate ? new Date(data.distributionDate) : undefined,
       status: 'pending', // Re-submit for approval on edit
     },

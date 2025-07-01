@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -36,8 +37,9 @@ export type LoanRepaymentInput = Omit<LoanRepayment, 'id'>;
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
   try {
     await prisma.$transaction(async (tx) => {
+      const { memberName, ...restOfData } = data;
       // 1. Create the repayment record
-      await tx.loanRepayment.create({ data });
+      await tx.loanRepayment.create({ data: restOfData });
 
       // 2. Update the loan's remaining balance
       const loan = await tx.loan.findUnique({ where: { id: data.loanId } });

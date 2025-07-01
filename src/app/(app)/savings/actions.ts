@@ -37,9 +37,11 @@ export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
       throw new Error("Withdrawal amount cannot exceed the member's current savings balance.");
   }
 
+  const { memberName, ...restOfData } = data;
+
   const newSaving = await prisma.saving.create({
     data: {
-      ...data,
+      ...restOfData,
       date: new Date(data.date),
       status: 'pending',
     },
@@ -58,10 +60,12 @@ export async function updateSavingTransaction(id: string, data: SavingInput): Pr
       throw new Error("Withdrawal amount cannot exceed the member's current savings balance.");
   }
 
+  const { memberName, ...restOfData } = data;
+
   const updatedSaving = await prisma.saving.update({
     where: { id },
     data: {
-      ...data,
+      ...restOfData,
       date: new Date(data.date),
       status: 'pending', // Re-submit for approval on edit
     },

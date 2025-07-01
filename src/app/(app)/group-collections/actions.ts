@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -34,8 +35,12 @@ export type BatchSavingData = Omit<Saving, 'id'>;
 
 export async function recordBatchSavings(savingsData: BatchSavingData[]): Promise<{ success: boolean; message: string }> {
   try {
+    // Prisma's `createMany` doesn't allow fields that are not in the model.
+    // The `memberName` is passed from the client for convenience but must be stripped before writing.
+    const cleanData = savingsData.map(({ memberName, ...rest }) => rest);
+
     await prisma.saving.createMany({
-      data: savingsData,
+      data: cleanData,
     });
     
     revalidatePath('/savings');
@@ -44,6 +49,9 @@ export async function recordBatchSavings(savingsData: BatchSavingData[]): Promis
     return { success: true, message: `Successfully submitted ${savingsData.length} savings collections for approval.` };
   } catch (error) {
     console.error("Batch savings recording failed:", error);
+    if (error instanceof Error) {
+        return { success: false, message: `Batch savings recording failed: ${error.message}` };
+    }
     return { success: false, message: 'An error occurred while recording the batch savings.' };
   }
 }
