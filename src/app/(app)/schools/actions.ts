@@ -1,8 +1,9 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School } from '@prisma/client';
+import type { Prisma, School } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import type { AuthUser } from '@/types';
 
 export type SchoolWithMemberCount = School & {
   _count: {
@@ -10,9 +11,9 @@ export type SchoolWithMemberCount = School & {
   };
 };
 
-export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount[]> {
+export async function getSchoolsWithMemberCount(user: AuthUser): Promise<SchoolWithMemberCount[]> {
   try {
-    const schools = await prisma.school.findMany({
+    const prismaOptions: Prisma.SchoolFindManyArgs = {
       include: {
         _count: {
           select: { members: true },
@@ -21,7 +22,19 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
       orderBy: {
         name: 'asc',
       }
-    });
+    };
+    
+    // Check for a restrictive permission
+    if (user.permissions && !user.permissions.includes('view_all_schools')) {
+        // This is where the logic for school-specific filtering would go.
+        // It requires a link between a User and a School in the database schema.
+        // For now, we'll return an empty list to enforce the security boundary.
+        // TODO: Update this once the User model has a 'schoolId' field.
+        // For example: prismaOptions.where = { id: user.schoolId };
+        return []; 
+    }
+
+    const schools = await prisma.school.findMany(prismaOptions);
     return schools;
   } catch (error) {
     console.error("Failed to fetch schools:", error);

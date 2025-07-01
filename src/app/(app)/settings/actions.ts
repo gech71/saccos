@@ -4,6 +4,9 @@
 import prisma from '@/lib/prisma';
 import type { User, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import axios from 'axios';
+
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5160';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -55,6 +58,64 @@ export async function updateUserRoles(userId: string, roleIds: string[]): Promis
   return updatedUser;
 }
 
+export async function syncUserOnLogin(userId: string, name: string, email: string) {
+    const user = await prisma.user.upsert({
+        where: { userId },
+        update: { name, email },
+        create: {
+            userId,
+            name,
+            email,
+            roles: {
+                connectOrCreate: {
+                    where: { name: 'Staff' },
+                    create: { name: 'Staff', description: 'Regular staff member', permissions: ['view_dashboard'] }
+                }
+            }
+        },
+        include: {
+            roles: true,
+        },
+    });
+    return user;
+}
+
+
+export async function registerUserByAdmin(data: any, roleIds: string[]) {
+    // 1. Register user with the external auth provider
+    const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        password: data.password,
+    });
+
+    if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
+        throw new Error(registerResponse.data.errors?.[0] || 'External registration failed.');
+    }
+    
+    const externalUserId = registerResponse.data.userId;
+
+    // 2. Create the user in the local Prisma database
+    const newUser = await prisma.user.create({
+        data: {
+            userId: externalUserId,
+            name: `${data.firstName} ${data.lastName}`,
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            roles: {
+                connect: roleIds.map(id => ({ id })),
+            },
+        },
+    });
+
+    revalidatePath('/settings');
+    return newUser;
+}
+
+
 // Role-related actions
 export type RoleInput = Omit<Role, 'id'>;
 
@@ -96,4 +157,23 @@ export async function deleteRole(roleId: string): Promise<{ success: boolean; me
     console.error('Failed to delete role:', error);
     return { success: false, message: 'An unexpected error occurred.' };
   }
+}
+
+// Permission-related actions
+export async function getUserPermissions(userId: string): Promise<string[]> {
+    const user = await prisma.user.findUnique({
+        where: { userId },
+        include: { roles: true },
+    });
+
+    if (!user) return [];
+
+    const permissions = new Set<string>();
+    user.roles.forEach(role => {
+        role.permissions.forEach(permission => {
+            permissions.add(permission);
+        });
+    });
+
+    return Array.from(permissions);
 }

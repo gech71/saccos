@@ -7,6 +7,7 @@ import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import type { AuthResponse, AuthUser } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/actions';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -50,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     router.push('/login');
   }, [router]);
   
-  const handleAuthSuccess = useCallback((data: { accessToken: string; refreshToken: string; }) => {
+  const handleAuthSuccess = useCallback(async (data: { accessToken: string; refreshToken: string; }) => {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setAccessToken(data.accessToken);
@@ -58,22 +59,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
         const decoded = jwtDecode<DecodedToken>(data.accessToken);
+        
+        // Sync user with local DB and get full user profile with roles
+        const localUser = await syncUserOnLogin(decoded.nameid, decoded.unique_name, decoded.email);
+        
+        // Fetch all permissions for the user's roles
+        const permissions = await getUserPermissions(decoded.nameid);
+        
         const authUser: AuthUser = {
-            id: decoded.nameid,
-            email: decoded.email,
-            name: decoded.unique_name,
-            // Assuming phone number is not in token, might need another API call if needed
-            phoneNumber: '', 
+            id: localUser.id,
+            userId: localUser.userId,
+            email: localUser.email,
+            name: localUser.name,
+            phoneNumber: '', // Not in token, can be added to local DB if needed
+            roles: localUser.roles.map(r => r.name),
+            permissions,
         };
         setUser(authUser);
     } catch (error) {
-        console.error("Failed to decode token:", error);
+        console.error("Failed to decode token or sync user:", error);
         handleLogout();
     }
   }, [handleLogout]);
 
   useEffect(() => {
-    const initAuth = () => {
+    const initAuth = async () => {
       setIsLoading(true);
       const storedAccessToken = localStorage.getItem('accessToken');
       const storedRefreshToken = localStorage.getItem('refreshToken');
@@ -82,7 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const decoded = jwtDecode<DecodedToken>(storedAccessToken);
           if (decoded.exp * 1000 > Date.now()) {
-            handleAuthSuccess({ accessToken: storedAccessToken, refreshToken: storedRefreshToken });
+            await handleAuthSuccess({ accessToken: storedAccessToken, refreshToken: storedRefreshToken });
           } else {
             // Here you would implement token refresh logic
             console.log("Access token expired. Implement refresh logic.");
@@ -102,7 +112,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await axios.post<AuthResponse>(`${AUTH_API_URL}/api/Auth/login`, data);
       if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
-        handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
+        await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Login Successful', description: 'Welcome back!' });
         router.push('/dashboard');
       } else {
@@ -119,7 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await axios.post<AuthResponse>(`${AUTH_API_URL}/api/Auth/register`, data);
        if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
-        handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
+        await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Registration Successful', description: 'Your account has been created.' });
         router.push('/dashboard');
       } else {

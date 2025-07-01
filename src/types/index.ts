@@ -1,6 +1,7 @@
 
 
 
+
 export interface School {
   id: string;
   name: string;
@@ -155,6 +156,7 @@ export interface NavItem {
   isGroupLabel?: boolean;
   description?: string;
   active?: boolean;
+  permission?: string;
 }
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
@@ -217,12 +219,16 @@ export interface AuthResponse {
   isSuccess: boolean;
   accessToken?: string;
   refreshToken?: string;
+  userId?: string; // Add this to capture the ID on registration
   errors?: string[] | null;
 }
 
 export interface AuthUser {
-  id: string;
+  id: string; // Prisma DB ID
+  userId: string; // External Auth Provider ID
   email: string;
   name: string;
   phoneNumber: string;
+  roles: string[];
+  permissions: string[];
 }

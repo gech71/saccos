@@ -47,6 +47,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { exportToExcel } from '@/lib/utils';
 import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -66,17 +67,19 @@ export default function SchoolsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchSchools = async () => {
+    if (!user) return;
     setIsLoading(true);
-    const fetchedSchools = await getSchoolsWithMemberCount();
+    const fetchedSchools = await getSchoolsWithMemberCount(user);
     setSchools(fetchedSchools);
     setIsLoading(false);
   };
 
   useEffect(() => {
     fetchSchools();
-  }, []);
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

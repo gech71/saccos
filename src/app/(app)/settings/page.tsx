@@ -19,18 +19,39 @@ import { Loader2, Users, Shield, PlusCircle, MoreVertical, Edit, Trash2 } from '
 import { Badge } from '@/components/ui/badge';
 import type { Role } from '@prisma/client';
 import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, type UserWithRoles, type RoleWithUserCount } from './actions';
+import Link from 'next/link';
 
-// Centralized list of all permissions in the system, moved here from actions.ts
+// Centralized list of all permissions in the system
 const permissionsList = [
-  'manage_users',
-  'manage_roles',
-  'manage_settings',
-  'manage_members',
-  'manage_schools',
-  'manage_finances', // Broad category for savings, loans, etc.
-  'manage_configuration', // For loan types, share types, etc.
-  'approve_transactions',
-  'view_reports',
+    { id: 'view_dashboard', label: 'View Dashboard' },
+    { id: 'view_schools', label: 'View Schools' },
+    { id: 'manage_schools', label: 'Manage Schools (Add, Edit, Delete)' },
+    { id: 'view_members', label: 'View Members' },
+    { id: 'manage_members', label: 'Manage Members (Add, Edit, Delete)' },
+    { id: 'view_savings', label: 'View Savings Transactions' },
+    { id: 'manage_savings', label: 'Manage Savings Transactions' },
+    { id: 'view_savings_accounts', label: 'View Savings Accounts Summary' },
+    { id: 'manage_group_collections', label: 'Manage Group Savings Collections' },
+    { id: 'manage_interest_calculation', label: 'Manage Interest Calculation' },
+    { id: 'view_account_statements', label: 'View Account Statements' },
+    { id: 'manage_account_closure', label: 'Manage Account Closure' },
+    { id: 'view_closed_accounts', label: 'View Closed Accounts' },
+    { id: 'view_loans', label: 'View Loans' },
+    { id: 'manage_loans', label: 'Manage Loans (Add, Edit, Delete)' },
+    { id: 'view_loan_repayments', label: 'View Loan Repayments' },
+    { id: 'manage_group_repayments', label: 'Manage Group Loan Repayments' },
+    { id: 'view_overdue_loans', label: 'View Overdue Loans' },
+    { id: 'view_shares', label: 'View Share Allocations' },
+    { id: 'manage_shares', label: 'Manage Share Allocations' },
+    { id: 'view_dividends', label: 'View Dividend Payouts' },
+    { id: 'manage_dividends', label: 'Manage Dividend Payouts' },
+    { id: 'approve_transactions', label: 'Approve Transactions' },
+    { id: 'manage_service_charges', label: 'Manage Service Charges' },
+    { id: 'view_overdue_payments', label: 'View Overdue Payments' },
+    { id: 'view_reports', label: 'View AI Reports' },
+    { id: 'manage_settings', label: 'Manage System Settings (Users, Roles)' },
+    { id: 'manage_configuration', label: 'Manage System Configuration (Loan/Share Types etc.)' },
+    { id: 'view_all_schools', label: 'View Data for All Schools' },
 ];
 
 
@@ -188,8 +209,17 @@ export default function SettingsPage() {
         <TabsContent value="users" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Users</CardTitle>
-              <CardDescription>View all registered users and manage their assigned roles.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Users</CardTitle>
+                        <CardDescription>View all registered users and manage their assigned roles.</CardDescription>
+                    </div>
+                    <Button asChild>
+                        <Link href="/settings/register">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Register New User
+                        </Link>
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -321,13 +351,13 @@ export default function SettingsPage() {
                     <Label>Permissions</Label>
                     <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-md max-h-64 overflow-y-auto">
                         {permissionsList.map(permission => (
-                            <div key={permission} className="flex items-center space-x-2">
+                            <div key={permission.id} className="flex items-center space-x-2">
                                 <Checkbox 
-                                    id={`perm-${permission}`}
-                                    checked={(currentRole.permissions || []).includes(permission)}
-                                    onCheckedChange={(checked) => handlePermissionChange(permission, !!checked)}
+                                    id={`perm-${permission.id}`}
+                                    checked={(currentRole.permissions || []).includes(permission.id)}
+                                    onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
                                 />
-                                <Label htmlFor={`perm-${permission}`} className="font-normal text-sm capitalize">{permission.replace(/_/g, ' ')}</Label>
+                                <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize">{permission.label}</Label>
                             </div>
                         ))}
                     </div>
