@@ -91,7 +91,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="AI Reporting & Analytics" subtitle="Generate insightful reports and visualizations using AI." />
+      <PageTitle title="Reports" subtitle="Generate insightful reports and visualizations using AI." />
 
       <Card className="shadow-lg">
         <CardHeader>

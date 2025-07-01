@@ -56,7 +56,7 @@ const navItems: NavItem[] = [
   { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList },
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
   { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck },
-  { title: 'AI Reports', href: '/reports', icon: FileText },
+  { title: 'Reports', href: '/reports', icon: FileText },
   { title: 'Settings', href: '/settings', icon: Settings },
 
   // CONFIGURATION
