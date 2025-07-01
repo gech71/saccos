@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,8 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockSchools, mockMembers } from '@/data/mock';
-import type { School, Member } from '@/types';
+import type { School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -36,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { exportToExcel } from '@/lib/utils';
+import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -44,40 +44,64 @@ const initialSchoolFormState: Partial<School> = {
 };
 
 export default function SchoolsPage() {
-  const [schools, setSchools] = useState<School[]>(mockSchools);
-  const [members] = useState<Member[]>(mockMembers); // For member count
+  const [schools, setSchools] = useState<SchoolWithMemberCount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+
+  const fetchSchools = async () => {
+    setIsLoading(true);
+    const fetchedSchools = await getSchoolsWithMemberCount();
+    setSchools(fetchedSchools);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchSchools();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCurrentSchool(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSchool.name) {
         toast({ variant: 'destructive', title: 'Error', description: 'School name is required.' });
         return;
     }
-
-    if (isEditing && currentSchool.id) {
-      setSchools(prev => prev.map(s => s.id === currentSchool.id ? { ...s, ...currentSchool } as School : s));
-      toast({ title: 'Success', description: 'School updated successfully.' });
-    } else {
-      const newSchool: School = {
-        id: `school-${Date.now()}`,
-        ...currentSchool,
-      } as School;
-      setSchools(prev => [newSchool, ...prev]);
-      toast({ title: 'Success', description: 'School added successfully.' });
+    
+    setIsSubmitting(true);
+    try {
+      if (isEditing && currentSchool.id) {
+        await updateSchool(currentSchool.id, {
+          name: currentSchool.name,
+          address: currentSchool.address,
+          contactPerson: currentSchool.contactPerson,
+        });
+        toast({ title: 'Success', description: 'School updated successfully.' });
+      } else {
+        await addSchool({
+          name: currentSchool.name,
+          address: currentSchool.address,
+          contactPerson: currentSchool.contactPerson,
+        });
+        toast({ title: 'Success', description: 'School added successfully.' });
+      }
+      await fetchSchools(); // Refresh data
+      setIsModalOpen(false);
+      setCurrentSchool(initialSchoolFormState);
+      setIsEditing(false);
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentSchool(initialSchoolFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -92,53 +116,44 @@ export default function SchoolsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (schoolId: string) => {
-    if (members.some(m => m.schoolId === schoolId)) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Cannot delete school with active members. Please reassign or remove members first.' });
-        return;
-    }
+  const handleDelete = async (schoolId: string) => {
     if (window.confirm('Are you sure you want to delete this school?')) {
-      setSchools(prev => prev.filter(s => s.id !== schoolId));
-      toast({ title: 'Success', description: 'School deleted successfully.' });
+      const result = await deleteSchool(schoolId);
+      if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchSchools(); // Refresh data
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+      }
     }
-  };
-  
-  const getMemberCount = (schoolId: string) => {
-    return members.filter(m => m.schoolId === schoolId).length;
   };
 
   const filteredSchools = useMemo(() => {
-    return schools.map(school => ({
-        ...school,
-        memberCount: getMemberCount(school.id)
-    })).filter(school => 
+    return schools.filter(school => 
       school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (school.address && school.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (school.contactPerson && school.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [schools, searchTerm, members]);
+  }, [schools, searchTerm]);
   
-  const totalSchools = filteredSchools.length;
   const totalMembersAcrossSchools = useMemo(() => {
-    const schoolIds = new Set(filteredSchools.map(s => s.id));
-    return members.filter(m => schoolIds.has(m.schoolId)).length;
-  }, [filteredSchools, members]);
+    return schools.reduce((total, school) => total + school._count.members, 0);
+  }, [schools]);
 
   const handleExport = () => {
     const dataToExport = filteredSchools.map(s => ({
         'School Name': s.name,
         'Address': s.address || 'N/A',
         'Contact Person': s.contactPerson || 'N/A',
-        'Member Count': s.memberCount,
+        'Member Count': s._count.members,
     }));
     exportToExcel(dataToExport, 'schools_export');
   };
 
-
   return (
     <div className="space-y-6">
       <PageTitle title="School Management" subtitle="Manage participating schools in the association.">
-        <Button onClick={handleExport} variant="outline">
+        <Button onClick={handleExport} variant="outline" disabled={isLoading || schools.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
@@ -153,12 +168,12 @@ export default function SchoolsPage() {
                 <SchoolIcon className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">{totalSchools}</div>
+                <div className="text-2xl font-bold text-primary">{schools.length}</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Members (Across Listed Schools)</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Members (Across All Schools)</ShadcnCardTitle>
                 <Users className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
@@ -194,7 +209,9 @@ export default function SchoolsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSchools.length > 0 ? filteredSchools.map(school => (
+            {isLoading ? (
+               <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredSchools.length > 0 ? filteredSchools.map(school => (
               <TableRow key={school.id}>
                 <TableCell>
                   <Checkbox aria-label={`Select school ${school.name}`} />
@@ -202,7 +219,7 @@ export default function SchoolsPage() {
                 <TableCell className="font-medium">{school.name}</TableCell>
                 <TableCell>{school.address || 'N/A'}</TableCell>
                 <TableCell>{school.contactPerson || 'N/A'}</TableCell>
-                <TableCell className="text-center">{school.memberCount}</TableCell>
+                <TableCell className="text-center">{school._count.members}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -260,10 +277,11 @@ export default function SchoolsPage() {
               <Input id="contactPerson" name="contactPerson" value={currentSchool.contactPerson || ''} onChange={handleInputChange} />
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
-              </DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add School'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add School'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -271,4 +289,3 @@ export default function SchoolsPage() {
     </div>
   );
 }
-
