@@ -82,7 +82,6 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<Appl
     data: {
       ...data,
       dateApplied: new Date(data.dateApplied),
-      serviceChargeTypeName: serviceChargeType.name,
       status: 'pending',
     },
   });
