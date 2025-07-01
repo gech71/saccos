@@ -67,9 +67,15 @@ async function main() {
       phoneNumber: '0912345678',
       password: 'hashed_password_placeholder', // Should be properly hashed in a real app
       roles: {
-        create: {
-          roleId: adminRole.id,
-        },
+        create: [
+          {
+            role: {
+              connect: {
+                id: adminRole.id,
+              },
+            },
+          },
+        ],
       },
     },
   });
@@ -83,9 +89,15 @@ async function main() {
       phoneNumber: '0911223344',
       password: 'hashed_password_placeholder',
       roles: {
-        create: {
-          roleId: memberRole.id,
-        },
+        create: [
+          {
+            role: {
+              connect: {
+                id: memberRole.id,
+              },
+            },
+          },
+        ],
       },
     },
   });
@@ -104,8 +116,8 @@ async function main() {
       expectedMonthlySaving: 50,
       shareCommitments: {
         create: [
-          { shareTypeId: stRegular.id, monthlyCommittedAmount: 20 },
-          { shareTypeId: stEducation.id, monthlyCommittedAmount: 15 },
+          { shareTypeId: stRegular.id, shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
+          { shareTypeId: stEducation.id, shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 15 },
         ],
       },
       address: {
@@ -129,7 +141,7 @@ async function main() {
       expectedMonthlySaving: 25,
       shareCommitments: {
         create: [
-          { shareTypeId: stRegular.id, monthlyCommittedAmount: 25 },
+          { shareTypeId: stRegular.id, shareTypeName: 'Regular Share', monthlyCommittedAmount: 25 },
         ],
       },
       address: {
