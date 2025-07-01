@@ -105,20 +105,15 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
             }
         });
 
-        // This block handles cases where the API returns a 200 OK but indicates a business logic failure.
+        // The API call succeeded (status 2xx), but the business logic inside the API failed.
         if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
-            // Log the full API response for debugging on the server.
-            console.error("External registration failed. API Response:", JSON.stringify(registerResponse.data, null, 2));
+            console.error("Auth Service Registration Failure (200 OK):", JSON.stringify(registerResponse.data, null, 2));
             
-            // Attempt to find a more specific error message from the API response.
-            let detailedErrorMessage = 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.'; // Default message
-            if (registerResponse.data.errors && registerResponse.data.errors.length > 0) {
-                detailedErrorMessage = registerResponse.data.errors.join(' ');
-            } else if (registerResponse.data.message) {
-                detailedErrorMessage = registerResponse.data.message;
-            }
+            const message = registerResponse.data?.errors?.[0] 
+                          || registerResponse.data?.message 
+                          || "Registration failed. The email or phone number may already be in use, or the password may not meet complexity requirements.";
             
-            throw new Error(detailedErrorMessage);
+            throw new Error(message);
         }
         
         const externalUserId = registerResponse.data.userId;
@@ -141,24 +136,44 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         revalidatePath('/settings');
         return newUser;
     } catch (error) {
-        // This block handles network errors or non-2xx responses from the API.
-        if (axios.isAxiosError(error) && error.response) {
-            console.error('API Error Response:', JSON.stringify(error.response.data, null, 2));
+        // The API call itself failed (status 4xx or 5xx).
+        if (axios.isAxiosError(error)) {
+             console.error('Auth Service HTTP Error:', error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
             
-            const apiErrors = error.response.data.errors || (error.response.data.message ? [error.response.data.message] : ['The server returned a bad request.']);
-            const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'An external API error occurred.';
-            
-            throw new Error(errorMessage);
+            if (error.response && error.response.data) {
+                const responseData = error.response.data;
+
+                // Handles cases like: { "title": "One or more validation errors occurred.", "errors": { "Password": [...] } }
+                if (responseData.errors && typeof responseData.errors === 'object' && !Array.isArray(responseData.errors)) {
+                    const errorMessages = Object.values(responseData.errors).flat();
+                    if (errorMessages.length > 0) {
+                        throw new Error(errorMessages.join(' '));
+                    }
+                }
+                
+                // Handles cases like: { "isSuccess": false, "message": "...", "errors": ["..."] }
+                if (Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+                     throw new Error(responseData.errors.join(' '));
+                }
+
+                if (responseData.message) {
+                    throw new Error(responseData.message);
+                }
+
+                 if (responseData.title) {
+                    throw new Error(responseData.title);
+                }
+            }
+
+            throw new Error(error.message || 'An external API error occurred. Please check the server logs.');
         }
 
-        // This block handles errors thrown from our own logic (e.g., from the `try` block above).
+        // Re-throw errors from the `try` block (e.g., our custom error for `isSuccess: false`) or from Prisma.
         if (error instanceof Error) {
-            // Re-throw the specific error message to be displayed to the user.
-            throw new Error(error.message);
+            throw error;
         }
 
-        // Fallback for any other kind of unexpected error.
-        console.error('Unexpected Error during registration:', error);
+        // Fallback for completely unexpected errors.
         throw new Error('An unexpected error occurred during user registration.');
     }
 }
