@@ -80,23 +80,27 @@ export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'loanTerm' | 'repayme
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
-  const { collaterals, ...loanData } = data;
+  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes } = data;
   
-  const loanType = await prisma.loanType.findUnique({ where: { id: loanData.loanTypeId }});
+  const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
   if (!loanType) throw new Error("Loan Type not found");
   
-  const member = await prisma.member.findUnique({ where: { id: loanData.memberId }});
+  const member = await prisma.member.findUnique({ where: { id: memberId }});
   if (!member) throw new Error("Member not found");
 
   const newLoan = await prisma.loan.create({
     data: {
-      ...loanData,
-      disbursementDate: new Date(loanData.disbursementDate),
-      loanAccountNumber: loanData.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
+      memberId,
+      loanTypeId,
+      principalAmount,
+      status,
+      notes,
+      loanAccountNumber: loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
+      disbursementDate: new Date(disbursementDate),
       interestRate: loanType.interestRate,
       loanTerm: loanType.loanTerm,
       repaymentFrequency: loanType.repaymentFrequency,
-      remainingBalance: loanData.principalAmount,
+      remainingBalance: principalAmount,
       collaterals: collaterals ? { create: collaterals.map(c => ({
         ...c,
         organization: c.organization ? { create: c.organization } : undefined,
@@ -109,23 +113,28 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
 }
 
 export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
-    const { collaterals, ...loanData } = data;
+    const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes } = data;
     
-    const loanType = await prisma.loanType.findUnique({ where: { id: loanData.loanTypeId }});
+    const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
     if (!loanType) throw new Error("Loan Type not found");
     
-    const member = await prisma.member.findUnique({ where: { id: loanData.memberId }});
+    const member = await prisma.member.findUnique({ where: { id: memberId }});
     if (!member) throw new Error("Member not found");
 
     const updatedLoan = await prisma.loan.update({
         where: { id },
         data: {
-            ...loanData,
-            disbursementDate: new Date(loanData.disbursementDate),
+            memberId,
+            loanTypeId,
+            principalAmount,
+            status,
+            loanAccountNumber,
+            notes,
+            disbursementDate: new Date(disbursementDate),
             interestRate: loanType.interestRate,
             loanTerm: loanType.loanTerm,
             repaymentFrequency: loanType.repaymentFrequency,
-            remainingBalance: loanData.principalAmount,
+            remainingBalance: principalAmount,
             collaterals: {
                 deleteMany: {},
                 create: collaterals ? collaterals.map(c => ({
