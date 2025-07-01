@@ -111,16 +111,25 @@ export async function addMember(data: MemberInput): Promise<Member> {
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, ...memberData } = data;
     
+    // Check if the member exists and get their current relations
+    const existingMember = await prisma.member.findUnique({
+      where: { id },
+      select: { address: true, emergencyContact: true },
+    });
+    
+    // Determine if there is new data for address/contact
     const hasAddressData = address && Object.values(address).some(val => val !== '' && val !== null);
     const hasEmergencyContactData = emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null);
 
+    // Construct the update payload for address
     const addressUpdate = hasAddressData
         ? { upsert: { create: address!, update: address! } }
-        : { delete: true };
-        
+        : (existingMember?.address ? { delete: true } : undefined);
+
+    // Construct the update payload for emergency contact
     const emergencyContactUpdate = hasEmergencyContactData
         ? { upsert: { create: emergencyContact!, update: emergencyContact! } }
-        : { delete: true };
+        : (existingMember?.emergencyContact ? { delete: true } : undefined);
 
     const updatedMember = await prisma.member.update({
         where: { id },
