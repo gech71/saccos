@@ -111,25 +111,25 @@ export async function addMember(data: MemberInput): Promise<Member> {
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, ...memberData } = data;
     
+    const hasAddressData = address && Object.values(address).some(val => val !== '' && val !== null);
+    const hasEmergencyContactData = emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null);
+
+    const addressUpdate = hasAddressData
+        ? { upsert: { create: address!, update: address! } }
+        : { delete: true };
+        
+    const emergencyContactUpdate = hasEmergencyContactData
+        ? { upsert: { create: emergencyContact!, update: emergencyContact! } }
+        : { delete: true };
+
     const updatedMember = await prisma.member.update({
         where: { id },
         data: {
             ...memberData,
             joinDate: new Date(memberData.joinDate),
-            address: address ? {
-                upsert: {
-                    create: address,
-                    update: address
-                }
-            } : { delete: true }, // Delete address if not provided
-            emergencyContact: emergencyContact ? {
-                upsert: {
-                    create: emergencyContact,
-                    update: emergencyContact
-                }
-            } : { delete: true }, // Delete emergency contact if not provided
+            address: addressUpdate,
+            emergencyContact: emergencyContactUpdate,
             shareCommitments: {
-                 // Delete existing and create new ones
                  deleteMany: {},
                  create: (shareCommitments || []).map(sc => ({
                     monthlyCommittedAmount: sc.monthlyCommittedAmount,
