@@ -11,14 +11,33 @@ export interface LoanRepaymentsPageData {
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
-  const repayments = await prisma.loanRepayment.findMany({
+  const repaymentsData = await prisma.loanRepayment.findMany({
     include: {
-      loan: { select: { loanAccountNumber: true } },
-      member: { select: { fullName: true } },
+      loan: {
+        select: {
+          loanAccountNumber: true,
+          member: {
+            select: {
+              fullName: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { paymentDate: 'desc' },
   });
-  
+
+  // Reshape the data to include member info at the top level for the UI
+  const repayments = repaymentsData.map(r => {
+    const { loan, ...rest } = r;
+    return {
+      ...rest,
+      paymentDate: r.paymentDate.toISOString(),
+      loan: loan ? { loanAccountNumber: loan.loanAccountNumber } : undefined,
+      member: loan?.member,
+    };
+  });
+
   const activeLoans = await prisma.loan.findMany({
     where: {
       OR: [{ status: 'active' }, { status: 'overdue' }],
@@ -28,7 +47,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   });
 
   return {
-    repayments: repayments.map(r => ({...r, paymentDate: r.paymentDate.toISOString() })),
+    repayments,
     activeLoans: activeLoans.map(l => ({...l, disbursementDate: l.disbursementDate.toISOString(), nextDueDate: l.nextDueDate?.toISOString() ?? null })),
   };
 }
