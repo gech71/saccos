@@ -1,5 +1,6 @@
 
 
+
 export interface School {
   id: string;
   name: string;
@@ -210,4 +211,18 @@ export interface LoanRepayment {
     transactionReference?: string;
     evidenceUrl?: string;
   };
+}
+
+export interface AuthResponse {
+  isSuccess: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  errors?: string[] | null;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  phoneNumber: string;
 }

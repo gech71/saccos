@@ -14,8 +14,7 @@ import {
 import type { NavItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 interface SidebarNavProps {
   navItems: NavItem[];
@@ -25,13 +24,10 @@ interface SidebarNavProps {
 export function SidebarNav({ navItems, className }: SidebarNavProps) {
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
-  const router = useRouter();
-  const { toast } = useToast();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-    router.push('/login');
+    logout();
     if (setOpenMobile) setOpenMobile(false);
   };
 

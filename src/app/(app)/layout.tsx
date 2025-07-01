@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,8 +13,10 @@ import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { Loader2 } from 'lucide-react';
 
 const navItems: NavItem[] = [
   // Always visible
@@ -66,29 +69,21 @@ const navItems: NavItem[] = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
-    // Ensure localStorage is accessed only on the client side
-    if (typeof window !== 'undefined') {
-      const isAuthenticated = localStorage.getItem('isAuthenticated');
-
-      if (isAuthenticated !== 'true') {
-        router.replace('/login');
-      } else {
-        setIsAuthenticating(false);
-      }
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [pathname, router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  if (isAuthenticating) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center">
-          <Logo className="mb-4" />
-          <p className="text-lg text-muted-foreground">Loading your AcademInvest experience...</p>
-           {/* You can add a spinner here */}
+        <div className="flex flex-col items-center gap-4">
+          <Logo />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Verifying your session...</p>
         </div>
       </div>
     );

@@ -5,41 +5,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import React, { useState, FormEvent } from 'react';
 import { Logo } from '@/components/logo';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const { login } = useAuth();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
-
-    // Simulate API call and external authentication
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // For this prototype, we'll only allow the admin user to log in.
-    if (email.toLowerCase() === 'admin@academinvest.com') {
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', 'admin'); // Set role for admin
-      
-      toast({
-        title: 'Admin Login Successful',
-        description: 'Welcome back, Administrator!',
-      });
-      router.push('/dashboard');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: 'This email is not registered as an administrator.',
-      });
+    try {
+      await login({ phoneNumber, password });
+      // Redirect is handled by the auth context's success handler
+    } catch (error) {
+      // Error toast is handled by the auth context
       setIsLoading(false);
     }
   };
@@ -57,29 +42,43 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phoneNumber">Phone Number</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@academinvest.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="phoneNumber"
+                type="tel"
+                placeholder="0911223344"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
                 required
-                aria-label="Email address"
+                aria-label="Phone Number"
               />
             </div>
-             <p className="text-xs text-center text-muted-foreground">
-                Hint: Use `admin@academinvest.com`. Password is not required as auth is simulated externally.
-            </p>
+             <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                aria-label="Password"
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Signing In...</> : 'Sign In'}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            This is an admin-only login page.
-          </p>
+        <CardFooter className="flex flex-col items-center gap-2">
+            <Link href="/forgot-password" passHref>
+                <Button variant="link" className="text-sm font-normal text-muted-foreground">Forgot password?</Button>
+            </Link>
+            <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link href="/signup" passHref>
+                <Button variant="link" className="text-primary p-0 h-auto">Sign Up</Button>
+                </Link>
+            </p>
         </CardFooter>
       </Card>
     </div>
