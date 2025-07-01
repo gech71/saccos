@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -61,6 +72,9 @@ export default function DividendsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [dividendToDelete, setDividendToDelete] = useState<string | null>(null);
+
   const [currentDividend, setCurrentDividend] = useState<Partial<DividendInput & { id?: string }>>(initialDividendFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -154,16 +168,22 @@ export default function DividendsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (dividendId: string) => {
-     if (window.confirm('Are you sure you want to delete this dividend record?')) {
-        const result = await deleteDividend(dividendId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchPageData();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!dividendToDelete) return;
+    const result = await deleteDividend(dividendToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchPageData();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setDividendToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (dividendId: string) => {
+    setDividendToDelete(dividendId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredDividends = useMemo(() => {
@@ -317,7 +337,7 @@ export default function DividendsPage() {
                       <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
+                      <DropdownMenuItem onClick={() => openDeleteDialog(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -418,6 +438,25 @@ export default function DividendsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the dividend record.
+              This is only possible for records that have not yet been approved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete record
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

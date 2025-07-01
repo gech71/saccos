@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -69,6 +80,9 @@ export default function SharesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [shareToDelete, setShareToDelete] = useState<string | null>(null);
+
   const [currentShare, setCurrentShare] = useState<Partial<ShareInput & { id?: string, valuePerShare?: number, shareTypeName?: string }>>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,16 +214,22 @@ export default function SharesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (shareId: string) => {
-     if (window.confirm('Are you sure you want to delete this share record?')) {
-        const result = await deleteShare(shareId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchPageData();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!shareToDelete) return;
+    const result = await deleteShare(shareToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchPageData();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setShareToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (shareId: string) => {
+    setShareToDelete(shareId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredShares = useMemo(() => {
@@ -377,7 +397,7 @@ export default function SharesPage() {
                         <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
+                        <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -547,6 +567,24 @@ export default function SharesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the share record.
+              This is only possible for records that have not yet been approved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete record
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

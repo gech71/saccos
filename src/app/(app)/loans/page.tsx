@@ -7,7 +7,25 @@ import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,7 +41,7 @@ import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoansPageData, type LoanInput } from './actions';
 
-type LoanWithRelations = Loan & { collateral: (Collateral & { organization: Organization | null, address: Address | null })[] };
+type LoanWithRelations = Loan & { collaterals: (Collateral & { organization: Organization | null, address: Address | null })[] };
 
 const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId' | 'addressId'> = {
   fullName: '',
@@ -51,6 +69,9 @@ export default function LoansPage() {
   const { toast } = useToast();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
+
   const [currentLoan, setCurrentLoan] = useState<Partial<LoanInput & {id?: string, status?: string }>>(initialLoanFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -202,16 +223,22 @@ export default function LoansPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteLoan = async (loanId: string) => {
-    if (window.confirm('Are you sure you want to delete this loan application? This cannot be undone.')) {
-      const result = await deleteLoan(loanId);
-      if (result.success) {
-          toast({ title: 'Success', description: result.message });
-          await fetchPageData();
-      } else {
-          toast({ variant: 'destructive', title: 'Error', description: result.message });
-      }
+  const handleDeleteConfirm = async () => {
+    if (!loanToDelete) return;
+    const result = await deleteLoan(loanToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchPageData();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setLoanToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (loanId: string) => {
+    setLoanToDelete(loanId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredLoans = useMemo(() => {
@@ -315,7 +342,7 @@ export default function LoansPage() {
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><span className="sr-only">Menu</span><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit Application</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDeleteLoan(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Application</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Application</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -460,6 +487,24 @@ export default function LoansPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the loan application.
+              This will fail if the loan has any repayments associated with it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete application
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

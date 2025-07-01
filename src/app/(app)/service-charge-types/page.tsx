@@ -22,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +63,9 @@ const initialFormState: Partial<Omit<ServiceChargeType, 'id'>> = {
 export default function ServiceChargeTypesPage() {
   const [serviceChargeTypes, setServiceChargeTypes] = useState<ServiceChargeType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [chargeTypeToDelete, setChargeTypeToDelete] = useState<string | null>(null);
+
   const [currentChargeType, setCurrentChargeType] = useState<Partial<ServiceChargeType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,16 +149,22 @@ export default function ServiceChargeTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (chargeTypeId: string) => {
-    if (window.confirm('Are you sure you want to delete this service charge type? This action cannot be undone.')) {
-        const result = await deleteServiceChargeType(chargeTypeId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchChargeTypes();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!chargeTypeToDelete) return;
+    const result = await deleteServiceChargeType(chargeTypeToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchChargeTypes();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setChargeTypeToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (chargeTypeId: string) => {
+    setChargeTypeToDelete(chargeTypeId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredChargeTypes = useMemo(() => {
@@ -221,7 +240,7 @@ export default function ServiceChargeTypesPage() {
                       <DropdownMenuItem onClick={() => openEditModal(chargeType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(chargeType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(chargeType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -297,6 +316,24 @@ export default function ServiceChargeTypesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the service charge type.
+              This will fail if the charge type has already been applied to any member.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete charge type
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

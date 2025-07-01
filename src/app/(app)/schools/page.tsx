@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,6 +23,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,6 +58,9 @@ export default function SchoolsPage() {
   const [schools, setSchools] = useState<SchoolWithMemberCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [schoolToDelete, setSchoolToDelete] = useState<string | null>(null);
+
   const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -116,16 +130,22 @@ export default function SchoolsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (schoolId: string) => {
-    if (window.confirm('Are you sure you want to delete this school?')) {
-      const result = await deleteSchool(schoolId);
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        await fetchSchools(); // Refresh data
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.message });
-      }
+  const handleDeleteConfirm = async () => {
+    if (!schoolToDelete) return;
+    const result = await deleteSchool(schoolToDelete);
+    if (result.success) {
+      toast({ title: 'Success', description: result.message });
+      await fetchSchools(); // Refresh data
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setSchoolToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (schoolId: string) => {
+    setSchoolToDelete(schoolId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredSchools = useMemo(() => {
@@ -232,7 +252,7 @@ export default function SchoolsPage() {
                       <DropdownMenuItem onClick={() => openEditModal(school)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(school.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(school.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -286,6 +306,24 @@ export default function SchoolsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the school.
+              This will fail if the school has any members assigned to it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete school
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

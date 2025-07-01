@@ -23,6 +23,16 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -59,6 +69,9 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
 export default function LoanTypesPage() {
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [loanTypeToDelete, setLoanTypeToDelete] = useState<string | null>(null);
+  
   const [currentLoanType, setCurrentLoanType] = useState<Partial<LoanType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,16 +171,22 @@ export default function LoanTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (loanTypeId: string) => {
-    if (window.confirm('Are you sure you want to delete this loan type? This action cannot be undone.')) {
-        const result = await deleteLoanType(loanTypeId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchLoanTypes();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!loanTypeToDelete) return;
+    const result = await deleteLoanType(loanTypeToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchLoanTypes();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setLoanTypeToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (loanTypeId: string) => {
+    setLoanTypeToDelete(loanTypeId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredLoanTypes = useMemo(() => {
@@ -263,7 +282,7 @@ export default function LoanTypesPage() {
                       <DropdownMenuItem onClick={() => openEditModal(loanType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(loanType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(loanType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -404,6 +423,24 @@ export default function LoanTypesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the loan type.
+              This will fail if the loan type is currently in use by any loans.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete loan type
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

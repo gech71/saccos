@@ -22,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,6 +55,9 @@ const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
 export default function ShareTypesPage() {
   const [shareTypesList, setShareTypesList] = useState<ShareType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [shareTypeToDelete, setShareTypeToDelete] = useState<string | null>(null);
+  
   const [currentShareType, setCurrentShareType] = useState<Partial<ShareType>>(initialShareTypeFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,16 +137,22 @@ export default function ShareTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (shareTypeId: string) => {
-    if (window.confirm('Are you sure you want to delete this share type? This action cannot be undone.')) {
-        const result = await deleteShareType(shareTypeId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchShareTypes();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!shareTypeToDelete) return;
+    const result = await deleteShareType(shareTypeToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchShareTypes();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setShareTypeToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (shareTypeId: string) => {
+    setShareTypeToDelete(shareTypeId);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredShareTypes = useMemo(() => {
@@ -195,7 +214,7 @@ export default function ShareTypesPage() {
                       <DropdownMenuItem onClick={() => openEditModal(shareType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(shareType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(shareType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -277,6 +296,24 @@ export default function ShareTypesPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the share type.
+              This will fail if the share type is already in use.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete share type
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
