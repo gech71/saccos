@@ -29,6 +29,7 @@ import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw }
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
+import { Badge } from '@/components/ui/badge';
 import { getSchoolsForFilter, getLoansBySchool, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 
 const initialBatchTransactionState: {
@@ -379,3 +380,5 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
+
+    
