@@ -3,6 +3,7 @@
 
 
 
+
 export interface School {
   id: string;
   name: string;
@@ -29,7 +30,6 @@ export interface SavingAccountType {
 export interface LoanType {
   id: string;
   name: string;
-  description?: string;
   interestRate: number; // Annual interest rate, e.g., 0.08 for 8%
   loanTerm: number; // in months
   repaymentFrequency: 'monthly' | 'quarterly' | 'yearly';

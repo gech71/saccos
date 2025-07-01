@@ -58,7 +58,6 @@ import { useAuth } from '@/contexts/auth-context';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
-  description: '',
   interestRate: 0,
   loanTerm: 12,
   repaymentFrequency: 'monthly',
@@ -135,7 +134,6 @@ export default function LoanTypesPage() {
     setIsSubmitting(true);
     const dataToSave = {
         name: currentLoanType.name!,
-        description: currentLoanType.description,
         interestRate: (currentLoanType.interestRate || 0) / 100,
         loanTerm: currentLoanType.loanTerm!,
         repaymentFrequency: currentLoanType.repaymentFrequency!,
@@ -197,8 +195,7 @@ export default function LoanTypesPage() {
 
   const filteredLoanTypes = useMemo(() => {
     return loanTypes.filter(lt =>
-      lt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lt.description && lt.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      lt.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [loanTypes, searchTerm]);
 
@@ -225,7 +222,7 @@ export default function LoanTypesPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search loan types by name or description..."
+          placeholder="Search loan types by name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 w-full"
@@ -238,7 +235,6 @@ export default function LoanTypesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
               <TableHead className="text-right">Interest Rate (Annual)</TableHead>
               <TableHead className="text-right">Loan Term (Months)</TableHead>
               <TableHead className="text-center">Repayment</TableHead>
@@ -261,11 +257,10 @@ export default function LoanTypesPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
             ) : filteredLoanTypes.length > 0 ? filteredLoanTypes.map(loanType => (
               <TableRow key={loanType.id}>
                 <TableCell className="font-medium">{loanType.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{loanType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold text-green-600">{(loanType.interestRate * 100).toFixed(2)}%</TableCell>
                 <TableCell className="text-right">{loanType.loanTerm}</TableCell>
                 <TableCell className="text-center">
@@ -301,7 +296,7 @@ export default function LoanTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No loan types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -407,10 +402,6 @@ export default function LoanTypesPage() {
                         </SelectContent>
                     </Select>
                 </div>
-            </div>
-            <div>
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea id="description" name="description" value={currentLoanType.description || ''} onChange={handleInputChange} placeholder="E.g., For short-term personal needs" />
             </div>
             <div className="flex items-center space-x-2 pt-2">
                 <Checkbox
