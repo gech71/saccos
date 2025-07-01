@@ -5,10 +5,13 @@ import prisma from '@/lib/prisma';
 import type { Loan, Prisma, Member, LoanType, School, Collateral, Address, Organization } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export type LoanWithCollateral = Loan & { collaterals: (Collateral & { organization: Organization | null, address: Address | null })[] };
+export type LoanWithDetails = Loan & { 
+  collaterals: (Collateral & { organization: Organization | null, address: Address | null })[]
+  memberName?: string;
+};
 
 export interface LoansPageData {
-  loans: LoanWithCollateral[];
+  loans: LoanWithDetails[];
   members: Pick<Member, 'id' | 'fullName'>[];
   loanTypes: LoanType[];
   subcities: string[];
@@ -17,6 +20,11 @@ export interface LoansPageData {
 export async function getLoansPageData(): Promise<LoansPageData> {
   const loans = await prisma.loan.findMany({
     include: {
+      member: {
+        select: {
+          fullName: true
+        }
+      },
       collaterals: {
         include: {
           organization: true,
@@ -41,7 +49,12 @@ export async function getLoansPageData(): Promise<LoansPageData> {
   const subcities = addressSubcities.map(a => a.subCity!);
 
   return {
-    loans: loans.map(l => ({ ...l, disbursementDate: l.disbursementDate.toISOString(), nextDueDate: l.nextDueDate?.toISOString() ?? null })),
+    loans: loans.map(l => ({ 
+      ...l, 
+      memberName: l.member.fullName,
+      disbursementDate: l.disbursementDate.toISOString(), 
+      nextDueDate: l.nextDueDate?.toISOString() ?? null 
+    })),
     members,
     loanTypes,
     subcities,
@@ -71,6 +84,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   const newLoan = await prisma.loan.create({
     data: {
       ...loanData,
+      memberName: member.fullName,
       disbursementDate: new Date(loanData.disbursementDate),
       loanAccountNumber: loanData.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
       loanTypeName: loanType.name,
@@ -102,6 +116,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
         where: { id },
         data: {
             ...loanData,
+            memberName: member.fullName,
             disbursementDate: new Date(loanData.disbursementDate),
             loanTypeName: loanType.name,
             interestRate: loanType.interestRate,

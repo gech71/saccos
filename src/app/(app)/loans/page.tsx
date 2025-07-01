@@ -39,10 +39,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoansPageData, type LoanInput } from './actions';
+import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-
-type LoanWithRelations = Loan & { collaterals: (Collateral & { organization: Organization | null, address: Address | null })[] };
 
 const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId' | 'addressId'> = {
   fullName: '',
@@ -62,7 +60,7 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
 
 
 export default function LoansPage() {
-  const [loans, setLoans] = useState<LoanWithRelations[]>([]);
+  const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [subcities, setSubcities] = useState<string[]>([]);
@@ -216,7 +214,7 @@ export default function LoansPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (loan: LoanWithRelations) => {
+  const openEditModal = (loan: LoanWithDetails) => {
     setCurrentLoan({
       ...loan,
       collaterals: loan.collaterals.map(c => ({
@@ -249,12 +247,11 @@ export default function LoansPage() {
 
   const filteredLoans = useMemo(() => {
     return loans.filter(loan => {
-      const member = members.find(m => m.id === loan.memberId);
-      const matchesSearchTerm = member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+      const matchesSearchTerm = loan.memberName ? loan.memberName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const matchesStatus = selectedStatusFilter === 'all' || loan.status === selectedStatusFilter;
       return matchesSearchTerm && matchesStatus;
     });
-  }, [loans, members, searchTerm, selectedStatusFilter]);
+  }, [loans, searchTerm, selectedStatusFilter]);
   
   const getStatusBadgeVariant = (status: Loan['status']) => {
     switch (status) {
