@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import {
   Table,
@@ -19,70 +19,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockMembers, mockSchools, mockSavingAccountTypes } from '@/data/mock';
-import type { Member, School, SavingAccountType } from '@/types';
-import { Search, Filter, SchoolIcon, DollarSign, Users, TrendingUp, FileDown } from 'lucide-react';
+import type { School } from '@prisma/client';
+import { Search, Filter, SchoolIcon, DollarSign, Users, TrendingUp, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { differenceInMonths, parseISO } from 'date-fns';
 import { exportToExcel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-interface MemberSavingsSummary {
-  memberId: string;
-  fullName: string;
-  schoolName?: string;
-  schoolId: string;
-  savingsBalance: number;
-  savingsAccountNumber?: string;
-  savingAccountTypeName?: string;
-  fulfillmentPercentage: number;
-}
+import { getSavingsAccountPageData, type MemberSavingsSummary } from './actions';
 
 export default function SavingsAccountsPage() {
-  const [allMembers] = useState<Member[]>(mockMembers);
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [allSavingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
+  const [memberSummaries, setMemberSummaries] = useState<MemberSavingsSummary[]>([]);
+  const [allSchools, setAllSchools] = useState<Pick<School, 'id' | 'name'>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  
+  useEffect(() => {
+    async function fetchData() {
+        setIsLoading(true);
+        const data = await getSavingsAccountPageData();
+        setMemberSummaries(data.summaries);
+        setAllSchools(data.schools);
+        setIsLoading(false);
+    }
+    fetchData();
+  }, []);
 
-  const memberSavingsSummaries = useMemo((): MemberSavingsSummary[] => {
-    return allMembers.map(member => {
-      const { savingsBalance, expectedMonthlySaving, joinDate, savingAccountTypeId } = member;
-      const joinDateObj = parseISO(joinDate);
-      const currentDate = new Date();
-      let contributionPeriods = 0;
-      if (joinDateObj <= currentDate) {
-        contributionPeriods = differenceInMonths(currentDate, joinDateObj) + 1;
-      }
-      contributionPeriods = Math.max(0, contributionPeriods);
-
-      const totalExpected = (expectedMonthlySaving || 0) * contributionPeriods;
-      const fulfillmentPercentage = totalExpected > 0 ? (savingsBalance / totalExpected) * 100 : (savingsBalance > 0 ? 100 : 0);
-      
-      const accountType = allSavingAccountTypes.find(sat => sat.id === savingAccountTypeId);
-
-      return {
-        memberId: member.id,
-        fullName: member.fullName,
-        schoolName: member.schoolName || allSchools.find(s => s.id === member.schoolId)?.name,
-        schoolId: member.schoolId,
-        savingsBalance,
-        savingsAccountNumber: member.savingsAccountNumber,
-        savingAccountTypeName: member.savingAccountTypeName || accountType?.name,
-        fulfillmentPercentage,
-      };
-    });
-  }, [allMembers, allSchools, allSavingAccountTypes]);
 
   const filteredMemberSummaries = useMemo(() => {
-    return memberSavingsSummaries.filter(summary => {
+    return memberSummaries.filter(summary => {
       const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
-  }, [memberSavingsSummaries, searchTerm, selectedSchoolFilter]);
+  }, [memberSummaries, searchTerm, selectedSchoolFilter]);
 
   const globalSummaryStats = useMemo(() => {
     const totalSavingsGlobal = filteredMemberSummaries.reduce((sum, m) => sum + m.savingsBalance, 0);
@@ -101,11 +72,19 @@ export default function SavingsAccountsPage() {
     }));
     exportToExcel(dataToExport, 'savings_accounts_summary_export');
   };
+  
+  if (isLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      );
+  }
 
   return (
     <div className="space-y-6">
       <PageTitle title="Savings Accounts Summary" subtitle="View member savings balances and contribution fulfillment.">
-        <Button onClick={handleExport} variant="outline">
+        <Button onClick={handleExport} variant="outline" disabled={filteredMemberSummaries.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
       </PageTitle>
@@ -182,10 +161,10 @@ export default function SavingsAccountsPage() {
                 <TableCell>{summary.savingAccountTypeName || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold text-green-600">${summary.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-center">
-                    {(allMembers.find(m=>m.id === summary.memberId)?.expectedMonthlySaving || 0) > 0 ? (
+                    {summary.expectedMonthlySaving > 0 ? (
                       <div className="flex flex-col items-center">
                         <Progress value={Math.min(100, summary.fulfillmentPercentage)} className="h-2 w-full" />
-                        <span className="text-xs mt-1">{Math.min(100, Math.max(0, summary.fulfillmentPercentage)).toFixed(1)}%</span>
+                        <span className="text-xs mt-1">{Math.min(100, summary.fulfillmentPercentage).toFixed(1)}%</span>
                       </div>
                     ) : (
                         <span className="text-muted-foreground text-xs">N/A (No exp. contrib.)</span>

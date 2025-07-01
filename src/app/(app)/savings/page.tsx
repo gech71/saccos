@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -23,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,8 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { mockSavings, mockMembers, mockSchools } from '@/data/mock';
-import type { Saving, Member, School } from '@/types';
+import type { Saving, Member } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -50,31 +58,36 @@ import {
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
+import { getSavingsPageData, addSavingTransaction, updateSavingTransaction, deleteSavingTransaction, type SavingsPageData, type SavingInput } from './actions';
 
 
-const initialTransactionFormState: Partial<Saving> = {
+const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   memberId: '',
   amount: 0,
   date: new Date().toISOString().split('T')[0],
   month: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
   transactionType: 'deposit',
   depositMode: 'Cash',
-  paymentDetails: {
-    sourceName: '',
-    transactionReference: '',
-    evidenceUrl: '',
-  },
+  sourceName: '',
+  transactionReference: '',
+  evidenceUrl: '',
 };
 
+type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>;
 
 export default function SavingsPage() {
-  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>(mockSavings);
-  const [members] = useState<Member[]>(mockMembers);
+  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>([]);
+  const [members, setMembers] = useState<MemberForSelect[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentTransaction, setCurrentTransaction] = useState<Partial<Saving>>(initialTransactionFormState);
+  const [currentTransaction, setCurrentTransaction] = useState<Partial<SavingInput & {id?: string}>>(initialTransactionFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -83,13 +96,26 @@ export default function SavingsPage() {
 
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+  
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getSavingsPageData();
+        setSavingsTransactions(data.savings);
+        setMembers(data.members);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
+    }
+    setIsLoading(false);
+  };
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
-  }, []);
+    fetchPageData();
+  }, [toast]);
 
   const member = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
@@ -100,20 +126,7 @@ export default function SavingsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const nameParts = name.split('.');
-
-    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
-        const fieldName = nameParts[1] as keyof NonNullable<Saving['paymentDetails']>;
-        setCurrentTransaction(prev => ({
-            ...prev,
-            paymentDetails: {
-                ...(prev?.paymentDetails || {}),
-                [fieldName]: value,
-            }
-        }));
-    } else {
-        setCurrentTransaction(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
-    }
+    setCurrentTransaction(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
 
     if (name === 'date') {
         const dateObj = new Date(value);
@@ -139,14 +152,16 @@ export default function SavingsPage() {
       const updatedSaving = { ...prev, transactionType: value };
       if (value === 'withdrawal') {
         updatedSaving.depositMode = undefined;
-        updatedSaving.paymentDetails = undefined;
+        updatedSaving.sourceName = undefined;
+        updatedSaving.transactionReference = undefined;
+        updatedSaving.evidenceUrl = undefined;
+
         if (!isEditing && updatedSaving.memberId) {
           const member = members.find(m => m.id === updatedSaving.memberId);
           updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
         }
       } else { 
         updatedSaving.depositMode = prev.depositMode || initialTransactionFormState.depositMode;
-        updatedSaving.paymentDetails = prev.paymentDetails || initialTransactionFormState.paymentDetails;
         if (!isEditing) { 
           updatedSaving.amount = 0;
         }
@@ -156,56 +171,43 @@ export default function SavingsPage() {
   };
 
   const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setCurrentTransaction(prev => ({
-        ...prev,
-        depositMode: value,
-        paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''}),
-    }));
+    setCurrentTransaction(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleSubmitTransaction = (e: React.FormEvent) => {
+  const handleSubmitTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentTransaction.memberId || currentTransaction.amount === undefined || currentTransaction.amount < 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid non-negative amount.' });
+    if (!currentTransaction.memberId || currentTransaction.amount === undefined || currentTransaction.amount <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid positive amount.' });
         return;
     }
     if (currentTransaction.transactionType === 'deposit' && !currentTransaction.depositMode) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a deposit mode.' });
         return;
     }
-    if ((currentTransaction.depositMode === 'Bank' || currentTransaction.depositMode === 'Wallet') && !currentTransaction.paymentDetails?.sourceName) {
+    if ((currentTransaction.depositMode === 'Bank' || currentTransaction.depositMode === 'Wallet') && !currentTransaction.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter the Bank/Wallet Name for this deposit.' });
         return;
     }
 
-    const memberName = members.find(m => m.id === currentTransaction.memberId)?.fullName;
-    let transactionDataToSave = { ...currentTransaction, memberName, status: 'pending' as const };
-
-    if (transactionDataToSave.transactionType === 'withdrawal' || transactionDataToSave.depositMode === 'Cash') {
-        transactionDataToSave.paymentDetails = undefined;
-    }
-    if (transactionDataToSave.transactionType === 'withdrawal') {
-        transactionDataToSave.depositMode = undefined;
-    }
+    setIsSubmitting(true);
     
-    if (isEditing && transactionDataToSave.id) {
-        setSavingsTransactions(prev => prev.map(st => st.id === transactionDataToSave.id ? {...st, ...transactionDataToSave} as Saving : st));
-        toast({ title: 'Success', description: `Savings transaction for ${memberName} updated. It may require re-approval.` });
-    } else {
-        const newTransaction: Saving = {
-          id: `saving-${Date.now()}`,
-          ...initialTransactionFormState, 
-          ...transactionDataToSave,
-          amount: transactionDataToSave.amount || 0,
-          status: 'pending',
-        } as Saving;
-        setSavingsTransactions(prev => [newTransaction, ...prev]);
-        toast({ title: 'Transaction Submitted', description: `Savings transaction for ${memberName} sent for approval.` });
+    try {
+        if (isEditing && currentTransaction.id) {
+            await updateSavingTransaction(currentTransaction.id, currentTransaction as SavingInput);
+            toast({ title: 'Success', description: `Savings transaction updated. It requires re-approval.` });
+        } else {
+            await addSavingTransaction(currentTransaction as SavingInput);
+            toast({ title: 'Transaction Submitted', description: `Savings transaction sent for approval.` });
+        }
+        
+        await fetchPageData();
+        setIsModalOpen(false);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
+    } finally {
+        setIsSubmitting(false);
     }
-    
-    setIsModalOpen(false);
-    setCurrentTransaction(initialTransactionFormState);
-    setIsEditing(false);
   };
 
   const openAddTransactionModal = () => {
@@ -215,16 +217,30 @@ export default function SavingsPage() {
   };
   
   const openEditModal = (transaction: Saving) => {
-    setCurrentTransaction(transaction);
+    setCurrentTransaction({
+        ...transaction,
+        date: new Date(transaction.date).toISOString().split('T')[0],
+    });
     setIsEditing(true);
     setIsModalOpen(true);
   };
   
-  const handleDelete = (transactionId: string) => {
-    if (window.confirm('Are you sure you want to delete this transaction record? This cannot be undone.')) {
-        setSavingsTransactions(prev => prev.filter(s => s.id !== transactionId));
-        toast({ title: 'Success', description: 'Transaction record deleted.' });
+  const openDeleteDialog = (transactionId: string) => {
+    setTransactionToDelete(transactionId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!transactionToDelete) return;
+    const result = await deleteSavingTransaction(transactionToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchPageData();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setTransactionToDelete(null);
+    setIsDeleteDialogOpen(false);
   };
   
   const getStatusBadgeVariant = (status: 'pending' | 'approved' | 'rejected') => {
@@ -270,8 +286,8 @@ export default function SavingsPage() {
         'Amount ($)': tx.amount,
         'Date': new Date(tx.date).toLocaleDateString(),
         'Deposit Mode': tx.depositMode || 'N/A',
-        'Source Name': tx.paymentDetails?.sourceName || '',
-        'Transaction Reference': tx.paymentDetails?.transactionReference || '',
+        'Source Name': tx.sourceName || '',
+        'Transaction Reference': tx.transactionReference || '',
         'Notes': tx.notes || ''
     }));
     exportToExcel(dataToExport, 'savings_transactions_export');
@@ -282,10 +298,10 @@ export default function SavingsPage() {
       <PageTitle title={userRole === 'member' ? 'My Savings' : "Savings Transactions"} subtitle={userRole === 'member' ? "View your savings transaction history." : "View and manage individual savings deposits and withdrawals."}>
        {userRole === 'admin' && (
         <>
-          <Button onClick={handleExport} variant="outline">
+          <Button onClick={handleExport} variant="outline" disabled={isLoading}>
               <FileDown className="mr-2 h-4 w-4" /> Export
           </Button>
-          <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow">
+          <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
             <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
           </Button>
         </>
@@ -296,7 +312,7 @@ export default function SavingsPage() {
         <div className="mb-6">
             <StatCard
               title="My Current Savings Balance"
-              value={`$${member.savingsBalance.toFixed(2)}`}
+              value={`$${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               icon={<WalletCards className="h-6 w-6 text-accent" />}
               description={`Account #: ${member.savingsAccountNumber}`}
             />
@@ -378,7 +394,9 @@ export default function SavingsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={userRole === 'admin' ? 7 : 6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
               <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
                 {userRole === 'admin' && <TableCell className="font-medium">{tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A'}</TableCell>}
                 <TableCell>
@@ -388,7 +406,7 @@ export default function SavingsPage() {
                   </span>
                 </TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(tx.status)}>{tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">${tx.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-semibold">${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                 <TableCell>{tx.depositMode || 'N/A'}</TableCell>
                 {userRole === 'admin' && <TableCell className="text-right">
@@ -403,7 +421,7 @@ export default function SavingsPage() {
                       <DropdownMenuItem onClick={() => openEditModal(tx)} disabled={tx.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -422,7 +440,7 @@ export default function SavingsPage() {
       </div>
 
     {/* Transaction Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => {if (!isSubmitting) setIsModalOpen(open)}}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Savings Transaction' : 'Add New Savings Transaction'}</DialogTitle>
@@ -513,31 +531,25 @@ export default function SavingsPage() {
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="paymentDetails.sourceName">{currentTransaction.depositMode} Name</Label>
+                                    <Label htmlFor="sourceName">{currentTransaction.depositMode} Name</Label>
                                     <div className="relative">
                                      {currentTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                                      {currentTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                    <Input id="paymentDetails.sourceName" name="paymentDetails.sourceName" placeholder={`Enter ${currentTransaction.depositMode} Name`} value={currentTransaction.paymentDetails?.sourceName || ''} onChange={handleInputChange} className="pl-8" />
+                                    <Input id="sourceName" name="sourceName" placeholder={`Enter ${currentTransaction.depositMode} Name`} value={currentTransaction.sourceName || ''} onChange={handleInputChange} className="pl-8" />
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="paymentDetails.transactionReference">Transaction Reference</Label>
-                                    <Input id="paymentDetails.transactionReference" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentTransaction.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
+                                    <Label htmlFor="transactionReference">Transaction Reference</Label>
+                                    <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={currentTransaction.transactionReference || ''} onChange={handleInputChange} />
                                 </div>
                             </div>
                             <div className="pl-3">
                                 <FileUpload
-                                    id="paymentDetails.evidenceUrl"
+                                    id="evidenceUrl"
                                     label="Evidence Attachment"
-                                    value={currentTransaction.paymentDetails?.evidenceUrl || ''}
+                                    value={currentTransaction.evidenceUrl || ''}
                                     onValueChange={(newValue) => {
-                                        setCurrentTransaction(prev => ({
-                                            ...prev,
-                                            paymentDetails: {
-                                                ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
-                                                evidenceUrl: newValue,
-                                            }
-                                        }));
+                                        setCurrentTransaction(prev => ({...prev, evidenceUrl: newValue}));
                                     }}
                                 />
                             </div>
@@ -546,14 +558,32 @@ export default function SavingsPage() {
                 </>
             )}
             <DialogFooter className="pt-6">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Submit for Approval'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Submit for Approval'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently delete this transaction record. This action cannot be undone and is only available for transactions that have not been approved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete transaction
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-    
