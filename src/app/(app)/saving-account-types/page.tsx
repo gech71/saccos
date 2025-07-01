@@ -107,7 +107,7 @@ export default function SavingAccountTypesPage() {
             await updateSavingAccountType(currentAccountType.id, dataToSave);
             toast({ title: 'Success', description: 'Saving account type updated successfully.' });
         } else {
-            await addSavingAccountType(dataToSave);
+            await addSavingAccountType(dataToSave as Omit<SavingAccountType, 'id'>);
             toast({ title: 'Success', description: 'Saving account type added successfully.' });
         }
         await fetchAccountTypes();

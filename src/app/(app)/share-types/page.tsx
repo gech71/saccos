@@ -100,7 +100,7 @@ export default function ShareTypesPage() {
             await updateShareType(currentShareType.id, dataToSave);
             toast({ title: 'Success', description: 'Share type updated successfully.' });
         } else {
-            await addShareType(dataToSave);
+            await addShareType(dataToSave as Omit<ShareType, 'id'>);
             toast({ title: 'Success', description: 'Share type added successfully.' });
         }
         await fetchShareTypes();
