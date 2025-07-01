@@ -122,6 +122,9 @@ export default function RegisterUserPage() {
              <div>
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" name="password" type="password" value={formData.password} onChange={handleInputChange} required />
+                 <p className="text-xs text-muted-foreground mt-1">
+                    Password must be at least 6 characters and include an uppercase letter, a number, and a special character (e.g., !@#$%).
+                </p>
             </div>
              <div>
                 <Label className="font-semibold text-base text-primary">Assign Roles</Label>

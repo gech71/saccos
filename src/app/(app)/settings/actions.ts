@@ -105,7 +105,9 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
     });
 
     if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
-        throw new Error(registerResponse.data.errors?.[0] || 'External registration failed.');
+        console.error("External registration failed. API Response:", registerResponse.data);
+        const errorMessage = registerResponse.data.errors?.join(' ') || 'External registration failed. Please ensure the password meets complexity requirements and the user details are unique.';
+        throw new Error(errorMessage);
     }
     
     const externalUserId = registerResponse.data.userId;
