@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { School, Share, Saving, Member, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@prisma/client';
 import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
+import { revalidatePath } from 'next/cache';
 
 export interface OverdueShareDetail {
   shareTypeId: string;
@@ -129,7 +130,7 @@ export type OverduePaymentInput = {
 };
 
 export async function recordOverduePayment(data: OverduePaymentInput): Promise<{success: boolean}> {
-    const { memberId, memberName, savingsAmount, shareAmounts, serviceChargeAmount, paymentDate, depositMode, paymentDetails } = data;
+    const { memberId, savingsAmount, shareAmounts, serviceChargeAmount, paymentDate, depositMode, paymentDetails } = data;
     const date = new Date(paymentDate);
     const month = format(date, 'MMMM yyyy');
 
