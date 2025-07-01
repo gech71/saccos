@@ -214,6 +214,6 @@ export const mockSavings: Saving[] = [
     month: 'March 2024',
     transactionType: 'withdrawal',
     status: 'rejected',
-    notes: 'Withdrawal amount exceeds member\\'s current savings balance.'
+    notes: 'Withdrawal amount exceeds member\'s current savings balance.'
   },
 ];
