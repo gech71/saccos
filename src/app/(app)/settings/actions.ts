@@ -130,14 +130,23 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         revalidatePath('/settings');
         return newUser;
     } catch (error) {
+        // If it's an Axios error, it means the request failed (e.g. 400, 401, 500)
         if (axios.isAxiosError(error) && error.response) {
             console.error('API Error:', error.response.data);
+            // Try to get a specific error message from the API response
             const apiErrors = error.response.data.errors || [error.response.data.message] || ['The server returned a bad request.'];
             const errorMessage = Array.isArray(apiErrors) ? apiErrors.join(' ') : 'External registration failed. Please check the details and try again.';
             throw new Error(errorMessage);
         }
+
+        // If it's a regular Error object (likely thrown from our own logic above), re-throw it to preserve the specific message.
+        if (error instanceof Error) {
+            throw error;
+        }
+
+        // Fallback for any other kind of error
         console.error('Generic Error during registration:', error);
-        throw new Error('An unexpected error occurred during registration.');
+        throw new Error('An unexpected, non-standard error occurred during registration.');
     }
 }
 
