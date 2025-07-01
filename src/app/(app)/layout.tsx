@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings } from 'lucide-react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -57,6 +57,7 @@ const navItems: NavItem[] = [
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
   { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck },
   { title: 'AI Reports', href: '/reports', icon: FileText },
+  { title: 'Settings', href: '/settings', icon: Settings },
 
   // CONFIGURATION
   { title: 'Configuration', isGroupLabel: true },
