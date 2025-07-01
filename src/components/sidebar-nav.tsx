@@ -55,26 +55,25 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
           const isActive = item.href === '/' ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <SidebarMenuItem key={index}>
-              <Link href={item.disabled ? '#' : item.href} asChild>
-                <SidebarMenuButton
-                  variant={isActive ? 'default' : 'ghost'}
-                  className={cn(
-                    isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                    item.disabled && 'cursor-not-allowed opacity-80'
-                  )}
-                  onClick={() => {
-                    if (item.disabled) return; 
-                    if (setOpenMobile) setOpenMobile(false);
-                  }}
-                  disabled={item.disabled}
-                  tooltip={item.title}
-                >
-                  <>
-                    <Icon className="mr-2 h-5 w-5" />
-                    <span className="truncate">{item.title}</span>
-                  </>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton
+                asChild
+                variant={isActive ? 'default' : 'ghost'}
+                className={cn(
+                  isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  item.disabled && 'cursor-not-allowed opacity-80'
+                )}
+                onClick={() => {
+                  if (item.disabled) return; 
+                  if (setOpenMobile) setOpenMobile(false);
+                }}
+                disabled={item.disabled}
+                tooltip={item.title}
+              >
+                <Link href={item.disabled ? '#' : item.href}>
+                  <Icon className="mr-2 h-5 w-5" />
+                  <span className="truncate">{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           );
         })}
