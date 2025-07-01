@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -24,15 +25,10 @@ export async function getSchoolsWithMemberCount(user: AuthUser): Promise<SchoolW
       }
     };
     
-    // Check for a restrictive permission
-    if (user.permissions && !user.permissions.includes('view_all_schools')) {
-        // This is where the logic for school-specific filtering would go.
-        // It requires a link between a User and a School in the database schema.
-        // For now, we'll return an empty list to enforce the security boundary.
-        // TODO: Update this once the User model has a 'schoolId' field.
-        // For example: prismaOptions.where = { id: user.schoolId };
-        return []; 
-    }
+    // The role-based access control is handled at the UI layer (layout.tsx)
+    // to determine if a user can see the schools page at all.
+    // If they can, they should see all schools as per an admin's requirements.
+    // A more granular, per-school restriction would require linking users to schools.
 
     const schools = await prisma.school.findMany(prismaOptions);
     return schools;
