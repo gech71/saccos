@@ -29,19 +29,20 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
   };
 }
 
-export type DividendInput = Omit<Dividend, 'id' | 'status'>;
+export type DividendInput = Omit<Dividend, 'id' | 'status'> & { memberName?: string };
 
 export async function addDividend(data: DividendInput): Promise<Dividend> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
-  const { memberName, ...restOfData } = data;
-
   const newDividend = await prisma.dividend.create({
     data: {
-      ...restOfData,
+      memberId: data.memberId,
+      amount: data.amount,
       distributionDate: new Date(data.distributionDate),
+      shareCountAtDistribution: data.shareCountAtDistribution,
       status: 'pending',
+      notes: data.notes,
     },
   });
 
@@ -51,17 +52,21 @@ export async function addDividend(data: DividendInput): Promise<Dividend> {
 }
 
 export async function updateDividend(id: string, data: Partial<DividendInput>): Promise<Dividend> {
+  if (!data.memberId) {
+    throw new Error('Member is required to update a dividend record.');
+  }
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
-
-  const { memberName, ...restOfData } = data;
   
   const updatedDividend = await prisma.dividend.update({
     where: { id },
     data: {
-      ...restOfData,
+      memberId: data.memberId,
+      amount: data.amount,
       distributionDate: data.distributionDate ? new Date(data.distributionDate) : undefined,
+      shareCountAtDistribution: data.shareCountAtDistribution,
       status: 'pending', // Re-submit for approval on edit
+      notes: data.notes,
     },
   });
 
