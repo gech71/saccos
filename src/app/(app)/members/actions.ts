@@ -87,6 +87,25 @@ export type MemberInput = Omit<Member, 'id' | 'schoolName' | 'savingAccountTypeN
 export async function addMember(data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, ...memberData } = data;
 
+    // Check for uniqueness of savingsAccountNumber
+    if (memberData.savingsAccountNumber) {
+        const existingMemberByAccount = await prisma.member.findUnique({
+            where: { savingsAccountNumber: memberData.savingsAccountNumber },
+        });
+        if (existingMemberByAccount) {
+            throw new Error(`A member with savings account number '${memberData.savingsAccountNumber}' already exists.`);
+        }
+    }
+    // Check for uniqueness of email
+    if (memberData.email) {
+        const existingMemberByEmail = await prisma.member.findUnique({
+            where: { email: memberData.email },
+        });
+        if (existingMemberByEmail) {
+            throw new Error(`A member with email '${memberData.email}' already exists.`);
+        }
+    }
+
     const newMember = await prisma.member.create({
         data: {
             ...memberData,
@@ -110,6 +129,24 @@ export async function addMember(data: MemberInput): Promise<Member> {
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, ...memberData } = data;
+
+    // Uniqueness checks for email and savings account number
+    if (memberData.savingsAccountNumber) {
+        const existingMember = await prisma.member.findUnique({
+            where: { savingsAccountNumber: memberData.savingsAccountNumber },
+        });
+        if (existingMember && existingMember.id !== id) {
+            throw new Error(`Savings account number '${memberData.savingsAccountNumber}' is already in use by another member.`);
+        }
+    }
+    if (memberData.email) {
+        const existingMemberByEmail = await prisma.member.findUnique({
+            where: { email: memberData.email },
+        });
+        if (existingMemberByEmail && existingMemberByEmail.id !== id) {
+            throw new Error(`Email '${memberData.email}' is already in use by another member.`);
+        }
+    }
     
     const existingMember = await prisma.member.findUnique({
       where: { id },
