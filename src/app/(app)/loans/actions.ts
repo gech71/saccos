@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 export type LoanWithDetails = Loan & { 
   collaterals: (Collateral & { organization: Organization | null, address: Address | null })[]
   memberName?: string;
+  loanTypeName?: string;
 };
 
 export interface LoansPageData {
@@ -23,6 +24,11 @@ export async function getLoansPageData(): Promise<LoansPageData> {
       member: {
         select: {
           fullName: true
+        }
+      },
+      loanType: {
+        select: {
+          name: true,
         }
       },
       collaterals: {
@@ -52,6 +58,7 @@ export async function getLoansPageData(): Promise<LoansPageData> {
     loans: loans.map(l => ({ 
       ...l, 
       memberName: l.member.fullName,
+      loanTypeName: l.loanType.name,
       disbursementDate: l.disbursementDate.toISOString(), 
       nextDueDate: l.nextDueDate?.toISOString() ?? null 
     })),
@@ -66,7 +73,7 @@ export type CollateralInput = Omit<Collateral, 'id' | 'loanId'> & {
     address?: Prisma.AddressCreateWithoutCollateralInput;
 }
 
-export type LoanInput = Omit<Loan, 'id' | 'loanTypeName' | 'interestRate' | 'loanTerm' | 'repaymentFrequency' | 'remainingBalance' | 'collaterals' | 'disbursementDate' | 'nextDueDate' | 'notes'> & {
+export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'loanTerm' | 'repaymentFrequency' | 'remainingBalance' | 'collaterals' | 'disbursementDate' | 'nextDueDate' | 'notes'> & {
     disbursementDate: string;
     notes?: string | null;
     collaterals?: CollateralInput[];
@@ -84,10 +91,8 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   const newLoan = await prisma.loan.create({
     data: {
       ...loanData,
-      memberName: member.fullName,
       disbursementDate: new Date(loanData.disbursementDate),
       loanAccountNumber: loanData.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
-      loanTypeName: loanType.name,
       interestRate: loanType.interestRate,
       loanTerm: loanType.loanTerm,
       repaymentFrequency: loanType.repaymentFrequency,
@@ -116,9 +121,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
         where: { id },
         data: {
             ...loanData,
-            memberName: member.fullName,
             disbursementDate: new Date(loanData.disbursementDate),
-            loanTypeName: loanType.name,
             interestRate: loanType.interestRate,
             loanTerm: loanType.loanTerm,
             repaymentFrequency: loanType.repaymentFrequency,

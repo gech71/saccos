@@ -32,11 +32,37 @@ async function main() {
 
   // 2. Seed Roles
   console.log('Seeding roles...');
+  const adminPermissions = [
+      'dashboard:view', 'school:view', 'school:create', 'school:edit', 'school:delete',
+      'member:view', 'member:create', 'member:edit', 'member:delete',
+      'saving:view', 'saving:create', 'saving:edit', 'saving:delete',
+      'savingAccount:view', 'groupCollection:view', 'groupCollection:create',
+      'interestCalculation:view', 'interestCalculation:create', 'accountStatement:view',
+      'accountClosure:view', 'accountClosure:create', 'closedAccount:view',
+      'loan:view', 'loan:create', 'loan:edit', 'loan:delete',
+      'loanRepayment:view', 'loanRepayment:create', 'groupLoanRepayment:view',
+      'groupLoanRepayment:create', 'overdueLoan:view',
+      'share:view', 'share:create', 'share:edit', 'share:delete',
+      'dividend:view', 'dividend:create', 'dividend:edit', 'dividend:delete',
+      'transactionApproval:view', 'transactionApproval:edit',
+      'serviceCharge:view', 'serviceCharge:create', 'serviceCharge:edit',
+      'overduePayment:view', 'overduePayment:create',
+      'report:view', 'setting:view', 'setting:create', 'setting:edit', 'setting:delete',
+      'configuration:view', 'configuration:create', 'configuration:edit', 'configuration:delete',
+  ];
+
+  const staffPermissions = [
+      'dashboard:view', 'school:view', 'member:view', 'member:create', 'member:edit',
+      'saving:view', 'saving:create', 'loan:view', 'loan:create', 'share:view',
+      'share:create', 'dividend:view', 'loanRepayment:view', 'loanRepayment:create',
+      'accountStatement:view'
+  ];
+
   const adminRole = await prisma.role.create({
     data: {
       name: 'Admin',
       description: 'Administrator with full access',
-      permissions: ['manage_users', 'manage_settings', 'view_reports', 'manage_members', 'manage_finances'],
+      permissions: adminPermissions,
     },
   });
   
@@ -44,7 +70,7 @@ async function main() {
     data: {
       name: 'Staff',
       description: 'Regular staff member with limited access',
-      permissions: ['view_reports', 'manage_members'],
+      permissions: staffPermissions,
     },
   });
 
