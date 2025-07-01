@@ -1,11 +1,9 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, UploadCloud, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -34,8 +32,6 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { mockShares, mockMembers, mockShareTypes } from '@/data/mock';
-import type { Share, Member, ShareType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -45,36 +41,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
-import { differenceInMonths } from 'date-fns';
-import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
 import { FileUpload } from '@/components/file-upload';
+import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput } from './actions';
+import type { Share, Member, ShareType } from '@prisma/client';
 
-// Adjusted initial state: remove count, add contributionAmount
-const initialShareFormState: Partial<Omit<Share, 'id' | 'count'>> & { contributionAmount?: number } = {
+const initialShareFormState: Partial<ShareInput & {id?: string}> = {
   memberId: '',
   shareTypeId: '',
   contributionAmount: 0,
   allocationDate: new Date().toISOString().split('T')[0],
-  valuePerShare: 0, // This will be derived from shareTypeId
   depositMode: 'Cash',
-  paymentDetails: {
-    sourceName: '',
-    transactionReference: '',
-    evidenceUrl: '',
-  }
+  sourceName: '',
+  transactionReference: '',
+  evidenceUrl: '',
 };
 
 export default function SharesPage() {
-  const [shares, setShares] = useState<Share[]>(mockShares);
-  const [members, setMembersState] = useState<Member[]>(mockMembers);
-  const [shareTypes, setShareTypesState] = useState<ShareType[]>(mockShareTypes);
+  const [shares, setShares] = useState<Share[]>([]);
+  const [members, setMembersState] = useState<Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[]>([]);
+  const [shareTypes, setShareTypesState] = useState<ShareType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentShare, setCurrentShare] = useState<Partial<Omit<Share, 'id' | 'count' | 'paymentDetails' | 'status'>> & { contributionAmount?: number, paymentDetails?: Share['paymentDetails'] }>(initialShareFormState);
+  const [currentShare, setCurrentShare] = useState<Partial<ShareInput & { id?: string, valuePerShare?: number, shareTypeName?: string }>>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
@@ -84,29 +79,42 @@ export default function SharesPage() {
 
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+  
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getSharesPageData();
+        setShares(data.shares);
+        setMembersState(data.members);
+        setShareTypesState(data.shareTypes);
+    } catch {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+    } finally {
+        setIsLoading(false);
+    }
+  }
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
-  }, []);
+    fetchPageData();
+  }, [toast]);
 
   const memberData = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
-        const member = members.find(m => m.id === loggedInMemberId);
-        if (!member) return null;
-        
         const memberApprovedShares = shares.filter(s => s.memberId === loggedInMemberId && s.status === 'approved');
+        const totalShares = memberApprovedShares.reduce((sum, s) => sum + s.count, 0);
         const totalValue = memberApprovedShares.reduce((sum, s) => sum + (s.totalValueForAllocation || s.count * s.valuePerShare), 0);
 
         return {
-            ...member,
+            totalShares,
             totalSharesValue: totalValue,
         };
     }
     return null;
-  }, [userRole, loggedInMemberId, members, shares]);
+  }, [userRole, loggedInMemberId, shares]);
 
   useEffect(() => {
     const { contributionAmount, valuePerShare } = currentShare;
@@ -118,25 +126,14 @@ export default function SharesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const nameParts = name.split('.');
-
-    if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
-        const fieldName = nameParts[1] as keyof NonNullable<Share['paymentDetails']>;
-        setCurrentShare(prev => ({
-            ...prev,
-            paymentDetails: {
-                ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: ''}),
-                [fieldName]: value,
-            }
-        }));
-    } else if (name === 'contributionAmount') {
+    if (name === 'contributionAmount') {
         setCurrentShare(prev => ({ ...prev, contributionAmount: parseFloat(value) || 0 }));
     } else {
         setCurrentShare(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleSelectChange = (name: keyof (Omit<Share, 'id' | 'count'> & { contributionAmount?: number }), value: string) => {
+  const handleSelectChange = (name: keyof Share, value: string) => {
     const selectedType = shareTypes.find(st => st.id === value);
     const newValuePerShare = selectedType?.valuePerShare || 0;
     const shareTypeName = selectedType?.name || '';
@@ -147,16 +144,12 @@ export default function SharesPage() {
         setCurrentShare(prev => ({ ...prev, [name]: value }));
     }
   };
-
+  
   const handleShareDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setCurrentShare(prev => ({
-      ...prev,
-      depositMode: value,
-      paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
-    }));
+    setCurrentShare(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.contributionAmount || currentShare.contributionAmount <= 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid contribution amount.' });
@@ -166,50 +159,28 @@ export default function SharesPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Contribution amount is not enough to allocate any shares.' });
         return;
     }
-    if ((currentShare.depositMode === 'Bank' || currentShare.depositMode === 'Wallet') && !currentShare.paymentDetails?.sourceName) {
+    if ((currentShare.depositMode === 'Bank' || currentShare.depositMode === 'Wallet') && !currentShare.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${currentShare.depositMode} Name.` });
         return;
     }
     
-    const selectedType = shareTypes.find(st => st.id === currentShare.shareTypeId);
-    if (!selectedType) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid share type selected.'});
-        return;
+    setIsSubmitting(true);
+    try {
+        if (isEditing && currentShare.id) {
+            await updateShare(currentShare.id, currentShare as ShareInput);
+            toast({ title: 'Success', description: 'Share record updated and is pending re-approval.' });
+        } else {
+            await addShare(currentShare as ShareInput);
+            toast({ title: 'Submitted for Approval', description: `${calculatedShares} share(s) allocation submitted.` });
+        }
+        await fetchPageData();
+        setIsModalOpen(false);
+    } catch(error) {
+        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
+    } finally {
+        setIsSubmitting(false);
     }
-
-    const memberName = members.find(m => m.id === currentShare.memberId)?.fullName;
-    const totalValueForAllocation = calculatedShares * selectedType.valuePerShare;
-
-    let shareDataToSave: Omit<Share, 'id'> & { id?: string } = {
-        memberId: currentShare.memberId!,
-        memberName,
-        shareTypeId: currentShare.shareTypeId!,
-        shareTypeName: selectedType.name,
-        count: calculatedShares,
-        status: 'pending',
-        allocationDate: currentShare.allocationDate || new Date().toISOString().split('T')[0],
-        valuePerShare: selectedType.valuePerShare,
-        contributionAmount: currentShare.contributionAmount,
-        totalValueForAllocation: totalValueForAllocation,
-        depositMode: currentShare.depositMode,
-        paymentDetails: currentShare.depositMode === 'Cash' ? undefined : currentShare.paymentDetails,
-    };
-
-
-    if (isEditing && currentShare.id) {
-      shareDataToSave.id = currentShare.id;
-      setShares(prev => prev.map(s => s.id === shareDataToSave.id ? shareDataToSave as Share : s));
-      toast({ title: 'Success', description: `Share record for ${memberName} updated and is pending re-approval.` });
-    } else {
-      shareDataToSave.id = `share-${Date.now()}`;
-      setShares(prev => [shareDataToSave as Share, ...prev]);
-      toast({ title: 'Submitted for Approval', description: `${calculatedShares} share(s) allocation for ${memberName} submitted.` });
-    }
-    
-    setIsModalOpen(false);
-    setCurrentShare(initialShareFormState);
-    setCalculatedShares(0);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -224,42 +195,35 @@ export default function SharesPage() {
       ...share,
       contributionAmount: share.contributionAmount || (share.count * share.valuePerShare),
       allocationDate: share.allocationDate ? new Date(share.allocationDate).toISOString().split('T')[0] : '',
-      paymentDetails: share.paymentDetails || initialShareFormState.paymentDetails,
     });
     setIsEditing(true);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (shareId: string) => {
-     if (window.confirm('Are you sure you want to delete this share record? This also adjusts member total shares.')) {
-        const shareToDelete = shares.find(s => s.id === shareId);
-        setShares(prev => prev.filter(s => s.id !== shareId));
-        
-        if (shareToDelete && shareToDelete.status === 'approved') {
-            setMembersState(prevMembers => prevMembers.map(mem => {
-                if (mem.id === shareToDelete.memberId) {
-                    return { ...mem, sharesCount: Math.max(0, mem.sharesCount - shareToDelete.count) };
-                }
-                return mem;
-            }));
+  const handleDelete = async (shareId: string) => {
+     if (window.confirm('Are you sure you want to delete this share record?')) {
+        const result = await deleteShare(shareId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchPageData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
-        toast({ title: 'Success', description: 'Share record deleted.' });
     }
   };
 
   const filteredShares = useMemo(() => {
     return shares.filter(share => {
-      if (userRole === 'member' && share.memberId !== loggedInMemberId) {
-        return false;
-      }
+      if (userRole === 'member' && share.memberId !== loggedInMemberId) return false;
       const member = members.find(m => m.id === share.memberId);
-      if (!member) return false;
-
-      const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = userRole === 'admin' ? (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower))) : true;
-
-      const matchesMemberFilter = userRole === 'admin' ? (selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter) : true;
-      return matchesSearchTerm && matchesMemberFilter;
+      if (userRole === 'admin') {
+          if (!member) return false;
+          const searchTermLower = searchTerm.toLowerCase();
+          const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower)));
+          const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
+          return matchesSearchTerm && matchesMemberFilter;
+      }
+      return true;
     });
   }, [shares, members, searchTerm, selectedMemberFilter, userRole, loggedInMemberId]);
 
@@ -298,10 +262,10 @@ export default function SharesPage() {
       <PageTitle title={userRole === 'member' ? 'My Shares' : "Share Contribution & Allocation"} subtitle={userRole === 'member' ? 'View your share allocation history' : "Record member share contributions and manage allocations."}>
         {userRole === 'admin' && (
             <>
-                <Button onClick={handleExport} variant="outline">
+                <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                     <FileDown className="mr-2 h-4 w-4" /> Export
                 </Button>
-                <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+                <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
                 </Button>
             </>
@@ -312,7 +276,7 @@ export default function SharesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <StatCard
                 title="My Total Shares"
-                value={memberData.sharesCount.toString()}
+                value={memberData.totalShares.toString()}
                 icon={<LucidePieChart className="h-6 w-6 text-accent" />}
             />
             <StatCard
@@ -388,14 +352,14 @@ export default function SharesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredShares.length > 0 ? filteredShares.map(share => {
-              const member = members.find(m => m.id === share.memberId);
+            {isLoading ? (
+                <TableRow><TableCell colSpan={userRole === 'admin' ? 8 : 7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredShares.length > 0 ? filteredShares.map(share => {
               const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
-
               return (
                 <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                  {userRole === 'admin' && <TableCell className="font-medium">{share.memberName || member?.fullName}</TableCell>}
-                  <TableCell><Badge variant="outline">{share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name}</Badge></TableCell>
+                  {userRole === 'admin' && <TableCell className="font-medium">{share.memberName}</TableCell>}
+                  <TableCell><Badge variant="outline">{share.shareTypeName}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -413,7 +377,7 @@ export default function SharesPage() {
                         <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <DropdownMenuItem onClick={() => handleDelete(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -474,7 +438,7 @@ export default function SharesPage() {
                             key={member.id}
                             value={`${member.fullName} ${member.savingsAccountNumber}`}
                             onSelect={() => {
-                              handleSelectChange('memberId', member.id);
+                              handleSelectChange('memberId' as any, member.id);
                               setOpenMemberCombobox(false);
                             }}
                           >
@@ -552,31 +516,21 @@ export default function SharesPage() {
                 <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                         <div>
-                            <Label htmlFor="paymentDetails.sourceNameShare">{currentShare.depositMode} Name</Label>
-                            <div className="relative">
-                                {currentShare.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                {currentShare.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
-                                <Input id="paymentDetails.sourceNameShare" name="paymentDetails.sourceName" placeholder={`Enter ${currentShare.depositMode} Name`} value={currentShare.paymentDetails?.sourceName || ''} onChange={handleInputChange} className="pl-8" />
-                            </div>
+                            <Label htmlFor="sourceName">Name</Label>
+                            <Input id="sourceName" name="sourceName" placeholder={`Enter ${currentShare.depositMode} Name`} value={currentShare.sourceName || ''} onChange={handleInputChange} />
                         </div>
                         <div>
-                            <Label htmlFor="paymentDetails.transactionReferenceShare">Transaction Reference</Label>
-                            <Input id="paymentDetails.transactionReferenceShare" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={currentShare.paymentDetails?.transactionReference || ''} onChange={handleInputChange} />
+                            <Label htmlFor="transactionReference">Ref #</Label>
+                            <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={currentShare.transactionReference || ''} onChange={handleInputChange} />
                         </div>
                     </div>
                     <div className="pl-3">
                          <FileUpload
-                            id="paymentDetails.evidenceUrlShare"
+                            id="evidenceUrl"
                             label="Evidence Attachment"
-                            value={currentShare.paymentDetails?.evidenceUrl || ''}
+                            value={currentShare.evidenceUrl || ''}
                             onValueChange={(newValue) => {
-                                setCurrentShare(prev => ({
-                                    ...prev,
-                                    paymentDetails: {
-                                        ...(prev?.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
-                                        evidenceUrl: newValue,
-                                    }
-                                }));
+                                setCurrentShare(prev => ({ ...prev, evidenceUrl: newValue }));
                             }}
                         />
                     </div>
@@ -584,8 +538,11 @@ export default function SharesPage() {
             )}
 
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit" disabled={calculatedShares <= 0 && (currentShare.contributionAmount || 0) > 0}>{isEditing ? 'Save Changes' : 'Submit for Approval'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting || (calculatedShares <= 0 && (currentShare.contributionAmount || 0) > 0)}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Submit for Approval'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

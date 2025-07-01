@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,116 +20,48 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { mockMembers, mockSavings, mockShares, mockDividends } from '@/data/mock';
-import type { Member, Saving, Share, Dividend } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, HandCoins, PieChart, Landmark, FileDown } from 'lucide-react';
+import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { exportToExcel } from '@/lib/utils';
-
-type PendingTransaction = (Saving | Share | Dividend) & { transactionTypeLabel: string };
-
-// Helper function to get data from localStorage or fall back to mock data
-const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
-    if (typeof window === 'undefined') {
-        return mockData;
-    }
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : mockData;
-    } catch (error) {
-        console.error(`Error reading ${key} from localStorage`, error);
-        return mockData;
-    }
-};
-
-// Helper function to save data to localStorage
-const saveToLocalStorage = (key: string, data: any) => {
-    if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(data));
-    }
-};
-
+import { getPendingTransactions, approveTransaction, rejectTransaction, type PendingTransaction } from './actions';
+import type { Saving, Share, Dividend } from '@prisma/client';
 
 export default function ApproveTransactionsPage() {
-  const [allSavings, setAllSavings] = useState<Saving[]>([]);
-  const [allShares, setAllShares] = useState<Share[]>([]);
-  const [allDividends, setAllDividends] = useState<Dividend[]>([]);
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [transactionToReject, setTransactionToReject] = useState<PendingTransaction | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const fetchPendingTransactions = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getPendingTransactions();
+        setPendingTransactions(data);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load pending transactions.'});
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Load initial data from localStorage or mock
-    setAllSavings(loadFromLocalStorage('savings', mockSavings));
-    setAllShares(loadFromLocalStorage('shares', mockShares));
-    setAllDividends(loadFromLocalStorage('dividends', mockDividends));
-    setAllMembers(loadFromLocalStorage('members', mockMembers));
-  }, []);
+    fetchPendingTransactions();
+  }, [toast]);
 
-  const pendingTransactions = useMemo((): PendingTransaction[] => {
-    const pendingSavings: PendingTransaction[] = allSavings
-      .filter(s => s.status === 'pending')
-      .map(s => ({ ...s, transactionTypeLabel: s.transactionType === 'deposit' ? 'Savings Deposit' : 'Savings Withdrawal' }));
-
-    const pendingShares: PendingTransaction[] = allShares
-      .filter(s => s.status === 'pending')
-      .map(s => ({ ...s, transactionTypeLabel: 'Share Allocation' }));
-
-    const pendingDividends: PendingTransaction[] = allDividends
-      .filter(d => d.status === 'pending')
-      .map(d => ({ ...d, transactionTypeLabel: 'Dividend Distribution' }));
-
-    return [...pendingSavings, ...pendingShares, ...pendingDividends].sort(
-      (a, b) => new Date(a.date || a.allocationDate).getTime() - new Date(b.date || b.allocationDate).getTime()
-    );
-  }, [allSavings, allShares, allDividends]);
-
-  const handleApprove = (tx: PendingTransaction) => {
-    if (tx.transactionTypeLabel.startsWith('Savings')) {
-        const savingTx = tx as Saving;
-        const updatedSavings = allSavings.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s);
-        setAllSavings(updatedSavings);
-        saveToLocalStorage('savings', updatedSavings);
-        
-        const updatedMembers = allMembers.map(m => {
-            if (m.id === tx.memberId) {
-                const newBalance = savingTx.transactionType === 'deposit'
-                    ? m.savingsBalance + savingTx.amount
-                    : m.savingsBalance - savingTx.amount;
-                return { ...m, savingsBalance: newBalance < 0 ? 0 : newBalance };
-            }
-            return m;
-        });
-        setAllMembers(updatedMembers);
-        saveToLocalStorage('members', updatedMembers);
-
-    } else if (tx.transactionTypeLabel === 'Share Allocation') {
-        const shareTx = tx as Share;
-        const updatedShares = allShares.map(s => s.id === tx.id ? { ...s, status: 'approved' } : s);
-        setAllShares(updatedShares);
-        saveToLocalStorage('shares', updatedShares);
-        
-        const updatedMembers = allMembers.map(m => {
-            if (m.id === tx.memberId) {
-                return { ...m, sharesCount: (m.sharesCount || 0) + shareTx.count };
-            }
-            return m;
-        });
-        setAllMembers(updatedMembers);
-        saveToLocalStorage('members', updatedMembers);
-
-    } else if (tx.transactionTypeLabel === 'Dividend Distribution') {
-        const updatedDividends = allDividends.map(d => d.id === tx.id ? { ...d, status: 'approved' } : d);
-        setAllDividends(updatedDividends);
-        saveToLocalStorage('dividends', updatedDividends);
+  const handleApprove = async (tx: PendingTransaction) => {
+    const result = await approveTransaction(tx.id, tx.transactionTypeLabel);
+    if (result.success) {
+      toast({ title: 'Transaction Approved', description: result.message });
+      await fetchPendingTransactions();
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
-    toast({ title: 'Transaction Approved', description: `${tx.transactionTypeLabel} for ${tx.memberName} has been approved.` });
   };
   
   const openRejectModal = (tx: PendingTransaction) => {
@@ -139,39 +70,34 @@ export default function ApproveTransactionsPage() {
     setIsRejectModalOpen(true);
   };
   
-  const handleRejectSubmit = (e: React.FormEvent) => {
+  const handleRejectSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!transactionToReject || !rejectionReason.trim()) {
           toast({ variant: 'destructive', title: 'Error', description: 'Rejection reason cannot be empty.' });
           return;
       }
 
-      const tx = transactionToReject;
-      const reason = rejectionReason;
-      
-      if (tx.transactionTypeLabel.startsWith('Savings')) {
-        const updatedSavings = allSavings.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s);
-        setAllSavings(updatedSavings);
-        saveToLocalStorage('savings', updatedSavings);
-      } else if (tx.transactionTypeLabel === 'Share Allocation') {
-        const updatedShares = allShares.map(s => s.id === tx.id ? { ...s, status: 'rejected', notes: reason } : s);
-        setAllShares(updatedShares);
-        saveToLocalStorage('shares', updatedShares);
-      } else if (tx.transactionTypeLabel === 'Dividend Distribution') {
-        const updatedDividends = allDividends.map(d => d.id === tx.id ? { ...d, status: 'rejected', notes: reason } : d);
-        setAllDividends(updatedDividends);
-        saveToLocalStorage('dividends', updatedDividends);
+      setIsSubmitting(true);
+      const result = await rejectTransaction(transactionToReject.id, transactionToReject.transactionTypeLabel, rejectionReason);
+
+      if (result.success) {
+        toast({ title: 'Transaction Rejected', description: result.message });
+        await fetchPendingTransactions();
+        setIsRejectModalOpen(false);
+        setTransactionToReject(null);
+        setRejectionReason('');
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
       }
-      
-      toast({ title: 'Transaction Rejected', description: `${tx.transactionTypeLabel} for ${tx.memberName} has been rejected.` });
-      setIsRejectModalOpen(false);
-      setTransactionToReject(null);
-      setRejectionReason('');
+      setIsSubmitting(false);
   };
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if ('amount' in tx) return `$${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if ('count' in tx) return `${tx.count} shares @ $${tx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share (Value: $${(tx.count * tx.valuePerShare).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    if ('amount' in tx) return `$${(tx as Saving | Dividend).amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if ('count' in tx) {
+        const shareTx = tx as Share;
+        return `${shareTx.count} shares @ $${shareTx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share (Value: $${(shareTx.totalValueForAllocation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    }
     return 'N/A';
   };
   
@@ -185,12 +111,14 @@ export default function ApproveTransactionsPage() {
   const handleExport = () => {
     const dataToExport = pendingTransactions.map(tx => {
       let details = '';
-      if ('amount' in tx) details = `$${tx.amount.toFixed(2)}`;
-      else if ('count' in tx) details = `${tx.count} shares @ $${tx.valuePerShare.toFixed(2)}/share`;
-
+      if ('amount' in tx) details = `$${(tx as Saving | Dividend).amount.toFixed(2)}`;
+      else if ('count' in tx) {
+          const shareTx = tx as Share;
+          details = `${shareTx.count} shares @ $${shareTx.valuePerShare.toFixed(2)}/share`;
+      }
       return {
         'Date': new Date(tx.date || tx.allocationDate).toLocaleDateString(),
-        'Member': tx.memberName || allMembers.find(m => m.id === tx.memberId)?.fullName,
+        'Member': tx.memberName,
         'Transaction Type': tx.transactionTypeLabel,
         'Amount / Details': details,
         'Notes': tx.notes || '',
@@ -219,10 +147,12 @@ export default function ApproveTransactionsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
+            {isLoading ? (
+                 <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
               <TableRow key={tx.id}>
                 <TableCell>{new Date(tx.date || tx.allocationDate).toLocaleDateString()}</TableCell>
-                <TableCell className="font-medium">{tx.memberName || allMembers.find(m => m.id === tx.memberId)?.fullName}</TableCell>
+                <TableCell className="font-medium">{tx.memberName}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {getTransactionTypeIcon(tx.transactionTypeLabel)}
@@ -266,12 +196,16 @@ export default function ApproveTransactionsPage() {
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     placeholder="E.g., Incorrect amount, insufficient funds for withdrawal..."
-                    required 
+                    required
+                    disabled={isSubmitting}
                 />
             </div>
             <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit" variant="destructive">Confirm Rejection</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" variant="destructive" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm Rejection
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

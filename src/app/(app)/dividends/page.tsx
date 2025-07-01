@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -33,8 +32,6 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { mockDividends, mockMembers, mockShares } from '@/data/mock';
-import type { Dividend, Member, Share } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -47,20 +44,24 @@ import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/c
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
+import { getDividendsPageData, addDividend, updateDividend, deleteDividend, type DividendsPageData, type DividendInput } from './actions';
+import type { Dividend, Member } from '@prisma/client';
 
-const initialDividendFormState: Partial<Dividend> = {
+const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
   amount: 0,
-  distributionDate: new Date().toISOString().split('T')[0], // today
+  distributionDate: new Date().toISOString().split('T')[0],
   shareCountAtDistribution: 0,
 };
 
 export default function DividendsPage() {
-  const [dividends, setDividends] = useState<Dividend[]>(mockDividends);
-  const [members] = useState<Member[]>(mockMembers);
-  const [shares] = useState<Share[]>(mockShares); // To fetch share count
+  const [dividends, setDividends] = useState<Dividend[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName' | 'sharesCount'>[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentDividend, setCurrentDividend] = useState<Partial<Dividend>>(initialDividendFormState);
+  const [currentDividend, setCurrentDividend] = useState<Partial<DividendInput & { id?: string }>>(initialDividendFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
@@ -70,12 +71,26 @@ export default function DividendsPage() {
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
 
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getDividendsPageData();
+        setDividends(data.dividends);
+        setMembers(data.members);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
-  }, []);
+    fetchPageData();
+  }, [toast]);
 
   const memberTotalDividends = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
@@ -94,37 +109,34 @@ export default function DividendsPage() {
   const handleSelectChange = (name: string, value: string) => {
     setCurrentDividend(prev => ({ ...prev, [name]: value }));
     if (name === 'memberId') {
-      const memberShares = shares.filter(s => s.memberId === value).reduce((acc, curr) => acc + curr.count, 0);
+      const memberShares = members.find(m => m.id === value)?.sharesCount || 0;
       setCurrentDividend(prev => ({ ...prev, shareCountAtDistribution: memberShares }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentDividend.memberId || !currentDividend.amount || currentDividend.amount <= 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid dividend amount.' });
         return;
     }
 
-    const memberName = members.find(m => m.id === currentDividend.memberId)?.fullName;
-
-    if (isEditing && currentDividend.id) {
-      const updatedDividend = { ...currentDividend, memberName, status: 'pending' } as Dividend;
-      setDividends(prev => prev.map(d => d.id === currentDividend.id ? updatedDividend : d));
-      toast({ title: 'Dividend Updated', description: 'Dividend record updated and sent for re-approval.' });
-    } else {
-      const newDividend: Dividend = {
-        id: `dividend-${Date.now()}`,
-        ...currentDividend,
-        memberName,
-        status: 'pending',
-      } as Dividend;
-      setDividends(prev => [newDividend, ...prev]);
-      toast({ title: 'Dividend Submitted', description: 'Dividend distribution sent for approval.' });
+    setIsSubmitting(true);
+    try {
+        if (isEditing && currentDividend.id) {
+            await updateDividend(currentDividend.id, currentDividend as DividendInput);
+            toast({ title: 'Dividend Updated', description: 'Dividend record updated and sent for re-approval.' });
+        } else {
+            await addDividend(currentDividend as DividendInput);
+            toast({ title: 'Dividend Submitted', description: 'Dividend distribution sent for approval.' });
+        }
+        await fetchPageData();
+        setIsModalOpen(false);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An error occurred while saving the dividend.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentDividend(initialDividendFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -142,10 +154,15 @@ export default function DividendsPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (dividendId: string) => {
+  const handleDelete = async (dividendId: string) => {
      if (window.confirm('Are you sure you want to delete this dividend record?')) {
-        setDividends(prev => prev.filter(d => d.id !== dividendId));
-        toast({ title: 'Success', description: 'Dividend record deleted.' });
+        const result = await deleteDividend(dividendId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchPageData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     }
   };
 
@@ -195,10 +212,10 @@ export default function DividendsPage() {
       <PageTitle title={userRole === 'member' ? 'My Dividends' : "Dividend Distribution"} subtitle={userRole === 'member' ? "View your dividend payout history" : "Manage and record dividend payouts to members."}>
         {userRole === 'admin' && (
           <>
-            <Button onClick={handleExport} variant="outline">
+            <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                 <FileDown className="mr-2 h-4 w-4" /> Export
             </Button>
-            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
               <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
             </Button>
           </>
@@ -279,7 +296,9 @@ export default function DividendsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredDividends.length > 0 ? filteredDividends.map(dividend => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={userRole === 'admin' ? 6 : 5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredDividends.length > 0 ? filteredDividends.map(dividend => (
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 {userRole === 'admin' && <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>}
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
@@ -298,7 +317,7 @@ export default function DividendsPage() {
                       <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => handleDelete(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -356,7 +375,7 @@ export default function DividendsPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            value={`${member.fullName} ${member.id}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -368,7 +387,7 @@ export default function DividendsPage() {
                                 currentDividend.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                            {member.fullName} (Shares: {member.sharesCount})
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -379,7 +398,7 @@ export default function DividendsPage() {
             </div>
             <div>
               <Label htmlFor="shareCountAtDistribution">Shares Held at Distribution</Label>
-              <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required readOnly />
+              <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required readOnly className="bg-muted/50" />
             </div>
             <div>
               <Label htmlFor="amount">Dividend Amount ($)</Label>
@@ -390,10 +409,11 @@ export default function DividendsPage() {
               <Input id="distributionDate" name="distributionDate" type="date" value={currentDividend.distributionDate || ''} onChange={handleInputChange} required />
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
-              </DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Submit for Approval'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Submit for Approval'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -401,5 +421,3 @@ export default function DividendsPage() {
     </div>
   );
 }
-
-    
