@@ -21,13 +21,6 @@ export const mockSubcities: string[] = [
   "Lemi Kura",
 ];
 
-export const mockSavingAccountTypes: SavingAccountType[] = [
-  { id: 'sat-regular', name: 'Regular Savings', interestRate: 0.02, description: 'Standard savings account with a competitive interest rate.', expectedMonthlyContribution: 50 },
-  { id: 'sat-youth', name: 'Youth Saver Account', interestRate: 0.035, description: 'Higher interest account for members under 18.', expectedMonthlyContribution: 25 },
-  { id: 'sat-premium', name: 'Premium Tier Savings', interestRate: 0.045, description: 'For members with higher balances, offering premium rates.', expectedMonthlyContribution: 100 },
-  { id: 'sat-no-expect', name: 'Flexible Saver', interestRate: 0.01, description: 'Basic account with no minimum contribution expected.', expectedMonthlyContribution: 0 },
-];
-
 export const mockMembers: Member[] = [
   {
     id: 'member-1',

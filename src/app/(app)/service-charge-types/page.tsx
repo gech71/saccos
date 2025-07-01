@@ -112,7 +112,7 @@ export default function ServiceChargeTypesPage() {
             await updateServiceChargeType(currentChargeType.id, dataToSave);
             toast({ title: 'Success', description: 'Service charge type updated successfully.' });
         } else {
-            await addServiceChargeType(dataToSave);
+            await addServiceChargeType(dataToSave as Omit<ServiceChargeType, 'id'>);
             toast({ title: 'Success', description: 'Service charge type added successfully.' });
         }
         await fetchChargeTypes();

@@ -122,7 +122,7 @@ export default function LoanTypesPage() {
         repaymentFrequency: currentLoanType.repaymentFrequency!,
         nplInterestRate: (currentLoanType.nplInterestRate || 0) / 100,
         nplGracePeriodDays: currentLoanType.nplGracePeriodDays,
-        allowConcurrent: currentLoanType.allowConcurrent,
+        allowConcurrent: currentLoanType.allowConcurrent || false,
     };
 
     try {
@@ -130,7 +130,7 @@ export default function LoanTypesPage() {
             await updateLoanType(currentLoanType.id, dataToSave);
             toast({ title: 'Success', description: 'Loan type updated successfully.' });
         } else {
-            await addLoanType(dataToSave);
+            await addLoanType(dataToSave as Omit<LoanType, 'id'>);
             toast({ title: 'Success', description: 'Loan type added successfully.' });
         }
         await fetchLoanTypes();
