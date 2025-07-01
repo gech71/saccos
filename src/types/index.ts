@@ -2,6 +2,7 @@
 
 
 
+
 export interface School {
   id: string;
   name: string;
@@ -85,11 +86,9 @@ export interface Saving {
   status: 'pending' | 'approved' | 'rejected';
   notes?: string; // For rejection reasons or other comments
   depositMode?: 'Cash' | 'Bank' | 'Wallet'; // Only applicable for deposits
-  paymentDetails?: { // Only applicable for 'Bank' or 'Wallet' deposits
-    sourceName?: string; // e.g., Bank Name or Wallet Provider Name
-    transactionReference?: string;
-    evidenceUrl?: string; // URL to the uploaded evidence (text input for now)
-  };
+  sourceName?: string;
+  transactionReference?: string;
+  evidenceUrl?: string;
 }
 
 export interface Share {
@@ -106,11 +105,9 @@ export interface Share {
   contributionAmount?: number; // The monetary amount input by the user for this specific allocation
   totalValueForAllocation?: number; // Actual value of shares allocated (count * valuePerShare)
   depositMode?: 'Cash' | 'Bank' | 'Wallet';
-  paymentDetails?: {
-    sourceName?: string;
-    transactionReference?: string;
-    evidenceUrl?: string; 
-  };
+  sourceName?: string;
+  transactionReference?: string;
+  evidenceUrl?: string;
 }
 
 export interface Dividend {
@@ -159,8 +156,7 @@ export interface NavItem {
   permission?: string;
 }
 
-export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';
-export type VisualizationType = 'bar' | 'pie' | 'line' | 'table';
+export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions';
 
 export interface Collateral {
   id: string;
@@ -208,11 +204,9 @@ export interface LoanRepayment {
   paymentDate: string; // ISO
   notes?: string;
   depositMode?: 'Cash' | 'Bank' | 'Wallet';
-  paymentDetails?: {
-    sourceName?: string;
-    transactionReference?: string;
-    evidenceUrl?: string;
-  };
+  sourceName?: string;
+  transactionReference?: string;
+  evidenceUrl?: string;
 }
 
 export interface AuthResponse {
