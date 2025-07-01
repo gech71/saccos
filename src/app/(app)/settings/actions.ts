@@ -107,19 +107,26 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         });
 
         // Step 2: Validate the response from the auth service
-        if (!registerResponse.data || !registerResponse.data.isSuccess) {
-            const errorMessage = (registerResponse.data?.errors?.join(' ')) 
-                               || registerResponse.data?.message 
+        const responseData = registerResponse.data;
+
+        if (!responseData || !responseData.isSuccess) {
+            const errorMessage = (responseData?.errors?.join(' ')) 
+                               || responseData?.message 
                                || "External registration failed. Please ensure the password meets complexity requirements and the user details are unique.";
             throw new Error(errorMessage);
         }
 
-        // Step 3: Extract the new user's ID from the response, checking common fields
-        const externalUserId = registerResponse.data.userId || registerResponse.data.id || registerResponse.data.sub;
+        // Step 3: Extract the new user's ID from the response.
+        // Log the entire response for debugging purposes.
+        console.log("Full auth service response:", JSON.stringify(responseData, null, 2));
+
+        const externalUserId = responseData.userId || responseData.id || responseData.sub;
 
         if (!externalUserId) {
-            console.error("Auth service response did not contain a user ID:", registerResponse.data);
-            throw new Error("Auth service succeeded but did not return a user ID.");
+            const availableKeys = Object.keys(responseData).join(', ');
+            const errorMessage = `Auth service succeeded but did not return a user ID. Available keys in response: [${availableKeys}]. Check server logs for full response.`;
+            console.error(errorMessage);
+            throw new Error(errorMessage);
         }
 
         // Step 4: Save the new user to the local application database
