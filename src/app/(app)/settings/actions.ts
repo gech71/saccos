@@ -7,8 +7,20 @@ import type { User, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import axios from 'axios';
 import { permissionsList } from './permissions';
+import { jwtDecode } from 'jwt-decode';
 
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
+
+interface DecodedToken {
+  nameid?: string;
+  sub?: string;
+  email: string;
+  unique_name: string;
+  role: string | string[];
+  nbf: number;
+  exp: number;
+  iat: number;
+}
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -117,12 +129,25 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         }
 
         // Step 3: Extract the new user's ID from the response.
-        // Log the entire response for debugging purposes.
-        console.log("Full auth service response:", JSON.stringify(responseData, null, 2));
+        // It might be in a token or directly in the response body.
+        let externalUserId: string | undefined;
 
-        const externalUserId = responseData.userId || responseData.id || responseData.sub;
+        if (responseData.accessToken) {
+            try {
+                const decoded = jwtDecode<DecodedToken>(responseData.accessToken);
+                externalUserId = decoded.sub || decoded.nameid;
+            } catch (e) {
+                console.error("Failed to decode access token from registration response:", e);
+                throw new Error("Received an invalid token from the authentication service.");
+            }
+        } else {
+            // Fallback to checking direct properties if no token is present
+            externalUserId = responseData.userId || responseData.id || responseData.sub;
+        }
+
 
         if (!externalUserId) {
+            console.log("Full auth service response (for debugging):", JSON.stringify(responseData, null, 2));
             const availableKeys = Object.keys(responseData).join(', ');
             const errorMessage = `Auth service succeeded but did not return a user ID. Available keys in response: [${availableKeys}]. Check server logs for full response.`;
             console.error(errorMessage);
