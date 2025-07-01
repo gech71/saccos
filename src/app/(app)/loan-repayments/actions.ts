@@ -6,7 +6,7 @@ import type { Loan, Member, LoanRepayment, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface LoanRepaymentsPageData {
-  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }})[];
+  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }, member?: { fullName: string }})[];
   activeLoans: (Loan & { member: Member | null})[];
 }
 
@@ -14,6 +14,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   const repayments = await prisma.loanRepayment.findMany({
     include: {
       loan: { select: { loanAccountNumber: true } },
+      member: { select: { fullName: true } },
     },
     orderBy: { paymentDate: 'desc' },
   });
@@ -32,19 +33,24 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   };
 }
 
-export type LoanRepaymentInput = Omit<LoanRepayment, 'id'>;
+export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'memberId'>;
 
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
   try {
+    const loan = await prisma.loan.findUnique({ where: { id: data.loanId } });
+    if (!loan) throw new Error('Loan not found');
+
     await prisma.$transaction(async (tx) => {
-      const { memberName, ...restOfData } = data;
       // 1. Create the repayment record
-      await tx.loanRepayment.create({ data: restOfData });
+      await tx.loanRepayment.create({ 
+        data: {
+            ...data,
+            paymentDate: new Date(data.paymentDate),
+            memberId: loan.memberId,
+        }
+      });
 
       // 2. Update the loan's remaining balance
-      const loan = await tx.loan.findUnique({ where: { id: data.loanId } });
-      if (!loan) throw new Error('Loan not found');
-      
       const newBalance = loan.remainingBalance - data.amountPaid;
       await tx.loan.update({
         where: { id: data.loanId },

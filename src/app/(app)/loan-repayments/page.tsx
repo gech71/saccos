@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,12 +22,14 @@ import { FileUpload } from '@/components/file-upload';
 import { getLoanRepaymentsPageData, addLoanRepayment, type LoanRepaymentsPageData, type LoanRepaymentInput } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 
-type RepaymentWithLoanInfo = LoanRepayment & { loan?: { loanAccountNumber: string | null }};
+type RepaymentWithDetails = LoanRepayment & { 
+    loan?: { loanAccountNumber: string | null },
+    member?: { fullName: string },
+};
 type ActiveLoanWithMember = Loan & { member: Member | null };
 
 const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
   loanId: '',
-  memberId: '',
   amountPaid: 0,
   paymentDate: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
@@ -36,7 +39,7 @@ const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
 };
 
 export default function LoanRepaymentsPage() {
-  const [repayments, setRepayments] = useState<RepaymentWithLoanInfo[]>([]);
+  const [repayments, setRepayments] = useState<RepaymentWithDetails[]>([]);
   const [activeLoans, setActiveLoans] = useState<ActiveLoanWithMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -77,16 +80,9 @@ export default function LoanRepaymentsPage() {
     setCurrentRepayment(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleLoanSelect = (loanId: string) => {
-    const selectedLoan = activeLoans.find(l => l.id === loanId);
-    if (selectedLoan) {
-      setCurrentRepayment(prev => ({ ...prev, loanId, memberId: selectedLoan.memberId }));
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentRepayment.loanId || !currentRepayment.memberId || !currentRepayment.amountPaid || currentRepayment.amountPaid <= 0) {
+    if (!currentRepayment.loanId || !currentRepayment.amountPaid || currentRepayment.amountPaid <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
       return;
     }
@@ -111,17 +107,15 @@ export default function LoanRepaymentsPage() {
 
   const filteredRepayments = useMemo(() => {
     return repayments.filter(repayment => {
-      const memberName = activeLoans.find(l => l.id === repayment.loanId)?.member?.fullName || '';
-      return memberName.toLowerCase().includes(searchTerm.toLowerCase());
+      return repayment.member?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
     });
-  }, [repayments, activeLoans, searchTerm]);
+  }, [repayments, searchTerm]);
 
   const handleExport = () => {
     const dataToExport = filteredRepayments.map(r => {
-      const loan = activeLoans.find(l => l.id === r.loanId);
       return {
-        'Member Name': loan?.member.fullName || 'N/A',
-        'Loan Acct. #': loan?.loanAccountNumber || r.loanId,
+        'Member Name': r.member?.fullName || 'N/A',
+        'Loan Acct. #': r.loan?.loanAccountNumber || r.loanId,
         'Amount Paid ($)': r.amountPaid,
         'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
         'Payment Mode': r.depositMode || 'N/A',
@@ -157,11 +151,10 @@ export default function LoanRepaymentsPage() {
             {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
             ) : filteredRepayments.length > 0 ? filteredRepayments.map(repayment => {
-                const loan = activeLoans.find(l => l.id === repayment.loanId);
                 return (
                     <TableRow key={repayment.id}>
-                        <TableCell className="font-medium">{loan?.member.fullName}</TableCell>
-                        <TableCell className="font-mono text-xs">{loan?.loanAccountNumber}</TableCell>
+                        <TableCell className="font-medium">{repayment.member?.fullName}</TableCell>
+                        <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
                         <TableCell className="text-right font-semibold text-green-600">${repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
                         <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
@@ -195,9 +188,9 @@ export default function LoanRepaymentsPage() {
                     <CommandInput placeholder="Search by member or loan ID..." />
                     <CommandList><CommandEmpty>No active loans found.</CommandEmpty><CommandGroup>
                         {activeLoans.map(loan => (
-                          <CommandItem key={loan.id} value={`${loan.member.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { handleLoanSelect(loan.id); setOpenLoanCombobox(false); }}>
+                          <CommandItem key={loan.id} value={`${loan.member?.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { setCurrentRepayment(prev => ({ ...prev, loanId: loan.id })); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.member.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>
@@ -212,7 +205,7 @@ export default function LoanRepaymentsPage() {
               </div>
               <div>
                 <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input id="paymentDate" name="paymentDate" type="date" value={currentRepayment.paymentDate} onChange={handleInputChange} required />
+                <Input id="paymentDate" name="paymentDate" type="date" value={currentRepayment.paymentDate || ''} onChange={handleInputChange} required />
               </div>
             </div>
             <Separator />
