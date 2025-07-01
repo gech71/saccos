@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, DollarSign } from 'lucide-react'; // Added DollarSign
+import { PlusCircle, Edit, Trash2, Search, Percent, DollarSign, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,9 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { mockSavingAccountTypes } from '@/data/mock';
-import type { SavingAccountType } from '@/types';
+import type { SavingAccountType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -35,6 +33,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getSavingAccountTypes, addSavingAccountType, updateSavingAccountType, deleteSavingAccountType } from './actions';
+
 
 const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
   name: '',
@@ -44,22 +44,45 @@ const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
 };
 
 export default function SavingAccountTypesPage() {
-  const [accountTypes, setAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
+  const [accountTypes, setAccountTypes] = useState<SavingAccountType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentAccountType, setCurrentAccountType] = useState<Partial<SavingAccountType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  
+  const fetchAccountTypes = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getSavingAccountTypes();
+        setAccountTypes(data);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load saving account types.' });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccountTypes();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentAccountType(prev => ({
-      ...prev,
-      [name]: name === 'interestRate' ? parseFloat(value) / 100 : (name === 'expectedMonthlyContribution' ? parseFloat(value) : value)
-    }));
+    const numValue = parseFloat(value);
+    
+    if (name === 'interestRate') {
+      setCurrentAccountType(prev => ({...prev, [name]: numValue }));
+    } else if (name === 'expectedMonthlyContribution') {
+       setCurrentAccountType(prev => ({...prev, [name]: numValue }));
+    } else {
+       setCurrentAccountType(prev => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentAccountType.name || currentAccountType.interestRate === undefined || currentAccountType.interestRate < 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Account type name and a valid non-negative interest rate are required.' });
@@ -70,24 +93,30 @@ export default function SavingAccountTypesPage() {
         return;
     }
 
+    setIsSubmitting(true);
 
-    if (isEditing && currentAccountType.id) {
-      setAccountTypes(prev => prev.map(st => st.id === currentAccountType.id ? { ...st, ...currentAccountType } as SavingAccountType : st));
-      toast({ title: 'Success', description: 'Saving account type updated successfully.' });
-    } else {
-      const newAccountType: SavingAccountType = {
-        id: `satype-${Date.now()}`,
-        name: currentAccountType.name || '',
-        interestRate: currentAccountType.interestRate || 0,
+    const dataToSave = {
+        name: currentAccountType.name!,
         description: currentAccountType.description,
-        expectedMonthlyContribution: currentAccountType.expectedMonthlyContribution || 0,
-      };
-      setAccountTypes(prev => [newAccountType, ...prev]);
-      toast({ title: 'Success', description: 'Saving account type added successfully.' });
+        interestRate: (currentAccountType.interestRate || 0) / 100, // Convert percentage to decimal
+        expectedMonthlyContribution: currentAccountType.expectedMonthlyContribution,
+    };
+
+    try {
+        if (isEditing && currentAccountType.id) {
+            await updateSavingAccountType(currentAccountType.id, dataToSave);
+            toast({ title: 'Success', description: 'Saving account type updated successfully.' });
+        } else {
+            await addSavingAccountType(dataToSave);
+            toast({ title: 'Success', description: 'Saving account type added successfully.' });
+        }
+        await fetchAccountTypes();
+        setIsModalOpen(false);
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentAccountType(initialFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -99,18 +128,22 @@ export default function SavingAccountTypesPage() {
   const openEditModal = (accountType: SavingAccountType) => {
     setCurrentAccountType({
         ...accountType, 
-        interestRate: accountType.interestRate * 100, // Display rate as percentage
+        interestRate: accountType.interestRate * 100, // Convert decimal to percentage for display
         expectedMonthlyContribution: accountType.expectedMonthlyContribution || 0,
     });
     setIsEditing(true);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (accountTypeId: string) => {
-    // TODO: Add check if account type is in use by members
+  const handleDelete = async (accountTypeId: string) => {
     if (window.confirm('Are you sure you want to delete this saving account type? This action cannot be undone.')) {
-      setAccountTypes(prev => prev.filter(st => st.id !== accountTypeId));
-      toast({ title: 'Success', description: 'Saving account type deleted successfully.' });
+        const result = await deleteSavingAccountType(accountTypeId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchAccountTypes();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     }
   };
 
@@ -145,9 +178,6 @@ export default function SavingAccountTypesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all saving account types" />
-              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Interest Rate</TableHead>
@@ -156,11 +186,10 @@ export default function SavingAccountTypesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAccountTypes.length > 0 ? filteredAccountTypes.map(accountType => (
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+            ) : filteredAccountTypes.length > 0 ? filteredAccountTypes.map(accountType => (
               <TableRow key={accountType.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select account type ${accountType.name}`} />
-                </TableCell>
                 <TableCell className="font-medium">{accountType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{accountType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">{(accountType.interestRate * 100).toFixed(2)}%</TableCell>
@@ -186,7 +215,7 @@ export default function SavingAccountTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No saving account types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -194,13 +223,8 @@ export default function SavingAccountTypesPage() {
           </TableBody>
         </Table>
       </div>
-      {filteredAccountTypes.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Saving Account Type' : 'Add New Saving Account Type'}</DialogTitle>
@@ -224,11 +248,11 @@ export default function SavingAccountTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0"
-                            value={currentAccountType.interestRate !== undefined ? (typeof currentAccountType.interestRate === 'string' ? currentAccountType.interestRate : (currentAccountType.interestRate * 100).toFixed(2)) : ''}
+                            value={currentAccountType.interestRate || ''}
                             onChange={handleInputChange} 
                             required 
                             className="pr-7"
-                            placeholder="e.g., 2.5 for 2.5%"
+                            placeholder="e.g., 2.5"
                         />
                     </div>
                 </div>
@@ -255,8 +279,11 @@ export default function SavingAccountTypesPage() {
               <Textarea id="description" name="description" value={currentAccountType.description || ''} onChange={handleInputChange} placeholder="E.g., Standard savings, high-yield, student account" />
             </div>
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Account Type'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add Account Type'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

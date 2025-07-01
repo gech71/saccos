@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, DollarSign, CalendarDays } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, DollarSign, CalendarDays, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,7 +25,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -33,8 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockServiceChargeTypes } from '@/data/mock';
-import type { ServiceChargeType } from '@/types';
+import type { ServiceChargeType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -43,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { getServiceChargeTypes, addServiceChargeType, updateServiceChargeType, deleteServiceChargeType } from './actions';
 
 const initialFormState: Partial<Omit<ServiceChargeType, 'id'>> = {
   name: '',
@@ -52,12 +51,30 @@ const initialFormState: Partial<Omit<ServiceChargeType, 'id'>> = {
 };
 
 export default function ServiceChargeTypesPage() {
-  const [serviceChargeTypes, setServiceChargeTypes] = useState<ServiceChargeType[]>(mockServiceChargeTypes);
+  const [serviceChargeTypes, setServiceChargeTypes] = useState<ServiceChargeType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentChargeType, setCurrentChargeType] = useState<Partial<ServiceChargeType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+
+  const fetchChargeTypes = async () => {
+      setIsLoading(true);
+      try {
+          const data = await getServiceChargeTypes();
+          setServiceChargeTypes(data);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load service charge types.' });
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchChargeTypes();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -71,7 +88,7 @@ export default function ServiceChargeTypesPage() {
     setCurrentChargeType(prev => ({ ...prev, [name]: value as ServiceChargeType['frequency'] }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentChargeType.name || currentChargeType.amount === undefined || currentChargeType.amount <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Charge type name and a valid positive amount are required.' });
@@ -81,24 +98,30 @@ export default function ServiceChargeTypesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Frequency is required.' });
       return;
     }
-
-    if (isEditing && currentChargeType.id) {
-      setServiceChargeTypes(prev => prev.map(sct => sct.id === currentChargeType.id ? { ...sct, ...currentChargeType } as ServiceChargeType : sct));
-      toast({ title: 'Success', description: 'Service charge type updated successfully.' });
-    } else {
-      const newChargeType: ServiceChargeType = {
-        id: `sctype-${Date.now()}`,
-        name: currentChargeType.name || '',
-        amount: currentChargeType.amount || 0,
-        frequency: currentChargeType.frequency || 'once',
+    
+    setIsSubmitting(true);
+    const dataToSave = {
+        name: currentChargeType.name!,
+        amount: currentChargeType.amount!,
+        frequency: currentChargeType.frequency!,
         description: currentChargeType.description,
-      };
-      setServiceChargeTypes(prev => [newChargeType, ...prev]);
-      toast({ title: 'Success', description: 'Service charge type added successfully.' });
+    };
+
+    try {
+        if (isEditing && currentChargeType.id) {
+            await updateServiceChargeType(currentChargeType.id, dataToSave);
+            toast({ title: 'Success', description: 'Service charge type updated successfully.' });
+        } else {
+            await addServiceChargeType(dataToSave);
+            toast({ title: 'Success', description: 'Service charge type added successfully.' });
+        }
+        await fetchChargeTypes();
+        setIsModalOpen(false);
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentChargeType(initialFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -113,11 +136,15 @@ export default function ServiceChargeTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (chargeTypeId: string) => {
-    // TODO: Add check if charge type is in use by applied charges
+  const handleDelete = async (chargeTypeId: string) => {
     if (window.confirm('Are you sure you want to delete this service charge type? This action cannot be undone.')) {
-      setServiceChargeTypes(prev => prev.filter(sct => sct.id !== chargeTypeId));
-      toast({ title: 'Success', description: 'Service charge type deleted successfully.' });
+        const result = await deleteServiceChargeType(chargeTypeId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchChargeTypes();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     }
   };
 
@@ -161,9 +188,6 @@ export default function ServiceChargeTypesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all service charge types" />
-              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Amount ($)</TableHead>
@@ -172,11 +196,10 @@ export default function ServiceChargeTypesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredChargeTypes.length > 0 ? filteredChargeTypes.map(chargeType => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+            ) : filteredChargeTypes.length > 0 ? filteredChargeTypes.map(chargeType => (
               <TableRow key={chargeType.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select charge type ${chargeType.name}`} />
-                </TableCell>
                 <TableCell className="font-medium">{chargeType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{chargeType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">${chargeType.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -207,7 +230,7 @@ export default function ServiceChargeTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No service charge types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -215,13 +238,8 @@ export default function ServiceChargeTypesPage() {
           </TableBody>
         </Table>
       </div>
-      {filteredChargeTypes.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Service Charge Type' : 'Add New Service Charge Type'}</DialogTitle>
@@ -270,8 +288,11 @@ export default function ServiceChargeTypesPage() {
               <Textarea id="description" name="description" value={currentChargeType.description || ''} onChange={handleInputChange} placeholder="E.g., Annual fee, Late payment fine" />
             </div>
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Charge Type'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add Charge Type'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

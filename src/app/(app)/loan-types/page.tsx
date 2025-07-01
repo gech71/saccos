@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, Banknote, AlertTriangle, CheckCircle, ShieldQuestion, CalendarDays } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, AlertTriangle, ShieldQuestion, CalendarDays, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -33,8 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockLoanTypes } from '@/data/mock';
-import type { LoanType } from '@/types';
+import type { LoanType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -44,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getLoanTypes, addLoanType, updateLoanType, deleteLoanType } from './actions';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
@@ -57,12 +57,30 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
 };
 
 export default function LoanTypesPage() {
-  const [loanTypes, setLoanTypes] = useState<LoanType[]>(mockLoanTypes);
+  const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentLoanType, setCurrentLoanType] = useState<Partial<LoanType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+
+  const fetchLoanTypes = async () => {
+      setIsLoading(true);
+      try {
+          const data = await getLoanTypes();
+          setLoanTypes(data);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load loan types.' });
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchLoanTypes();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -80,7 +98,7 @@ export default function LoanTypesPage() {
     setCurrentLoanType(prev => ({ ...prev, [name]: checked }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentLoanType.name || currentLoanType.interestRate === undefined || currentLoanType.interestRate < 0 || currentLoanType.loanTerm === undefined || currentLoanType.loanTerm <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Loan type name, a valid interest rate, and a positive loan term are required.' });
@@ -95,34 +113,33 @@ export default function LoanTypesPage() {
         return;
     }
     
-    // Convert percentage inputs back to decimal for storage
+    setIsSubmitting(true);
     const dataToSave = {
-        ...currentLoanType,
+        name: currentLoanType.name!,
+        description: currentLoanType.description,
         interestRate: (currentLoanType.interestRate || 0) / 100,
+        loanTerm: currentLoanType.loanTerm!,
+        repaymentFrequency: currentLoanType.repaymentFrequency!,
         nplInterestRate: (currentLoanType.nplInterestRate || 0) / 100,
+        nplGracePeriodDays: currentLoanType.nplGracePeriodDays,
+        allowConcurrent: currentLoanType.allowConcurrent,
     };
 
-    if (isEditing && dataToSave.id) {
-      setLoanTypes(prev => prev.map(lt => lt.id === dataToSave.id ? { ...lt, ...dataToSave } as LoanType : lt));
-      toast({ title: 'Success', description: 'Loan type updated successfully.' });
-    } else {
-      const newLoanType: LoanType = {
-        id: `ltype-${Date.now()}`,
-        name: dataToSave.name || '',
-        interestRate: dataToSave.interestRate || 0,
-        loanTerm: dataToSave.loanTerm || 12,
-        repaymentFrequency: dataToSave.repaymentFrequency || 'monthly',
-        nplInterestRate: dataToSave.nplInterestRate || 0,
-        nplGracePeriodDays: dataToSave.nplGracePeriodDays || 0,
-        description: dataToSave.description,
-        allowConcurrent: dataToSave.allowConcurrent || false,
-      };
-      setLoanTypes(prev => [newLoanType, ...prev]);
-      toast({ title: 'Success', description: 'Loan type added successfully.' });
+    try {
+        if (isEditing && currentLoanType.id) {
+            await updateLoanType(currentLoanType.id, dataToSave);
+            toast({ title: 'Success', description: 'Loan type updated successfully.' });
+        } else {
+            await addLoanType(dataToSave);
+            toast({ title: 'Success', description: 'Loan type added successfully.' });
+        }
+        await fetchLoanTypes();
+        setIsModalOpen(false);
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentLoanType(initialFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -141,11 +158,15 @@ export default function LoanTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (loanTypeId: string) => {
-    // TODO: Add check if loan type is in use
+  const handleDelete = async (loanTypeId: string) => {
     if (window.confirm('Are you sure you want to delete this loan type? This action cannot be undone.')) {
-      setLoanTypes(prev => prev.filter(lt => lt.id !== loanTypeId));
-      toast({ title: 'Success', description: 'Loan type deleted successfully.' });
+        const result = await deleteLoanType(loanTypeId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchLoanTypes();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     }
   };
 
@@ -212,7 +233,9 @@ export default function LoanTypesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLoanTypes.length > 0 ? filteredLoanTypes.map(loanType => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={9} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+            ) : filteredLoanTypes.length > 0 ? filteredLoanTypes.map(loanType => (
               <TableRow key={loanType.id}>
                 <TableCell className="font-medium">{loanType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{loanType.description || 'N/A'}</TableCell>
@@ -258,7 +281,7 @@ export default function LoanTypesPage() {
         </Table>
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Loan Type' : 'Add New Loan Type'}</DialogTitle>
@@ -372,8 +395,11 @@ export default function LoanTypesPage() {
                 </Label>
             </div>
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Loan Type'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add Loan Type'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

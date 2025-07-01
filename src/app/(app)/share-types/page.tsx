@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, DollarSign, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,9 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { mockShareTypes } from '@/data/mock'; 
-import type { ShareType } from '@/types';
+import type { ShareType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -35,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getShareTypes, addShareType, updateShareType, deleteShareType } from './actions';
 
 const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
   name: '',
@@ -44,12 +43,30 @@ const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
 };
 
 export default function ShareTypesPage() {
-  const [shareTypesList, setShareTypesList] = useState<ShareType[]>(mockShareTypes);
+  const [shareTypesList, setShareTypesList] = useState<ShareType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentShareType, setCurrentShareType] = useState<Partial<ShareType>>(initialShareTypeFormState);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+
+  const fetchShareTypes = async () => {
+      setIsLoading(true);
+      try {
+          const data = await getShareTypes();
+          setShareTypesList(data);
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to load share types.' });
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchShareTypes();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -59,7 +76,7 @@ export default function ShareTypesPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentShareType.name || currentShareType.valuePerShare === undefined || currentShareType.valuePerShare <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive value per share are required.' });
@@ -69,24 +86,30 @@ export default function ShareTypesPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Expected monthly contribution cannot be negative.' });
         return;
     }
-
-    if (isEditing && currentShareType.id) {
-      setShareTypesList(prev => prev.map(st => st.id === currentShareType.id ? { ...st, ...currentShareType } as ShareType : st));
-      toast({ title: 'Success', description: 'Share type updated successfully.' });
-    } else {
-      const newShareType: ShareType = {
-        id: `stype-${Date.now()}`,
-        name: currentShareType.name || '',
-        valuePerShare: currentShareType.valuePerShare || 0,
+    
+    setIsSubmitting(true);
+    const dataToSave = {
+        name: currentShareType.name!,
+        valuePerShare: currentShareType.valuePerShare!,
         description: currentShareType.description,
-        expectedMonthlyContribution: currentShareType.expectedMonthlyContribution || 0,
-      };
-      setShareTypesList(prev => [newShareType, ...prev]);
-      toast({ title: 'Success', description: 'Share type added successfully.' });
+        expectedMonthlyContribution: currentShareType.expectedMonthlyContribution,
+    };
+
+    try {
+        if (isEditing && currentShareType.id) {
+            await updateShareType(currentShareType.id, dataToSave);
+            toast({ title: 'Success', description: 'Share type updated successfully.' });
+        } else {
+            await addShareType(dataToSave);
+            toast({ title: 'Success', description: 'Share type added successfully.' });
+        }
+        await fetchShareTypes();
+        setIsModalOpen(false);
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentShareType(initialShareTypeFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -101,11 +124,15 @@ export default function ShareTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (shareTypeId: string) => {
-    // TODO: Add check if share type is in use by members or allocated shares
+  const handleDelete = async (shareTypeId: string) => {
     if (window.confirm('Are you sure you want to delete this share type? This action cannot be undone.')) {
-      setShareTypesList(prev => prev.filter(st => st.id !== shareTypeId));
-      toast({ title: 'Success', description: 'Share type deleted successfully.' });
+        const result = await deleteShareType(shareTypeId);
+        if (result.success) {
+            toast({ title: 'Success', description: result.message });
+            await fetchShareTypes();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     }
   };
 
@@ -140,9 +167,6 @@ export default function ShareTypesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all share types" />
-              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Value per Share ($)</TableHead>
@@ -151,11 +175,10 @@ export default function ShareTypesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredShareTypes.length > 0 ? filteredShareTypes.map(shareType => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+            ) : filteredShareTypes.length > 0 ? filteredShareTypes.map(shareType => (
               <TableRow key={shareType.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select share type ${shareType.name}`} />
-                </TableCell>
                 <TableCell className="font-medium">{shareType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{shareType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">${shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -181,7 +204,7 @@ export default function ShareTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No share types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -189,13 +212,8 @@ export default function ShareTypesPage() {
           </TableBody>
         </Table>
       </div>
-      {filteredShareTypes.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Share Type' : 'Add New Share Type'}</DialogTitle>
@@ -250,8 +268,11 @@ export default function ShareTypesPage() {
                 </div>
             </div>
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Share Type'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add Share Type'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
