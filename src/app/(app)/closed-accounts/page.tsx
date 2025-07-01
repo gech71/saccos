@@ -20,39 +20,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockMembers, mockSchools } from '@/data/mock';
-import type { Member, School } from '@/types';
-import { Search, Filter, SchoolIcon, FileText, FileDown, Archive } from 'lucide-react';
+import { Search, Filter, SchoolIcon, FileText, FileDown, Archive, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { exportToExcel } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-
-// Helper function to load data from localStorage or fall back to mock data
-const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
-    if (typeof window === 'undefined') return mockData;
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? (JSON.parse(item) as T[]) : mockData;
-    } catch (error) {
-        console.error(`Error reading ${key} from localStorage`, error);
-        return mockData;
-    }
-};
+import { getClosedAccounts, type ClosedAccountWithSchool } from './actions';
+import type { School } from '@/types';
 
 export default function ClosedAccountsPage() {
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
-  const [allSchools] = useState<School[]>(mockSchools);
+  const [closedAccounts, setClosedAccounts] = useState<ClosedAccountWithSchool[]>([]);
+  const [allSchools, setAllSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setAllMembers(loadFromLocalStorage('members', mockMembers));
+    async function fetchData() {
+        setIsLoading(true);
+        const accounts = await getClosedAccounts();
+        setClosedAccounts(accounts);
+        
+        // Extract unique schools from the accounts for filtering
+        const schoolsFromAccounts = accounts.reduce((acc, curr) => {
+            if (curr.school && !acc.find(s => s.id === curr.schoolId)) {
+                acc.push(curr.school);
+            }
+            return acc;
+        }, [] as School[]);
+        setAllSchools(schoolsFromAccounts);
+        setIsLoading(false);
+    }
+    fetchData();
   }, []);
 
-  const closedAccounts = useMemo(() => {
-    return allMembers.filter(member => member.status === 'inactive');
-  }, [allMembers]);
 
   const filteredClosedAccounts = useMemo(() => {
     return closedAccounts.filter(member => {
@@ -63,9 +64,10 @@ export default function ClosedAccountsPage() {
   }, [closedAccounts, searchTerm, selectedSchoolFilter]);
 
   const handleExport = () => {
+    if (filteredClosedAccounts.length === 0) return;
     const dataToExport = filteredClosedAccounts.map(member => ({
       'Member Name': member.fullName,
-      'School': member.schoolName || allSchools.find(s => s.id === member.schoolId)?.name,
+      'School': member.school?.name ?? 'N/A',
       'Account Number': member.savingsAccountNumber || 'N/A',
       'Closure Date': member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A',
     }));
@@ -75,7 +77,7 @@ export default function ClosedAccountsPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Closed Accounts" subtitle="View a list of all closed member accounts.">
-         <Button onClick={handleExport} variant="outline">
+         <Button onClick={handleExport} variant="outline" disabled={filteredClosedAccounts.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export List
         </Button>
       </PageTitle>
@@ -120,10 +122,12 @@ export default function ClosedAccountsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredClosedAccounts.length > 0 ? filteredClosedAccounts.map(member => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredClosedAccounts.length > 0 ? filteredClosedAccounts.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>{member.schoolName || allSchools.find(s => s.id === member.schoolId)?.name}</TableCell>
+                <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>
                     {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}

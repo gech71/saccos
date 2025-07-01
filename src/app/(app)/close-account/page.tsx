@@ -19,30 +19,18 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { mockMembers, mockSavingAccountTypes, mockSavings } from '@/data/mock';
-import type { Member, Saving, SavingAccountType } from '@/types';
 import { Loader2, Check, ChevronsUpDown, Calculator, UserX, Banknote, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure } from './actions';
 
-// Helper functions for localStorage
-const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
-    if (typeof window === 'undefined') return mockData;
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : mockData;
-    } catch (error) {
-        console.error(`Error reading ${key} from localStorage`, error);
-        return mockData;
-    }
-};
-
-const saveToLocalStorage = (key: string, data: any) => {
-    if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(data));
-    }
-};
+type ActiveMember = {
+    id: string;
+    fullName: string | null;
+    savingsAccountNumber: string | null;
+    savingsBalance: number;
+}
 
 interface CalculationResult {
   currentBalance: number;
@@ -60,32 +48,32 @@ const initialPayoutDetails = {
 export default function CloseAccountPage() {
   const { toast } = useToast();
 
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
-  const [activeMembers, setActiveMembers] = useState<Member[]>([]);
-  const [allSavings, setAllSavings] = useState<Saving[]>([]);
-  const [savingAccountTypes] = useState<SavingAccountType[]>(mockSavingAccountTypes);
-
+  const [activeMembers, setActiveMembers] = useState<ActiveMember[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
+  
   const [isCalculating, setIsCalculating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
   const [payoutDetails, setPayoutDetails] = useState(initialPayoutDetails);
 
   useEffect(() => {
-    const loadedMembers = loadFromLocalStorage('members', mockMembers);
-    const loadedSavings = loadFromLocalStorage('savings', mockSavings);
-    setAllMembers(loadedMembers);
-    setAllSavings(loadedSavings);
-    setActiveMembers(loadedMembers.filter(m => m.status !== 'inactive'));
+    async function fetchMembers() {
+        setIsLoading(true);
+        const members = await getActiveMembersForClosure();
+        setActiveMembers(members);
+        setIsLoading(false);
+    }
+    fetchMembers();
   }, []);
 
   const selectedMember = useMemo(() => {
-    return allMembers.find(m => m.id === selectedMemberId);
-  }, [selectedMemberId, allMembers]);
+    return activeMembers.find(m => m.id === selectedMemberId);
+  }, [selectedMemberId, activeMembers]);
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     if (!selectedMember) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a member.' });
       return;
@@ -93,21 +81,14 @@ export default function CloseAccountPage() {
     setIsCalculating(true);
     setCalculationResult(null);
 
-    setTimeout(() => {
-      const accountType = savingAccountTypes.find(sat => sat.id === selectedMember.savingAccountTypeId);
-      const interestRate = accountType?.interestRate || 0.01; // Fallback interest rate
-      
-      const accruedInterest = selectedMember.savingsBalance * (interestRate / 12) * 0.5;
-
-      setCalculationResult({
-        currentBalance: selectedMember.savingsBalance,
-        accruedInterest,
-        totalPayout: selectedMember.savingsBalance + accruedInterest,
-      });
-
-      setIsCalculating(false);
-      toast({ title: 'Calculation Complete', description: 'Final payout amount has been calculated.' });
-    }, 500);
+    const result = await calculateFinalPayout(selectedMember.id);
+    if (result) {
+        setCalculationResult(result);
+        toast({ title: 'Calculation Complete', description: 'Final payout amount has been calculated.' });
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not calculate payout for this member.' });
+    }
+    setIsCalculating(false);
   };
 
   const handlePayoutDetailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,7 +100,7 @@ export default function CloseAccountPage() {
     setPayoutDetails(prev => ({ ...prev, depositMode: value }));
   };
   
-  const handleConfirmClosure = () => {
+  const handleConfirmClosure = async () => {
     if (!selectedMember || !calculationResult) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please calculate payout before closing.' });
         return;
@@ -131,56 +112,31 @@ export default function CloseAccountPage() {
     
     setIsClosing(true);
     
-    setTimeout(() => {
-        const interestDeposit: Saving = {
-            id: `saving-interest-${Date.now()}`,
-            memberId: selectedMember.id,
-            memberName: selectedMember.fullName,
-            amount: calculationResult.accruedInterest,
-            date: new Date().toISOString(),
-            month: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
-            transactionType: 'deposit',
-            status: 'approved',
-            notes: 'Final interest on account closure.'
-        };
-
-        const finalWithdrawal: Saving = {
-            id: `saving-final-${Date.now()}`,
-            memberId: selectedMember.id,
-            memberName: selectedMember.fullName,
-            amount: calculationResult.totalPayout,
-            date: new Date().toISOString(),
-            month: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
-            transactionType: 'withdrawal',
-            status: 'approved',
-            notes: `Account closed. Payout via ${payoutDetails.depositMode}.`,
+    try {
+        await confirmAccountClosure(selectedMember.id, {
+            totalPayout: calculationResult.totalPayout,
+            accruedInterest: calculationResult.accruedInterest,
             depositMode: payoutDetails.depositMode,
-            paymentDetails: payoutDetails.depositMode !== 'Cash' ? payoutDetails : undefined
-        };
-        
-        const updatedSavings = [...allSavings, interestDeposit, finalWithdrawal];
-        setAllSavings(updatedSavings);
-        saveToLocalStorage('savings', updatedSavings);
-        
-        const updatedMembers = allMembers.map(m => 
-            m.id === selectedMember.id 
-            ? { ...m, savingsBalance: 0, status: 'inactive', closureDate: new Date().toISOString() } as Member
-            : m
-        );
-        setAllMembers(updatedMembers);
-        saveToLocalStorage('members', updatedMembers);
-
-        setActiveMembers(updatedMembers.filter(m => m.status !== 'inactive'));
+            sourceName: payoutDetails.sourceName,
+            transactionReference: payoutDetails.transactionReference,
+            evidenceUrl: payoutDetails.evidenceUrl,
+        });
 
         toast({ title: 'Account Closed', description: `${selectedMember.fullName}'s account has been successfully closed and payout processed.` });
         
+        // Refresh active members list
+        const members = await getActiveMembersForClosure();
+        setActiveMembers(members);
+
         setSelectedMemberId('');
         setCalculationResult(null);
         setPayoutDetails(initialPayoutDetails);
+    } catch (error) {
+        console.error("Closure error:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'An error occurred while closing the account.' });
+    } finally {
         setIsClosing(false);
-
-    }, 1000);
-
+    }
   };
 
   return (
@@ -203,11 +159,11 @@ export default function CloseAccountPage() {
                     role="combobox"
                     aria-expanded={openMemberCombobox}
                     className="w-full justify-between"
-                    disabled={isCalculating || isClosing}
+                    disabled={isCalculating || isClosing || isLoading}
                     >
-                    {selectedMemberId
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : (selectedMemberId
                         ? activeMembers.find((member) => member.id === selectedMemberId)?.fullName
-                        : "Select member..."}
+                        : "Select member...")}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>

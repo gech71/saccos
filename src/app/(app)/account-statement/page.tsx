@@ -11,11 +11,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { mockMembers, mockSavings } from '@/data/mock';
-import type { Member, Saving } from '@/types';
 import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { format, compareAsc } from 'date-fns';
+import { format } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
@@ -24,34 +22,24 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'next/navigation';
+import { generateStatement, getMembersForStatement, getMemberInitialData, type StatementData } from './actions';
 
-interface StatementData {
-  member: Member;
-  dateRange: DateRange;
-  balanceBroughtForward: number;
-  transactions: (Saving & { debit: number; credit: number; balance: number })[];
-  closingBalance: number;
+type MemberForSelect = {
+    id: string;
+    fullName: string | null;
+    savingsAccountNumber: string | null;
+    status: string;
 }
-
-const loadFromLocalStorage = <T,>(key: string, mockData: T[]): T[] => {
-    if (typeof window === 'undefined') return mockData;
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : mockData;
-    } catch (error) {
-        console.error(`Error reading ${key} from localStorage`, error);
-        return mockData;
-    }
-};
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+  const [memberInitial, setMemberInitial] = useState<{savingsBalance: number, savingsAccountNumber: string | null} | null>(null);
   
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
-  const [allSavings, setAllSavings] = useState<Saving[]>([]);
+  const [allMembers, setAllMembers] = useState<MemberForSelect[]>([]);
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
@@ -68,91 +56,49 @@ function AccountStatementContent() {
   }, [selectedMemberId, allMembers]);
 
   useEffect(() => {
-    const memberIdFromQuery = searchParams.get('memberId');
-    setAllMembers(loadFromLocalStorage('members', mockMembers));
-    setAllSavings(loadFromLocalStorage('savings', mockSavings));
-
     const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
     const memberId = localStorage.getItem('loggedInMemberId');
     setUserRole(role);
     setLoggedInMemberId(memberId);
+    
+    async function fetchData() {
+      if (role === 'admin') {
+        const members = await getMembersForStatement();
+        setAllMembers(members);
+      } else if (role === 'member' && memberId) {
+        const initialData = await getMemberInitialData(memberId);
+        setMemberInitial(initialData);
+        setSelectedMemberId(memberId);
+      }
+    }
+    fetchData();
 
+    const memberIdFromQuery = searchParams.get('memberId');
     if (memberIdFromQuery) {
         setSelectedMemberId(memberIdFromQuery);
-    } else if (role === 'member' && memberId) {
-      setSelectedMemberId(memberId);
     }
   }, [searchParams]);
-  
-  // Automatically set date range for closed accounts
-  useEffect(() => {
-      if (selectedMember?.status === 'inactive') {
-          const lastTxDate = allSavings
-              .filter(s => s.memberId === selectedMember.id)
-              .map(s => new Date(s.date))
-              .sort((a, b) => b.getTime() - a.getTime())[0] || new Date();
-              
-          setDateRange({
-              from: new Date(selectedMember.joinDate),
-              to: lastTxDate,
-          });
-      }
-  }, [selectedMember, allSavings]);
 
-  const member = useMemo(() => {
-    if (userRole === 'member' && loggedInMemberId) {
-        return allMembers.find(m => m.id === loggedInMemberId);
-    }
-    return null;
-  }, [userRole, loggedInMemberId, allMembers]);
-
-  const handleGenerateStatement = () => {
+  const handleGenerateStatement = async () => {
     if (!selectedMemberId || !dateRange?.from || !dateRange?.to) {
       toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a member and a valid date range.' });
       return;
     }
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (!selectedMember) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Selected member not found.' });
+    try {
+        const data = await generateStatement(selectedMemberId, dateRange);
+        if (data) {
+            setStatementData(data);
+            toast({ title: 'Statement Generated', description: `Statement for ${data.member.fullName} is ready.` });
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not generate statement.' });
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
         setIsLoading(false);
-        return;
-      }
-      
-      const allMemberTransactions = allSavings
-        .filter(s => s.memberId === selectedMemberId && s.status === 'approved')
-        .sort((a, b) => compareAsc(new Date(a.date), new Date(b.date)));
-
-      const balanceBroughtForward = allMemberTransactions
-        .filter(tx => new Date(tx.date) < dateRange.from!)
-        .reduce((balance, tx) => {
-          if (tx.transactionType === 'deposit' || tx.notes?.includes('interest')) return balance + tx.amount;
-          if (tx.transactionType === 'withdrawal') return balance - tx.amount;
-          return balance;
-        }, 0);
-
-      let runningBalance = balanceBroughtForward;
-      const transactionsInPeriod = allMemberTransactions
-        .filter(tx => new Date(tx.date) >= dateRange.from! && new Date(tx.date) <= dateRange.to!)
-        .map(tx => {
-          const credit = (tx.transactionType === 'deposit' || tx.notes?.includes('interest')) ? tx.amount : 0;
-          const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
-          runningBalance = runningBalance + credit - debit;
-          return { ...tx, debit, credit, balance: runningBalance };
-        });
-
-      setStatementData({
-        member: selectedMember,
-        dateRange,
-        balanceBroughtForward,
-        transactions: transactionsInPeriod,
-        closingBalance: runningBalance,
-      });
-
-      setIsLoading(false);
-      toast({ title: 'Statement Generated', description: `Statement for ${selectedMember.fullName} is ready.` });
-    }, 500);
+    }
   };
   
   const handleDownloadPdf = async () => {
@@ -223,13 +169,13 @@ function AccountStatementContent() {
         <div className="no-print">
             <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for any member." : "View and print your account statement for a selected period."} />
 
-            {userRole === 'member' && member && (
+            {userRole === 'member' && memberInitial && (
                 <div className="mb-6">
                     <StatCard
                       title="My Current Savings Balance"
-                      value={`$${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      value={`$${memberInitial.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       icon={<WalletCards className="h-6 w-6 text-accent" />}
-                      description={`Account #: ${member.savingsAccountNumber}`}
+                      description={`Account #: ${memberInitial.savingsAccountNumber}`}
                     />
                 </div>
               )}
@@ -379,7 +325,7 @@ function AccountStatementContent() {
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">School:</Label>
-                        <p>{statementData.member.schoolName}</p>
+                        <p>{statementData.schoolName}</p>
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">Member Status:</Label>
