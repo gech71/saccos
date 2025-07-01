@@ -81,6 +81,8 @@ export async function calculateInterest(criteria: {
   return results;
 }
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 export async function postInterestTransactions(
     transactions: InterestCalculationResult[],
     period: { month: string, year: string }
@@ -89,23 +91,32 @@ export async function postInterestTransactions(
         return { success: false, message: 'No interest transactions to post.' };
     }
 
+    const monthIndex = parseInt(period.month, 10);
+    const year = parseInt(period.year, 10);
+    const monthName = monthNames[monthIndex];
+
+    if (isNaN(monthIndex) || isNaN(year) || !monthName) {
+        return { success: false, message: 'Invalid period provided. Could not parse month or year.' };
+    }
+
     try {
-        const newInterestTransactionsData: Omit<Saving, 'id' | 'memberName'>[] = transactions.map(result => ({
+        const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
           memberId: result.memberId,
           amount: result.calculatedInterest,
-          date: new Date(parseInt(period.year), parseInt(period.month) + 1, 0), // End of selected month
-          month: `${period.month} ${period.year}`,
+          date: new Date(year, monthIndex + 1, 0), // Last day of the selected month
+          month: `${monthName} ${period.year}`,
           transactionType: 'deposit',
           status: 'pending',
-          notes: `Monthly interest posting for ${period.month} ${period.year}`,
+          notes: `Monthly interest posting for ${monthName} ${period.year}`,
           depositMode: 'Bank', // System-generated
           sourceName: 'Internal System Posting',
-          transactionReference: `INT-${period.year}${parseInt(period.month)+1}-${result.memberId}`,
+          transactionReference: `INT-${period.year}${(monthIndex + 1).toString().padStart(2, '0')}-${result.memberId.slice(-8)}`,
           evidenceUrl: null
         }));
 
         await prisma.saving.createMany({
             data: newInterestTransactionsData,
+            skipDuplicates: true,
         });
 
         revalidatePath('/savings');

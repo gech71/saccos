@@ -119,15 +119,8 @@ export default function CalculateInterestPage() {
     }
     setIsPosting(true);
     
-    const monthLabel = months.find(m => m.value === selectedMonth)?.label;
-    if (!monthLabel) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid month selected.' });
-        setIsPosting(false);
-        return;
-    }
-    
     try {
-        const result = await postInterestTransactions(calculationResults, { month: monthLabel, year: selectedYear });
+        const result = await postInterestTransactions(calculationResults, { month: selectedMonth, year: selectedYear });
         if (result.success) {
             toast({ title: 'Interest Posted', description: result.message });
             setCalculationResults(null); // Clear results after posting
