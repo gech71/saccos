@@ -20,18 +20,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { School } from '@prisma/client';
-import { Search, Filter, SchoolIcon, DollarSign as DollarSignIcon, Users, TrendingUp, FileDown, Loader2, MoreVertical, FileText } from 'lucide-react';
+import { Search, Filter, SchoolIcon, DollarSign as DollarSignIcon, Users, TrendingUp, FileDown, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { exportToExcel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import Link from 'next/link';
 import { getSavingsAccountPageData, type MemberSavingsSummary } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -162,7 +155,6 @@ export default function SavingsAccountsPage() {
               <TableHead>Account Type</TableHead>
               <TableHead className="text-right">Current Balance ($)</TableHead>
               <TableHead className="text-center w-[200px]">Contribution Fulfillment</TableHead>
-              <TableHead className="text-center w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -183,34 +175,10 @@ export default function SavingsAccountsPage() {
                         <span className="text-muted-foreground text-xs">N/A (No exp. contrib.)</span>
                     )}
                 </TableCell>
-                <TableCell className="text-center">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <span className="sr-only">Open menu</span>
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                                <Link href={`/account-statement?memberId=${summary.memberId}`}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    <span>View Statement</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href={`/savings?memberId=${summary.memberId}`}>
-                                    <DollarSignIcon className="mr-2 h-4 w-4" />
-                                    <span>Record Transaction</span>
-                                </Link>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </TableCell>
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No members found matching your criteria.
                 </TableCell>
               </TableRow>

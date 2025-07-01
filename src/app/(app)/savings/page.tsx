@@ -1,11 +1,10 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2, MoreVertical, FileText } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2, MoreVertical } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -76,7 +75,7 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
 
 type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>;
 
-function SavingsPageContent() {
+export default function SavingsPage() {
   const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>([]);
   const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,8 +94,6 @@ function SavingsPageContent() {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const { toast } = useToast();
   
-  const searchParams = useSearchParams();
-
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
   
@@ -119,20 +116,6 @@ function SavingsPageContent() {
     }
     fetchPageData();
   }, [toast]);
-  
-  useEffect(() => {
-    const memberIdFromQuery = searchParams.get('memberId');
-    if (memberIdFromQuery && members.length > 0 && !isModalOpen) {
-        const memberExists = members.find(m => m.id === memberIdFromQuery);
-        if (memberExists) {
-            setCurrentTransaction({ ...initialTransactionFormState, memberId: memberIdFromQuery });
-            setIsEditing(false);
-            setIsModalOpen(true);
-        } else {
-            toast({ variant: 'destructive', title: 'Member Not Found', description: 'The specified member could not be found.' });
-        }
-    }
-  }, [searchParams, members, isModalOpen, toast]);
 
   const member = useMemo(() => {
     if (userRole === 'member' && loggedInMemberId) {
@@ -607,12 +590,4 @@ function SavingsPageContent() {
       </AlertDialog>
     </div>
   );
-}
-
-export default function SavingsPage() {
-    return (
-        <Suspense fallback={<div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-            <SavingsPageContent />
-        </Suspense>
-    )
 }
