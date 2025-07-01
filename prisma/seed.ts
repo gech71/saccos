@@ -8,6 +8,11 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
+  await prisma.memberShareCommitment.deleteMany();
+  await prisma.collateral.deleteMany();
+  await prisma.organization.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.emergencyContact.deleteMany();
   await prisma.loanRepayment.deleteMany();
   await prisma.appliedServiceCharge.deleteMany();
   await prisma.saving.deleteMany();
@@ -66,6 +71,7 @@ async function main() {
 
   const memberUser1 = await prisma.user.create({
     data: {
+      userId: 'user-' + Math.random().toString(36).substr(2, 9),
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
@@ -142,11 +148,24 @@ async function main() {
       status: 'active',
       remainingBalance: 800,
       nextDueDate: new Date(2024, 4, 20),
+      loanAccountNumber: 'LN001',
       collateral: {
         create: {
           fullName: 'Guarantor Person',
-          organization: 'Secure Inc.',
-          address: '1 Secure Plaza',
+          organization: {
+            create: {
+              name: 'Secure Inc.',
+              address: '1 Secure Plaza',
+              phone: '555-555-1234'
+            },
+          },
+          address: {
+            create: {
+              city: 'Metropolis',
+              subCity: 'Downtown',
+              wereda: '01'
+            },
+          },
         },
       },
     },
