@@ -18,7 +18,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Shield, PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Role } from '@prisma/client';
-import { permissionsList, getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, type UserWithRoles, type RoleWithUserCount } from './actions';
+import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, type UserWithRoles, type RoleWithUserCount } from './actions';
+
+// Centralized list of all permissions in the system, moved here from actions.ts
+const permissionsList = [
+  'manage_users',
+  'manage_roles',
+  'manage_settings',
+  'manage_members',
+  'manage_schools',
+  'manage_finances', // Broad category for savings, loans, etc.
+  'manage_configuration', // For loan types, share types, etc.
+  'approve_transactions',
+  'view_reports',
+];
+
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -270,7 +284,7 @@ export default function SettingsPage() {
           <div className="space-y-4 py-4">
             {roles.map(role => (
                 <div key={role.id} className="flex items-center space-x-3">
-                    <Checkbox id={`role-${role.id}`} checked={selectedRoleIds.has(role.id)} onCheckedChange={(checked) => handleRoleChange(role.id, !!checked)} />
+                    <Checkbox id={`role-${role.id}`} checked={selectedRoleIds.has(role.id)} onCheckedChange={(checked) => handleUserRoleChange(role.id, !!checked)} />
                     <Label htmlFor={`role-${role.id}`} className="font-medium">{role.name}</Label>
                 </div>
             ))}

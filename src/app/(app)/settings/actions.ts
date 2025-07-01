@@ -5,19 +5,6 @@ import prisma from '@/lib/prisma';
 import type { User, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-// Centralized list of all permissions in the system
-export const permissionsList = [
-  'manage_users',
-  'manage_roles',
-  'manage_settings',
-  'manage_members',
-  'manage_schools',
-  'manage_finances', // Broad category for savings, loans, etc.
-  'manage_configuration', // For loan types, share types, etc.
-  'approve_transactions',
-  'view_reports',
-];
-
 export interface UserWithRoles extends User {
   roles: Role[];
 }
