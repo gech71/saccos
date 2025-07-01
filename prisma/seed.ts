@@ -116,8 +116,8 @@ async function main() {
       expectedMonthlySaving: 50,
       shareCommitments: {
         create: [
-          { shareTypeId: stRegular.id, shareTypeName: 'Regular Share', monthlyCommittedAmount: 20 },
-          { shareTypeId: stEducation.id, shareTypeName: 'Educational Support Share', monthlyCommittedAmount: 15 },
+          { shareTypeId: stRegular.id, monthlyCommittedAmount: 20 },
+          { shareTypeId: stEducation.id, monthlyCommittedAmount: 15 },
         ],
       },
       address: {
@@ -141,7 +141,7 @@ async function main() {
       expectedMonthlySaving: 25,
       shareCommitments: {
         create: [
-          { shareTypeId: stRegular.id, shareTypeName: 'Regular Share', monthlyCommittedAmount: 25 },
+          { shareTypeId: stRegular.id, monthlyCommittedAmount: 25 },
         ],
       },
       address: {
