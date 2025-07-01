@@ -24,7 +24,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5160';
 
 interface DecodedToken {
-  nameid: string; // Corresponds to User ID (sub)
+  nameid?: string; // Corresponds to User ID (sub) in some .NET configs
+  sub?: string; // Standard JWT subject claim, often the User ID
   email: string;
   unique_name: string; // Corresponds to User Name
   role: string | string[]; // Can be single or multiple roles
@@ -59,12 +60,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
         const decoded = jwtDecode<DecodedToken>(data.accessToken);
+        const userId = decoded.sub || decoded.nameid; // Prioritize 'sub', fallback to 'nameid'
+
+        if (!userId) {
+          console.error("Token is invalid: does not contain 'sub' or 'nameid' claim for user ID.");
+          toast({ variant: 'destructive', title: 'Authentication Error', description: 'Invalid token received from server.' });
+          handleLogout();
+          return;
+        }
         
         // Sync user with local DB and get full user profile with roles
-        const localUser = await syncUserOnLogin(decoded.nameid, decoded.unique_name, decoded.email);
+        const localUser = await syncUserOnLogin(userId, decoded.unique_name, decoded.email);
         
         // Fetch all permissions for the user's roles
-        const permissions = await getUserPermissions(decoded.nameid);
+        const permissions = await getUserPermissions(userId);
         
         const authUser: AuthUser = {
             id: localUser.id,
@@ -80,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Failed to decode token or sync user:", error);
         handleLogout();
     }
-  }, [handleLogout]);
+  }, [handleLogout, toast]);
 
   useEffect(() => {
     const initAuth = async () => {
