@@ -8,7 +8,6 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
-  await prisma.usersOnRoles.deleteMany();
   await prisma.memberShareCommitment.deleteMany();
   await prisma.collateral.deleteMany();
   await prisma.organization.deleteMany();
@@ -26,6 +25,7 @@ async function main() {
   await prisma.shareType.deleteMany();
   await prisma.savingAccountType.deleteMany();
   await prisma.school.deleteMany();
+  await prisma.building.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   console.log('Database cleaned.');
@@ -33,10 +33,19 @@ async function main() {
   // 2. Seed Roles
   console.log('Seeding roles...');
   const adminRole = await prisma.role.create({
-    data: { name: 'Admin', description: 'Administrator with full access' },
+    data: {
+      name: 'Admin',
+      description: 'Administrator with full access',
+      permissions: ['manage_users', 'manage_settings', 'view_reports', 'manage_members', 'manage_finances'],
+    },
   });
-  const memberRole = await prisma.role.create({
-    data: { name: 'Member', description: 'A regular member of the association (role for potential future use)' },
+  
+  const staffRole = await prisma.role.create({
+    data: {
+      name: 'Staff',
+      description: 'Regular staff member with limited access',
+      permissions: ['view_reports', 'manage_members'],
+    },
   });
 
   // 3. Seed Users (Application Operators)
@@ -45,19 +54,26 @@ async function main() {
     data: {
       userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', // Hardcoded ID from external auth
       email: 'admin@academinvest.com',
+      name: 'Academ Admin',
+      firstName: 'Academ',
+      lastName: 'Admin',
       roles: {
-        create: [
-          {
-            role: {
-              connect: {
-                id: adminRole.id,
-              },
-            },
-          },
-        ],
+        connect: { id: adminRole.id },
       },
     },
   });
+  
+  // Seed a building and assign a manager
+  await prisma.building.create({
+    data: {
+      name: 'Head Office',
+      address: '123 Admin Way',
+      managers: {
+        connect: { id: adminUser.id }
+      }
+    }
+  });
+
 
   // 4. Seed Core Types
   console.log('Seeding core types...');
