@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,12 +25,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { mockMembers, mockLoans, mockSchools, mockLoanTypes, mockAppliedServiceCharges, mockServiceChargeTypes } from '@/data/mock';
-import type { Member, Loan, School, LoanType, AppliedServiceCharge, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getCalculationPageData, calculateInterest, postInterestCharges, type CalculationPageData, type InterestCalculationResult } from './actions';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -41,25 +40,11 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-interface InterestCalculationResult {
-  loanId: string;
-  memberId: string;
-  fullName: string;
-  loanAccountNumber?: string;
-  remainingBalance: number;
-  interestRate: number;
-  calculatedInterest: number;
-}
-
 export default function CalculateLoanInterestPage() {
   const { toast } = useToast();
   
-  const [allMembers] = useState<Member[]>(mockMembers);
-  const [allLoans] = useState<Loan[]>(mockLoans);
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [allLoanTypes] = useState<LoanType[]>(mockLoanTypes);
-  const [appliedCharges, setAppliedCharges] = useState<AppliedServiceCharge[]>(mockAppliedServiceCharges);
-  const [serviceChargeTypes] = useState<ServiceChargeType[]>(mockServiceChargeTypes);
+  const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], loanTypes: [] });
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString()); // Default to last month
@@ -74,8 +59,17 @@ export default function CalculateLoanInterestPage() {
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
 
-  const handleCalculateInterest = () => {
-    // Validation
+  useEffect(() => {
+    async function fetchData() {
+        setIsPageLoading(true);
+        const data = await getCalculationPageData();
+        setPageData(data);
+        setIsPageLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  const handleCalculateInterest = async () => {
     if (calculationScope === 'school' && !selectedSchoolId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school to calculate for.' });
       return;
@@ -91,81 +85,48 @@ export default function CalculateLoanInterestPage() {
 
     setIsLoading(true);
     setCalculationResults(null);
+    try {
+        const results = await calculateInterest({
+            scope: calculationScope,
+            schoolId: selectedSchoolId,
+            memberId: selectedMemberId,
+            loanTypeId: selectedLoanTypeId,
+        });
 
-    // Filtering logic
-    let loansToProcess = allLoans.filter(loan => loan.status === 'active' || loan.status === 'overdue');
-
-    if (calculationScope === 'school' && selectedSchoolId) {
-        const memberIdsInSchool = allMembers.filter(m => m.schoolId === selectedSchoolId).map(m => m.id);
-        loansToProcess = loansToProcess.filter(l => memberIdsInSchool.includes(l.memberId));
-    } else if (calculationScope === 'member' && selectedMemberId) {
-        loansToProcess = loansToProcess.filter(l => l.memberId === selectedMemberId);
-    } else if (calculationScope === 'loanType' && selectedLoanTypeId) {
-        loansToProcess = loansToProcess.filter(l => l.loanTypeId === selectedLoanTypeId);
-    }
-
-    setTimeout(() => {
-      const results: InterestCalculationResult[] = loansToProcess.map(loan => {
-        if (!loan.interestRate || loan.interestRate <= 0 || !loan.remainingBalance || loan.remainingBalance <= 0) {
-          return null; // Skip loans with no interest or no balance
+        setCalculationResults(results);
+        if (results.length > 0) {
+            toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} active loans based on your criteria.` });
+        } else {
+            toast({ title: 'Calculation Complete', description: 'No loans were eligible for interest calculation for the selected criteria.' });
         }
-
-        // Simple interest calculation for the month
-        const monthlyRate = loan.interestRate / 12;
-        const calculatedInterest = loan.remainingBalance * monthlyRate;
-
-        return {
-          loanId: loan.id,
-          memberId: loan.memberId,
-          fullName: loan.memberName || allMembers.find(m => m.id === loan.memberId)?.fullName || 'Unknown Member',
-          loanAccountNumber: loan.loanAccountNumber,
-          remainingBalance: loan.remainingBalance,
-          interestRate: loan.interestRate,
-          calculatedInterest,
-        };
-      }).filter((res): res is InterestCalculationResult => res !== null && res.calculatedInterest > 0);
-
-      setCalculationResults(results);
-      setIsLoading(false);
-      if (results.length > 0) {
-        toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} active loans based on your criteria.` });
-      } else {
-        toast({ title: 'Calculation Complete', description: 'No loans were eligible for interest calculation for the selected criteria.' });
-      }
-    }, 500);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to calculate interest.' });
+    } finally {
+        setIsLoading(false);
+    }
   };
 
-  const handlePostInterest = () => {
+  const handlePostInterest = async () => {
     if (!calculationResults || calculationResults.length === 0) {
       toast({ variant: 'destructive', title: 'No Results', description: 'There are no calculation results to post.' });
       return;
     }
-    const loanInterestChargeType = serviceChargeTypes.find(sct => sct.name === 'Monthly Loan Interest');
-    if (!loanInterestChargeType) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'A service charge type named "Monthly Loan Interest" must exist to post charges.' });
-        return;
-    }
     
     setIsPosting(true);
     
-    const newInterestCharges: AppliedServiceCharge[] = calculationResults.map(result => ({
-      id: `asc-interest-${Date.now()}-${result.memberId}`,
-      memberId: result.memberId,
-      memberName: result.fullName,
-      serviceChargeTypeId: loanInterestChargeType.id,
-      serviceChargeTypeName: loanInterestChargeType.name,
-      amountCharged: result.calculatedInterest,
-      dateApplied: new Date(parseInt(selectedYear), parseInt(selectedMonth) + 1, 0).toISOString(), // End of selected month
-      status: 'pending',
-      notes: `Monthly loan interest for ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear} on Loan ${result.loanAccountNumber}`,
-    }));
+    const result = await postInterestCharges(calculationResults, { 
+        month: months.find(m => m.value === selectedMonth)?.label || '', 
+        year: selectedYear 
+    });
+
+    if (result.success) {
+        toast({ title: 'Loan Interest Posted', description: result.message });
+        setCalculationResults(null); 
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
     
-    setTimeout(() => {
-        setAppliedCharges(prev => [...prev, ...newInterestCharges]);
-        toast({ title: 'Loan Interest Posted', description: `${newInterestCharges.length} loan interest charges have been submitted for approval.` });
-        setCalculationResults(null); // Clear results after posting
-        setIsPosting(false);
-    }, 1000);
+    setIsPosting(false);
   };
   
   const totalCalculatedInterest = useMemo(() => {
@@ -175,11 +136,14 @@ export default function CalculateLoanInterestPage() {
 
   const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType') => {
     setCalculationScope(value);
-    // Reset selections when scope changes
     setSelectedSchoolId('');
     setSelectedMemberId('');
     setSelectedLoanTypeId('');
   };
+
+  if (isPageLoading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -226,7 +190,7 @@ export default function CalculateLoanInterestPage() {
                 <Label htmlFor="schoolSelect">School</Label>
                 <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId}>
                   <SelectTrigger id="schoolSelect"><SelectValue placeholder="Select a school..." /></SelectTrigger>
-                  <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             )}
@@ -243,7 +207,7 @@ export default function CalculateLoanInterestPage() {
                       className="w-full justify-between"
                     >
                       {selectedMemberId
-                        ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
+                        ? pageData.members.find((member) => member.id === selectedMemberId)?.fullName
                         : "Select member..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -254,7 +218,7 @@ export default function CalculateLoanInterestPage() {
                       <CommandList>
                         <CommandEmpty>No member found.</CommandEmpty>
                         <CommandGroup>
-                          {allMembers.map((member) => (
+                          {pageData.members.map((member) => (
                             <CommandItem
                               key={member.id}
                               value={`${member.fullName} ${member.savingsAccountNumber}`}
@@ -284,7 +248,7 @@ export default function CalculateLoanInterestPage() {
                 <Label htmlFor="loanTypeSelect">Loan Type</Label>
                 <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId}>
                   <SelectTrigger id="loanTypeSelect"><SelectValue placeholder="Select a loan type..." /></SelectTrigger>
-                  <SelectContent>{allLoanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{pageData.loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             )}

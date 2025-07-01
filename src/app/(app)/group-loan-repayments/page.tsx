@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,20 +23,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { mockSchools, mockMembers, mockLoans, mockLoanRepayments } from '@/data/mock';
-import type { School, Member, Loan, LoanRepayment } from '@/types';
+import type { School } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Banknote, Wallet, UploadCloud, Loader2, CheckCircle, RotateCcw } from 'lucide-react';
+import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
+import { getSchoolsForFilter, getLoansBySchool, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 
-interface LoanWithMemberInfo extends Loan {
-  schoolId: string;
-}
-
-const initialBatchTransactionState: Partial<Pick<LoanRepayment, 'paymentDate' | 'depositMode' | 'paymentDetails'>> = {
+const initialBatchTransactionState: {
+  paymentDate: string;
+  depositMode: 'Cash' | 'Bank' | 'Wallet';
+  paymentDetails: {
+    sourceName: string;
+    transactionReference: string;
+    evidenceUrl: string;
+  };
+} = {
   paymentDate: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
   paymentDetails: {
@@ -49,22 +52,30 @@ const initialBatchTransactionState: Partial<Pick<LoanRepayment, 'paymentDate' | 
 export default function GroupLoanRepaymentsPage() {
   const { toast } = useToast();
   
-  const [allSchools] = useState<School[]>(mockSchools);
-  const [allMembers] = useState<Member[]>(mockMembers);
-  const [allLoans, setAllLoans] = useState<Loan[]>(mockLoans);
-  const [allRepayments, setAllRepayments] = useState<LoanRepayment[]>(mockLoanRepayments);
-
+  const [allSchools, setAllSchools] = useState<Pick<School, 'id' | 'name'>[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
   const [eligibleLoans, setEligibleLoans] = useState<LoanWithMemberInfo[]>([]);
   const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
-
   const [repaymentAmounts, setRepaymentAmounts] = useState<Record<string, number>>({});
+  
   const [batchDetails, setBatchDetails] = useState(initialBatchTransactionState);
   const [isPosting, setIsPosting] = useState(false);
-  const [postedTransactions, setPostedTransactions] = useState<LoanRepayment[] | null>(null);
+  const [postedTransactions, setPostedTransactions] = useState<RepaymentBatchData | null>(null);
 
-  const handleLoadLoans = () => {
+  useEffect(() => {
+    async function fetchSchools() {
+        setIsPageLoading(true);
+        const schools = await getSchoolsForFilter();
+        setAllSchools(schools);
+        setIsPageLoading(false);
+    }
+    fetchSchools();
+  }, []);
+
+  const handleLoadLoans = async () => {
     if (!selectedSchool) {
       toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select a school.' });
       return;
@@ -72,26 +83,25 @@ export default function GroupLoanRepaymentsPage() {
     setIsLoadingLoans(true);
     setPostedTransactions(null);
     setRepaymentAmounts({});
-    setTimeout(() => {
-      const memberIdsInSchool = allMembers.filter(m => m.schoolId === selectedSchool).map(m => m.id);
-      const filteredLoans = allLoans
-        .filter(loan => memberIdsInSchool.includes(loan.memberId) && (loan.status === 'active' || loan.status === 'overdue'))
-        .map(loan => ({...loan, schoolId: selectedSchool}));
-      
-      setEligibleLoans(filteredLoans);
-      
-      const initialRepayments: Record<string, number> = {};
-      filteredLoans.forEach(loan => {
-          initialRepayments[loan.id] = loan.monthlyRepaymentAmount || 0;
-      });
-      setRepaymentAmounts(initialRepayments);
-      setSelectedLoanIds(filteredLoans.map(l => l.id));
-      
-      setIsLoadingLoans(false);
-      if (filteredLoans.length === 0) {
-        toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
-      }
-    }, 500);
+    try {
+        const loans = await getLoansBySchool(selectedSchool);
+        setEligibleLoans(loans);
+        
+        const initialRepayments: Record<string, number> = {};
+        loans.forEach(loan => {
+            initialRepayments[loan.id] = loan.monthlyRepaymentAmount || 0;
+        });
+        setRepaymentAmounts(initialRepayments);
+        setSelectedLoanIds(loans.map(l => l.id));
+        
+        if (loans.length === 0) {
+            toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load loans.' });
+    } finally {
+        setIsLoadingLoans(false);
+    }
   };
   
   const handleSelectAllChange = (checked: boolean) => {
@@ -106,7 +116,6 @@ export default function GroupLoanRepaymentsPage() {
   
   const isAllSelected = eligibleLoans.length > 0 && selectedLoanIds.length === eligibleLoans.length;
 
-
   const handleRepaymentAmountChange = (loanId: string, amount: string) => {
     setRepaymentAmounts(prev => ({ ...prev, [loanId]: parseFloat(amount) || 0 }));
   };
@@ -119,13 +128,13 @@ export default function GroupLoanRepaymentsPage() {
 
   const handleBatchDetailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-     const nameParts = name.split('.');
+    const nameParts = name.split('.');
     if (nameParts.length > 1 && nameParts[0] === 'paymentDetails') {
-        const fieldName = nameParts[1] as keyof NonNullable<LoanRepayment['paymentDetails']>;
+        const fieldName = nameParts[1] as keyof typeof initialBatchTransactionState.paymentDetails;
         setBatchDetails(prev => ({
             ...prev,
             paymentDetails: {
-                ...(prev?.paymentDetails || {}),
+                ...(prev.paymentDetails),
                 [fieldName]: value,
             }
         }));
@@ -135,71 +144,40 @@ export default function GroupLoanRepaymentsPage() {
   };
   
   const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setBatchDetails(prev => ({
-      ...prev,
-      depositMode: value,
-      paymentDetails: value === 'Cash' ? undefined : (prev.paymentDetails || { sourceName: '', transactionReference: '', evidenceUrl: '' }),
-    }));
+    setBatchDetails(prev => ({ ...prev, depositMode: value }));
   };
 
-  const handleSubmitCollection = () => {
-    const loansToProcess = selectedLoanIds
+  const handleSubmitCollection = async () => {
+    const repaymentsToProcess: RepaymentBatchData = selectedLoanIds
         .map(loanId => ({
             loanId,
             amountPaid: repaymentAmounts[loanId] || 0,
+            paymentDate: batchDetails.paymentDate,
+            depositMode: batchDetails.depositMode,
+            paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
         }))
         .filter(({ amountPaid }) => amountPaid > 0);
 
-    if (loansToProcess.length === 0) {
+    if (repaymentsToProcess.length === 0) {
       toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan.' });
       return;
     }
-    if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.paymentDetails?.sourceName) {
+    if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.paymentDetails.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${batchDetails.depositMode} Name.` });
         return;
     }
 
     setIsPosting(true);
-    const newRepayments: LoanRepayment[] = [];
-    const updatedLoans = [...allLoans];
-
-    loansToProcess.forEach(({loanId, amountPaid}) => {
-      const loan = eligibleLoans.find(l => l.id === loanId);
-      if (loan) {
-        const newRepayment: LoanRepayment = {
-          id: `repay-${Date.now()}-${loanId}`,
-          loanId: loan.id,
-          memberId: loan.memberId,
-          memberName: loan.memberName,
-          amountPaid,
-          paymentDate: batchDetails.date!,
-          depositMode: batchDetails.depositMode,
-          paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
-        };
-        newRepayments.push(newRepayment);
-
-        // Update loan balance
-        const loanIndex = updatedLoans.findIndex(l => l.id === loanId);
-        if (loanIndex > -1) {
-            const newBalance = updatedLoans[loanIndex].remainingBalance - amountPaid;
-            updatedLoans[loanIndex] = {
-                ...updatedLoans[loanIndex],
-                remainingBalance: newBalance,
-                status: newBalance <= 0 ? 'paid_off' : updatedLoans[loanIndex].status,
-            };
-        }
-      }
-    });
-
-    setTimeout(() => {
-      setAllLoans(updatedLoans);
-      setAllRepayments(prev => [...prev, ...newRepayments]);
-      toast({ title: 'Repayments Recorded', description: `Recorded ${newRepayments.length} loan repayments.` });
-      setIsPosting(false);
-      setEligibleLoans([]);
-      setRepaymentAmounts({});
-      setPostedTransactions(newRepayments);
-    }, 1000);
+    const result = await recordBatchRepayments(repaymentsToProcess);
+    if (result.success) {
+        toast({ title: 'Repayments Recorded', description: result.message });
+        setEligibleLoans([]);
+        setRepaymentAmounts({});
+        setPostedTransactions(repaymentsToProcess);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setIsPosting(false);
   };
   
   const startNewBatch = () => {
@@ -209,6 +187,10 @@ export default function GroupLoanRepaymentsPage() {
     setRepaymentAmounts({});
     setBatchDetails(initialBatchTransactionState);
   };
+  
+  if (isPageLoading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -333,7 +315,7 @@ export default function GroupLoanRepaymentsPage() {
                                         setBatchDetails(prev => ({
                                             ...prev,
                                             paymentDetails: {
-                                                ...(prev?.paymentDetails || {}),
+                                                ...(prev.paymentDetails),
                                                 evidenceUrl: newValue,
                                             }
                                         }));
@@ -373,7 +355,6 @@ export default function GroupLoanRepaymentsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Member Name</TableHead>
                                 <TableHead>Loan Acct. #</TableHead>
                                 <TableHead className="text-right">Amount Paid ($)</TableHead>
                                 <TableHead>Date</TableHead>
@@ -382,9 +363,8 @@ export default function GroupLoanRepaymentsPage() {
                         </TableHeader>
                         <TableBody>
                             {postedTransactions.map(transaction => (
-                                <TableRow key={transaction.id}>
-                                    <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="font-mono text-xs">{allLoans.find(l=>l.id === transaction.loanId)?.loanAccountNumber}</TableCell>
+                                <TableRow key={transaction.loanId}>
+                                    <TableCell className="font-mono text-xs">{eligibleLoans.find(l=>l.id === transaction.loanId)?.loanAccountNumber}</TableCell>
                                     <TableCell className="text-right">${transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

@@ -75,6 +75,7 @@ async function main() {
 
   const sctAnnual = await prisma.serviceChargeType.create({ data: { name: 'Annual Membership Fee', amount: 20, frequency: 'yearly' } });
   const sctLatePay = await prisma.serviceChargeType.create({ data: { name: 'Late Payment Penalty', amount: 5, frequency: 'once' } });
+  const sctLoanInterest = await prisma.serviceChargeType.create({ data: { name: 'Monthly Loan Interest', amount: 0, frequency: 'monthly', description: 'Accrued interest on active loans. Amount is calculated dynamically.' } });
 
   // 5. Seed Members (Customers of the Association)
   console.log('Seeding members...');
@@ -193,6 +194,7 @@ async function main() {
       amountPaid: 200,
       paymentDate: new Date(2024, 2, 20),
       notes: 'Initial repayment.',
+      memberId: loan1.memberId,
     },
   });
 

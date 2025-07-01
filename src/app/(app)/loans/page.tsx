@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -14,34 +14,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import { mockLoans, mockMembers, mockLoanTypes, mockSubcities } from '@/data/mock';
-import type { Loan, Member, LoanType, Collateral } from '@/types';
+import type { Loan, Member, LoanType, Collateral, Address, Organization } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoansPageData, type LoanInput } from './actions';
 
-const initialLoanFormState: Partial<Loan> = {
+type LoanWithRelations = Loan & { collateral: (Collateral & { organization: Organization | null, address: Address | null })[] };
+
+const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId' | 'addressId'> = {
+  fullName: '',
+  organization: null,
+  address: null,
+};
+
+const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   memberId: '',
   loanTypeId: '',
   principalAmount: 0,
   disbursementDate: new Date().toISOString().split('T')[0],
   status: 'pending',
   loanAccountNumber: '',
-  collateral: [],
+  collaterals: [],
 };
 
+
 export default function LoansPage() {
-  const [loans, setLoans] = useState<Loan[]>(mockLoans);
-  const [members] = useState<Member[]>(mockMembers);
-  const [loanTypes] = useState<LoanType[]>(mockLoanTypes);
+  const [loans, setLoans] = useState<LoanWithRelations[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
+  const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [subcities, setSubcities] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentLoan, setCurrentLoan] = useState<Partial<Loan>>(initialLoanFormState);
+  const [currentLoan, setCurrentLoan] = useState<Partial<LoanInput & {id?: string, status?: string }>>(initialLoanFormState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);
@@ -49,27 +60,28 @@ export default function LoansPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   
-  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getLoansPageData();
+        setLoans(data.loans);
+        setMembers(data.members);
+        setLoanTypes(data.loanTypes);
+        setSubcities(data.subcities);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+    }
+    setIsLoading(false);
+  }
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
-    const memberId = localStorage.getItem('loggedInMemberId');
-    setUserRole(role);
-    setLoggedInMemberId(memberId);
-
-    const storedSubcities = localStorage.getItem('subcities');
-    if (storedSubcities) {
-        setSubcities(JSON.parse(storedSubcities));
-    } else {
-        setSubcities(mockSubcities);
-    }
+    fetchPageData();
   }, []);
 
   useEffect(() => {
     if (currentLoan.loanTypeId && currentLoan.principalAmount && currentLoan.principalAmount > 0) {
         const loanType = loanTypes.find(lt => lt.id === currentLoan.loanTypeId);
-        if (loanType && loanType.interestRate > 0) {
+        if (loanType && loanType.interestRate > 0 && loanType.loanTerm > 0) {
             const monthlyRate = loanType.interestRate / 12;
             const numberOfPayments = loanType.loanTerm;
             const principal = currentLoan.principalAmount;
@@ -79,51 +91,44 @@ export default function LoansPage() {
         } else if (loanType && loanType.loanTerm > 0) { // Handle 0 interest rate
              const payment = currentLoan.principalAmount / loanType.loanTerm;
              setMonthlyPayment(payment);
-        }
-         else {
+        } else {
             setMonthlyPayment(null);
         }
     } else {
         setMonthlyPayment(null);
     }
-}, [currentLoan.principalAmount, currentLoan.loanTypeId, loanTypes]);
+  }, [currentLoan.principalAmount, currentLoan.loanTypeId, loanTypes]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setCurrentLoan(prev => ({ ...prev, [name]: name === 'principalAmount' ? parseFloat(value) : value }));
   };
 
-  const handleSelectChange = (name: keyof Loan, value: string) => {
+  const handleSelectChange = (name: keyof LoanInput, value: string) => {
     setCurrentLoan(prev => ({ ...prev, [name]: value }));
   };
 
   const addCollateral = () => {
-    const newCollateral: Collateral = {
-        id: `collateral-${Date.now()}`,
-        fullName: '',
-        organization: { name: '', address: '', phone: '' },
-        address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' }
-    };
     setCurrentLoan(prev => ({
         ...prev,
-        collateral: [...(prev.collateral || []), newCollateral]
+        collaterals: [...(prev.collaterals || []), initialCollateralState]
     }));
   };
 
   const removeCollateral = (index: number) => {
       setCurrentLoan(prev => ({
           ...prev,
-          collateral: (prev.collateral || []).filter((_, i) => i !== index)
+          collaterals: (prev.collaterals || []).filter((_, i) => i !== index)
       }));
   };
 
   const handleCollateralChange = (index: number, field: string, value: string) => {
-    const updatedCollaterals = [...(currentLoan.collateral || [])];
+    const updatedCollaterals = [...(currentLoan.collaterals || [])];
     const fieldParts = field.split('.');
 
     if (fieldParts.length > 1) {
-        const [parentKey, childKey] = fieldParts as [keyof Collateral, string];
-        const currentParentValue = updatedCollaterals[index][parentKey as 'organization' | 'address'] || {};
+        const [parentKey, childKey] = fieldParts as ['organization' | 'address', string];
+        const currentParentValue = updatedCollaterals[index][parentKey] || {};
         updatedCollaterals[index] = {
             ...updatedCollaterals[index],
             [parentKey]: {
@@ -132,14 +137,14 @@ export default function LoansPage() {
             }
         };
     } else {
-        const key = field as keyof Collateral;
+        const key = field as keyof typeof initialCollateralState;
         (updatedCollaterals[index] as any)[key] = value;
     }
     
-    setCurrentLoan(prev => ({...prev, collateral: updatedCollaterals}));
+    setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentLoan.memberId || !currentLoan.loanTypeId || !currentLoan.principalAmount || currentLoan.principalAmount <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Member, loan type, and a valid principal amount are required.' });
@@ -158,32 +163,24 @@ export default function LoansPage() {
         return;
     }
 
-    const memberName = members.find(m => m.id === currentLoan.memberId)?.fullName;
-
-    if (isEditing && currentLoan.id) {
-      const updatedLoan = { ...currentLoan, memberName, loanTypeName: selectedLoanType.name, status: 'pending', monthlyRepaymentAmount: monthlyPayment } as Loan;
-      setLoans(prev => prev.map(l => l.id === currentLoan.id ? updatedLoan : l));
-      toast({ title: 'Loan Updated', description: `Loan application for ${memberName} updated.` });
-    } else {
-      const newLoan: Loan = {
-        ...initialLoanFormState,
-        ...currentLoan,
-        id: `loan-${Date.now()}`,
-        loanAccountNumber: currentLoan.loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
-        memberName,
-        loanTypeName: selectedLoanType.name,
-        interestRate: selectedLoanType.interestRate,
-        loanTerm: selectedLoanType.loanTerm,
-        repaymentFrequency: selectedLoanType.repaymentFrequency,
-        remainingBalance: currentLoan.principalAmount!,
-        monthlyRepaymentAmount: monthlyPayment,
-      } as Loan;
-      setLoans(prev => [newLoan, ...prev]);
-      toast({ title: 'Loan Application Submitted', description: `New loan application for ${memberName} submitted for approval.` });
+    setIsSubmitting(true);
+    try {
+        if (isEditing && currentLoan.id) {
+          await updateLoan(currentLoan.id, currentLoan as LoanInput);
+          toast({ title: 'Loan Updated', description: 'Loan application has been updated.' });
+        } else {
+          await addLoan(currentLoan as LoanInput);
+          toast({ title: 'Loan Application Submitted', description: 'New loan application submitted for approval.' });
+        }
+        await fetchPageData();
+        setIsModalOpen(false);
+        setCurrentLoan(initialLoanFormState);
+        setIsEditing(false);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+    } finally {
+        setIsSubmitting(false);
     }
-    setIsModalOpen(false);
-    setCurrentLoan(initialLoanFormState);
-    setIsEditing(false);
   };
 
   const openAddModal = () => {
@@ -192,34 +189,39 @@ export default function LoansPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (loan: Loan) => {
+  const openEditModal = (loan: LoanWithRelations) => {
     setCurrentLoan({
       ...loan,
-      disbursementDate: loan.disbursementDate ? new Date(loan.disbursementDate).toISOString().split('T')[0] : '',
-      collateral: loan.collateral ? [...loan.collateral] : [],
+      collaterals: loan.collaterals.map(c => ({
+        fullName: c.fullName,
+        organization: c.organization ? {...c.organization} : undefined,
+        address: c.address ? {...c.address} : undefined
+      }))
     });
     setIsEditing(true);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (loanId: string) => {
+  const handleDeleteLoan = async (loanId: string) => {
     if (window.confirm('Are you sure you want to delete this loan application? This cannot be undone.')) {
-      setLoans(prev => prev.filter(l => l.id !== loanId));
-      toast({ title: 'Success', description: 'Loan application deleted.' });
+      const result = await deleteLoan(loanId);
+      if (result.success) {
+          toast({ title: 'Success', description: result.message });
+          await fetchPageData();
+      } else {
+          toast({ variant: 'destructive', title: 'Error', description: result.message });
+      }
     }
   };
 
   const filteredLoans = useMemo(() => {
     return loans.filter(loan => {
-      if (userRole === 'member' && loan.memberId !== loggedInMemberId) {
-        return false;
-      }
       const member = members.find(m => m.id === loan.memberId);
-      const matchesSearchTerm = userRole === 'admin' ? (member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false) : true;
+      const matchesSearchTerm = member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const matchesStatus = selectedStatusFilter === 'all' || loan.status === selectedStatusFilter;
       return matchesSearchTerm && matchesStatus;
     });
-  }, [loans, members, searchTerm, selectedStatusFilter, userRole, loggedInMemberId]);
+  }, [loans, members, searchTerm, selectedStatusFilter]);
   
   const getStatusBadgeVariant = (status: Loan['status']) => {
     switch (status) {
@@ -249,40 +251,34 @@ export default function LoansPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={userRole === 'member' ? 'My Loans' : "Loan Management"} subtitle={userRole === 'member' ? 'View your loan history and status.' : "Manage member loan applications and active loans."}>
-        {userRole === 'admin' && (
-            <>
-                <Button onClick={handleExport} variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export</Button>
-                <Button onClick={openAddModal}><PlusCircle className="mr-2 h-5 w-5" /> New Loan Application</Button>
-            </>
-        )}
+      <PageTitle title="Loan Management" subtitle="Manage member loan applications and active loans.">
+        <Button onClick={handleExport} variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export</Button>
+        <Button onClick={openAddModal}><PlusCircle className="mr-2 h-5 w-5" /> New Loan Application</Button>
       </PageTitle>
 
-      {userRole === 'admin' && (
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
-            </div>
-            <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Filter by status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="paid_off">Paid Off</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
-        </div>
-      )}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
+          </div>
+          <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Filter by status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="paid_off">Paid Off</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              {userRole === 'admin' && <TableHead>Member</TableHead>}
+              <TableHead>Member</TableHead>
               <TableHead>Acct. #</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Status</TableHead>
@@ -291,13 +287,15 @@ export default function LoansPage() {
               <TableHead>Disbursed</TableHead>
               <TableHead>Next Due</TableHead>
               <TableHead>Collateral</TableHead>
-              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
+              <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLoans.length > 0 ? filteredLoans.map(loan => (
+            {isLoading ? (
+                <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+            ) : filteredLoans.length > 0 ? filteredLoans.map(loan => (
               <TableRow key={loan.id}>
-                {userRole === 'admin' && <TableCell className="font-medium">{loan.memberName}</TableCell>}
+                <TableCell className="font-medium">{loan.memberName}</TableCell>
                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
@@ -306,24 +304,24 @@ export default function LoansPage() {
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
-                  {loan.collateral && loan.collateral.length > 0 ? (
-                    <Badge variant="secondary">{loan.collateral.length} Guarantor(s)</Badge>
+                  {loan.collaterals && loan.collaterals.length > 0 ? (
+                    <Badge variant="secondary">{loan.collaterals.length} Guarantor(s)</Badge>
                   ) : (
                     <Badge variant="outline">None</Badge>
                   )}
                 </TableCell>
-                {userRole === 'admin' && <TableCell className="text-right">
+                <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><span className="sr-only">Menu</span><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit Application</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Application</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDeleteLoan(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Application</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>}
+                </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={userRole === 'admin' ? 10 : 9} className="h-24 text-center">No loans found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -401,8 +399,8 @@ export default function LoansPage() {
                   </Button>
               </div>
 
-              {(currentLoan.collateral || []).map((collateral, index) => (
-                <div key={collateral.id} className="space-y-4 p-4 border rounded-md relative">
+              {(currentLoan.collaterals || []).map((collateral, index) => (
+                <div key={index} className="space-y-4 p-4 border rounded-md relative">
                    <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
                       <MinusCircle className="h-5 w-5" />
                       <span className="sr-only">Remove Guarantor</span>
@@ -448,18 +446,16 @@ export default function LoansPage() {
                       </div>
                       <div><Label htmlFor={`collateral-addr-wereda-${index}`}>Wereda</Label><Input id={`collateral-addr-wereda-${index}`} name="address.wereda" value={collateral.address?.wereda || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
                   </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div><Label htmlFor={`collateral-addr-kebele-${index}`}>Kebele</Label><Input id={`collateral-addr-kebele-${index}`} name="address.kebele" value={collateral.address?.kebele || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
-                      <div><Label htmlFor={`collateral-addr-house-${index}`}>House Number</Label><Input id={`collateral-addr-house-${index}`} name="address.houseNumber" value={collateral.address?.houseNumber || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
-                  </div>
-
                 </div>
               ))}
             </div>
 
             <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Submit Application'}</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Submit Application'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
