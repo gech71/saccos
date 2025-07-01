@@ -53,7 +53,7 @@ const initialBatchTransactionState: {
 export default function GroupLoanRepaymentsPage() {
   const { toast } = useToast();
   
-  const [allSchools, setAllSchools] = useState<Pick<School, 'id' | 'name'>[]>([]);
+  const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -150,13 +150,17 @@ export default function GroupLoanRepaymentsPage() {
 
   const handleSubmitCollection = async () => {
     const repaymentsToProcess: RepaymentBatchData = selectedLoanIds
-        .map(loanId => ({
-            loanId,
-            amountPaid: repaymentAmounts[loanId] || 0,
-            paymentDate: batchDetails.paymentDate,
-            depositMode: batchDetails.depositMode,
-            paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
-        }))
+        .map(loanId => {
+            const loan = eligibleLoans.find(l => l.id === loanId);
+            return {
+                loanId,
+                loanAccountNumber: loan?.loanAccountNumber || 'N/A',
+                amountPaid: repaymentAmounts[loanId] || 0,
+                paymentDate: batchDetails.paymentDate,
+                depositMode: batchDetails.depositMode,
+                paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
+            }
+        })
         .filter(({ amountPaid }) => amountPaid > 0);
 
     if (repaymentsToProcess.length === 0) {
@@ -172,9 +176,9 @@ export default function GroupLoanRepaymentsPage() {
     const result = await recordBatchRepayments(repaymentsToProcess);
     if (result.success) {
         toast({ title: 'Repayments Recorded', description: result.message });
+        setPostedTransactions(repaymentsToProcess);
         setEligibleLoans([]);
         setRepaymentAmounts({});
-        setPostedTransactions(repaymentsToProcess);
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -365,7 +369,7 @@ export default function GroupLoanRepaymentsPage() {
                         <TableBody>
                             {postedTransactions.map(transaction => (
                                 <TableRow key={transaction.loanId}>
-                                    <TableCell className="font-mono text-xs">{eligibleLoans.find(l=>l.id === transaction.loanId)?.loanAccountNumber}</TableCell>
+                                    <TableCell className="font-mono text-xs">{transaction.loanAccountNumber}</TableCell>
                                     <TableCell className="text-right">${transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

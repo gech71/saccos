@@ -1,10 +1,11 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { School, Loan, LoanRepayment, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getSchoolsForFilter(): Promise<Pick<School, 'id' | 'name'>[]> {
+export async function getSchoolsForFilter(): Promise<Pick<School, 'id', 'name'>[]> {
   return prisma.school.findMany({
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
@@ -48,6 +49,7 @@ export async function getLoansBySchool(schoolId: string): Promise<LoanWithMember
 
 export type RepaymentBatchData = {
     loanId: string;
+    loanAccountNumber: string;
     amountPaid: number;
     paymentDate: string;
     depositMode: 'Cash' | 'Bank' | 'Wallet';

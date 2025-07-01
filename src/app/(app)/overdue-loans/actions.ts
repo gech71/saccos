@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -11,7 +12,7 @@ export interface OverdueLoanInfo extends Loan {
 
 export interface OverdueLoansPageData {
   overdueLoans: OverdueLoanInfo[];
-  schools: Pick<School, 'id' | 'name'>[];
+  schools: Pick<School, 'id', 'name'>[];
 }
 
 export async function getOverdueLoansPageData(): Promise<OverdueLoansPageData> {
@@ -34,6 +35,11 @@ export async function getOverdueLoansPageData(): Promise<OverdueLoansPageData> {
           fullName: true,
         },
       },
+      loanType: {
+        select: {
+          name: true,
+        },
+      },
     },
     orderBy: {
       nextDueDate: 'asc',
@@ -46,6 +52,7 @@ export async function getOverdueLoansPageData(): Promise<OverdueLoansPageData> {
     nextDueDate: loan.nextDueDate?.toISOString() ?? null,
     daysOverdue: loan.nextDueDate ? differenceInDays(today, loan.nextDueDate) : 0,
     memberName: loan.member.fullName,
+    loanTypeName: loan.loanType.name,
   }));
 
   const schools = await prisma.school.findMany({
