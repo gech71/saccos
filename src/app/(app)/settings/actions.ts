@@ -2,6 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import type { User, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import axios from 'axios';
@@ -90,10 +91,10 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
     if (!token) {
         throw new Error('Authentication token is missing. You must be logged in to register a user.');
     }
-    
+
+    let registerResponse;
     try {
-        // 1. Register user with the external auth provider
-        const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
+        registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,
@@ -105,20 +106,32 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
             }
         });
 
-        // The API call succeeded (status 2xx), but the business logic inside the API failed.
-        if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {
-            console.error("Auth Service Registration Failure (200 OK):", JSON.stringify(registerResponse.data, null, 2));
-            
-            const message = registerResponse.data?.errors?.[0] 
-                          || registerResponse.data?.message 
-                          || "Registration failed. The email or phone number may already be in use, or the password may not meet complexity requirements.";
-            
+        if (!registerResponse.data.isSuccess) {
+            const message = (Array.isArray(registerResponse.data.errors) && registerResponse.data.errors.join(' '))
+                          || registerResponse.data.message
+                          || "Registration with auth service failed. The user might already exist, or the password may be too weak.";
             throw new Error(message);
         }
-        
+
+        if (!registerResponse.data.userId) {
+            throw new Error("Auth service succeeded but did not return a user ID.");
+        }
+    } catch (error) {
+        console.error("Error during external auth registration:", error);
+        if (axios.isAxiosError(error)) {
+            const responseData = error.response?.data;
+            if (responseData) {
+                const message = (Array.isArray(responseData.errors) && responseData.errors.join(' ')) || responseData.message || "An unknown error occurred with the authentication service.";
+                throw new Error(message);
+            }
+        }
+        throw new Error(error instanceof Error ? error.message : "An external API error occurred.");
+    }
+    
+    // If we get here, external registration was successful. Now, save to local DB.
+    try {
         const externalUserId = registerResponse.data.userId;
 
-        // 2. Create the user in the local Prisma database
         const newUser = await prisma.user.create({
             data: {
                 userId: externalUserId,
@@ -136,45 +149,18 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
         revalidatePath('/settings');
         return newUser;
     } catch (error) {
-        // The API call itself failed (status 4xx or 5xx).
-        if (axios.isAxiosError(error)) {
-             console.error('Auth Service HTTP Error:', error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
-            
-            if (error.response && error.response.data) {
-                const responseData = error.response.data;
+        console.error("Error saving user to local DB after successful auth registration:", error);
 
-                // Handles cases like: { "title": "One or more validation errors occurred.", "errors": { "Password": [...] } }
-                if (responseData.errors && typeof responseData.errors === 'object' && !Array.isArray(responseData.errors)) {
-                    const errorMessages = Object.values(responseData.errors).flat();
-                    if (errorMessages.length > 0) {
-                        throw new Error(errorMessages.join(' '));
-                    }
-                }
-                
-                // Handles cases like: { "isSuccess": false, "message": "...", "errors": ["..."] }
-                if (Array.isArray(responseData.errors) && responseData.errors.length > 0) {
-                     throw new Error(responseData.errors.join(' '));
-                }
-
-                if (responseData.message) {
-                    throw new Error(responseData.message);
-                }
-
-                 if (responseData.title) {
-                    throw new Error(responseData.title);
-                }
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // Unique constraint failed
+            if (error.code === 'P2002') {
+                const fields = error.meta?.target as string[] || ['field'];
+                const fieldName = fields.join(', ');
+                throw new Error(`Error: A user with this ${fieldName} already exists in the local database. This might be due to a previous failed registration. Please check the data or contact support.`);
             }
-
-            throw new Error(error.message || 'An external API error occurred. Please check the server logs.');
         }
-
-        // Re-throw errors from the `try` block (e.g., our custom error for `isSuccess: false`) or from Prisma.
-        if (error instanceof Error) {
-            throw error;
-        }
-
-        // Fallback for completely unexpected errors.
-        throw new Error('An unexpected error occurred during user registration.');
+        
+        throw new Error("User was registered with the auth service, but saving to the local database failed. Please check for data inconsistencies.");
     }
 }
 
