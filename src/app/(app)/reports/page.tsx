@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -12,6 +13,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatCard } from '@/components/stat-card';
 import { exportToExcel } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 
 type SchoolForSelect = {
     id: string;
@@ -23,6 +37,9 @@ const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'share-allocations', label: 'Share Allocations' },
   { value: 'dividend-distributions', label: 'Dividend Distributions' },
 ];
+
+const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];
+
 
 export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
@@ -170,6 +187,42 @@ export default function ReportsPage() {
                     />
                 ))}
             </div>
+
+            {reportOutput.chartData && reportOutput.chartData.length > 0 && (
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Chart Visualization</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        {reportOutput.chartType === 'bar' ? (
+                            <BarChart data={reportOutput.chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                {Object.keys(reportOutput.chartData[0]).includes('month') && <XAxis dataKey="month" />}
+                                <YAxis />
+                                <Tooltip />
+                                <Legend />
+                                {Object.keys(reportOutput.chartData[0]).includes('Deposits') && <Bar dataKey="Deposits" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />}
+                                {Object.keys(reportOutput.chartData[0]).includes('Withdrawals') && <Bar dataKey="Withdrawals" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />}
+                                {Object.keys(reportOutput.chartData[0]).includes('Amount') && <Bar dataKey="Amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />}
+                            </BarChart>
+                        ) : reportOutput.chartType === 'pie' ? (
+                            <PieChart>
+                                <Pie data={reportOutput.chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                                    {reportOutput.chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        ) : null}
+                    </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="overflow-x-auto rounded-lg border">
                 <Table>
                     <TableHeader>

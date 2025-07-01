@@ -1,7 +1,9 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Saving, Share, Dividend } from '@prisma/client';
+import { format } from 'date-fns';
 
 export async function getSchoolsForReport() {
     return prisma.school.findMany({
@@ -24,6 +26,8 @@ export interface ReportData {
     summary: { label: string; value: string; }[];
     columns: string[];
     rows: (string | number)[][];
+    chartData?: any[];
+    chartType?: 'bar' | 'pie' | 'line' | 'none';
 }
 
 export async function generateSimpleReport(schoolId: string, reportType: ReportType): Promise<ReportData | null> {
@@ -47,6 +51,24 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
         const totalDeposits = savings.filter(s => s.transactionType === 'deposit').reduce((sum, s) => sum + s.amount, 0);
         const totalWithdrawals = savings.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
 
+        const monthlyData: { [key: string]: { Deposits: number, Withdrawals: number } } = {};
+        savings.forEach(s => {
+            const monthKey = format(new Date(s.date), 'yyyy-MM');
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = { Deposits: 0, Withdrawals: 0 };
+            }
+            if (s.transactionType === 'deposit') {
+                monthlyData[monthKey].Deposits += s.amount;
+            } else {
+                monthlyData[monthKey].Withdrawals += s.amount;
+            }
+        });
+
+        const chartData = Object.keys(monthlyData).map(key => ({
+            month: format(new Date(key), 'MMM yy'),
+            ...monthlyData[key]
+        })).sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+
         return {
             title: 'Savings Transaction Report',
             schoolName: school.name,
@@ -65,6 +87,8 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
                 s.amount,
                 s.status
             ]),
+            chartData,
+            chartType: 'bar',
         };
     }
     
@@ -77,6 +101,21 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
 
         const totalSharesCount = shares.reduce((sum, s) => sum + s.count, 0);
         const totalSharesValue = shares.reduce((sum, s) => sum + (s.totalValueForAllocation || s.count * s.valuePerShare), 0);
+
+        const shareTypeData: { [key: string]: number } = {};
+        shares.forEach(s => {
+            const typeName = s.shareType.name;
+            const value = s.totalValueForAllocation || (s.count * s.valuePerShare);
+            if (!shareTypeData[typeName]) {
+                shareTypeData[typeName] = 0;
+            }
+            shareTypeData[typeName] += value;
+        });
+
+        const chartData = Object.keys(shareTypeData).map(name => ({
+            name,
+            value: shareTypeData[name],
+        }));
 
         return {
             title: 'Share Allocation Report',
@@ -96,6 +135,8 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
                 s.valuePerShare,
                 s.totalValueForAllocation || (s.count * s.valuePerShare)
             ]),
+            chartData,
+            chartType: 'pie',
         };
     }
 
@@ -107,6 +148,20 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
         });
 
         const totalDividendAmount = dividends.reduce((sum, d) => sum + d.amount, 0);
+        
+        const memberDividends: { [key: string]: number } = {};
+        dividends.forEach(d => {
+            const memberName = d.member.fullName;
+            if (!memberDividends[memberName]) {
+                memberDividends[memberName] = 0;
+            }
+            memberDividends[memberName] += d.amount;
+        });
+
+        const chartData = Object.entries(memberDividends)
+            .map(([name, value]) => ({ name, Amount: value }))
+            .sort((a, b) => b.Amount - a.Amount)
+            .slice(0, 10);
 
         return {
             title: 'Dividend Distribution Report',
@@ -123,6 +178,8 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
                 d.amount,
                 d.shareCountAtDistribution
             ]),
+            chartData,
+            chartType: 'bar',
         };
     }
     
