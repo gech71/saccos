@@ -14,35 +14,35 @@ body {
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 231 48% 48%; /* #3F51B5 */
-    --primary-foreground: 0 0% 98%;
+    --primary: 48 96% 53%; /* Yellow */
+    --primary-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 174 100% 29%; /* #009688 */
+    --accent: 231 48% 48%; /* Blue */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 231 48% 48%; /* Adjusted to primary color */
-    --chart-1: 231 48% 48%;
-    --chart-2: 174 100% 29%;
+    --ring: 48 96% 53%; /* Match new primary */
+    --chart-1: 48 96% 53%;
+    --chart-2: 231 48% 48%;
     --chart-3: 210 40% 96.1%;
     --chart-4: 220 70% 50%;
     --chart-5: 30 80% 55%;
     --radius: 0.5rem;
 
     /* Sidebar specific variables, can be customized if needed */
-    --sidebar-background: 240 5.9% 10%; /* Darker for contrast or match primary */
+    --sidebar-background: 27 38% 15%; /* Dark Brown */
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 0 0% 98%; 
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 174 100% 29%; 
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 174 100% 29%;
+    --sidebar-primary-foreground: 27 38% 15%; /* Dark Brown text on light bg */
+    --sidebar-accent: 48 96% 53%; /* Yellow */
+    --sidebar-accent-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
+    --sidebar-border: 27 38% 25%; /* Slightly lighter brown */
+    --sidebar-ring: 48 96% 53%; /* Yellow */
   }
 
   .dark {
@@ -52,33 +52,33 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 231 48% 48%; 
-    --primary-foreground: 0 0% 98%;
+    --primary: 48 96% 53%; /* Yellow */
+    --primary-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 174 100% 29%; 
+    --accent: 231 48% 48%; /* Blue */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 231 48% 48%;
-    --chart-1: 231 48% 48%;
-    --chart-2: 174 100% 29%;
+    --ring: 48 96% 53%; /* Match new primary */
+    --chart-1: 48 96% 53%;
+    --chart-2: 231 48% 48%;
     --chart-3: 210 40% 96.1%;
     --chart-4: 220 70% 50%;
     --chart-5: 30 80% 55%;
 
-    --sidebar-background: 220 10% 10%; 
+    --sidebar-background: 27 38% 15%; /* Dark Brown */
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 174 100% 29%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 220 10% 20%;
-    --sidebar-ring: 174 100% 29%;
+    --sidebar-primary-foreground: 27 38% 15%; /* Dark Brown text on light bg */
+    --sidebar-accent: 48 96% 53%; /* Yellow */
+    --sidebar-accent-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
+    --sidebar-border: 27 38% 25%; /* Slightly lighter brown */
+    --sidebar-ring: 48 96% 53%; /* Yellow */
   }
 }
 
