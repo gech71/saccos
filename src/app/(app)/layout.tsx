@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -19,51 +20,51 @@ import { Loader2 } from 'lucide-react';
 
 const allNavItems: NavItem[] = [
   // Always visible
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'view_dashboard' },
+  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
 
   // BASIC INFORMATION
   { title: 'Basic Information', isGroupLabel: true },
-  { title: 'Schools', href: '/schools', icon: School, permission: 'view_schools' },
-  { title: 'Members', href: '/members', icon: Users, permission: 'view_members' },
+  { title: 'Schools', href: '/schools', icon: School, permission: 'school:view' },
+  { title: 'Members', href: '/members', icon: Users, permission: 'member:view' },
   
   // SAVING RELATED
   { title: 'Savings', isGroupLabel: true },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'view_savings' },
-  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'view_savings_accounts' },
-  { title: 'Group Collections', href: '/group-collections', icon: Library, permission: 'manage_group_collections' },
-  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'manage_interest_calculation' },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'view_account_statements' },
-  { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'manage_account_closure' },
-  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, permission: 'view_closed_accounts' },
+  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
+  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'savingAccount:view' },
+  { title: 'Group Collections', href: '/group-collections', icon: Library, permission: 'groupCollection:view' },
+  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'interestCalculation:view' },
+  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'accountStatement:view' },
+  { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'accountClosure:view' },
+  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, permission: 'closedAccount:view' },
 
   // LOAN RELATED
   { title: 'Loans', isGroupLabel: true },
-  { title: 'Loans', href: '/loans', icon: Banknote, permission: 'view_loans' },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'view_loan_repayments' },
-  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, permission: 'manage_group_repayments' },
-  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'manage_interest_calculation' },
-  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'view_overdue_loans' },
+  { title: 'Loans', href: '/loans', icon: Banknote, permission: 'loan:view' },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'loanRepayment:view' },
+  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, permission: 'groupLoanRepayment:view' },
+  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'interestCalculation:view' },
+  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
   
   // DIVIDEND/SHARE RELATED
   { title: 'Shares & Dividends', isGroupLabel: true },
-  { title: 'Share Allocations', href: '/shares', icon: PieChart, permission: 'view_shares' },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'view_dividends' },
+  { title: 'Share Allocations', href: '/shares', icon: PieChart, permission: 'share:view' },
+  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'dividend:view' },
   
   // ADMINISTRATION (Covers Settings, Operations, Monitoring)
   { title: 'Administration', isGroupLabel: true },
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'approve_transactions' },
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'manage_service_charges' },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'view_overdue_payments' },
-  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'view_reports' },
-  { title: 'AI Reports', href: '/reports', icon: FileText, permission: 'view_reports' },
-  { title: 'Settings', href: '/settings', icon: Settings, permission: 'manage_settings' },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'transactionApproval:view' },
+  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'serviceCharge:view' },
+  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
+  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'report:view' },
+  { title: 'AI Reports', href: '/reports', icon: FileText, permission: 'report:view' },
+  { title: 'Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
 
   // CONFIGURATION
   { title: 'Configuration', isGroupLabel: true },
-  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'manage_configuration' },
-  { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'manage_configuration' },
-  { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'manage_configuration' },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'manage_configuration' },
+  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'configuration:view' },
+  { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'configuration:view' },
+  { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'configuration:view' },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'configuration:view' },
 ];
 
 
@@ -75,11 +76,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!user?.permissions) return [];
     
     const userPermissions = new Set(user.permissions);
-    
-    // An admin role should see everything
-    if (user.roles?.includes('Admin')) {
-      return allNavItems;
-    }
     
     return allNavItems.filter(item => {
         if (!item.permission) return true; // Group labels and items without specific permissions

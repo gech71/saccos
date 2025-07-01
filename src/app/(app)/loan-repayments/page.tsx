@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { FileUpload } from '@/components/file-upload';
 import { getLoanRepaymentsPageData, addLoanRepayment, type LoanRepaymentsPageData, type LoanRepaymentInput } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 type RepaymentWithLoanInfo = LoanRepayment & { loan?: { loanAccountNumber: string | null }};
 type ActiveLoanWithMember = Loan & { member: Member | null };
@@ -39,6 +40,9 @@ export default function LoanRepaymentsPage() {
   const [activeLoans, setActiveLoans] = useState<ActiveLoanWithMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const canCreate = user?.permissions.includes('loanRepayment:create');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>(initialRepaymentFormState);
@@ -130,7 +134,7 @@ export default function LoanRepaymentsPage() {
     <div className="space-y-6">
       <PageTitle title="Loan Repayments" subtitle="Record and view member loan repayments.">
           <Button onClick={handleExport} variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export</Button>
-          <Button onClick={() => setIsModalOpen(true)}><PlusCircle className="mr-2 h-5 w-5" /> Record Repayment</Button>
+          {canCreate && <Button onClick={() => setIsModalOpen(true)}><PlusCircle className="mr-2 h-5 w-5" /> Record Repayment</Button>}
       </PageTitle>
 
       <div className="relative flex-grow">

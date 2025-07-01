@@ -57,6 +57,7 @@ import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
 import { getDividendsPageData, addDividend, updateDividend, deleteDividend, type DividendsPageData, type DividendInput } from './actions';
 import type { Dividend, Member } from '@prisma/client';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
@@ -81,6 +82,11 @@ export default function DividendsPage() {
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const canCreate = user?.permissions.includes('dividend:create');
+  const canEdit = user?.permissions.includes('dividend:edit');
+  const canDelete = user?.permissions.includes('dividend:delete');
 
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
@@ -235,9 +241,11 @@ export default function DividendsPage() {
             <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                 <FileDown className="mr-2 h-4 w-4" /> Export
             </Button>
-            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-              <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
-            </Button>
+            {canCreate && (
+              <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+                <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
+              </Button>
+            )}
           </>
         )}
       </PageTitle>
@@ -326,22 +334,24 @@ export default function DividendsPage() {
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
                 {userRole === 'admin' && <TableCell className="text-right">
-                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {(canEdit || canDelete) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <span className="sr-only">Open menu</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>}
+                        {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>}
               </TableRow>
             )) : (

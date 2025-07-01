@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import type { User, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import axios from 'axios';
+import { permissionsList } from './permissions';
 
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5160';
 
@@ -69,7 +70,11 @@ export async function syncUserOnLogin(userId: string, name: string, email: strin
             roles: {
                 connectOrCreate: {
                     where: { name: 'Staff' },
-                    create: { name: 'Staff', description: 'Regular staff member', permissions: ['view_dashboard'] }
+                    create: { 
+                        name: 'Staff', 
+                        description: 'Regular staff member', 
+                        permissions: ['dashboard:view', 'school:view', 'member:view', 'saving:view']
+                    }
                 }
             }
         },

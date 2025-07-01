@@ -22,6 +22,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getSavingAccountTypes, addSavingAccountType, updateSavingAccountType, deleteSavingAccountType } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 
 const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
@@ -46,12 +57,20 @@ const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
 export default function SavingAccountTypesPage() {
   const [accountTypes, setAccountTypes] = useState<SavingAccountType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [accountTypeToDelete, setAccountTypeToDelete] = useState<string | null>(null);
+  
   const [currentAccountType, setCurrentAccountType] = useState<Partial<SavingAccountType>>(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const canCreate = user?.permissions.includes('configuration:create');
+  const canEdit = user?.permissions.includes('configuration:edit');
+  const canDelete = user?.permissions.includes('configuration:delete');
   
   const fetchAccountTypes = async () => {
     setIsLoading(true);
@@ -135,16 +154,22 @@ export default function SavingAccountTypesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (accountTypeId: string) => {
-    if (window.confirm('Are you sure you want to delete this saving account type? This action cannot be undone.')) {
-        const result = await deleteSavingAccountType(accountTypeId);
-        if (result.success) {
-            toast({ title: 'Success', description: result.message });
-            await fetchAccountTypes();
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: result.message });
-        }
+  const handleDeleteConfirm = async () => {
+    if (!accountTypeToDelete) return;
+    const result = await deleteSavingAccountType(accountTypeToDelete);
+    if (result.success) {
+        toast({ title: 'Success', description: result.message });
+        await fetchAccountTypes();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setAccountTypeToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const openDeleteDialog = (id: string) => {
+    setAccountTypeToDelete(id);
+    setIsDeleteDialogOpen(true);
   };
 
   const filteredAccountTypes = useMemo(() => {
@@ -157,9 +182,11 @@ export default function SavingAccountTypesPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Manage Saving Account Types" subtitle="Define the types of saving accounts available in your association.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Account Type
-        </Button>
+        {canCreate && (
+            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+              <PlusCircle className="mr-2 h-5 w-5" /> Add Account Type
+            </Button>
+        )}
       </PageTitle>
 
       <div className="relative mb-6">
@@ -195,22 +222,24 @@ export default function SavingAccountTypesPage() {
                 <TableCell className="text-right font-semibold">{(accountType.interestRate * 100).toFixed(2)}%</TableCell>
                 <TableCell className="text-right font-semibold">${(accountType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(accountType)}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(accountType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {(canEdit || canDelete) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <span className="sr-only">Open menu</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {canEdit && <DropdownMenuItem onClick={() => openEditModal(accountType)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>}
+                        {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(accountType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             )) : (
@@ -288,6 +317,19 @@ export default function SavingAccountTypesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This action is irreversible. It will permanently delete this saving account type.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
