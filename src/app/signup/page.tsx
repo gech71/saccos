@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -6,44 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Corrected import
+import { useRouter } from 'next/navigation';
 import React, { useState, FormEvent } from 'react';
 import { Logo } from '@/components/logo';
-import { Eye, EyeOff } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    if (password !== confirmPassword) {
-      toast({
-        variant: 'destructive',
-        title: 'Signup Failed',
-        description: 'Passwords do not match.',
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    // Simulate API call
+    // Simulate API call for creating an admin user
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Simulate successful signup
-    localStorage.setItem('isAuthenticated', 'true'); // For demo purposes
+    // Simulate successful signup and login
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('userRole', 'admin');
     toast({
       title: 'Signup Successful',
-      description: 'Your AcademInvest account has been created!',
+      description: 'Your AcademInvest admin account has been created!',
     });
     router.push('/dashboard');
 
@@ -57,8 +44,8 @@ export default function SignupPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Create Account</CardTitle>
-          <CardDescription>Join AcademInvest and manage your finances.</CardDescription>
+          <CardTitle className="font-headline text-3xl text-primary">Create Admin Account</CardTitle>
+          <CardDescription>Create a new administrator account for AcademInvest.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,56 +73,11 @@ export default function SignupPage() {
                 aria-label="Email address"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  aria-label="Password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-               <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  aria-label="Confirm password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            <p className="text-xs text-center text-muted-foreground">
+                Password is not required. User authentication is handled externally.
+            </p>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? 'Creating Account...' : 'Create Admin Account'}
             </Button>
           </form>
         </CardContent>

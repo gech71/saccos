@@ -10,63 +10,35 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import React, { useState, FormEvent } from 'react';
 import { Logo } from '@/components/logo';
-import { Eye, EyeOff } from 'lucide-react';
-import { mockMembers } from '@/data/mock';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
+    // Simulate API call and external authentication
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Admin Login Check
-    if (email.toLowerCase() === 'admin@example.com') {
-      if (password === 'password') {
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('userRole', 'admin');
-        localStorage.removeItem('loggedInMemberId');
-        toast({
-          title: 'Admin Login Successful',
-          description: 'Welcome back, Administrator!',
-        });
-        router.push('/dashboard');
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Login Failed',
-          description: 'Invalid password for admin user.',
-        });
-        setIsLoading(false);
-      }
-      return; // Stop further execution
-    }
-
-    // Member Login Check
-    const member = mockMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
-    if (member && password === 'password') { // Using 'password' for all members for demo purposes
+    // For this prototype, we'll only allow the admin user to log in.
+    if (email.toLowerCase() === 'admin@academinvest.com') {
       localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userRole', 'member');
-      localStorage.setItem('loggedInMemberId', member.id);
+      localStorage.setItem('userRole', 'admin'); // Set role for admin
+      
       toast({
-        title: 'Login Successful',
-        description: `Welcome back, ${member.fullName}!`,
+        title: 'Admin Login Successful',
+        description: 'Welcome back, Administrator!',
       });
       router.push('/dashboard');
     } else {
-      // General failure for non-admin emails
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
+        description: 'This email is not registered as an administrator.',
       });
       setIsLoading(false);
     }
@@ -79,8 +51,8 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Welcome Back</CardTitle>
-          <CardDescription>Sign in to access your AcademInvest account.</CardDescription>
+          <CardTitle className="font-headline text-3xl text-primary">Admin Sign In</CardTitle>
+          <CardDescription>Sign in to manage your AcademInvest system.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -89,39 +61,15 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="admin@academinvest.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 aria-label="Email address"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  aria-label="Password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-center text-muted-foreground">
-                Hint: Use `admin@example.com` or a member email (e.g., `john.doe@example.com`). The password is `password` for all users.
+             <p className="text-xs text-center text-muted-foreground">
+                Hint: Use `admin@academinvest.com`. Password is not required as auth is simulated externally.
             </p>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing In...' : 'Sign In'}
@@ -129,14 +77,8 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center gap-4">
-          <Link href="/forgot-password" passHref>
-            <Button variant="link" className="text-sm text-primary">Forgot password?</Button>
-          </Link>
           <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" passHref>
-              <Button variant="link" className="text-primary p-0 h-auto">Sign Up</Button>
-            </Link>
+            This is an admin-only login page.
           </p>
         </CardFooter>
       </Card>

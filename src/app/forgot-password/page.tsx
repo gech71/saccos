@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -20,13 +21,12 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
+    // Simulate API call to an external auth provider
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Simulate successful submission
     toast({
       title: 'Password Reset Email Sent',
-      description: `If an account exists for ${email}, you will receive an email with password reset instructions.`,
+      description: `If an admin account exists for ${email}, you will receive an email with password reset instructions from your identity provider.`,
     });
     setIsSubmitted(true);
     setIsLoading(false);
@@ -39,11 +39,11 @@ export default function ForgotPasswordPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Forgot Password?</CardTitle>
+          <CardTitle className="font-headline text-3xl text-primary">Reset Admin Password</CardTitle>
           <CardDescription>
             {isSubmitted 
               ? "Check your email for the reset link." 
-              : "Enter your email address and we'll send you a link to reset your password."}
+              : "Enter your admin email address and we'll send you a link to reset your password."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -51,17 +51,17 @@ export default function ForgotPasswordPage() {
             <div className="text-center py-4">
               <Mail className="mx-auto h-16 w-16 text-accent mb-4" />
               <p className="text-muted-foreground">
-                Didn&apos;t receive an email? Check your spam folder or try again later.
+                Didn&apos;t receive an email? Check your spam folder or contact your system administrator.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Admin Email Address</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="admin@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

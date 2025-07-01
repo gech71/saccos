@@ -154,8 +154,6 @@ export interface NavItem {
   isGroupLabel?: boolean;
   description?: string;
   active?: boolean;
-  roles?: ('admin' | 'member')[];
-  memberTitle?: string;
 }
 
 export type ReportType = 'savings' | 'share allocations' | 'dividend distributions';

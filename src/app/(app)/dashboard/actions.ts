@@ -12,20 +12,6 @@ export interface AdminDashboardData {
   schoolPerformance: { name: string; members: number; savings: number; }[];
 }
 
-export interface MemberDashboardData {
-    member: {
-        id: string;
-        fullName: string;
-        savingsBalance: number;
-        savingsAccountNumber: string | null;
-        sharesCount: number;
-        joinDate: string;
-        school: { name: string; } | null;
-    } | null;
-    totalDividends: number;
-    savingsHistory: { date: string; amount: number; }[];
-}
-
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const totalMembers = await prisma.member.count({ where: { status: 'active' } });
   
@@ -111,46 +97,4 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     savingsTrend,
     schoolPerformance,
   };
-}
-
-export async function getMemberDashboardData(memberId: string): Promise<MemberDashboardData> {
-    const member = await prisma.member.findUnique({
-        where: { id: memberId },
-        include: {
-            school: {
-                select: { name: true }
-            }
-        },
-    });
-
-    const totalDividendsResult = await prisma.dividend.aggregate({
-        where: { memberId, status: 'approved' },
-        _sum: { amount: true },
-    });
-    const totalDividends = totalDividendsResult._sum.amount || 0;
-
-    const recentSavings = await prisma.saving.findMany({
-        where: { memberId, status: 'approved' },
-        orderBy: { date: 'desc' },
-        take: 6,
-    });
-    
-    const savingsHistory = recentSavings.reverse().map(s => ({
-        date: format(new Date(s.date), 'MMM dd'),
-        amount: s.transactionType === 'deposit' ? s.amount : -s.amount,
-    }));
-
-    return {
-        member: member ? {
-            id: member.id,
-            fullName: member.fullName,
-            savingsBalance: member.savingsBalance,
-            savingsAccountNumber: member.savingsAccountNumber,
-            sharesCount: member.sharesCount,
-            joinDate: member.joinDate.toISOString(),
-            school: member.school
-        } : null,
-        totalDividends,
-        savingsHistory,
-    };
 }

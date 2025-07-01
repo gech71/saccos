@@ -36,10 +36,30 @@ async function main() {
     data: { name: 'Admin', description: 'Administrator with full access' },
   });
   const memberRole = await prisma.role.create({
-    data: { name: 'Member', description: 'A regular member of the association' },
+    data: { name: 'Member', description: 'A regular member of the association (role for potential future use)' },
   });
 
-  // 3. Seed Core Types
+  // 3. Seed Users (Application Operators)
+  console.log('Seeding users...');
+  const adminUser = await prisma.user.create({
+    data: {
+      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', // Hardcoded ID from external auth
+      email: 'admin@academinvest.com',
+      roles: {
+        create: [
+          {
+            role: {
+              connect: {
+                id: adminRole.id,
+              },
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // 4. Seed Core Types
   console.log('Seeding core types...');
   const school1 = await prisma.school.create({ data: { name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' } });
   const school2 = await prisma.school.create({ data: { name: 'Riverside Academy', address: '456 Pine Ave', contactPerson: 'Bob Builder' } });
@@ -56,57 +76,14 @@ async function main() {
   const sctAnnual = await prisma.serviceChargeType.create({ data: { name: 'Annual Membership Fee', amount: 20, frequency: 'yearly' } });
   const sctLatePay = await prisma.serviceChargeType.create({ data: { name: 'Late Payment Penalty', amount: 5, frequency: 'once' } });
 
-  // 4. Seed Users
-  console.log('Seeding users...');
-  const adminUser = await prisma.user.create({
-    data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', // Hardcoded ID for admin
-      firstName: 'Admin',
-      lastName: 'User',
-      email: 'admin@academinvest.com',
-      phoneNumber: '0912345678',
-      password: 'hashed_password_placeholder', // Should be properly hashed in a real app
-      roles: {
-        create: [
-          {
-            role: {
-              connect: {
-                id: adminRole.id,
-              },
-            },
-          },
-        ],
-      },
-    },
-  });
-
-  const memberUser1 = await prisma.user.create({
-    data: {
-      userId: 'user-' + Math.random().toString(36).substr(2, 9),
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      phoneNumber: '0911223344',
-      password: 'hashed_password_placeholder',
-      roles: {
-        create: [
-          {
-            role: {
-              connect: {
-                id: memberRole.id,
-              },
-            },
-          },
-        ],
-      },
-    },
-  });
-
-  // 5. Seed Members
+  // 5. Seed Members (Customers of the Association)
   console.log('Seeding members...');
   const member1 = await prisma.member.create({
     data: {
-      userId: adminUser.userId,
+      fullName: 'John Doe',
+      email: 'john.doe@example.com',
+      sex: 'Male',
+      phoneNumber: '0911223344',
       schoolId: school1.id,
       joinDate: new Date(2023, 0, 15),
       savingsBalance: 1250.75,
@@ -124,14 +101,17 @@ async function main() {
         create: { city: 'Metropolis', subCity: 'Downtown', wereda: '01' },
       },
       emergencyContact: {
-        create: { name: 'Admin Emergency', phone: '555-0101' },
+        create: { name: 'Jane Doe', phone: '555-0101' },
       },
     },
   });
 
   const member2 = await prisma.member.create({
     data: {
-      userId: memberUser1.userId,
+      fullName: 'Jane Smith',
+      email: 'jane.smith@example.com',
+      sex: 'Female',
+      phoneNumber: '0922334455',
       schoolId: school2.id,
       joinDate: new Date(2023, 2, 10),
       savingsBalance: 800.00,
@@ -148,7 +128,7 @@ async function main() {
         create: { city: 'Star City', subCity: 'Old Town', wereda: '05' },
       },
       emergencyContact: {
-        create: { name: 'John Emergency', phone: '555-0102' },
+        create: { name: 'John Smith', phone: '555-0102' },
       },
     },
   });
@@ -157,10 +137,10 @@ async function main() {
   console.log('Seeding transactions...');
   await prisma.saving.createMany({
     data: [
-      { memberId: member1.id, amount: 100.00, date: new Date(2024, 0, 15), transactionType: 'deposit', status: 'approved', depositMode: 'Bank' },
-      { memberId: member2.id, amount: 75.00, date: new Date(2024, 0, 20), transactionType: 'deposit', status: 'approved', depositMode: 'Cash' },
-      { memberId: member1.id, amount: 50.00, date: new Date(2024, 2, 5), transactionType: 'withdrawal', status: 'approved' },
-      { memberId: member2.id, amount: 25.00, date: new Date(), transactionType: 'deposit', status: 'pending', depositMode: 'Cash' },
+      { memberId: member1.id, amount: 100.00, date: new Date(2024, 0, 15), transactionType: 'deposit', status: 'approved', depositMode: 'Bank', month: 'January 2024' },
+      { memberId: member2.id, amount: 75.00, date: new Date(2024, 0, 20), transactionType: 'deposit', status: 'approved', depositMode: 'Cash', month: 'January 2024' },
+      { memberId: member1.id, amount: 50.00, date: new Date(2024, 2, 5), transactionType: 'withdrawal', status: 'approved', month: 'March 2024' },
+      { memberId: member2.id, amount: 25.00, date: new Date(), transactionType: 'deposit', status: 'pending', depositMode: 'Cash', month: 'July 2024' },
     ],
   });
 

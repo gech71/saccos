@@ -1,12 +1,12 @@
 
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { StatCard } from '@/components/stat-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, School, TrendingUp, ArrowRight, PiggyBank, PieChart as LucidePieChart, FileText, Loader2 } from 'lucide-react';
+import { DollarSign, Users, School, TrendingUp, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -21,43 +21,26 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { getAdminDashboardData, getMemberDashboardData, type AdminDashboardData, type MemberDashboardData } from './actions';
-import { format } from 'date-fns';
+import { getAdminDashboardData, type AdminDashboardData } from './actions';
 
 export default function DashboardPage() {
-  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [memberId, setMemberId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<AdminDashboardData | MemberDashboardData | null>(null);
-
-  useEffect(() => {
-    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
-    const id = localStorage.getItem('loggedInMemberId');
-    setUserRole(role);
-    setMemberId(id);
-  }, []);
+  const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
 
   useEffect(() => {
     async function fetchData() {
-      if (!userRole) return;
       setIsLoading(true);
       try {
-        if (userRole === 'admin') {
-          const data = await getAdminDashboardData();
-          setDashboardData(data);
-        } else if (userRole === 'member' && memberId) {
-          const data = await getMemberDashboardData(memberId);
-          setDashboardData(data);
-        }
+        const data = await getAdminDashboardData();
+        setDashboardData(data);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
-        // Optionally, set an error state and show a toast
       } finally {
         setIsLoading(false);
       }
     }
     fetchData();
-  }, [userRole, memberId]);
+  }, []);
 
   if (isLoading) {
       return (
@@ -67,8 +50,7 @@ export default function DashboardPage() {
       );
   }
 
-  if (userRole === 'admin' && dashboardData) {
-    const adminData = dashboardData as AdminDashboardData;
+  if (dashboardData) {
     return (
       <div className="space-y-8">
         <PageTitle title="Admin Dashboard" subtitle="Welcome to AcademInvest. Here's an overview of your association." />
@@ -76,22 +58,22 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Members"
-            value={adminData.totalMembers.toLocaleString()}
+            value={dashboardData.totalMembers.toLocaleString()}
             icon={<Users className="h-6 w-6 text-accent" />}
           />
           <StatCard
             title="Total Savings"
-            value={`$${adminData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`$${dashboardData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             icon={<DollarSign className="h-6 w-6 text-accent" />}
           />
           <StatCard
             title="Active Schools"
-            value={adminData.totalSchools.toLocaleString()}
+            value={dashboardData.totalSchools.toLocaleString()}
             icon={<School className="h-6 w-6 text-accent" />}
           />
           <StatCard
             title="Dividends Paid (YTD)"
-            value={`$${adminData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`$${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             icon={<TrendingUp className="h-6 w-6 text-accent" />}
           />
         </div>
@@ -104,7 +86,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={adminData.savingsTrend}>
+                <LineChart data={dashboardData.savingsTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--foreground))" />
                   <YAxis stroke="hsl(var(--foreground))" />
@@ -130,7 +112,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={adminData.schoolPerformance}>
+                <BarChart data={dashboardData.schoolPerformance}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" stroke="hsl(var(--foreground))" angle={-15} textAnchor="end" height={50} />
                   <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" />
@@ -172,77 +154,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  if (userRole === 'member' && dashboardData) {
-    const memberData = (dashboardData as MemberDashboardData);
-    const { member, totalDividends, savingsHistory } = memberData;
-
-    if (!member) {
-        return <div className="text-center py-10">Member data not found. Please log in again.</div>;
-    }
-
-    return (
-        <div className="space-y-8">
-            <PageTitle title={`Welcome, ${member.fullName}`} subtitle="Here is a summary of your account." />
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                  title="My Savings Balance"
-                  value={`$${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  icon={<PiggyBank className="h-6 w-6 text-accent" />}
-                  description={`Account: ${member.savingsAccountNumber}`}
-                />
-                <StatCard
-                  title="My Shares"
-                  value={member.sharesCount.toString()}
-                  icon={<LucidePieChart className="h-6 w-6 text-accent" />}
-                  description="Total shares owned"
-                />
-                <StatCard
-                  title="My Dividends (Total)"
-                  value={`$${totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  icon={<TrendingUp className="h-6 w-6 text-accent" />}
-                  description="Total dividends received"
-                />
-                 <StatCard
-                  title="My School"
-                  value={member.school?.name || ''}
-                  icon={<School className="h-6 w-6 text-accent" />}
-                  description={`Joined: ${format(new Date(member.joinDate), 'PPP')}`}
-                />
-            </div>
-            
-             <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="font-headline text-primary">My Recent Savings Activity</CardTitle>
-                <CardDescription>Your last 6 approved transactions.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={savingsHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="amount" name="Amount ($)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-xl overflow-hidden">
-                <CardContent className="p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground">
-                  <h3 className="text-2xl font-semibold mb-2">Want to see more details?</h3>
-                  <p className="mb-4">Generate a full statement of your account activity for any period.</p>
-                  <Button variant="secondary" asChild>
-                    <Link href="/account-statement">Generate My Statement <ArrowRight className="ml-2 h-4 w-4"/></Link>
-                  </Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
-  }
   
-  return null; // Fallback for when data is not loaded or role is not set
+  return null; // Fallback for when data is not loaded
 }
