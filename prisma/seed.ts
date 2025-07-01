@@ -8,6 +8,7 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
+  await prisma.usersOnRoles.deleteMany();
   await prisma.memberShareCommitment.deleteMany();
   await prisma.collateral.deleteMany();
   await prisma.organization.deleteMany();
@@ -65,7 +66,11 @@ async function main() {
       email: 'admin@academinvest.com',
       phoneNumber: '0912345678',
       password: 'hashed_password_placeholder', // Should be properly hashed in a real app
-      roles: { connect: { id: adminRole.id } },
+      roles: {
+        create: {
+          roleId: adminRole.id,
+        },
+      },
     },
   });
 
@@ -77,7 +82,11 @@ async function main() {
       email: 'john.doe@example.com',
       phoneNumber: '0911223344',
       password: 'hashed_password_placeholder',
-      roles: { connect: { id: memberRole.id } },
+      roles: {
+        create: {
+          roleId: memberRole.id,
+        },
+      },
     },
   });
 
@@ -110,7 +119,7 @@ async function main() {
 
   const member2 = await prisma.member.create({
     data: {
-      userId: memberUser1.id,
+      userId: memberUser1.userId,
       schoolId: school2.id,
       joinDate: new Date(2023, 2, 10),
       savingsBalance: 800.00,
@@ -161,6 +170,9 @@ async function main() {
       remainingBalance: 800,
       nextDueDate: new Date(2024, 4, 20),
       loanAccountNumber: 'LN001',
+      interestRate: ltEmergency.interestRate,
+      loanTerm: ltEmergency.loanTerm,
+      repaymentFrequency: ltEmergency.repaymentFrequency,
       collaterals: {
         create: [{
           fullName: 'Guarantor Person',
