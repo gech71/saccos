@@ -1,5 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
+import { permissionsList } from '../src/app/(app)/settings/permissions';
 
 const prisma = new PrismaClient();
 
@@ -32,24 +33,7 @@ async function main() {
 
   // 2. Seed Roles
   console.log('Seeding roles...');
-  const adminPermissions = [
-      'dashboard:view', 'school:view', 'school:create', 'school:edit', 'school:delete',
-      'member:view', 'member:create', 'member:edit', 'member:delete',
-      'saving:view', 'saving:create', 'saving:edit', 'saving:delete',
-      'savingAccount:view', 'groupCollection:view', 'groupCollection:create',
-      'interestCalculation:view', 'interestCalculation:create', 'accountStatement:view',
-      'accountClosure:view', 'accountClosure:create', 'closedAccount:view',
-      'loan:view', 'loan:create', 'loan:edit', 'loan:delete',
-      'loanRepayment:view', 'loanRepayment:create', 'groupLoanRepayment:view',
-      'groupLoanRepayment:create', 'overdueLoan:view',
-      'share:view', 'share:create', 'share:edit', 'share:delete',
-      'dividend:view', 'dividend:create', 'dividend:edit', 'dividend:delete',
-      'transactionApproval:view', 'transactionApproval:edit',
-      'serviceCharge:view', 'serviceCharge:create', 'serviceCharge:edit',
-      'overduePayment:view', 'overduePayment:create',
-      'report:view', 'setting:view', 'setting:create', 'setting:edit', 'setting:delete',
-      'configuration:view', 'configuration:create', 'configuration:edit', 'configuration:delete',
-  ];
+  const adminPermissions = permissionsList.map(p => p.id);
 
   const staffPermissions = [
       'dashboard:view', 'school:view', 'member:view', 'member:create', 'member:edit',
@@ -83,6 +67,7 @@ async function main() {
       name: 'Academ Admin',
       firstName: 'Academ',
       lastName: 'Admin',
+      phoneNumber: '0912345678',
       roles: {
         connect: { id: adminRole.id },
       },
