@@ -139,7 +139,6 @@ export async function recordOverduePayment(data: OverduePaymentInput): Promise<{
             await tx.saving.create({
                 data: {
                     memberId,
-                    memberName,
                     amount: savingsAmount,
                     date,
                     month,
@@ -170,9 +169,7 @@ export async function recordOverduePayment(data: OverduePaymentInput): Promise<{
                     await tx.share.create({
                         data: {
                             memberId,
-                            memberName,
                             shareTypeId,
-                            shareTypeName: shareType.name,
                             count,
                             allocationDate: date,
                             valuePerShare: shareType.valuePerShare,
