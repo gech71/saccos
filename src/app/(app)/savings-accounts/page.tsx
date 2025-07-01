@@ -26,25 +26,30 @@ import { Progress } from '@/components/ui/progress';
 import { exportToExcel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getSavingsAccountPageData, type MemberSavingsSummary } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function SavingsAccountsPage() {
   const [memberSummaries, setMemberSummaries] = useState<MemberSavingsSummary[]>([]);
-  const [allSchools, setAllSchools] = useState<Pick<School, 'id' | 'name'>[]>([]);
+  const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   
+  const { user } = useAuth();
+
   useEffect(() => {
-    async function fetchData() {
-        setIsLoading(true);
-        const data = await getSavingsAccountPageData();
-        setMemberSummaries(data.summaries);
-        setAllSchools(data.schools);
-        setIsLoading(false);
+    if (user) {
+      async function fetchData() {
+          setIsLoading(true);
+          const data = await getSavingsAccountPageData(user);
+          setMemberSummaries(data.summaries);
+          setAllSchools(data.schools);
+          setIsLoading(false);
+      }
+      fetchData();
     }
-    fetchData();
-  }, []);
+  }, [user]);
 
 
   const filteredMemberSummaries = useMemo(() => {
