@@ -115,7 +115,7 @@ export default function CalculateLoanInterestPage() {
     setIsPosting(true);
     
     const result = await postInterestCharges(calculationResults, { 
-        month: months.find(m => m.value === selectedMonth)?.label || '', 
+        month: selectedMonth, 
         year: selectedYear 
     });
 
@@ -312,7 +312,7 @@ export default function CalculateLoanInterestPage() {
             <CardFooter>
                 <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0} className="ml-auto">
                     {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Post Interest Charges for Approval
+                    Post Interest Charges
                 </Button>
             </CardFooter>
         </Card>

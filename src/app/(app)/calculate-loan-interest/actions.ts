@@ -1,7 +1,8 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Member, Loan, School, LoanType, AppliedServiceCharge } from '@prisma/client';
+import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface CalculationPageData {
@@ -77,6 +78,8 @@ export async function calculateInterest(criteria: {
   return results;
 }
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 export async function postInterestCharges(charges: InterestCalculationResult[], period: { month: string, year: string }): Promise<{ success: boolean; message: string }> {
   const loanInterestChargeType = await prisma.serviceChargeType.findFirst({
     where: { name: 'Monthly Loan Interest' },
@@ -86,7 +89,15 @@ export async function postInterestCharges(charges: InterestCalculationResult[], 
     return { success: false, message: 'A service charge type named "Monthly Loan Interest" must exist to post charges.' };
   }
 
-  const dateApplied = new Date(parseInt(period.year), parseInt(period.month) + 1, 0);
+  const monthIndex = parseInt(period.month, 10);
+  const year = parseInt(period.year, 10);
+  const monthName = monthNames[monthIndex];
+
+  if (isNaN(monthIndex) || isNaN(year) || !monthName) {
+      return { success: false, message: 'Invalid period provided. Could not parse month or year.' };
+  }
+  
+  const dateApplied = new Date(year, monthIndex + 1, 0); // Last day of the selected month
 
   try {
     await prisma.appliedServiceCharge.createMany({
@@ -96,12 +107,13 @@ export async function postInterestCharges(charges: InterestCalculationResult[], 
         amountCharged: result.calculatedInterest,
         dateApplied: dateApplied,
         status: 'pending',
-        notes: `Monthly loan interest for ${period.month} ${period.year} on Loan ${result.loanAccountNumber}`,
+        notes: `Monthly loan interest for ${monthName} ${period.year} on Loan ${result.loanAccountNumber}`,
+        serviceChargeTypeName: loanInterestChargeType.name,
       })),
     });
 
     revalidatePath('/applied-service-charges');
-    return { success: true, message: `${charges.length} loan interest charges have been submitted for approval.` };
+    return { success: true, message: `${charges.length} loan interest charges have been submitted as service charges.` };
   } catch (error) {
     console.error("Failed to post interest charges:", error);
     return { success: false, message: "An error occurred while posting charges." };
