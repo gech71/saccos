@@ -86,7 +86,11 @@ export async function syncUserOnLogin(userId: string, name: string, email: strin
 }
 
 
-export async function registerUserByAdmin(data: any, roleIds: string[]) {
+export async function registerUserByAdmin(data: any, roleIds: string[], token: string | null) {
+    if (!token) {
+        throw new Error('Authentication token is missing. You must be logged in to register a user.');
+    }
+    
     // 1. Register user with the external auth provider
     const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
         firstName: data.firstName,
@@ -94,6 +98,10 @@ export async function registerUserByAdmin(data: any, roleIds: string[]) {
         email: data.email,
         phoneNumber: data.phoneNumber,
         password: data.password,
+    }, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
     });
 
     if (!registerResponse.data.isSuccess || !registerResponse.data.userId) {

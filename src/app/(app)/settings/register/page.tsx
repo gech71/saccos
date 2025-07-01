@@ -13,9 +13,11 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { getSettingsPageData, registerUserByAdmin } from '../actions';
 import type { Role } from '@prisma/client';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function RegisterUserPage() {
   const { toast } = useToast();
+  const { accessToken } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -66,7 +68,7 @@ export default function RegisterUserPage() {
 
     setIsLoading(true);
     try {
-      await registerUserByAdmin(formData, Array.from(selectedRoleIds));
+      await registerUserByAdmin(formData, Array.from(selectedRoleIds), accessToken);
       toast({ title: 'User Registered', description: `Successfully created an account for ${formData.firstName} ${formData.lastName}.` });
       // Reset form
       setFormData({ firstName: '', lastName: '', phoneNumber: '', email: '', password: '' });
