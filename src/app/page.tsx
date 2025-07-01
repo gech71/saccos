@@ -29,7 +29,7 @@ export default function HomePage() {
               Empowering School Communities
             </h1>
             <p className="mt-6 max-w-3xl mx-auto text-lg text-foreground/80 sm:text-xl md:text-2xl">
-              Saccos provides a transparent and efficient platform for managing savings, shares, and dividends within educational institutions.
+              NIB Saccos provides a transparent and efficient platform for managing savings, shares, and dividends within educational institutions.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
               <Button size="lg" asChild className="shadow-lg hover:shadow-primary/50 transition-shadow w-full sm:w-auto">
@@ -122,7 +122,7 @@ export default function HomePage() {
 
       <footer className="py-8 border-t bg-background">
         <div className="container text-center text-foreground/60">
-          <p>&copy; {new Date().getFullYear()} Saccos. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} NIB Saccos. All rights reserved.</p>
           <p className="text-sm mt-1">Empowering educational communities through financial collaboration.</p>
         </div>
       </footer>

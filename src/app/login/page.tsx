@@ -37,7 +37,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Admin Sign In</CardTitle>
-          <CardDescription>Sign in to manage your Saccos system.</CardDescription>
+          <CardDescription>Sign in to manage your NIB Saccos system.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
