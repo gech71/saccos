@@ -53,7 +53,6 @@ export async function addShare(data: ShareInput): Promise<Share> {
     data: {
       memberId: data.memberId,
       shareTypeId: data.shareTypeId,
-      shareTypeName: shareType.name,
       count,
       allocationDate: new Date(data.allocationDate),
       valuePerShare: shareType.valuePerShare,
@@ -89,7 +88,6 @@ export async function updateShare(id: string, data: ShareInput): Promise<Share> 
         data: {
             memberId: data.memberId,
             shareTypeId: data.shareTypeId,
-            shareTypeName: shareType.name,
             count,
             allocationDate: new Date(data.allocationDate),
             valuePerShare: shareType.valuePerShare,
