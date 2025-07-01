@@ -67,7 +67,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Create Admin Account</CardTitle>
-          <CardDescription>Create a new administrator account for AcademInvest.</CardDescription>
+          <CardDescription>Create a new administrator account for Saccos.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
