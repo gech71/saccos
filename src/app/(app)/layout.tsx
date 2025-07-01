@@ -13,70 +13,95 @@ import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus } from 'lucide-react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
 
 const navItems: NavItem[] = [
-  // Always visible
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
 
-  // BASIC INFORMATION
   { title: 'Basic Information', isGroupLabel: true },
-  { title: 'Schools', href: '/schools', icon: School },
-  { title: 'Members', href: '/members', icon: Users },
+  { title: 'Schools', href: '/schools', icon: School, permission: 'school:view' },
+  { title: 'Members', href: '/members', icon: Users, permission: 'member:view' },
   
-  // SAVING RELATED
   { title: 'Savings', isGroupLabel: true },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank },
-  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards },
-  { title: 'Group Collections', href: '/group-collections', icon: Library },
-  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste },
-  { title: 'Close Account', href: '/close-account', icon: UserX },
-  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive },
+  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
+  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'savingAccount:view' },
+  { title: 'Group Collections', href: '/group-collections', icon: Library, permission: 'groupCollection:view' },
+  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'savingsInterestCalculation:view' },
+  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'accountStatement:view' },
+  { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'accountClosure:view' },
+  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, permission: 'closedAccount:view' },
 
-  // LOAN RELATED
   { title: 'Loans', isGroupLabel: true },
-  { title: 'Loans', href: '/loans', icon: Banknote },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste },
-  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library },
-  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator },
-  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle },
+  { title: 'Loans', href: '/loans', icon: Banknote, permission: 'loan:view' },
+  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'loanRepayment:view' },
+  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, permission: 'groupLoanRepayment:view' },
+  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'loanInterestCalculation:view' },
+  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
   
-  // DIVIDEND/SHARE RELATED
   { title: 'Shares & Dividends', isGroupLabel: true },
-  { title: 'Share Allocations', href: '/shares', icon: PieChart },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark },
+  { title: 'Share Allocations', href: '/shares', icon: PieChart, permission: 'share:view' },
+  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'dividend:view' },
   
-  // ADMINISTRATION (Covers Settings, Operations, Monitoring)
   { title: 'Administration', isGroupLabel: true },
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare },
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks },
-  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck },
-  { title: 'Reports', href: '/reports', icon: FileText },
-  { title: 'Settings', href: '/settings', icon: Settings },
+  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'transactionApproval:view' },
+  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'serviceCharge:view' },
+  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
+  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'collectionForecast:view' },
+  { title: 'Reports', href: '/reports', icon: FileText, permission: 'report:view' },
+  { title: 'Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
 
-  // CONFIGURATION
   { title: 'Configuration', isGroupLabel: true },
-  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards },
-  { title: 'Share Types', href: '/share-types', icon: Shapes },
-  { title: 'Loan Types', href: '/loan-types', icon: Banknote },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText },
+  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'configuration:view' },
+  { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'configuration:view' },
+  { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'configuration:view' },
+  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'configuration:view' },
 ];
 
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  const filteredNavItems = useMemo(() => {
+    if (!user?.permissions) return [];
+
+    const visibleItems: NavItem[] = [];
+    
+    navItems.forEach((item, index) => {
+        if (item.isGroupLabel) {
+            // Look ahead to see if any item in this group is visible
+            let groupHasVisibleItems = false;
+            for (let i = index + 1; i < navItems.length; i++) {
+                const nextItem = navItems[i];
+                if (nextItem.isGroupLabel) break; // Reached next group
+                
+                if (!nextItem.permission || user.permissions.includes(nextItem.permission)) {
+                    groupHasVisibleItems = true;
+                    break;
+                }
+            }
+            if (groupHasVisibleItems) {
+                visibleItems.push(item);
+            }
+        } else {
+            // It's a regular nav item, check permission
+            if (!item.permission || user.permissions.includes(item.permission)) {
+                visibleItems.push(item);
+            }
+        }
+    });
+
+    return visibleItems;
+  }, [user?.permissions]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -102,7 +127,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
                 <Logo />
                 </SidebarHeader>
-                <SidebarNav navItems={navItems} />
+                <SidebarNav navItems={filteredNavItems} />
             </Sidebar>
             <SidebarRail />
           </div>

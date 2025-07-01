@@ -28,9 +28,9 @@ export const permissionsByGroup = {
         { id: 'groupCollection:view', label: 'View' },
         { id: 'groupCollection:create', label: 'Create' },
     ],
-    'Interest Calculation': [
-        { id: 'interestCalculation:view', label: 'View' },
-        { id: 'interestCalculation:create', label: 'Create' },
+    'Savings Interest Calculation': [
+        { id: 'savingsInterestCalculation:view', label: 'View' },
+        { id: 'savingsInterestCalculation:create', label: 'Create' },
     ],
     'Account Statements': [
         { id: 'accountStatement:view', label: 'View' },
@@ -55,6 +55,10 @@ export const permissionsByGroup = {
      'Group Loan Repayments': [
         { id: 'groupLoanRepayment:view', label: 'View' },
         { id: 'groupLoanRepayment:create', label: 'Create' },
+    ],
+    'Loan Interest Calculation': [
+        { id: 'loanInterestCalculation:view', label: 'View' },
+        { id: 'loanInterestCalculation:create', label: 'Create' },
     ],
     'Overdue Loans': [
         { id: 'overdueLoan:view', label: 'View' },
@@ -83,6 +87,9 @@ export const permissionsByGroup = {
     'Overdue Payments': [
         { id: 'overduePayment:view', label: 'View' },
         { id: 'overduePayment:create', label: 'Record Payment' },
+    ],
+    'Collection Forecast': [
+        { id: 'collectionForecast:view', label: 'View' },
     ],
     'Reports': [
         { id: 'report:view', label: 'View' },
