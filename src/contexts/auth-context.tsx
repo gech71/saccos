@@ -21,7 +21,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || 'http://localhost:5160';
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
 
 interface DecodedToken {
   nameid?: string; // Corresponds to User ID (sub) in some .NET configs
