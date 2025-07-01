@@ -13,46 +13,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Shield, PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Role } from '@prisma/client';
 import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, type UserWithRoles, type RoleWithUserCount } from './actions';
 import Link from 'next/link';
-
-// Centralized list of all permissions in the system
-const permissionsList = [
-    { id: 'view_dashboard', label: 'View Dashboard' },
-    { id: 'view_schools', label: 'View Schools' },
-    { id: 'manage_schools', label: 'Manage Schools (Add, Edit, Delete)' },
-    { id: 'view_members', label: 'View Members' },
-    { id: 'manage_members', label: 'Manage Members (Add, Edit, Delete)' },
-    { id: 'view_savings', label: 'View Savings Transactions' },
-    { id: 'manage_savings', label: 'Manage Savings Transactions' },
-    { id: 'view_savings_accounts', label: 'View Savings Accounts Summary' },
-    { id: 'manage_group_collections', label: 'Manage Group Savings Collections' },
-    { id: 'manage_interest_calculation', label: 'Manage Interest Calculation' },
-    { id: 'view_account_statements', label: 'View Account Statements' },
-    { id: 'manage_account_closure', label: 'Manage Account Closure' },
-    { id: 'view_closed_accounts', label: 'View Closed Accounts' },
-    { id: 'view_loans', label: 'View Loans' },
-    { id: 'manage_loans', label: 'Manage Loans (Add, Edit, Delete)' },
-    { id: 'view_loan_repayments', label: 'View Loan Repayments' },
-    { id: 'manage_group_repayments', label: 'Manage Group Loan Repayments' },
-    { id: 'view_overdue_loans', label: 'View Overdue Loans' },
-    { id: 'view_shares', label: 'View Share Allocations' },
-    { id: 'manage_shares', label: 'Manage Share Allocations' },
-    { id: 'view_dividends', label: 'View Dividend Payouts' },
-    { id: 'manage_dividends', label: 'Manage Dividend Payouts' },
-    { id: 'approve_transactions', label: 'Approve Transactions' },
-    { id: 'manage_service_charges', label: 'Manage Service Charges' },
-    { id: 'view_overdue_payments', label: 'View Overdue Payments' },
-    { id: 'view_reports', label: 'View AI Reports' },
-    { id: 'manage_settings', label: 'Manage System Settings (Users, Roles)' },
-    { id: 'manage_configuration', label: 'Manage System Configuration (Loan/Share Types etc.)' },
-    { id: 'view_all_schools', label: 'View Data for All Schools' },
-];
+import { permissionsByGroup } from './permissions';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 export default function SettingsPage() {
@@ -132,7 +100,7 @@ export default function SettingsPage() {
     setIsRoleModalOpen(true);
   };
 
-  const handleRoleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleRoleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCurrentRole(prev => ({...prev, [name]: value}));
   };
@@ -331,7 +299,7 @@ export default function SettingsPage() {
       
       {/* Add/Edit Role Modal */}
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
                 <DialogTitle>{isEditingRole ? 'Edit Role' : 'Create New Role'}</DialogTitle>
                 <DialogDescription>Set the role name, description, and assigned permissions.</DialogDescription>
@@ -349,17 +317,32 @@ export default function SettingsPage() {
                 </div>
                 <div>
                     <Label>Permissions</Label>
-                    <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-4 p-4 border rounded-md max-h-64 overflow-y-auto">
-                        {permissionsList.map(permission => (
-                            <div key={permission.id} className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id={`perm-${permission.id}`}
-                                    checked={(currentRole.permissions || []).includes(permission.id)}
-                                    onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
-                                />
-                                <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize">{permission.label}</Label>
-                            </div>
-                        ))}
+                    <div className="mt-2 border rounded-md max-h-80 overflow-y-auto">
+                        <Accordion type="multiple" className="w-full">
+                            {Object.entries(permissionsByGroup).map(([groupName, perms]) => (
+                                <AccordionItem value={groupName} key={groupName}>
+                                    <AccordionTrigger className="px-4 py-3 text-base font-medium hover:no-underline">
+                                        {groupName}
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="pl-8 pr-4 pt-2 pb-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                                            {perms.map(permission => (
+                                                <div key={permission.id} className="flex items-center space-x-3">
+                                                    <Checkbox 
+                                                        id={`perm-${permission.id}`}
+                                                        checked={(currentRole.permissions || []).includes(permission.id)}
+                                                        onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
+                                                    />
+                                                    <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize cursor-pointer">
+                                                        {permission.label}
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
                     </div>
                 </div>
             </div>
