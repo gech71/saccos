@@ -99,6 +99,12 @@ async function main() {
           { shareTypeId: stEducation.id, monthlyCommittedAmount: 15 },
         ],
       },
+      address: {
+        create: { city: 'Metropolis', subCity: 'Downtown', wereda: '01' },
+      },
+      emergencyContact: {
+        create: { name: 'Admin Emergency', phone: '555-0101' },
+      },
     },
   });
 
@@ -116,6 +122,12 @@ async function main() {
         create: [
           { shareTypeId: stRegular.id, monthlyCommittedAmount: 25 },
         ],
+      },
+      address: {
+        create: { city: 'Star City', subCity: 'Old Town', wereda: '05' },
+      },
+      emergencyContact: {
+        create: { name: 'John Emergency', phone: '555-0102' },
       },
     },
   });
@@ -149,8 +161,8 @@ async function main() {
       remainingBalance: 800,
       nextDueDate: new Date(2024, 4, 20),
       loanAccountNumber: 'LN001',
-      collateral: {
-        create: {
+      collaterals: {
+        create: [{
           fullName: 'Guarantor Person',
           organization: {
             create: {
@@ -166,7 +178,7 @@ async function main() {
               wereda: '01'
             },
           },
-        },
+        }],
       },
     },
   });
