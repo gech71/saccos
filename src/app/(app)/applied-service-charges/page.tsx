@@ -44,7 +44,6 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { getAppliedChargesPageData, applyServiceCharge, type AppliedChargeInput, type AppliedChargesPageData, type MemberServiceChargeSummary } from './actions';
-import { useAuth } from '@/contexts/auth-context';
 
 const initialApplyChargeFormState: Partial<AppliedChargeInput> = {
     memberId: '',
@@ -63,15 +62,11 @@ export default function AppliedServiceChargesPage() {
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
   const router = useRouter();
-  const { user } = useAuth();
 
   const [isApplyChargeModalOpen, setIsApplyChargeModalOpen] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
   
-  const canCreate = user?.permissions.includes('serviceCharge:create');
-  const canRecordPayment = user?.permissions.includes('serviceCharge:edit');
-
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
@@ -166,11 +161,9 @@ export default function AppliedServiceChargesPage() {
         <Button onClick={handleExport} variant="outline" disabled={filteredMemberSummaries.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
-        {canCreate && (
-            <Button onClick={openApplyNewChargeModal} className="shadow-md hover:shadow-lg transition-shadow">
-                <PlusCircle className="mr-2 h-5 w-5" /> Apply New Charge
-            </Button>
-        )}
+        <Button onClick={openApplyNewChargeModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Apply New Charge
+        </Button>
       </PageTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -258,7 +251,7 @@ export default function AppliedServiceChargesPage() {
                     )}
                 </TableCell>
                 <TableCell className="text-center">
-                  {summary.totalPending > 0 && canRecordPayment && (
+                  {summary.totalPending > 0 && (
                      <Button asChild variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
                         <Link href={`/applied-service-charges/${summary.memberId}/record-payment?pending=${summary.totalPending.toFixed(2)}&name=${encodeURIComponent(summary.fullName)}`}>
                           <DollarSign className="mr-1.5 h-3.5 w-3.5" />

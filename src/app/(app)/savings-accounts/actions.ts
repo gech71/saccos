@@ -1,9 +1,9 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Prisma, School } from '@prisma/client';
 import { differenceInMonths } from 'date-fns';
-import type { AuthUser } from '@/types';
 
 export interface MemberSavingsSummary {
   memberId: string;
@@ -22,23 +22,14 @@ export interface SavingsAccountPageData {
   schools: Pick<School, 'id', 'name'>[];
 }
 
-// Updated function to accept user for role-based access control
-export async function getSavingsAccountPageData(user: AuthUser): Promise<SavingsAccountPageData> {
-
+export async function getSavingsAccountPageData(): Promise<SavingsAccountPageData> {
   const whereClause: Prisma.MemberWhereInput = {
     status: 'active'
   };
 
-  // This is where you could add more specific, non-admin role-based filtering
-  // For example, if a "School Manager" role should only see their own school's members:
-  // if (user.roles.includes('School Manager') && user.schoolId) {
-  //   whereClause.schoolId = user.schoolId;
-  // }
-  // For an Admin, we apply no extra filters, giving them full access.
-
   const [members, schools] = await Promise.all([
     prisma.member.findMany({
-      where: whereClause, // Use the constructed where clause
+      where: whereClause,
       include: {
         school: { select: { name: true } },
         savingAccountType: { select: { name: true } },

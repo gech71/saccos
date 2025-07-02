@@ -26,7 +26,6 @@ import { Progress } from '@/components/ui/progress';
 import { exportToExcel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getSavingsAccountPageData, type MemberSavingsSummary } from './actions';
-import { useAuth } from '@/contexts/auth-context';
 
 export default function SavingsAccountsPage() {
   const [memberSummaries, setMemberSummaries] = useState<MemberSavingsSummary[]>([]);
@@ -36,20 +35,16 @@ export default function SavingsAccountsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   
-  const { user } = useAuth();
-
   useEffect(() => {
-    if (user) {
-      async function fetchData() {
-          setIsLoading(true);
-          const data = await getSavingsAccountPageData(user);
-          setMemberSummaries(data.summaries);
-          setAllSchools(data.schools);
-          setIsLoading(false);
-      }
-      fetchData();
+    async function fetchData() {
+        setIsLoading(true);
+        const data = await getSavingsAccountPageData();
+        setMemberSummaries(data.summaries);
+        setAllSchools(data.schools);
+        setIsLoading(false);
     }
-  }, [user]);
+    fetchData();
+  }, []);
 
 
   const filteredMemberSummaries = useMemo(() => {

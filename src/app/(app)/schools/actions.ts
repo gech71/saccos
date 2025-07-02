@@ -4,7 +4,6 @@
 import prisma from '@/lib/prisma';
 import type { Prisma, School } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import type { AuthUser } from '@/types';
 
 export type SchoolWithMemberCount = School & {
   _count: {
@@ -12,7 +11,7 @@ export type SchoolWithMemberCount = School & {
   };
 };
 
-export async function getSchoolsWithMemberCount(user: AuthUser): Promise<SchoolWithMemberCount[]> {
+export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount[]> {
   try {
     const prismaOptions: Prisma.SchoolFindManyArgs = {
       include: {
@@ -25,11 +24,6 @@ export async function getSchoolsWithMemberCount(user: AuthUser): Promise<SchoolW
       }
     };
     
-    // The role-based access control is handled at the UI layer (layout.tsx)
-    // to determine if a user can see the schools page at all.
-    // If they can, they should see all schools as per an admin's requirements.
-    // A more granular, per-school restriction would require linking users to schools.
-
     const schools = await prisma.school.findMany(prismaOptions);
     return schools;
   } catch (error) {

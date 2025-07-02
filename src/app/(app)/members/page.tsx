@@ -56,7 +56,6 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { exportToExcel } from '@/lib/utils';
 import { getMembersPageData, addMember, updateMember, deleteMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
-import { useAuth } from '@/contexts/auth-context';
 
 
 const initialMemberFormState: Partial<Member> = {
@@ -98,11 +97,6 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
-  const { user } = useAuth();
-  
-  const canCreate = user?.permissions.includes('member:create');
-  const canEdit = user?.permissions.includes('member:edit');
-  const canDelete = user?.permissions.includes('member:delete');
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -333,11 +327,9 @@ export default function MembersPage() {
         <Button onClick={handleExport} variant="outline" disabled={isLoading || members.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
-        {canCreate && (
-            <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
-              <PlusCircle className="mr-2 h-5 w-5" /> Add Member
-            </Button>
-        )}
+        <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Member
+        </Button>
       </PageTitle>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -431,13 +423,13 @@ export default function MembersPage() {
                        <DropdownMenuItem onClick={() => openViewMemberModal(member)}>
                         <FileText className="mr-2 h-4 w-4" /> View Details
                       </DropdownMenuItem>
-                      {canEdit && <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
+                      <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
-                      </DropdownMenuItem>}
+                      </DropdownMenuItem>
                       <Separator />
-                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <DropdownMenuItem onClick={() => openDeleteDialog(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-                      </DropdownMenuItem>}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
