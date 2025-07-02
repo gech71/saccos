@@ -101,10 +101,12 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
     if (!token) {
         throw new Error('Authentication token is missing. You must be logged in to register a user.');
     }
+    
+    const authApiBaseUrl = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
 
     try {
         // Step 1: Register user with the external auth provider
-        const registerResponse = await axios.post(`http://localhost:84/api/Auth/register`, {
+        const registerResponse = await axios.post(`${authApiBaseUrl}/api/Auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,

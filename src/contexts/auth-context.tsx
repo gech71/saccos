@@ -40,6 +40,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
 
+  const authApiBaseUrl = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
+
   const handleLogout = useCallback(() => {
     // Ideally, call the /api/Auth/logout endpoint
     setUser(null);
@@ -117,7 +119,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (data: any) => {
     try {
-      const response = await axios.post<AuthResponse>('http://localhost:84/api/Auth/login', data);
+      const response = await axios.post<AuthResponse>(`${authApiBaseUrl}/api/Auth/login`, data);
       if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
         await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Login Successful', description: 'Welcome back!' });
@@ -134,7 +136,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   const register = async (data: any) => {
     try {
-      const response = await axios.post<AuthResponse>('http://localhost:84/api/Auth/register', data);
+      const response = await axios.post<AuthResponse>(`${authApiBaseUrl}/api/Auth/register`, data);
        if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
         await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Registration Successful', description: 'Your account has been created.' });
