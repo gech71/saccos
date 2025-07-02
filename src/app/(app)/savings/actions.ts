@@ -5,11 +5,11 @@ import prisma from '@/lib/prisma';
 import type { Saving, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export type SavingWithMemberName = Saving & { memberName: string };
+export type SavingWithMemberName = Saving & { memberName: string | null };
 
 export interface SavingsPageData {
   savings: SavingWithMemberName[];
-  members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>[];
+  members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance' | 'status'>[];
 }
 
 export async function getSavingsPageData(): Promise<SavingsPageData> {
@@ -20,9 +20,9 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
       },
       orderBy: { date: 'desc' },
     }),
+    // Admin should be able to see and create transactions for ANY member, not just active ones.
     prisma.member.findMany({
-      where: { status: 'active' },
-      select: { id: true, fullName: true, savingsAccountNumber: true, savingsBalance: true },
+      select: { id: true, fullName: true, savingsAccountNumber: true, savingsBalance: true, status: true },
       orderBy: { fullName: 'asc' },
     }),
   ]);
@@ -31,7 +31,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
     const { member, ...rest } = s;
     return {
       ...rest,
-      memberName: member.fullName,
+      memberName: member?.fullName || 'Deleted Member', // Handle cases where a member might be deleted
       date: s.date.toISOString(),
     };
   });

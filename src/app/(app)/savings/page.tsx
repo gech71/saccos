@@ -73,7 +73,7 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   evidenceUrl: '',
 };
 
-type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>;
+type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance' | 'status'>;
 
 export default function SavingsPage() {
   const [savingsTransactions, setSavingsTransactions] = useState<SavingWithMemberName[]>([]);
@@ -491,6 +491,7 @@ export default function SavingsPage() {
                               )}
                             />
                             {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                             {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                           </CommandItem>
                         ))}
                       </CommandGroup>
