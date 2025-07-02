@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between px-4 md:px-6">
           <Logo />
           <nav className="flex items-center gap-4">
             <Button variant="ghost" asChild>
@@ -24,7 +24,7 @@ export default function HomePage() {
 
       <main className="flex-1">
         <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-primary/10 via-background to-background">
-          <div className="container text-center">
+          <div className="px-4 sm:px-6 lg:px-8 text-center">
             <h1 className="font-headline text-4xl font-extrabold tracking-tight text-primary sm:text-5xl md:text-6xl lg:text-7xl">
               Empowering School Communities
             </h1>
@@ -46,11 +46,11 @@ export default function HomePage() {
         </section>
 
         <section id="features" className="py-16 md:py-24 bg-background">
-          <div className="container">
+          <div className="px-4 sm:px-6 lg:px-8">
             <h2 className="font-headline text-3xl font-bold text-center text-primary mb-12">
               Features Designed for Growth
             </h2>
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
               <FeatureCard
                 icon={<Users className="h-10 w-10 text-accent" />}
                 title="Member Management"
@@ -88,7 +88,7 @@ export default function HomePage() {
         </section>
 
         <section className="py-16 md:py-24 bg-primary/5">
-            <div className="container grid md:grid-cols-2 gap-12 items-center">
+            <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-4 sm:px-6 lg:px-8 md:grid-cols-2">
                 <div>
                     <h2 className="font-headline text-3xl font-bold text-primary mb-6">
                         Insightful Reporting & Analytics
