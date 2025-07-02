@@ -104,7 +104,7 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
 
     try {
         // Step 1: Register user with the external auth provider
-        const registerResponse = await axios.post(`/api/auth/register`, {
+        const registerResponse = await axios.post(`http://localhost:84/api/Auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,

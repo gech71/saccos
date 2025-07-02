@@ -65,14 +65,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/auth/:path*',
-        destination: 'http://localhost:84/api/Auth/:path*',
-      },
-    ];
-  },
 };
 
 export default nextConfig;
