@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { Saving, Member } from '@prisma/client';
+import type { Member } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -58,7 +58,7 @@ import {
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
-import { getSavingsPageData, addSavingTransaction, updateSavingTransaction, deleteSavingTransaction, type SavingsPageData, type SavingInput } from './actions';
+import { getSavingsPageData, addSavingTransaction, updateSavingTransaction, deleteSavingTransaction, type SavingInput, type SavingWithMemberName } from './actions';
 
 
 const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
@@ -76,7 +76,7 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
 type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>;
 
 export default function SavingsPage() {
-  const [savingsTransactions, setSavingsTransactions] = useState<Saving[]>([]);
+  const [savingsTransactions, setSavingsTransactions] = useState<SavingWithMemberName[]>([]);
   const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,7 +218,7 @@ export default function SavingsPage() {
     setIsModalOpen(true);
   };
   
-  const openEditModal = (transaction: Saving) => {
+  const openEditModal = (transaction: SavingWithMemberName) => {
     setCurrentTransaction({
         ...transaction,
         date: new Date(transaction.date).toISOString().split('T')[0],
@@ -261,14 +261,13 @@ export default function SavingsPage() {
       if (userRole === 'member' && tx.memberId !== loggedInMemberId) {
         return false;
       }
-      const member = members.find(m => m.id === tx.memberId);
-      const memberName = tx.memberName || member?.fullName || '';
+      const memberName = tx.memberName || '';
       const matchesSearchTerm = userRole === 'admin' ? memberName.toLowerCase().includes(searchTerm.toLowerCase()) : true;
       const matchesStatus = selectedStatusFilter === 'all' || tx.status === selectedStatusFilter;
       const matchesType = selectedTypeFilter === 'all' || tx.transactionType === selectedTypeFilter;
       return matchesSearchTerm && matchesStatus && matchesType;
     });
-  }, [savingsTransactions, members, searchTerm, selectedStatusFilter, selectedTypeFilter, userRole, loggedInMemberId]);
+  }, [savingsTransactions, searchTerm, selectedStatusFilter, selectedTypeFilter, userRole, loggedInMemberId]);
 
   const summaryStats = useMemo(() => {
     const approvedTransactions = filteredTransactions.filter(tx => tx.status === 'approved');
@@ -284,7 +283,7 @@ export default function SavingsPage() {
 
   const handleExport = () => {
     const dataToExport = filteredTransactions.map(tx => ({
-        'Member Name': tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A',
+        'Member Name': tx.memberName,
         'Type': tx.transactionType,
         'Status': tx.status,
         'Amount ($)': tx.amount,
@@ -402,7 +401,7 @@ export default function SavingsPage() {
                 <TableRow><TableCell colSpan={userRole === 'admin' ? 7 : 6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
               <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
-                {userRole === 'admin' && <TableCell className="font-medium">{tx.memberName || members.find(m => m.id === tx.memberId)?.fullName || 'N/A'}</TableCell>}
+                {userRole === 'admin' && <TableCell className="font-medium">{tx.memberName || 'N/A'}</TableCell>}
                 <TableCell>
                   <span className={`flex items-center gap-1 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
                     {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}

@@ -5,14 +5,19 @@ import prisma from '@/lib/prisma';
 import type { Saving, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+export type SavingWithMemberName = Saving & { memberName: string };
+
 export interface SavingsPageData {
-  savings: Saving[];
+  savings: SavingWithMemberName[];
   members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance'>[];
 }
 
 export async function getSavingsPageData(): Promise<SavingsPageData> {
-  const [savings, members] = await Promise.all([
+  const [savingsWithDetails, members] = await Promise.all([
     prisma.saving.findMany({
+      include: {
+        member: { select: { fullName: true } },
+      },
       orderBy: { date: 'desc' },
     }),
     prisma.member.findMany({
@@ -21,13 +26,23 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
       orderBy: { fullName: 'asc' },
     }),
   ]);
+  
+  const formattedSavings: SavingWithMemberName[] = savingsWithDetails.map(s => {
+    const { member, ...rest } = s;
+    return {
+      ...rest,
+      memberName: member.fullName,
+      date: s.date.toISOString(),
+    };
+  });
+
   return {
-    savings: savings.map(s => ({ ...s, date: s.date.toISOString() })),
+    savings: formattedSavings,
     members,
   };
 }
 
-export type SavingInput = Omit<Saving, 'id' | 'status'>;
+export type SavingInput = Omit<Saving, 'id' | 'status'> & { memberName?: string };
 
 export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
