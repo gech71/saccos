@@ -21,8 +21,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
-
 interface DecodedToken {
   nameid?: string; // Corresponds to User ID (sub) in some .NET configs
   sub?: string; // Standard JWT subject claim, often the User ID
@@ -119,7 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (data: any) => {
     try {
-      const response = await axios.post<AuthResponse>(`${AUTH_API_URL}/api/Auth/login`, data);
+      const response = await axios.post<AuthResponse>('/api/auth/login', data);
       if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
         await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Login Successful', description: 'Welcome back!' });
@@ -136,7 +134,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   const register = async (data: any) => {
     try {
-      const response = await axios.post<AuthResponse>(`${AUTH_API_URL}/api/Auth/register`, data);
+      const response = await axios.post<AuthResponse>('/api/auth/register', data);
        if (response.data.isSuccess && response.data.accessToken && response.data.refreshToken) {
         await handleAuthSuccess(response.data as { accessToken: string; refreshToken: string; });
         toast({ title: 'Registration Successful', description: 'Your account has been created.' });

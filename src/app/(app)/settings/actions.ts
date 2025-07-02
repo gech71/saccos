@@ -9,8 +9,6 @@ import axios from 'axios';
 import { permissionsList } from './permissions';
 import { jwtDecode } from 'jwt-decode';
 
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
-
 interface DecodedToken {
   nameid?: string;
   sub?: string;
@@ -106,7 +104,7 @@ export async function registerUserByAdmin(data: any, roleIds: string[], token: s
 
     try {
         // Step 1: Register user with the external auth provider
-        const registerResponse = await axios.post(`${AUTH_API_URL}/api/Auth/register`, {
+        const registerResponse = await axios.post(`/api/auth/register`, {
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,
