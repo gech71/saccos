@@ -87,6 +87,7 @@ export default function DividendsPage() {
   const canCreate = user?.permissions.includes('dividend:create');
   const canEdit = user?.permissions.includes('dividend:edit');
   const canDelete = user?.permissions.includes('dividend:delete');
+  const isAdminView = canCreate || canEdit || canDelete;
 
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
@@ -110,16 +111,16 @@ export default function DividendsPage() {
     setUserRole(role);
     setLoggedInMemberId(memberId);
     fetchPageData();
-  }, [toast]);
+  }, []);
 
   const memberTotalDividends = useMemo(() => {
-    if (userRole === 'member' && loggedInMemberId) {
+    if (!isAdminView && loggedInMemberId) {
         return dividends
             .filter(d => d.memberId === loggedInMemberId && d.status === 'approved')
             .reduce((sum, d) => sum + d.amount, 0);
     }
     return 0;
-  }, [userRole, loggedInMemberId, dividends]);
+  }, [isAdminView, loggedInMemberId, dividends]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -194,15 +195,18 @@ export default function DividendsPage() {
 
   const filteredDividends = useMemo(() => {
     return dividends.filter(dividend => {
-      if (userRole === 'member' && dividend.memberId !== loggedInMemberId) {
+      if (!isAdminView && dividend.memberId !== loggedInMemberId) {
         return false;
       }
-      const member = members.find(m => m.id === dividend.memberId);
-      const matchesSearchTerm = userRole === 'admin' ? (member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false) : true;
-      const matchesMemberFilter = userRole === 'admin' ? (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter) : true;
-      return matchesSearchTerm && matchesMemberFilter;
+      if (isAdminView) {
+        const member = members.find(m => m.id === dividend.memberId);
+        const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false);
+        const matchesMemberFilter = (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter);
+        return matchesSearchTerm && matchesMemberFilter;
+      }
+      return true;
     });
-  }, [dividends, members, searchTerm, selectedMemberFilter, userRole, loggedInMemberId]);
+  }, [dividends, members, searchTerm, selectedMemberFilter, isAdminView, loggedInMemberId]);
 
   const totalDividendsDistributed = useMemo(() => filteredDividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
   const averageDividendPerShare = useMemo(() => {
@@ -235,8 +239,8 @@ export default function DividendsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={userRole === 'member' ? 'My Dividends' : "Dividend Distribution"} subtitle={userRole === 'member' ? "View your dividend payout history" : "Manage and record dividend payouts to members."}>
-        {userRole === 'admin' && (
+      <PageTitle title={!isAdminView ? 'My Dividends' : "Dividend Distribution"} subtitle={!isAdminView ? "View your dividend payout history" : "Manage and record dividend payouts to members."}>
+        {isAdminView && (
           <>
             <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                 <FileDown className="mr-2 h-4 w-4" /> Export
@@ -250,7 +254,7 @@ export default function DividendsPage() {
         )}
       </PageTitle>
 
-      {userRole === 'member' && (
+      {!isAdminView && (
         <div className="mb-6">
             <StatCard
               title="My Total Dividends Received"
@@ -261,7 +265,7 @@ export default function DividendsPage() {
         </div>
       )}
 
-      {userRole === 'admin' && (
+      {isAdminView && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <Card className="shadow-md">
@@ -315,25 +319,25 @@ export default function DividendsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {userRole === 'admin' && <TableHead>Member Name</TableHead>}
+              {isAdminView && <TableHead>Member Name</TableHead>}
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Dividend Amount</TableHead>
               <TableHead className="text-right">Shares Held</TableHead>
               <TableHead>Distribution Date</TableHead>
-              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
+              {isAdminView && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={userRole === 'admin' ? 6 : 5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdminView ? 6 : 5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredDividends.length > 0 ? filteredDividends.map(dividend => (
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                {userRole === 'admin' && <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>}
+                {isAdminView && <TableCell className="font-medium">{dividend.memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>}
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
                 <TableCell className="text-right font-semibold">${dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
-                {userRole === 'admin' && <TableCell className="text-right">
+                {isAdminView && <TableCell className="text-right">
                   {(canEdit || canDelete) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -356,7 +360,7 @@ export default function DividendsPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={userRole === 'admin' ? 6 : 5} className="h-24 text-center">
+                <TableCell colSpan={isAdminView ? 6 : 5} className="h-24 text-center">
                   No dividend records found.
                 </TableCell>
               </TableRow>
@@ -470,3 +474,5 @@ export default function DividendsPage() {
     </div>
   );
 }
+
+    

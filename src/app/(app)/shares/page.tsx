@@ -60,6 +60,7 @@ import { StatCard } from '@/components/stat-card';
 import { FileUpload } from '@/components/file-upload';
 import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput } from './actions';
 import type { Share, Member, ShareType } from '@prisma/client';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialShareFormState: Partial<ShareInput & {id?: string}> = {
   memberId: '',
@@ -91,6 +92,12 @@ export default function SharesPage() {
   const { toast } = useToast();
   const [calculatedShares, setCalculatedShares] = useState(0);
 
+  const { user } = useAuth();
+  const canCreate = user?.permissions.includes('share:create');
+  const canEdit = user?.permissions.includes('share:edit');
+  const canDelete = user?.permissions.includes('share:delete');
+  const isAdminView = canCreate || canEdit || canDelete;
+
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
   const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
   
@@ -114,10 +121,10 @@ export default function SharesPage() {
     setUserRole(role);
     setLoggedInMemberId(memberId);
     fetchPageData();
-  }, [toast]);
+  }, []);
 
   const memberData = useMemo(() => {
-    if (userRole === 'member' && loggedInMemberId) {
+    if (!isAdminView && loggedInMemberId) {
         const memberApprovedShares = shares.filter(s => s.memberId === loggedInMemberId && s.status === 'approved');
         const totalShares = memberApprovedShares.reduce((sum, s) => sum + s.count, 0);
         const totalValue = memberApprovedShares.reduce((sum, s) => sum + (s.totalValueForAllocation || s.count * s.valuePerShare), 0);
@@ -128,7 +135,7 @@ export default function SharesPage() {
         };
     }
     return null;
-  }, [userRole, loggedInMemberId, shares]);
+  }, [isAdminView, loggedInMemberId, shares]);
 
   useEffect(() => {
     const { contributionAmount, valuePerShare } = currentShare;
@@ -234,9 +241,10 @@ export default function SharesPage() {
 
   const filteredShares = useMemo(() => {
     return shares.filter(share => {
-      if (userRole === 'member' && share.memberId !== loggedInMemberId) return false;
-      const member = members.find(m => m.id === share.memberId);
-      if (userRole === 'admin') {
+      if (!isAdminView && share.memberId !== loggedInMemberId) return false;
+      
+      if (isAdminView) {
+          const member = members.find(m => m.id === share.memberId);
           if (!member) return false;
           const searchTermLower = searchTerm.toLowerCase();
           const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower)));
@@ -245,7 +253,7 @@ export default function SharesPage() {
       }
       return true;
     });
-  }, [shares, members, searchTerm, selectedMemberFilter, userRole, loggedInMemberId]);
+  }, [shares, members, searchTerm, selectedMemberFilter, isAdminView, loggedInMemberId]);
 
   const totalSharesAllocated = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.count, 0), [filteredShares]);
   const totalSharesValue = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
@@ -279,20 +287,22 @@ export default function SharesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={userRole === 'member' ? 'My Shares' : "Share Contribution & Allocation"} subtitle={userRole === 'member' ? 'View your share allocation history' : "Record member share contributions and manage allocations."}>
-        {userRole === 'admin' && (
+      <PageTitle title={!isAdminView ? 'My Shares' : "Share Contribution & Allocation"} subtitle={!isAdminView ? 'View your share allocation history' : "Record member share contributions and manage allocations."}>
+        {isAdminView && (
             <>
                 <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                     <FileDown className="mr-2 h-4 w-4" /> Export
                 </Button>
-                <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-                  <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
-                </Button>
+                {canCreate && (
+                    <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+                      <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
+                    </Button>
+                )}
             </>
         )}
       </PageTitle>
 
-      {userRole === 'member' && memberData && (
+      {!isAdminView && memberData && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <StatCard
                 title="My Total Shares"
@@ -307,7 +317,7 @@ export default function SharesPage() {
         </div>
       )}
 
-      {userRole === 'admin' && (
+      {isAdminView && (
         <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <Card className="shadow-md">
@@ -361,53 +371,55 @@ export default function SharesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              {userRole === 'admin' && <TableHead>Member Name</TableHead>}
+              {isAdminView && <TableHead>Member Name</TableHead>}
               <TableHead>Share Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
               <TableHead>Allocation Date</TableHead>
-              {userRole === 'admin' && <TableHead className="text-right w-[120px]">Actions</TableHead>}
+              {isAdminView && <TableHead className="text-right w-[120px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={userRole === 'admin' ? 8 : 7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdminView ? 8 : 7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredShares.length > 0 ? filteredShares.map(share => {
               const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
               return (
                 <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                  {userRole === 'admin' && <TableCell className="font-medium">{share.memberName}</TableCell>}
+                  {isAdminView && <TableCell className="font-medium">{share.memberName}</TableCell>}
                   <TableCell><Badge variant="outline">{share.shareTypeName}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right font-semibold">${currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
-                  {userRole === 'admin' && <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <span className="sr-only">Open menu</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  {isAdminView && <TableCell className="text-right">
+                    {(canEdit || canDelete) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <span className="sr-only">Open menu</span>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canEdit && <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>}
+                            {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                   </TableCell>}
                 </TableRow>
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={userRole === 'admin' ? 8 : 7} className="h-24 text-center">
+                <TableCell colSpan={isAdminView ? 8 : 7} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>
@@ -588,3 +600,5 @@ export default function SharesPage() {
     </div>
   );
 }
+
+    
