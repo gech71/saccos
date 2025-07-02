@@ -6,18 +6,21 @@ import type { Share, Member, ShareType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface SharesPageData {
-  shares: (Share & { memberName: string})[];
+  shares: (Share & { memberName: string, shareTypeName: string })[];
   members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
   shareTypes: ShareType[];
 }
 
 export async function getSharesPageData(): Promise<SharesPageData> {
   const [shares, members, shareTypes] = await Promise.all([
-    prisma.share.findMany({ 
-        include: { member: { select: { fullName: true }}},
+    prisma.share.findMany({
+        include: {
+            member: { select: { fullName: true } },
+            shareType: { select: { name: true } }
+        },
         orderBy: { allocationDate: 'desc' },
     }),
-    prisma.member.findMany({ 
+    prisma.member.findMany({
         where: { status: 'active' },
         select: { id: true, fullName: true, savingsAccountNumber: true },
         orderBy: { fullName: 'asc' },
@@ -26,7 +29,12 @@ export async function getSharesPageData(): Promise<SharesPageData> {
   ]);
 
   return {
-    shares: shares.map(s => ({...s, memberName: s.member.fullName, allocationDate: s.allocationDate.toISOString() })),
+    shares: shares.map(s => ({
+        ...s,
+        memberName: s.member.fullName,
+        shareTypeName: s.shareType.name,
+        allocationDate: s.allocationDate.toISOString()
+    })),
     members,
     shareTypes,
   };
