@@ -13,7 +13,7 @@ import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus } from 'lucide-react';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
@@ -63,45 +63,13 @@ const navItems: NavItem[] = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [isLoading, isAuthenticated, router]);
-
-  const filteredNavItems = useMemo(() => {
-    if (!user?.permissions) return [];
-
-    const visibleItems: NavItem[] = [];
-    
-    navItems.forEach((item, index) => {
-        if (item.isGroupLabel) {
-            // Look ahead to see if any item in this group is visible
-            let groupHasVisibleItems = false;
-            for (let i = index + 1; i < navItems.length; i++) {
-                const nextItem = navItems[i];
-                if (nextItem.isGroupLabel) break; // Reached next group
-                
-                if (!nextItem.permission || user.permissions.includes(nextItem.permission)) {
-                    groupHasVisibleItems = true;
-                    break;
-                }
-            }
-            if (groupHasVisibleItems) {
-                visibleItems.push(item);
-            }
-        } else {
-            // It's a regular nav item, check permission
-            if (!item.permission || user.permissions.includes(item.permission)) {
-                visibleItems.push(item);
-            }
-        }
-    });
-
-    return visibleItems;
-  }, [user?.permissions]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -127,7 +95,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
                 <Logo />
                 </SidebarHeader>
-                <SidebarNav navItems={filteredNavItems} />
+                <SidebarNav navItems={navItems} />
             </Sidebar>
             <SidebarRail />
           </div>
