@@ -60,7 +60,6 @@ import { StatCard } from '@/components/stat-card';
 import { FileUpload } from '@/components/file-upload';
 import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput } from './actions';
 import type { Share, Member, ShareType } from '@prisma/client';
-import { useAuth } from '@/contexts/auth-context';
 
 const initialShareFormState: Partial<ShareInput & {id?: string}> = {
   memberId: '',
@@ -91,15 +90,6 @@ export default function SharesPage() {
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
   const [calculatedShares, setCalculatedShares] = useState(0);
-
-  const { user } = useAuth();
-  const canCreate = user?.permissions.includes('share:create');
-  const canEdit = user?.permissions.includes('share:edit');
-  const canDelete = user?.permissions.includes('share:delete');
-  const isAdminView = canCreate || canEdit || canDelete;
-
-  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
   
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -116,26 +106,8 @@ export default function SharesPage() {
   }
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
-    const memberId = localStorage.getItem('loggedInMemberId');
-    setUserRole(role);
-    setLoggedInMemberId(memberId);
     fetchPageData();
   }, []);
-
-  const memberData = useMemo(() => {
-    if (!isAdminView && loggedInMemberId) {
-        const memberApprovedShares = shares.filter(s => s.memberId === loggedInMemberId && s.status === 'approved');
-        const totalShares = memberApprovedShares.reduce((sum, s) => sum + s.count, 0);
-        const totalValue = memberApprovedShares.reduce((sum, s) => sum + (s.totalValueForAllocation || s.count * s.valuePerShare), 0);
-
-        return {
-            totalShares,
-            totalSharesValue: totalValue,
-        };
-    }
-    return null;
-  }, [isAdminView, loggedInMemberId, shares]);
 
   useEffect(() => {
     const { contributionAmount, valuePerShare } = currentShare;
@@ -241,19 +213,14 @@ export default function SharesPage() {
 
   const filteredShares = useMemo(() => {
     return shares.filter(share => {
-      if (!isAdminView && share.memberId !== loggedInMemberId) return false;
-      
-      if (isAdminView) {
-          const member = members.find(m => m.id === share.memberId);
-          if (!member) return false;
-          const searchTermLower = searchTerm.toLowerCase();
-          const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower)));
-          const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
-          return matchesSearchTerm && matchesMemberFilter;
-      }
-      return true;
+      const member = members.find(m => m.id === share.memberId);
+      if (!member) return false;
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower)));
+      const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
+      return matchesSearchTerm && matchesMemberFilter;
     });
-  }, [shares, members, searchTerm, selectedMemberFilter, isAdminView, loggedInMemberId]);
+  }, [shares, members, searchTerm, selectedMemberFilter]);
 
   const totalSharesAllocated = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.count, 0), [filteredShares]);
   const totalSharesValue = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
@@ -271,8 +238,8 @@ export default function SharesPage() {
     const dataToExport = filteredShares.map(share => {
       const member = members.find(m => m.id === share.memberId);
       return {
-        'Member Name': share.memberName || member?.fullName || 'N/A',
-        'Share Type': share.shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name || 'N/A',
+        'Member Name': (share as any).memberName || member?.fullName || 'N/A',
+        'Share Type': (share as any).shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name || 'N/A',
         'Status': share.status,
         'Share Count': share.count,
         'Value per Share ($)': share.valuePerShare,
@@ -287,139 +254,113 @@ export default function SharesPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title={!isAdminView ? 'My Shares' : "Share Contribution & Allocation"} subtitle={!isAdminView ? 'View your share allocation history' : "Record member share contributions and manage allocations."}>
-        {isAdminView && (
-            <>
-                <Button onClick={handleExport} variant="outline" disabled={isLoading}>
-                    <FileDown className="mr-2 h-4 w-4" /> Export
-                </Button>
-                {canCreate && (
-                    <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-                      <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
-                    </Button>
-                )}
-            </>
-        )}
+      <PageTitle title={"Share Contribution & Allocation"} subtitle={"Record member share contributions and manage allocations."}>
+        <Button onClick={handleExport} variant="outline" disabled={isLoading}>
+            <FileDown className="mr-2 h-4 w-4" /> Export
+        </Button>
+        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+          <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
+        </Button>
       </PageTitle>
 
-      {!isAdminView && memberData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <StatCard
-                title="My Total Shares"
-                value={memberData.totalShares.toString()}
-                icon={<LucidePieChart className="h-6 w-6 text-accent" />}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
+                <LucidePieChart className="h-5 w-5 text-accent" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold text-primary">{totalSharesAllocated.toLocaleString()}</div>
+            </CardContent>
+        </Card>
+        <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
+                <DollarSign className="h-5 w-5 text-accent" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </CardContent>
+        </Card>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by member name or account #..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+              aria-label="Search share records"
             />
-            <StatCard
-                title="Total Value of My Shares"
-                value={`$${memberData.totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                icon={<DollarSign className="h-6 w-6 text-accent" />}
-            />
-        </div>
-      )}
-
-      {isAdminView && (
-        <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <Card className="shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
-                        <LucidePieChart className="h-5 w-5 text-accent" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">{totalSharesAllocated.toLocaleString()}</div>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-md">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
-                        <DollarSign className="h-5 w-5 text-accent" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                <div className="relative flex-grow">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search by member name or account #..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-full"
-                    aria-label="Search share records"
-                  />
-                </div>
-                <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
-                  <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
-                    <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Filter by member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
-                    {members.map(member => (
-                      <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-            </div>
-        </>
-      )}
+          </div>
+          <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
+            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
+              <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Filter by member" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Members</SelectItem>
+              {members.map(member => (
+                <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+      </div>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              {isAdminView && <TableHead>Member Name</TableHead>}
+              <TableHead>Member Name</TableHead>
               <TableHead>Share Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Share Count</TableHead>
               <TableHead className="text-right">Value per Share</TableHead>
               <TableHead className="text-right">Total Value</TableHead>
               <TableHead>Allocation Date</TableHead>
-              {isAdminView && <TableHead className="text-right w-[120px]">Actions</TableHead>}
+              <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={isAdminView ? 8 : 7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredShares.length > 0 ? filteredShares.map(share => {
               const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
+              const shareWithDetails = share as any;
               return (
                 <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                  {isAdminView && <TableCell className="font-medium">{share.memberName}</TableCell>}
-                  <TableCell><Badge variant="outline">{share.shareTypeName}</Badge></TableCell>
+                  <TableCell className="font-medium">{shareWithDetails.memberName}</TableCell>
+                  <TableCell><Badge variant="outline">{shareWithDetails.shareTypeName}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
                   <TableCell className="text-right">${share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right font-semibold">${currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
-                  {isAdminView && <TableCell className="text-right">
-                    {(canEdit || canDelete) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <span className="sr-only">Open menu</span>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {canEdit && <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
-                              <Edit className="mr-2 h-4 w-4" /> Edit
-                            </DropdownMenuItem>}
-                            {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                  </TableCell>}
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <span className="sr-only">Open menu</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={isAdminView ? 8 : 7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No share records found.
                 </TableCell>
               </TableRow>
@@ -600,5 +541,3 @@ export default function SharesPage() {
     </div>
   );
 }
-
-    

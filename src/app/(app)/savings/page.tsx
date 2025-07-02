@@ -59,8 +59,6 @@ import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { getSavingsPageData, addSavingTransaction, updateSavingTransaction, deleteSavingTransaction, type SavingInput, type SavingWithMemberName } from './actions';
-import { useAuth } from '@/contexts/auth-context';
-
 
 const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   memberId: '',
@@ -95,28 +93,21 @@ export default function SavingsPage() {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const { toast } = useToast();
   
-  const { user } = useAuth();
-  
-  useEffect(() => {
-    if (user) {
-      async function fetchPageData() {
-        setIsLoading(true);
-        try {
-            const data = await getSavingsPageData();
-            setSavingsTransactions(data.savings);
-            setMembers(data.members);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
-        }
-        setIsLoading(false);
-      }
-      fetchPageData();
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getSavingsPageData();
+        setSavingsTransactions(data.savings);
+        setMembers(data.members);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
     }
-  }, [user, toast]);
+    setIsLoading(false);
+  }
 
-  const canCreate = user?.permissions.includes('saving:create');
-  const canEdit = user?.permissions.includes('saving:edit');
-  const canDelete = user?.permissions.includes('saving:delete');
+  useEffect(() => {
+    fetchPageData();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -293,11 +284,9 @@ export default function SavingsPage() {
           <Button onClick={handleExport} variant="outline" disabled={isLoading}>
               <FileDown className="mr-2 h-4 w-4" /> Export
           </Button>
-          {canCreate && (
-            <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-              <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
-            </Button>
-          )}
+          <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
+          </Button>
       </PageTitle>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
@@ -395,12 +384,12 @@ export default function SavingsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canEdit && <DropdownMenuItem onClick={() => openEditModal(tx)} disabled={tx.status === 'approved'}>
+                      <DropdownMenuItem onClick={() => openEditModal(tx)} disabled={tx.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>}
-                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openDeleteDialog(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
