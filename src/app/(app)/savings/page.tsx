@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -97,6 +98,10 @@ export default function SavingsPage() {
   
   const { user } = useAuth();
   
+  const canCreate = user?.permissions.includes('saving:create');
+  const canEdit = user?.permissions.includes('saving:edit');
+  const canDelete = user?.permissions.includes('saving:delete');
+
   useEffect(() => {
     if (user) {
       async function fetchPageData() {
@@ -113,10 +118,6 @@ export default function SavingsPage() {
       fetchPageData();
     }
   }, [user, toast]);
-
-  const canCreate = user?.permissions.includes('saving:create');
-  const canEdit = user?.permissions.includes('saving:edit');
-  const canDelete = user?.permissions.includes('saving:delete');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -565,3 +566,5 @@ export default function SavingsPage() {
     </div>
   );
 }
+
+    
