@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -93,21 +94,28 @@ export default function SavingsPage() {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const { toast } = useToast();
   
-  const fetchPageData = async () => {
-    setIsLoading(true);
-    try {
-        const data = await getSavingsPageData();
-        setSavingsTransactions(data.savings);
-        setMembers(data.members);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
-    }
-    setIsLoading(false);
-  }
+  const { user } = useAuth();
+  
+  const canCreate = user?.permissions.includes('saving:create');
+  const canEdit = user?.permissions.includes('saving:edit');
+  const canDelete = user?.permissions.includes('saving:delete');
 
   useEffect(() => {
-    fetchPageData();
-  }, []);
+    if (user) {
+      async function fetchPageData() {
+        setIsLoading(true);
+        try {
+            const data = await getSavingsPageData();
+            setSavingsTransactions(data.savings);
+            setMembers(data.members);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
+        }
+        setIsLoading(false);
+      }
+      fetchPageData();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -554,3 +562,5 @@ export default function SavingsPage() {
     </div>
   );
 }
+
+    
