@@ -60,6 +60,7 @@ import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { getSavingsPageData, addSavingTransaction, updateSavingTransaction, deleteSavingTransaction, type SavingInput, type SavingWithMemberName } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   memberId: '',
@@ -289,12 +290,16 @@ export default function SavingsPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Savings Transactions" subtitle="View and manage individual savings deposits and withdrawals.">
-          <Button onClick={handleExport} variant="outline" disabled={isLoading}>
-              <FileDown className="mr-2 h-4 w-4" /> Export
-          </Button>
-          <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-            <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
-          </Button>
+          {canCreate && (
+            <Button onClick={handleExport} variant="outline" disabled={isLoading}>
+                <FileDown className="mr-2 h-4 w-4" /> Export
+            </Button>
+          )}
+          {canCreate && (
+            <Button onClick={openAddTransactionModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+              <PlusCircle className="mr-2 h-5 w-5" /> Add Transaction
+            </Button>
+          )}
       </PageTitle>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
@@ -392,12 +397,12 @@ export default function SavingsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(tx)} disabled={tx.status === 'approved'}>
+                      {canEdit && (<DropdownMenuItem onClick={() => openEditModal(tx)} disabled={tx.status === 'approved'}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>)}
+                      {canDelete && (<DropdownMenuItem onClick={() => openDeleteDialog(tx.id)} disabled={tx.status === 'approved'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -562,5 +567,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-
-    
