@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
 import * as XLSX from 'xlsx';
 import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -66,6 +67,7 @@ interface ParsedExcelData {
 
 export default function GroupCollectionsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [pageData, setPageData] = useState<GroupCollectionsPageData | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
@@ -89,6 +91,8 @@ export default function GroupCollectionsPage() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedExcelData[]>([]);
+
+  const canCreate = useMemo(() => user?.permissions.includes('groupCollection:create'), [user]);
 
   useEffect(() => {
     async function fetchData() {
@@ -421,7 +425,7 @@ export default function GroupCollectionsPage() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-[60px] px-2">
-                                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAllChange} />
+                                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAllChange} disabled={!canCreate} />
                                 </TableHead>
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Account Number</TableHead>
@@ -433,7 +437,7 @@ export default function GroupCollectionsPage() {
                               {eligibleMembers.map(member => (
                                 <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
                                   <TableCell className="px-2">
-                                    <Checkbox checked={selectedMemberIds.includes(member.id)} onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)} />
+                                    <Checkbox checked={selectedMemberIds.includes(member.id)} onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)} disabled={!canCreate} />
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
@@ -446,7 +450,7 @@ export default function GroupCollectionsPage() {
                                       value={collectionAmounts[member.id] || ''}
                                       onChange={(e) => handleCollectionAmountChange(member.id, e.target.value)}
                                       className="text-right"
-                                      disabled={!selectedMemberIds.includes(member.id)}
+                                      disabled={!selectedMemberIds.includes(member.id) || !canCreate}
                                     />
                                   </TableCell>
                                 </TableRow>
@@ -466,9 +470,9 @@ export default function GroupCollectionsPage() {
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
                             <Label htmlFor="excel-upload">Excel File</Label>
-                            <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
+                            <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate} />
                         </div>
-                        <Button onClick={handleProcessFile} disabled={isParsing || !excelFile} className="w-full sm:w-auto mt-4 sm:mt-6">
+                        <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
                             {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
                             Process File
                         </Button>
@@ -502,7 +506,7 @@ export default function GroupCollectionsPage() {
                 </Card>
             )}
 
-            {((collectionMode === 'filter' && eligibleMembers.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) && (
+            {((collectionMode === 'filter' && eligibleMembers.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) && canCreate && (
                 <Card className="shadow-lg animate-in fade-in duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">3. Batch Transaction Details</CardTitle>

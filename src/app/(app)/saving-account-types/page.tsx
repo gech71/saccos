@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getSavingAccountTypes, addSavingAccountType, updateSavingAccountType, deleteSavingAccountType } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 
 const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
@@ -65,6 +66,11 @@ export default function SavingAccountTypesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const canCreate = useMemo(() => user?.permissions.includes('configuration:create'), [user]);
+  const canEdit = useMemo(() => user?.permissions.includes('configuration:edit'), [user]);
+  const canDelete = useMemo(() => user?.permissions.includes('configuration:delete'), [user]);
   
   const fetchAccountTypes = async () => {
     setIsLoading(true);
@@ -176,9 +182,11 @@ export default function SavingAccountTypesPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Manage Saving Account Types" subtitle="Define the types of saving accounts available in your association.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Account Type
-        </Button>
+        {canCreate && (
+          <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Account Type
+          </Button>
+        )}
       </PageTitle>
 
       <div className="relative mb-6">
@@ -222,12 +230,12 @@ export default function SavingAccountTypesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(accountType)}>
+                      {canEdit && <DropdownMenuItem onClick={() => openEditModal(accountType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(accountType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>}
+                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(accountType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -323,5 +331,3 @@ export default function SavingAccountTypesPage() {
     </div>
   );
 }
-
-    

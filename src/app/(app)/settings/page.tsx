@@ -21,6 +21,7 @@ import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, t
 import Link from 'next/link';
 import { permissionsByGroup } from './permissions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAuth } from '@/contexts/auth-context';
 
 
 export default function SettingsPage() {
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [roles, setRoles] = useState<RoleWithUserCount[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
@@ -41,6 +43,10 @@ export default function SettingsPage() {
   const [roleToDelete, setRoleToDelete] = useState<RoleWithUserCount | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canCreateSettings = useMemo(() => user?.permissions.includes('setting:create'), [user]);
+  const canEditSettings = useMemo(() => user?.permissions.includes('setting:edit'), [user]);
+  const canDeleteSettings = useMemo(() => user?.permissions.includes('setting:delete'), [user]);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -194,11 +200,13 @@ export default function SettingsPage() {
                         <CardTitle>Users</CardTitle>
                         <CardDescription>View all registered users and manage their assigned roles.</CardDescription>
                     </div>
-                    <Button asChild>
-                        <Link href="/settings/register">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Register New User
-                        </Link>
-                    </Button>
+                    {canCreateSettings && (
+                      <Button asChild>
+                          <Link href="/settings/register">
+                              <PlusCircle className="mr-2 h-4 w-4" /> Register New User
+                          </Link>
+                      </Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent>
@@ -222,9 +230,11 @@ export default function SettingsPage() {
                         )) : <span className="text-muted-foreground text-sm">No roles</span>}
                       </TableCell>
                       <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => openUserModal(user)}>
-                              <Edit className="mr-2 h-3.5 w-3.5" /> Manage Roles
-                          </Button>
+                          {canEditSettings && (
+                            <Button variant="outline" size="sm" onClick={() => openUserModal(user)}>
+                                <Edit className="mr-2 h-3.5 w-3.5" /> Manage Roles
+                            </Button>
+                          )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -243,9 +253,11 @@ export default function SettingsPage() {
                             <CardTitle>Roles</CardTitle>
                             <CardDescription>Define roles and what permissions they grant within the application.</CardDescription>
                         </div>
-                        <Button onClick={() => openRoleModal()}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Create Role
-                        </Button>
+                        {canCreateSettings && (
+                          <Button onClick={() => openRoleModal()}>
+                              <PlusCircle className="mr-2 h-4 w-4" /> Create Role
+                          </Button>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -270,8 +282,8 @@ export default function SettingsPage() {
                                                 <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => openRoleModal(role)}><Edit className="mr-2 h-4 w-4" /> Edit Role</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => openDeleteAlert(role)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>
+                                                {canEditSettings && <DropdownMenuItem onClick={() => openRoleModal(role)}><Edit className="mr-2 h-4 w-4" /> Edit Role</DropdownMenuItem>}
+                                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert(role)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>

@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 type ActiveMember = {
     id: string;
@@ -47,6 +48,7 @@ const initialPayoutDetails = {
 
 export default function CloseAccountPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [activeMembers, setActiveMembers] = useState<ActiveMember[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
@@ -58,6 +60,8 @@ export default function CloseAccountPage() {
 
   const [calculationResult, setCalculationResult] = useState<CalculationResult | null>(null);
   const [payoutDetails, setPayoutDetails] = useState(initialPayoutDetails);
+
+  const canClose = useMemo(() => user?.permissions.includes('accountClosure:create'), [user]);
 
   useEffect(() => {
     async function fetchMembers() {
@@ -159,7 +163,7 @@ export default function CloseAccountPage() {
                     role="combobox"
                     aria-expanded={openMemberCombobox}
                     className="w-full justify-between"
-                    disabled={isCalculating || isClosing || isLoading}
+                    disabled={isCalculating || isClosing || isLoading || !canClose}
                     >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : (selectedMemberId
                         ? activeMembers.find((member) => member.id === selectedMemberId)?.fullName
@@ -198,14 +202,16 @@ export default function CloseAccountPage() {
                 </PopoverContent>
                 </Popover>
             </div>
-            <Button onClick={handleCalculate} disabled={isCalculating || !selectedMemberId}>
-                {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-                Calculate Final Payout
-            </Button>
+            {canClose && (
+              <Button onClick={handleCalculate} disabled={isCalculating || !selectedMemberId}>
+                  {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                  Calculate Final Payout
+              </Button>
+            )}
         </CardContent>
       </Card>
       
-      {calculationResult && selectedMember && (
+      {calculationResult && selectedMember && canClose && (
           <Card className="shadow-lg animate-in fade-in duration-300">
             <CardHeader>
                 <CardTitle className="font-headline text-primary">2. Confirm Payout and Close Account</CardTitle>

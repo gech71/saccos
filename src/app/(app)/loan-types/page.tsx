@@ -54,6 +54,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getLoanTypes, addLoanType, updateLoanType, deleteLoanType } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
@@ -77,6 +78,11 @@ export default function LoanTypesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const canCreate = useMemo(() => user?.permissions.includes('configuration:create'), [user]);
+  const canEdit = useMemo(() => user?.permissions.includes('configuration:edit'), [user]);
+  const canDelete = useMemo(() => user?.permissions.includes('configuration:delete'), [user]);
   
   const fetchLoanTypes = async () => {
       setIsLoading(true);
@@ -205,9 +211,11 @@ export default function LoanTypesPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Manage Loan Types" subtitle="Define the loan products offered by your association.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Loan Type
-        </Button>
+        {canCreate && (
+          <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Loan Type
+          </Button>
+        )}
       </PageTitle>
 
       <div className="relative mb-6">
@@ -274,12 +282,12 @@ export default function LoanTypesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(loanType)}>
+                      {canEdit && <DropdownMenuItem onClick={() => openEditModal(loanType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(loanType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>}
+                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(loanType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -435,5 +443,3 @@ export default function LoanTypesPage() {
     </div>
   );
 }
-
-    

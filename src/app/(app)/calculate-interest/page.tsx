@@ -30,6 +30,7 @@ import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown } from
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getCalculationPageData, calculateInterest, postInterestTransactions, type CalculationPageData, type InterestCalculationResult } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -42,6 +43,7 @@ const months = [
 
 export default function CalculateInterestPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], savingAccountTypes: [] });
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -59,6 +61,8 @@ export default function CalculateInterestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
+
+  const canCreate = useMemo(() => user?.permissions.includes('savingsInterestCalculation:create'), [user]);
 
   useEffect(() => {
     async function fetchData() {
@@ -261,12 +265,14 @@ export default function CalculateInterestPage() {
           </div>
           
         </CardContent>
-        <CardFooter>
-            <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto ml-auto">
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-                Calculate Interest
-            </Button>
-        </CardFooter>
+        {canCreate && (
+          <CardFooter>
+              <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto ml-auto">
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                  Calculate Interest
+              </Button>
+          </CardFooter>
+        )}
       </Card>
       
       {calculationResults && (
@@ -315,12 +321,14 @@ export default function CalculateInterestPage() {
                     </Table>
                 </div>
             </CardContent>
-            <CardFooter>
-                <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0} className="ml-auto">
-                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Post Interest for Approval
-                </Button>
-            </CardFooter>
+            {canCreate && (
+              <CardFooter>
+                  <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0} className="ml-auto">
+                      {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                      Post Interest for Approval
+                  </Button>
+              </CardFooter>
+            )}
         </Card>
       )}
 

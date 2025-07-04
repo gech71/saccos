@@ -31,6 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
 import { Badge } from '@/components/ui/badge';
 import { getSchoolsForFilter, getLoansBySchool, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialBatchTransactionState: {
   paymentDate: string;
@@ -52,6 +53,7 @@ const initialBatchTransactionState: {
 
 export default function GroupLoanRepaymentsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<string>('');
@@ -65,6 +67,8 @@ export default function GroupLoanRepaymentsPage() {
   const [batchDetails, setBatchDetails] = useState(initialBatchTransactionState);
   const [isPosting, setIsPosting] = useState(false);
   const [postedTransactions, setPostedTransactions] = useState<RepaymentBatchData | null>(null);
+
+  const canCreate = useMemo(() => user?.permissions.includes('groupLoanRepayment:create'), [user]);
 
   useEffect(() => {
     async function fetchSchools() {
@@ -242,6 +246,7 @@ export default function GroupLoanRepaymentsPage() {
                             checked={isAllSelected}
                             onCheckedChange={handleSelectAllChange}
                             aria-label="Select all loans"
+                            disabled={!canCreate}
                           />
                         </TableHead>
                         <TableHead>Member Name</TableHead>
@@ -259,6 +264,7 @@ export default function GroupLoanRepaymentsPage() {
                               checked={selectedLoanIds.includes(loan.id)}
                               onCheckedChange={(checked) => handleRowSelectChange(loan.id, !!checked)}
                               aria-label={`Select loan for ${loan.memberName}`}
+                              disabled={!canCreate}
                             />
                           </TableCell>
                           <TableCell className="font-medium">{loan.memberName}</TableCell>
@@ -273,7 +279,7 @@ export default function GroupLoanRepaymentsPage() {
                               value={repaymentAmounts[loan.id] || ''}
                               onChange={(e) => handleRepaymentAmountChange(loan.id, e.target.value)}
                               className="text-right"
-                              disabled={!selectedLoanIds.includes(loan.id)}
+                              disabled={!selectedLoanIds.includes(loan.id) || !canCreate}
                             />
                           </TableCell>
                         </TableRow>
@@ -288,14 +294,14 @@ export default function GroupLoanRepaymentsPage() {
                 <div className="space-y-4">
                     <div>
                         <Label htmlFor="batchDetails.date">Payment Date</Label>
-                        <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required />
+                        <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required disabled={!canCreate} />
                     </div>
                     <div>
                         <Label htmlFor="depositModeBatch">Payment Mode</Label>
                         <RadioGroup id="depositModeBatch" value={batchDetails.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" /><Label htmlFor="cashBatch">Cash</Label></div>
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" /><Label htmlFor="bankBatch">Bank</Label></div>
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" /><Label htmlFor="walletBatch">Wallet</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" disabled={!canCreate} /><Label htmlFor="cashBatch">Cash</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" disabled={!canCreate} /><Label htmlFor="bankBatch">Bank</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" disabled={!canCreate} /><Label htmlFor="walletBatch">Wallet</Label></div>
                         </RadioGroup>
                     </div>
 
@@ -304,11 +310,11 @@ export default function GroupLoanRepaymentsPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
                                     <Label htmlFor="paymentDetails.sourceNameBatch">{batchDetails.depositMode} Name</Label>
-                                    <Input id="paymentDetails.sourceNameBatch" name="paymentDetails.sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.paymentDetails?.sourceName || ''} onChange={handleBatchDetailChange} />
+                                    <Input id="paymentDetails.sourceNameBatch" name="paymentDetails.sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.paymentDetails?.sourceName || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
                                 </div>
                                 <div>
                                     <Label htmlFor="paymentDetails.transactionReferenceBatch">Transaction Reference</Label>
-                                    <Input id="paymentDetails.transactionReferenceBatch" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.paymentDetails?.transactionReference || ''} onChange={handleBatchDetailChange} />
+                                    <Input id="paymentDetails.transactionReferenceBatch" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.paymentDetails?.transactionReference || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
                                 </div>
                             </div>
                              <div className="pl-3">
@@ -331,12 +337,14 @@ export default function GroupLoanRepaymentsPage() {
                     )}
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button onClick={handleSubmitCollection} disabled={isPosting || totalToCollect <= 0} className="w-full md:w-auto ml-auto">
-                  {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Record Repayments for {selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length} Loans
-                </Button>
-              </CardFooter>
+              {canCreate && (
+                <CardFooter>
+                  <Button onClick={handleSubmitCollection} disabled={isPosting || totalToCollect <= 0} className="w-full md:w-auto ml-auto">
+                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                    Record Repayments for {selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length} Loans
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           )}
         </>
@@ -384,5 +392,3 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
-
-    

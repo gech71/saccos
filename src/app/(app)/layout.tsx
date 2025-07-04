@@ -13,7 +13,7 @@ import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus } from 'lucide-react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
@@ -63,7 +63,30 @@ const navItems: NavItem[] = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  const filteredNavItems = useMemo(() => {
+    if (!user?.permissions) return [];
+    
+    return navItems.reduce((acc, item) => {
+        if (item.isGroupLabel) {
+            // Look ahead to see if any item in this group is visible
+            const groupIndex = navItems.indexOf(item);
+            let nextGroupIndex = navItems.findIndex((it, idx) => idx > groupIndex && it.isGroupLabel);
+            if (nextGroupIndex === -1) nextGroupIndex = navItems.length;
+            
+            const itemsInGroup = navItems.slice(groupIndex + 1, nextGroupIndex);
+            const isGroupVisible = itemsInGroup.some(groupItem => user.permissions.includes(groupItem.permission!));
+
+            if (isGroupVisible) {
+                acc.push(item);
+            }
+        } else if (!item.permission || user.permissions.includes(item.permission)) {
+            acc.push(item);
+        }
+        return acc;
+    }, [] as NavItem[]);
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -95,7 +118,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
                 <Logo />
                 </SidebarHeader>
-                <SidebarNav navItems={navItems} />
+                <SidebarNav navItems={filteredNavItems} />
             </Sidebar>
             <SidebarRail />
           </div>
@@ -107,5 +130,3 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    

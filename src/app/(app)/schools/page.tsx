@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -47,6 +46,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { exportToExcel } from '@/lib/utils';
 import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -66,6 +66,11 @@ export default function SchoolsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const canCreate = useMemo(() => user?.permissions.includes('school:create'), [user]);
+  const canEdit = useMemo(() => user?.permissions.includes('school:edit'), [user]);
+  const canDelete = useMemo(() => user?.permissions.includes('school:delete'), [user]);
 
   const fetchSchools = async () => {
     setIsLoading(true);
@@ -176,9 +181,11 @@ export default function SchoolsPage() {
         <Button onClick={handleExport} variant="outline" disabled={isLoading || schools.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add School
-        </Button>
+        {canCreate && (
+          <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add School
+          </Button>
+        )}
       </PageTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -249,12 +256,12 @@ export default function SchoolsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(school)}>
+                      {canEdit && <DropdownMenuItem onClick={() => openEditModal(school)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(school.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>}
+                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(school.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

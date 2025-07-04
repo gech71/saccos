@@ -39,6 +39,7 @@ import { Separator } from '@/components/ui/separator';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { getOverduePaymentsPageData, recordOverduePayment, type OverduePageData, type OverdueMemberInfo, type OverduePaymentInput } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 interface PaymentFormState {
   savingsAmount: number;
@@ -74,10 +75,13 @@ export default function OverduePaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedOverdueMemberForPayment, setSelectedOverdueMemberForPayment] = useState<OverdueMemberInfo | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(initialPaymentFormState);
+  
+  const canCreate = useMemo(() => user?.permissions.includes('overduePayment:create'), [user]);
 
   const fetchPageData = async () => {
       setIsLoading(true);
@@ -339,7 +343,7 @@ export default function OverduePaymentsPage() {
                   ) : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell className="text-center">
-                  {member.hasAnyOverdue && (
+                  {member.hasAnyOverdue && canCreate && (
                     <Button
                       variant="outline"
                       size="sm"

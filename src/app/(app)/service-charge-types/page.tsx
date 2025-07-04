@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { getServiceChargeTypes, addServiceChargeType, updateServiceChargeType, deleteServiceChargeType } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialFormState: Partial<Omit<ServiceChargeType, 'id'>> = {
   name: '',
@@ -72,6 +73,11 @@ export default function ServiceChargeTypesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const canCreate = useMemo(() => user?.permissions.includes('configuration:create'), [user]);
+  const canEdit = useMemo(() => user?.permissions.includes('configuration:edit'), [user]);
+  const canDelete = useMemo(() => user?.permissions.includes('configuration:delete'), [user]);
 
   const fetchChargeTypes = async () => {
       setIsLoading(true);
@@ -186,9 +192,11 @@ export default function ServiceChargeTypesPage() {
   return (
     <div className="space-y-6">
       <PageTitle title="Manage Service Charge Types" subtitle="Define various service charges applicable to members.">
-        <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
-          <PlusCircle className="mr-2 h-5 w-5" /> Add Charge Type
-        </Button>
+        {canCreate && (
+          <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
+            <PlusCircle className="mr-2 h-5 w-5" /> Add Charge Type
+          </Button>
+        )}
       </PageTitle>
 
       <div className="relative mb-6">
@@ -237,12 +245,12 @@ export default function ServiceChargeTypesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(chargeType)}>
+                      {canEdit && <DropdownMenuItem onClick={() => openEditModal(chargeType)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(chargeType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      </DropdownMenuItem>}
+                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(chargeType.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
