@@ -14,9 +14,10 @@ import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
 import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus } from 'lucide-react';
 import React, { useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -64,13 +65,14 @@ const navItems: NavItem[] = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
+  const pathname = usePathname();
+  const { toast } = useToast();
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];
     
     return navItems.reduce((acc, item) => {
         if (item.isGroupLabel) {
-            // Look ahead to see if any item in this group is visible
             const groupIndex = navItems.indexOf(item);
             let nextGroupIndex = navItems.findIndex((it, idx) => idx > groupIndex && it.isGroupLabel);
             if (nextGroupIndex === -1) nextGroupIndex = navItems.length;
@@ -87,6 +89,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         return acc;
     }, [] as NavItem[]);
   }, [user]);
+
+  useEffect(() => {
+    if (isLoading || !user?.permissions) {
+      return; // Don't run check until auth is resolved and user object is available
+    }
+
+    // Allow access to the dashboard by default
+    if (pathname === '/dashboard') {
+      return;
+    }
+
+    // Find the required permission for the current path.
+    // Sort by href length descending to match more specific paths first (e.g., /settings/register before /settings)
+    const navItem = [...navItems]
+      .filter(item => item.href && item.href !== '/')
+      .sort((a, b) => b.href!.length - a.href!.length)
+      .find(item => pathname.startsWith(item.href!));
+
+    // If a nav item is found and it requires a specific permission...
+    if (navItem && navItem.permission) {
+      // ...check if the user has that permission.
+      if (!user.permissions.includes(navItem.permission)) {
+        // If not, redirect them and show a message.
+        toast({
+          title: 'Access Denied',
+          description: "You don't have permission to view this page.",
+          variant: 'destructive',
+        });
+        router.replace('/dashboard');
+      }
+    }
+    // If no specific nav item is found, we can assume it's a valid sub-page of an allowed route (already handled by startsWith) or a page that doesn't require specific permissions.
+  }, [pathname, user, isLoading, router, toast]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
