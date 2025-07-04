@@ -17,7 +17,6 @@ import React, { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
@@ -66,7 +65,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
   const pathname = usePathname();
-  const { toast } = useToast();
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];
@@ -111,17 +109,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (navItem && navItem.permission) {
       // ...check if the user has that permission.
       if (!user.permissions.includes(navItem.permission)) {
-        // If not, redirect them and show a message.
-        toast({
-          title: 'Access Denied',
-          description: "You don't have permission to view this page.",
-          variant: 'destructive',
-        });
+        // If not, redirect them silently.
         router.replace('/dashboard');
       }
     }
     // If no specific nav item is found, we can assume it's a valid sub-page of an allowed route (already handled by startsWith) or a page that doesn't require specific permissions.
-  }, [pathname, user, isLoading, router, toast]);
+  }, [pathname, user, isLoading, router]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
