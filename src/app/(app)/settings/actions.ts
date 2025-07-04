@@ -295,6 +295,11 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   if (!user) return [];
 
+  // If user has 'Admin' role, give all permissions by default.
+  if (user.roles.some((role) => role.name === "Admin")) {
+    return permissionsList.map((p) => p.id);
+  }
+
   const permissions = new Set<string>();
   user.roles.forEach((role) => {
     role.permissions.forEach((permission) => {
