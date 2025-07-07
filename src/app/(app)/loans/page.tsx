@@ -48,8 +48,8 @@ const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId
 };
 
 const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
-  memberId: '',
-  loanTypeId: '',
+  memberId: undefined,
+  loanTypeId: undefined,
   principalAmount: 0,
   disbursementDate: new Date().toISOString().split('T')[0],
   status: 'pending',
@@ -457,7 +457,7 @@ export default function LoansPage() {
                       <div>
                         <Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label>
                         <Select
-                          value={collateral.address?.subCity || ''}
+                          value={collateral.address?.subCity}
                           onValueChange={(value) => handleCollateralChange(index, 'address.subCity', value)}
                         >
                           <SelectTrigger id={`collateral-addr-subcity-${index}`}>

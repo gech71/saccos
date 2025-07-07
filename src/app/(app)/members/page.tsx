@@ -65,13 +65,13 @@ const initialMemberFormState: Partial<Member> = {
   phoneNumber: '',
   address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' },
   emergencyContact: { name: '', phone: '' },
-  schoolId: '',
+  schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],
   savingsBalance: 0,
   savingsAccountNumber: '',
   sharesCount: 0,
   shareCommitments: [],
-  savingAccountTypeId: '',
+  savingAccountTypeId: undefined,
   expectedMonthlySaving: 0,
 };
 
@@ -511,7 +511,7 @@ export default function MembersPage() {
                 <div>
                   <Label htmlFor="address.subCity">Sub City</Label>
                   <Select
-                    value={currentMember.address?.subCity || ''}
+                    value={currentMember.address?.subCity}
                     onValueChange={(value) => handleNestedSelectChange('address.subCity', value)}
                     disabled={isViewingOnly}
                   >
@@ -542,7 +542,7 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="schoolId">School</Label>
-                <Select name="schoolId" value={currentMember.schoolId || ''} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
+                <Select name="schoolId" value={currentMember.schoolId} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
                   <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
                 </Select>
@@ -563,7 +563,7 @@ export default function MembersPage() {
                 </div>
                 <div>
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
-                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId || ''} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} disabled={isViewingOnly}>
+                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} disabled={isViewingOnly}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
                         <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, ${sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
@@ -616,7 +616,7 @@ export default function MembersPage() {
                     <div>
                         <Label htmlFor={`commitment-type-${index}`}>Share Type</Label>
                         <Select
-                            value={commitment.shareTypeId}
+                            value={commitment.shareTypeId || undefined}
                             onValueChange={(value) => handleShareCommitmentChange(index, 'shareTypeId', value)}
                             disabled={isViewingOnly}
                         >

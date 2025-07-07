@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -62,8 +63,8 @@ import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput 
 import type { Share, Member, ShareType } from '@prisma/client';
 
 const initialShareFormState: Partial<ShareInput & {id?: string}> = {
-  memberId: '',
-  shareTypeId: '',
+  memberId: undefined,
+  shareTypeId: undefined,
   contributionAmount: 0,
   allocationDate: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
@@ -432,7 +433,7 @@ export default function SharesPage() {
             </div>
              <div>
               <Label htmlFor="shareTypeIdShare">Share Type</Label>
-              <Select name="shareTypeId" value={currentShare.shareTypeId || ''} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
+              <Select name="shareTypeId" value={currentShare.shareTypeId} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
                 <SelectTrigger id="shareTypeIdShare"><SelectValue placeholder="Select share type" /></SelectTrigger>
                 <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>))}</SelectContent>
               </Select>

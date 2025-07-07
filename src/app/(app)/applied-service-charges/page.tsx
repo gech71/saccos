@@ -47,8 +47,8 @@ import { getAppliedChargesPageData, applyServiceCharge, type AppliedChargeInput,
 import { useAuth } from '@/contexts/auth-context';
 
 const initialApplyChargeFormState: Partial<AppliedChargeInput> = {
-    memberId: '',
-    serviceChargeTypeId: '',
+    memberId: undefined,
+    serviceChargeTypeId: undefined,
     amountCharged: 0,
     dateApplied: new Date().toISOString().split('T')[0],
     notes: '',
@@ -337,7 +337,7 @@ export default function AppliedServiceChargesPage() {
             </div>
             <div>
               <Label htmlFor="applyChargeServiceChargeTypeId">Service Charge Type</Label>
-              <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId || ''} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
+              <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
                   {pageData.serviceChargeTypes.map(sct => (
