@@ -119,7 +119,7 @@ export default function CollectionForecastPage() {
     const dataToExport = forecastData.map(item => ({
       'Member Name': item.fullName,
       'School': item.schoolName,
-      'Expected Contribution (ETB)': item.expectedContribution.toFixed(2),
+      'Expected Contribution (Birr)': item.expectedContribution.toFixed(2),
     }));
     
     const collectionTypeName = collectionType === 'savings' 
@@ -233,7 +233,7 @@ export default function CollectionForecastPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">ETB {summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-2xl font-bold text-primary">Birr {summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -245,7 +245,7 @@ export default function CollectionForecastPage() {
                   <TableRow>
                     <TableHead>Member Name</TableHead>
                     <TableHead>School</TableHead>
-                    <TableHead className="text-right">Expected Contribution (ETB)</TableHead>
+                    <TableHead className="text-right">Expected Contribution (Birr)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -253,7 +253,7 @@ export default function CollectionForecastPage() {
                     <TableRow key={result.memberId}>
                       <TableCell className="font-medium">{result.fullName}</TableCell>
                       <TableCell>{result.schoolName}</TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">ETB {result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">Birr {result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>

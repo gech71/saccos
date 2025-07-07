@@ -266,8 +266,8 @@ export default function LoansPage() {
         'Member Name': loan.memberName || 'N/A',
         'Loan Type': loan.loanTypeName || 'N/A',
         'Status': loan.status,
-        'Principal Amount (ETB)': loan.principalAmount,
-        'Remaining Balance (ETB)': loan.remainingBalance,
+        'Principal Amount (Birr)': loan.principalAmount,
+        'Remaining Balance (Birr)': loan.remainingBalance,
         'Interest Rate (%)': (loan.interestRate * 100).toFixed(2),
         'Disbursement Date': new Date(loan.disbursementDate).toLocaleDateString(),
         'Next Due Date': loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A',
@@ -308,8 +308,8 @@ export default function LoansPage() {
               <TableHead>Acct. #</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Principal (ETB)</TableHead>
-              <TableHead className="text-right">Balance (ETB)</TableHead>
+              <TableHead className="text-right">Principal (Birr)</TableHead>
+              <TableHead className="text-right">Balance (Birr)</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead>Next Due</TableHead>
               <TableHead>Collateral</TableHead>
@@ -325,8 +325,8 @@ export default function LoansPage() {
                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">ETB {loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">Birr {loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">Birr {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
@@ -397,7 +397,7 @@ export default function LoansPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="principalAmount">Principal Amount (ETB) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="principalAmount">Principal Amount (Birr) <span className="text-destructive">*</span></Label>
                 <Input id="principalAmount" name="principalAmount" type="number" step="0.01" value={currentLoan.principalAmount || ''} onChange={handleInputChange} required />
               </div>
               <div>
@@ -407,7 +407,7 @@ export default function LoansPage() {
             </div>
             {monthlyPayment !== null && (
               <div className="p-3 border rounded-md bg-muted text-sm">
-                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">ETB {monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">Birr {monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
               </div>
             )}
             <div>

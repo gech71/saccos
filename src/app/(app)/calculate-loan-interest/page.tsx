@@ -275,7 +275,7 @@ export default function CalculateLoanInterestPage() {
                 <CardTitle className="font-headline text-primary">Calculation Results</CardTitle>
                 <CardDescription>
                     Loan interest calculation for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
-                    Total calculated interest: <span className="font-bold text-primary">ETB {totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    Total calculated interest: <span className="font-bold text-primary">Birr {totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -285,9 +285,9 @@ export default function CalculateLoanInterestPage() {
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Loan Acct. #</TableHead>
-                                <TableHead className="text-right">Balance Before Interest (ETB)</TableHead>
+                                <TableHead className="text-right">Balance Before Interest (Birr)</TableHead>
                                 <TableHead className="text-center">Interest Rate (Annual)</TableHead>
-                                <TableHead className="text-right">Calculated Interest (ETB)</TableHead>
+                                <TableHead className="text-right">Calculated Interest (Birr)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -295,14 +295,14 @@ export default function CalculateLoanInterestPage() {
                                 <TableRow key={result.loanId}>
                                     <TableCell className="font-medium">{result.fullName}</TableCell>
                                     <TableCell className="font-mono text-xs">{result.loanAccountNumber || 'N/A'}</TableCell>
-                                    <TableCell className="text-right">ETB {result.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">Birr {result.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell className="text-center">
                                         <Badge variant="secondary">
                                             <Percent className="mr-1.5 h-3 w-3"/>
                                             {(result.interestRate * 100).toFixed(2)}%
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right font-semibold text-destructive">ETB {result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right font-semibold text-destructive">Birr {result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 </TableRow>
                             )) : (
                                 <TableRow>

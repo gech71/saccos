@@ -67,7 +67,7 @@ export default function SavingsAccountsPage() {
       'School': summary.schoolName,
       'Account Number': summary.savingsAccountNumber || 'N/A',
       'Account Type': summary.savingAccountTypeName || 'N/A',
-      'Current Balance ($)': summary.savingsBalance.toFixed(2),
+      'Current Balance (Birr)': summary.savingsBalance.toFixed(2),
       'Contribution Fulfillment (%)': summary.fulfillmentPercentage.toFixed(1),
     }));
     exportToExcel(dataToExport, 'savings_accounts_summary_export');
@@ -95,14 +95,14 @@ export default function SavingsAccountsPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Savings Balance (in view)</ShadcnCardTitle>
                 <DollarSignIcon className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalSavingsGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">Birr {globalSummaryStats.totalSavingsGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Average Savings Balance (in view)</ShadcnCardTitle>
                 <TrendingUp className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.averageSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">Birr {globalSummaryStats.averageSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -148,7 +148,7 @@ export default function SavingsAccountsPage() {
               <TableHead>School</TableHead>
               <TableHead>Account Number</TableHead>
               <TableHead>Account Type</TableHead>
-              <TableHead className="text-right">Current Balance ($)</TableHead>
+              <TableHead className="text-right">Current Balance (Birr)</TableHead>
               <TableHead className="text-center w-[200px]">Contribution Fulfillment</TableHead>
             </TableRow>
           </TableHeader>
@@ -159,7 +159,7 @@ export default function SavingsAccountsPage() {
                 <TableCell>{summary.schoolName}</TableCell>
                 <TableCell>{summary.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{summary.savingAccountTypeName || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold text-green-600">${summary.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold text-green-600">Birr {summary.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-center">
                     {summary.expectedMonthlySaving > 0 ? (
                       <div className="flex flex-col items-center">

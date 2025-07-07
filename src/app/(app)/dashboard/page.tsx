@@ -63,7 +63,7 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Total Savings"
-            value={`ETB ${dashboardData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`Birr ${dashboardData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             icon={<DollarSign className="h-6 w-6 text-accent" />}
           />
           <StatCard
@@ -73,7 +73,7 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Dividends Paid (YTD)"
-            value={`ETB ${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`Birr ${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             icon={<TrendingUp className="h-6 w-6 text-accent" />}
           />
         </div>
@@ -99,7 +99,7 @@ export default function DashboardPage() {
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="savings" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 6 }} name="Savings (ETB)" />
+                  <Line type="monotone" dataKey="savings" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 6 }} name="Savings (Birr)" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -126,7 +126,7 @@ export default function DashboardPage() {
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                   />
                   <Legend />
-                  <Bar yAxisId="left" dataKey="savings" fill="hsl(var(--primary))" name="Total Savings (ETB)" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="savings" fill="hsl(var(--primary))" name="Total Savings (Birr)" radius={[4, 4, 0, 0]} />
                   <Bar yAxisId="right" dataKey="members" fill="hsl(var(--accent))" name="Members" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

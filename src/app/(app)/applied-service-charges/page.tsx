@@ -148,9 +148,9 @@ export default function AppliedServiceChargesPage() {
     const dataToExport = filteredMemberSummaries.map(summary => ({
       'Member Name': summary.fullName,
       'School': summary.schoolName,
-      'Total Applied (ETB)': summary.totalApplied.toFixed(2),
-      'Total Paid (ETB)': summary.totalPaid.toFixed(2),
-      'Total Pending (ETB)': summary.totalPending.toFixed(2),
+      'Total Applied (Birr)': summary.totalApplied.toFixed(2),
+      'Total Paid (Birr)': summary.totalPaid.toFixed(2),
+      'Total Pending (Birr)': summary.totalPending.toFixed(2),
       'Fulfillment (%)': summary.fulfillmentPercentage.toFixed(1),
     }));
     exportToExcel(dataToExport, 'applied_service_charges_export');
@@ -179,21 +179,21 @@ export default function AppliedServiceChargesPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Applied Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">ETB {globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">Birr {globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Paid Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">ETB {globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-green-600">Birr {globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Pending Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-destructive">ETB {globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-destructive">Birr {globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
       </div>
 
@@ -230,9 +230,9 @@ export default function AppliedServiceChargesPage() {
             <TableRow>
               <TableHead>Member Name</TableHead>
               <TableHead>School</TableHead>
-              <TableHead className="text-right">Total Applied (ETB)</TableHead>
-              <TableHead className="text-right">Total Paid (ETB)</TableHead>
-              <TableHead className="text-right text-destructive">Total Pending (ETB)</TableHead>
+              <TableHead className="text-right">Total Applied (Birr)</TableHead>
+              <TableHead className="text-right">Total Paid (Birr)</TableHead>
+              <TableHead className="text-right text-destructive">Total Pending (Birr)</TableHead>
               <TableHead className="text-center w-[150px]">Fulfillment</TableHead>
               <TableHead className="text-center w-[150px]">Actions</TableHead>
             </TableRow>
@@ -242,10 +242,10 @@ export default function AppliedServiceChargesPage() {
               <TableRow key={summary.memberId} className={summary.totalPending > 0 ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
-                <TableCell className="text-right">ETB {summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-green-600 font-semibold">ETB {summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">Birr {summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-green-600 font-semibold">Birr {summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right text-destructive font-semibold">
-                  {summary.totalPending > 0 ? `ETB ${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
+                  {summary.totalPending > 0 ? `Birr ${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell className="text-center">
                     {summary.totalApplied > 0 ? (
@@ -341,13 +341,13 @@ export default function AppliedServiceChargesPage() {
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
                   {pageData.serviceChargeTypes.map(sct => (
-                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (ETB {sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
+                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (Birr {sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
              <div>
-                <Label htmlFor="applyChargeAmount">Amount (ETB) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
+                <Label htmlFor="applyChargeAmount">Amount (Birr) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="applyChargeAmount" name="amountCharged" type="number" value={applyChargeForm.amountCharged || ''} readOnly className="pl-7 bg-muted/50" />

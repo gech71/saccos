@@ -277,7 +277,7 @@ export default function SavingsPage() {
         'Member Name': tx.memberName,
         'Type': tx.transactionType,
         'Status': tx.status,
-        'Amount ($)': tx.amount,
+        'Amount (Birr)': tx.amount,
         'Date': new Date(tx.date).toLocaleDateString(),
         'Deposit Mode': tx.depositMode || 'N/A',
         'Source Name': tx.sourceName || '',
@@ -305,19 +305,19 @@ export default function SavingsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <StatCard
           title="Total Approved Deposits (in view)"
-          value={`$${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`Birr ${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<ArrowUpCircle className="h-6 w-6 text-green-600" />}
           valueClassName="text-green-600"
         />
         <StatCard
           title="Total Approved Withdrawals (in view)"
-          value={`$${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`Birr ${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<ArrowDownCircle className="h-6 w-6 text-destructive" />}
           valueClassName="text-destructive"
         />
         <StatCard
           title="Net Savings (in view)"
-          value={`$${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`Birr ${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign className="h-6 w-6 text-accent" />}
         />
       </div>
@@ -366,7 +366,7 @@ export default function SavingsPage() {
               <TableHead>Member</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Amount ($)</TableHead>
+              <TableHead className="text-right">Amount (Birr)</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Deposit Mode</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -385,7 +385,7 @@ export default function SavingsPage() {
                   </span>
                 </TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(tx.status)}>{tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">Birr {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                 <TableCell>{tx.depositMode || 'N/A'}</TableCell>
                 <TableCell className="text-right">
@@ -429,7 +429,7 @@ export default function SavingsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="memberId">Member</Label>
+              <Label htmlFor="memberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
                 <PopoverTrigger asChild>
                   <Button
@@ -478,19 +478,19 @@ export default function SavingsPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amount">Amount ($)</Label>
+                    <Label htmlFor="amount">Amount (Birr) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" value={currentTransaction.amount || ''} onChange={handleInputChange} required className="pl-8" />
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="date">Transaction Date</Label>
+                    <Label htmlFor="date">Transaction Date <span className="text-destructive">*</span></Label>
                     <Input id="date" name="date" type="date" value={currentTransaction.date || ''} onChange={handleInputChange} required />
                 </div>
             </div>
             <div>
-                <Label htmlFor="transactionType">Transaction Type</Label>
+                <Label htmlFor="transactionType">Transaction Type <span className="text-destructive">*</span></Label>
                 <RadioGroup id="transactionType" name="transactionType" value={currentTransaction.transactionType} onValueChange={handleTransactionTypeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                     <div className="flex items-center space-x-2"><RadioGroupItem value="deposit" id="deposit" /><Label htmlFor="deposit">Deposit</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="withdrawal" id="withdrawal" /><Label htmlFor="withdrawal">Withdrawal</Label></div>
@@ -511,7 +511,7 @@ export default function SavingsPage() {
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="sourceName">{currentTransaction.depositMode} Name</Label>
+                                    <Label htmlFor="sourceName">{currentTransaction.depositMode} Name <span className="text-destructive">*</span></Label>
                                     <div className="relative">
                                      {currentTransaction.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                                      {currentTransaction.depositMode === 'Wallet' &&  <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}

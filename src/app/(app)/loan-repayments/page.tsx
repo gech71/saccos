@@ -121,7 +121,7 @@ export default function LoanRepaymentsPage() {
       return {
         'Member Name': r.member?.fullName || 'N/A',
         'Loan Acct. #': r.loan?.loanAccountNumber || r.loanId,
-        'Amount Paid (ETB)': r.amountPaid,
+        'Amount Paid (Birr)': r.amountPaid,
         'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
         'Payment Mode': r.depositMode || 'N/A',
       }
@@ -149,7 +149,7 @@ export default function LoanRepaymentsPage() {
             <TableRow>
               <TableHead>Member</TableHead>
               <TableHead>Loan Acct. #</TableHead>
-              <TableHead className="text-right">Amount Paid (ETB)</TableHead>
+              <TableHead className="text-right">Amount Paid (Birr)</TableHead>
               <TableHead>Payment Date</TableHead>
               <TableHead>Payment Mode</TableHead>
             </TableRow>
@@ -162,7 +162,7 @@ export default function LoanRepaymentsPage() {
                     <TableRow key={repayment.id}>
                         <TableCell className="font-medium">{repayment.member?.fullName}</TableCell>
                         <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">ETB {repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600">Birr {repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                         <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
                         <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
                     </TableRow>
@@ -197,7 +197,7 @@ export default function LoanRepaymentsPage() {
                         {activeLoans.map(loan => (
                           <CommandItem key={loan.id} value={`${loan.member?.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { setCurrentRepayment(prev => ({ ...prev, loanId: loan.id })); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: Birr {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>
@@ -207,7 +207,7 @@ export default function LoanRepaymentsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="amountPaid">Amount Paid (ETB) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
                 <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
               </div>
               <div>

@@ -386,28 +386,28 @@ export default function GroupCollectionsPage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                   <div>
-                    <Label htmlFor="schoolFilter">School</Label>
+                    <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
                     <Select value={selectedSchool} onValueChange={handleFilterChange(setSelectedSchool)}>
                       <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
                       <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="accountTypeFilter">Saving Account Type</Label>
+                    <Label htmlFor="accountTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
                     <Select value={selectedAccountType} onValueChange={handleFilterChange(setSelectedAccountType)}>
                       <SelectTrigger id="accountTypeFilter"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
                       <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="yearFilter">Year</Label>
+                    <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>
                     <Select value={selectedYear} onValueChange={handleFilterChange(setSelectedYear)}>
                       <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
                       <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="monthFilter">Month</Label>
+                    <Label htmlFor="monthFilter">Month <span className="text-destructive">*</span></Label>
                     <Select value={selectedMonth} onValueChange={handleFilterChange(setSelectedMonth)}>
                       <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
                       <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
@@ -429,8 +429,8 @@ export default function GroupCollectionsPage() {
                                 </TableHead>
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Account Number</TableHead>
-                                <TableHead className="text-right">Exp. Monthly Saving (ETB)</TableHead>
-                                <TableHead className="w-[200px] text-right">Amount to Collect (ETB)</TableHead>
+                                <TableHead className="text-right">Exp. Monthly Saving (Birr)</TableHead>
+                                <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -441,7 +441,7 @@ export default function GroupCollectionsPage() {
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">ETB {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-right">Birr {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
@@ -469,7 +469,7 @@ export default function GroupCollectionsPage() {
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
-                            <Label htmlFor="excel-upload">Excel File</Label>
+                            <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
                             <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate} />
                         </div>
                         <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
@@ -494,7 +494,7 @@ export default function GroupCollectionsPage() {
                                     <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid Account Number' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
                                         <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
                                         <TableCell>{row['Savings Account Number']}</TableCell>
-                                        <TableCell className="text-right">ETB {row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right">Birr {row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -520,7 +520,7 @@ export default function GroupCollectionsPage() {
                             <CardContent className="p-0 pt-2">
                                 <div className="text-lg font-bold text-primary flex justify-between items-center">
                                     <span>Total Collection Amount:</span>
-                                    <span>ETB {collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span>Birr {collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </CardContent>
                           </Card>
@@ -603,7 +603,7 @@ export default function GroupCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
-                                <TableHead className="text-right">Amount (ETB)</TableHead>
+                                <TableHead className="text-right">Amount (Birr)</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Month</TableHead>
                                 <TableHead>Deposit Mode</TableHead>
@@ -614,7 +614,7 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map((transaction, i) => (
                                 <TableRow key={`${transaction.memberId}-${i}`}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="text-right">ETB {transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">Birr {transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                     <TableCell>{transaction.month}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

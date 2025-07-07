@@ -318,10 +318,10 @@ export default function MembersPage() {
         'School': member.school?.name,
         'Saving Account #': member.savingsAccountNumber || 'N/A',
         'Saving Account Type': member.savingAccountTypeName || member.savingAccountType?.name || 'N/A',
-        'Expected Monthly Saving (ETB)': member.expectedMonthlySaving || 0,
-        'Current Savings Balance (ETB)': member.savingsBalance,
+        'Expected Monthly Saving (Birr)': member.expectedMonthlySaving || 0,
+        'Current Savings Balance (Birr)': member.savingsBalance,
         'Total Shares': member.sharesCount,
-        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: ETB ${c.monthlyCommittedAmount.toFixed(2)}/mo`).join('; '),
+        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: Birr ${c.monthlyCommittedAmount.toFixed(2)}/mo`).join('; '),
         'Join Date': new Date(member.joinDate).toLocaleDateString(),
     }));
     exportToExcel(dataToExport, 'members_export');
@@ -378,8 +378,8 @@ export default function MembersPage() {
               <TableHead>School</TableHead>
               <TableHead>Saving Acct. #</TableHead>
               <TableHead>Saving Acct. Type</TableHead>
-              <TableHead className="text-right">Exp. Monthly Saving</TableHead>
-              <TableHead className="text-right">Current Savings</TableHead>
+              <TableHead className="text-right">Exp. Monthly Saving (Birr)</TableHead>
+              <TableHead className="text-right">Current Savings (Birr)</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -402,8 +402,8 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{member.savingAccountTypeName || member.savingAccountType?.name || 'N/A'}</TableCell>
-                <TableCell className="text-right">ETB {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right">ETB {member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">Birr {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">Birr {member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>
                   <div className="font-medium">{member.sharesCount} Shares</div>
                   {member.shareCommitments && member.shareCommitments.length > 0 ? (
@@ -411,7 +411,7 @@ export default function MembersPage() {
                       {member.shareCommitments.map((commitment) => (
                         <li key={commitment.shareTypeId}>
                           <span>{commitment.shareTypeName}: </span>
-                          <span className="font-semibold text-foreground">ETB {commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</span>
+                          <span className="font-semibold text-foreground">Birr {commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</span>
                         </li>
                       ))}
                     </ul>
@@ -566,13 +566,13 @@ export default function MembersPage() {
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
                     <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} disabled={isViewingOnly}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
-                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, ETB {sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
+                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, Birr {sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="savingsBalance">Initial Savings Balance (ETB)</Label>
+                <Label htmlFor="savingsBalance">Initial Savings Balance (Birr)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly}/>
@@ -586,7 +586,7 @@ export default function MembersPage() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (ETB)</Label>
+                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -624,13 +624,13 @@ export default function MembersPage() {
                             <SelectTrigger id={`commitment-type-${index}`}><SelectValue placeholder="Select share type" /></SelectTrigger>
                             <SelectContent>
                                 {shareTypes.map(st => (
-                                    <SelectItem key={st.id} value={st.id}>{st.name} (ETB {st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>
+                                    <SelectItem key={st.id} value={st.id}>{st.name} (Birr {st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <div>
-                        <Label htmlFor={`commitment-amount-${index}`}>Monthly Amount (ETB)</Label>
+                        <Label htmlFor={`commitment-amount-${index}`}>Monthly Amount (Birr)</Label>
                          <div className="relative">
                              <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
