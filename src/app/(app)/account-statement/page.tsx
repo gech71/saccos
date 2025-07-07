@@ -23,6 +23,7 @@ import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'next/navigation';
 import { generateStatement, getMembersForStatement, getMemberInitialData, type StatementData } from './actions';
+import { useAuth } from '@/contexts/auth-context';
 
 type MemberForSelect = {
     id: string;
@@ -34,10 +35,7 @@ type MemberForSelect = {
 function AccountStatementContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  
-  const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [loggedInMemberId, setLoggedInMemberId] = useState<string | null>(null);
-  const [memberInitial, setMemberInitial] = useState<{savingsBalance: number, savingsAccountNumber: string | null} | null>(null);
+  const { user } = useAuth();
   
   const [allMembers, setAllMembers] = useState<MemberForSelect[]>([]);
 
@@ -56,20 +54,11 @@ function AccountStatementContent() {
   }, [selectedMemberId, allMembers]);
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as 'admin' | 'member' | null;
-    const memberId = localStorage.getItem('loggedInMemberId');
-    setUserRole(role);
-    setLoggedInMemberId(memberId);
+    if (!user) return; // Wait for user context to be available
     
     async function fetchData() {
-      if (role === 'admin') {
-        const members = await getMembersForStatement();
-        setAllMembers(members);
-      } else if (role === 'member' && memberId) {
-        const initialData = await getMemberInitialData(memberId);
-        setMemberInitial(initialData);
-        setSelectedMemberId(memberId);
-      }
+      const members = await getMembersForStatement();
+      setAllMembers(members);
     }
     fetchData();
 
@@ -77,7 +66,7 @@ function AccountStatementContent() {
     if (memberIdFromQuery) {
         setSelectedMemberId(memberIdFromQuery);
     }
-  }, [searchParams]);
+  }, [user, searchParams]);
 
   const handleGenerateStatement = async () => {
     if (!selectedMemberId || !dateRange?.from || !dateRange?.to) {
@@ -167,18 +156,7 @@ function AccountStatementContent() {
   return (
     <div className="space-y-8">
         <div className="no-print">
-            <PageTitle title="Account Statement" subtitle={userRole === 'admin' ? "Generate a detailed savings account statement for any member." : "View and print your account statement for a selected period."} />
-
-            {userRole === 'member' && memberInitial && (
-                <div className="mb-6">
-                    <StatCard
-                      title="My Current Savings Balance"
-                      value={`${memberInitial.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
-                      icon={<WalletCards className="h-6 w-6 text-accent" />}
-                      description={`Account #: ${memberInitial.savingsAccountNumber}`}
-                    />
-                </div>
-              )}
+            <PageTitle title="Account Statement" subtitle="Generate a detailed savings account statement for any member." />
 
             <Card className="statement-form">
                 <CardHeader>
@@ -196,7 +174,6 @@ function AccountStatementContent() {
                         role="combobox"
                         aria-expanded={openMemberCombobox}
                         className="w-full justify-between"
-                        disabled={userRole === 'member'}
                         >
                         {selectedMemberId
                             ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
