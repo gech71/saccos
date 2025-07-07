@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -45,8 +45,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { exportToExcel } from '@/lib/utils';
-import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
+import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, importSchools, type SchoolWithMemberCount, type SchoolImportData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import * as XLSX from 'xlsx';
+import { Badge } from '@/components/ui/badge';
+
 
 const initialSchoolFormState: Partial<School> = {
   name: '',
@@ -67,6 +70,9 @@ export default function SchoolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [parsedSchools, setParsedSchools] = useState<SchoolImportData[]>([]);
 
   const canCreate = useMemo(() => user?.permissions.includes('school:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('school:edit'), [user]);
@@ -175,9 +181,65 @@ export default function SchoolsPage() {
     exportToExcel(dataToExport, 'schools_export');
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json<any>(worksheet);
+      
+      const mappedData = json.map(row => ({
+        id: row.Id || row.id,
+        name: row['School Name'] || row.name,
+        address: row.Address || row.address || null,
+        contactPerson: row['Contact Person'] || row.contactPerson || null,
+      }));
+      setParsedSchools(mappedData);
+    };
+    reader.readAsBinaryString(file);
+    event.target.value = ''; // Reset file input
+  };
+
+  const handleImportSubmit = async () => {
+    const validSchools = parsedSchools.filter(s => s.id && s.name);
+    if (validSchools.length === 0) {
+      toast({ variant: 'destructive', title: 'No valid data', description: 'No schools with both an "Id" and "School Name" were found in the file.' });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await importSchools(validSchools);
+      if (result.errors.length > 0) {
+        toast({ variant: 'destructive', title: 'Import Complete with Errors', description: `Processed ${validSchools.length - result.errors.length} schools. ${result.errors.length} errors occurred.` });
+      } else {
+        toast({ title: 'Import Successful', description: result.message });
+      }
+      await fetchSchools();
+      setIsImportModalOpen(false);
+      setParsedSchools([]);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  
+  const validSchoolsToImportCount = useMemo(() => parsedSchools.filter(s => s.id && s.name).length, [parsedSchools]);
+
+
   return (
     <div className="space-y-6">
       <PageTitle title="School Management" subtitle="Manage participating schools in the association.">
+        {canCreate && (
+           <Button onClick={() => setIsImportModalOpen(true)} variant="outline">
+            <UploadCloud className="mr-2 h-4 w-4" /> Import
+          </Button>
+        )}
         <Button onClick={handleExport} variant="outline" disabled={isLoading || schools.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
@@ -311,6 +373,62 @@ export default function SchoolsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isImportModalOpen} onOpenChange={(open) => {
+        setIsImportModalOpen(open);
+        if (!open) setParsedSchools([]);
+      }}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Import Schools from Excel</DialogTitle>
+            <DialogDescription>
+              Upload an Excel file with columns: "Id", "School Name", "Address", "Contact Person". 
+              "Id" and "School Name" are required for each row. The system will update existing schools with the same ID or create new ones.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileChange} />
+            {parsedSchools.length > 0 && (
+              <div className="mt-4 max-h-80 overflow-y-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Id</TableHead>
+                      <TableHead>School Name</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedSchools.map((school, index) => (
+                      <TableRow key={index} className={!school.id || !school.name ? 'bg-destructive/10' : ''}>
+                        <TableCell className="font-mono text-xs">{school.id}</TableCell>
+                        <TableCell>{school.name}</TableCell>
+                        <TableCell>{school.address || 'N/A'}</TableCell>
+                        <TableCell>{school.contactPerson || 'N/A'}</TableCell>
+                        <TableCell>
+                          {!school.id || !school.name 
+                            ? <Badge variant="destructive">Invalid</Badge> 
+                            : <Badge variant="default">Valid</Badge>
+                          }
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+            <Button onClick={handleImportSubmit} disabled={isSubmitting || validSchoolsToImportCount === 0}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Import {validSchoolsToImportCount} Schools
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
