@@ -58,10 +58,10 @@ import { useAuth } from '@/contexts/auth-context';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
-  interestRate: 0,
+  interestRate: undefined,
   loanTerm: 12,
   repaymentFrequency: 'monthly',
-  nplInterestRate: 0,
+  nplInterestRate: undefined,
   nplGracePeriodDays: 30,
   allowConcurrent: false,
 };
@@ -97,8 +97,10 @@ export default function LoanTypesPage() {
   };
 
   useEffect(() => {
-    fetchLoanTypes();
-  }, []);
+    if (user) {
+      fetchLoanTypes();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -313,12 +315,12 @@ export default function LoanTypesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Loan Type Name</Label>
+              <Label htmlFor="name">Loan Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentLoanType.name || ''} onChange={handleInputChange} required />
             </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <Label htmlFor="interestRate">Interest Rate (Annual %)</Label>
+                    <Label htmlFor="interestRate">Interest Rate (Annual %) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -372,7 +374,7 @@ export default function LoanTypesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="loanTerm">Loan Term (in months)</Label>
+                    <Label htmlFor="loanTerm">Loan Term (in months) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -390,7 +392,7 @@ export default function LoanTypesPage() {
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="repaymentFrequency">Repayment Frequency</Label>
+                    <Label htmlFor="repaymentFrequency">Repayment Frequency <span className="text-destructive">*</span></Label>
                      <Select name="repaymentFrequency" value={currentLoanType.repaymentFrequency || 'monthly'} onValueChange={(value) => handleSelectChange('repaymentFrequency', value)} required>
                         <SelectTrigger id="repaymentFrequency"><SelectValue placeholder="Select frequency" /></SelectTrigger>
                         <SelectContent>

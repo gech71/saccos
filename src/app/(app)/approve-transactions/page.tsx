@@ -56,8 +56,10 @@ export default function ApproveTransactionsPage() {
   };
 
   useEffect(() => {
-    fetchPendingTransactions();
-  }, [toast]);
+    if (user) {
+      fetchPendingTransactions();
+    }
+  }, [user, toast]);
 
   const handleApprove = async (tx: PendingTransaction) => {
     const result = await approveTransaction(tx.id, tx.transactionTypeLabel);
@@ -201,7 +203,7 @@ export default function ApproveTransactionsPage() {
           </DialogHeader>
           <form onSubmit={handleRejectSubmit} className="space-y-4 py-4">
              <div>
-                <Label htmlFor="rejectionReason">Rejection Reason (Required)</Label>
+                <Label htmlFor="rejectionReason">Rejection Reason <span className="text-destructive">*</span></Label>
                 <Textarea 
                     id="rejectionReason"
                     value={rejectionReason}

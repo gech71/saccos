@@ -50,8 +50,8 @@ import { useAuth } from '@/contexts/auth-context';
 const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
   name: '',
   description: '',
-  interestRate: 0,
-  expectedMonthlyContribution: 0,
+  interestRate: undefined,
+  expectedMonthlyContribution: undefined,
 };
 
 export default function SavingAccountTypesPage() {
@@ -85,8 +85,10 @@ export default function SavingAccountTypesPage() {
   };
 
   useEffect(() => {
-    fetchAccountTypes();
-  }, []);
+    if (user) {
+      fetchAccountTypes();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -261,12 +263,12 @@ export default function SavingAccountTypesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Account Type Name</Label>
+              <Label htmlFor="name">Account Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentAccountType.name || ''} onChange={handleInputChange} required />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                    <Label htmlFor="interestRate">Interest Rate (%) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -275,7 +277,7 @@ export default function SavingAccountTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0"
-                            value={currentAccountType.interestRate || ''}
+                            value={currentAccountType.interestRate ?? ''}
                             onChange={handleInputChange} 
                             required 
                             className="pr-7"
@@ -293,7 +295,7 @@ export default function SavingAccountTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0"
-                            value={currentAccountType.expectedMonthlyContribution || ''} 
+                            value={currentAccountType.expectedMonthlyContribution ?? ''} 
                             onChange={handleInputChange}
                             className="pl-7"
                             placeholder="0.00"

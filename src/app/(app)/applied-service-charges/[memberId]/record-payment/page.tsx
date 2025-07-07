@@ -128,7 +128,7 @@ function RecordPaymentFormComponent() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <Label htmlFor="recordPaymentAmount">Payment Amount ($)</Label>
+              <Label htmlFor="recordPaymentAmount">Payment Amount ($) <span className="text-destructive">*</span></Label>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -146,7 +146,7 @@ function RecordPaymentFormComponent() {
               </div>
             </div>
             <div>
-              <Label htmlFor="recordPaymentDate">Payment Date</Label>
+              <Label htmlFor="recordPaymentDate">Payment Date <span className="text-destructive">*</span></Label>
               <Input
                 id="recordPaymentDate"
                 name="paymentDate"
@@ -175,7 +175,7 @@ function RecordPaymentFormComponent() {
               <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                   <div>
-                    <Label htmlFor="paymentDetails.sourceNameRecord">{recordPaymentForm.depositMode} Name</Label>
+                    <Label htmlFor="paymentDetails.sourceNameRecord">{recordPaymentForm.depositMode} Name <span className="text-destructive">*</span></Label>
                     <div className="relative">
                       {recordPaymentForm.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                       {recordPaymentForm.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}

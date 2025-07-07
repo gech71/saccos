@@ -61,8 +61,10 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    fetchPageData();
-  }, [toast]);
+    if (user) {
+      fetchPageData();
+    }
+  }, [user, toast]);
   
   // User Modal Logic
   const openUserModal = (user: UserWithRoles) => {
@@ -331,7 +333,7 @@ export default function SettingsPage() {
             <div className="space-y-4 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <Label htmlFor="roleName">Role Name</Label>
+                        <Label htmlFor="roleName">Role Name <span className="text-destructive">*</span></Label>
                         <Input id="roleName" name="name" value={currentRole.name || ''} onChange={handleRoleInputChange} />
                     </div>
                     <div>

@@ -57,6 +57,7 @@ import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
 import { getDividendsPageData, addDividend, updateDividend, deleteDividend, type DividendsPageData, type DividendInput } from './actions';
 import type { Dividend, Member } from '@prisma/client';
+import { useAuth } from '@/contexts/auth-context';
 
 const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
@@ -81,6 +82,11 @@ export default function DividendsPage() {
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const canCreate = useMemo(() => user?.permissions.includes('dividend:create'), [user]);
+  const canEdit = useMemo(() => user?.permissions.includes('dividend:edit'), [user]);
+  const canDelete = useMemo(() => user?.permissions.includes('dividend:delete'), [user]);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -96,8 +102,10 @@ export default function DividendsPage() {
   };
 
   useEffect(() => {
-    fetchPageData();
-  }, []);
+    if (user) {
+      fetchPageData();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -215,9 +223,11 @@ export default function DividendsPage() {
             <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                 <FileDown className="mr-2 h-4 w-4" /> Export
             </Button>
-            <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-              <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
-            </Button>
+            {canCreate && (
+              <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
+                <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
+              </Button>
+            )}
           </>
       </PageTitle>
 
@@ -298,12 +308,12 @@ export default function DividendsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
+                        {canEdit && <DropdownMenuItem onClick={() => openEditModal(dividend)} disabled={dividend.status === 'approved'}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openDeleteDialog(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
+                        </DropdownMenuItem>}
+                        {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(dividend.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={dividend.status === 'approved'}>
                           <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        </DropdownMenuItem>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                 </TableCell>
@@ -334,7 +344,7 @@ export default function DividendsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="memberId">Member</Label>
+              <Label htmlFor="memberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
                 <PopoverTrigger asChild>
                   <Button
@@ -385,11 +395,11 @@ export default function DividendsPage() {
               <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required readOnly className="bg-muted/50" />
             </div>
             <div>
-              <Label htmlFor="amount">Dividend Amount ($)</Label>
+              <Label htmlFor="amount">Dividend Amount ($) <span className="text-destructive">*</span></Label>
               <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" value={currentDividend.amount || ''} onChange={handleInputChange} required />
             </div>
             <div>
-              <Label htmlFor="distributionDate">Distribution Date</Label>
+              <Label htmlFor="distributionDate">Distribution Date <span className="text-destructive">*</span></Label>
               <Input id="distributionDate" name="distributionDate" type="date" value={currentDividend.distributionDate || ''} onChange={handleInputChange} required />
             </div>
             <DialogFooter>

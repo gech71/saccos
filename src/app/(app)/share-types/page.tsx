@@ -49,8 +49,8 @@ import { useAuth } from '@/contexts/auth-context';
 const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
   name: '',
   description: '',
-  valuePerShare: 0,
-  expectedMonthlyContribution: 0,
+  valuePerShare: undefined,
+  expectedMonthlyContribution: undefined,
 };
 
 export default function ShareTypesPage() {
@@ -84,8 +84,10 @@ export default function ShareTypesPage() {
   };
 
   useEffect(() => {
-    fetchShareTypes();
-  }, []);
+    if (user) {
+      fetchShareTypes();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -250,7 +252,7 @@ export default function ShareTypesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Share Type Name</Label>
+              <Label htmlFor="name">Share Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentShareType.name || ''} onChange={handleInputChange} required />
             </div>
             <div>
@@ -259,7 +261,7 @@ export default function ShareTypesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="valuePerShare">Value per Share ($)</Label>
+                    <Label htmlFor="valuePerShare">Value per Share ($) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -268,7 +270,7 @@ export default function ShareTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0.01"
-                            value={currentShareType.valuePerShare || ''} 
+                            value={currentShareType.valuePerShare ?? ''} 
                             onChange={handleInputChange} 
                             required 
                             className="pl-7"
@@ -286,7 +288,7 @@ export default function ShareTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0"
-                            value={currentShareType.expectedMonthlyContribution || ''} 
+                            value={currentShareType.expectedMonthlyContribution ?? ''} 
                             onChange={handleInputChange}
                             className="pl-7"
                             placeholder="0.00 (Optional)"

@@ -64,7 +64,7 @@ export default function SchoolsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<string | null>(null);
 
-  const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
+  const [currentSchool, setCurrentSchool] = useState<Partial<School>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,8 +86,14 @@ export default function SchoolsPage() {
   };
 
   useEffect(() => {
-    fetchSchools();
-  }, []);
+    if (user) {
+      fetchSchools();
+    }
+  }, [user]);
+  
+  useEffect(() => {
+    setCurrentSchool(initialSchoolFormState);
+  }, [isModalOpen])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -115,7 +121,7 @@ export default function SchoolsPage() {
           name: currentSchool.name,
           address: currentSchool.address,
           contactPerson: currentSchool.contactPerson,
-        });
+        } as School);
         toast({ title: 'Success', description: 'School added successfully.' });
       }
       await fetchSchools(); // Refresh data
@@ -354,7 +360,7 @@ export default function SchoolsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">School Name</Label>
+              <Label htmlFor="name">School Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentSchool.name || ''} onChange={handleInputChange} required />
             </div>
             <div>

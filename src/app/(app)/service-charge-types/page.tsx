@@ -57,7 +57,7 @@ import { useAuth } from '@/contexts/auth-context';
 const initialFormState: Partial<Omit<ServiceChargeType, 'id'>> = {
   name: '',
   description: '',
-  amount: 0,
+  amount: undefined,
   frequency: 'once',
 };
 
@@ -92,8 +92,10 @@ export default function ServiceChargeTypesPage() {
   };
 
   useEffect(() => {
-    fetchChargeTypes();
-  }, []);
+    if (user) {
+      fetchChargeTypes();
+    }
+  }, [user, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -276,12 +278,12 @@ export default function ServiceChargeTypesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">Charge Type Name</Label>
+              <Label htmlFor="name">Charge Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentChargeType.name || ''} onChange={handleInputChange} required />
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amount">Amount ($)</Label>
+                    <Label htmlFor="amount">Amount ($) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -290,7 +292,7 @@ export default function ServiceChargeTypesPage() {
                             type="number" 
                             step="0.01" 
                             min="0.01"
-                            value={currentChargeType.amount || ''} 
+                            value={currentChargeType.amount ?? ''} 
                             onChange={handleInputChange} 
                             required 
                             className="pl-7"
@@ -299,7 +301,7 @@ export default function ServiceChargeTypesPage() {
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="frequency">Frequency</Label>
+                    <Label htmlFor="frequency">Frequency <span className="text-destructive">*</span></Label>
                      <Select name="frequency" value={currentChargeType.frequency || 'once'} onValueChange={(value) => handleSelectChange('frequency', value)} required>
                         <SelectTrigger id="frequency"><SelectValue placeholder="Select frequency" /></SelectTrigger>
                         <SelectContent>

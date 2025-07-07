@@ -45,7 +45,7 @@ export default function LoanRepaymentsPage() {
   const { user } = useAuth();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>(initialRepaymentFormState);
+  const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>({});
   const [openLoanCombobox, setOpenLoanCombobox] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,8 +67,14 @@ export default function LoanRepaymentsPage() {
   }
 
   useEffect(() => {
-    fetchPageData();
-  }, []);
+    if (user) {
+      fetchPageData();
+    }
+  }, [user, toast]);
+  
+  useEffect(() => {
+    setCurrentRepayment(initialRepaymentFormState);
+  }, [isModalOpen])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -176,7 +182,7 @@ export default function LoanRepaymentsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="loanIdRepay">Loan</Label>
+              <Label htmlFor="loanIdRepay">Loan <span className="text-destructive">*</span></Label>
               <Popover open={openLoanCombobox} onOpenChange={setOpenLoanCombobox}>
                 <PopoverTrigger asChild>
                   <Button id="loanIdRepay" variant="outline" role="combobox" className="w-full justify-between">
@@ -201,11 +207,11 @@ export default function LoanRepaymentsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="amountPaid">Amount Paid ($)</Label>
+                <Label htmlFor="amountPaid">Amount Paid ($) <span className="text-destructive">*</span></Label>
                 <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
               </div>
               <div>
-                <Label htmlFor="paymentDate">Payment Date</Label>
+                <Label htmlFor="paymentDate">Payment Date <span className="text-destructive">*</span></Label>
                 <Input id="paymentDate" name="paymentDate" type="date" value={currentRepayment.paymentDate || ''} onChange={handleInputChange} required />
               </div>
             </div>
@@ -222,7 +228,7 @@ export default function LoanRepaymentsPage() {
               <div className="space-y-4 pt-2 pl-2 border-l-2 border-primary/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="sourceName">{currentRepayment.depositMode} Name</Label>
+                    <Label htmlFor="sourceName">{currentRepayment.depositMode} Name <span className="text-destructive">*</span></Label>
                     <Input id="sourceName" name="sourceName" value={currentRepayment.sourceName || ''} onChange={handleInputChange} />
                   </div>
                   <div>

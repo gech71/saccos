@@ -101,33 +101,33 @@ export default function RegisterUserPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName">First Name <span className="text-destructive">*</span></Label>
                 <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleInputChange} required />
               </div>
               <div>
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName">Last Name <span className="text-destructive">*</span></Label>
                 <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleInputChange} required />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Email Address <span className="text-destructive">*</span></Label>
                 <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} required />
               </div>
               <div>
-                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Label htmlFor="phoneNumber">Phone Number <span className="text-destructive">*</span></Label>
                 <Input id="phoneNumber" name="phoneNumber" type="tel" value={formData.phoneNumber} onChange={handleInputChange} required />
               </div>
             </div>
              <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Password <span className="text-destructive">*</span></Label>
                 <Input id="password" name="password" type="password" value={formData.password} onChange={handleInputChange} required />
                  <p className="text-xs text-muted-foreground mt-1">
                     Password must be at least 6 characters and include an uppercase letter, a number, and a special character (e.g., !@#$%).
                 </p>
             </div>
              <div>
-                <Label className="font-semibold text-base text-primary">Assign Roles</Label>
+                <Label className="font-semibold text-base text-primary">Assign Roles <span className="text-destructive">*</span></Label>
                 {isFetchingRoles ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <div className="space-y-2 pt-2">
                     {roles.map(role => (
