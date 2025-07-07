@@ -154,7 +154,7 @@ export default function CloseAccountPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
-                <Label htmlFor="memberSelect">Member</Label>
+                <Label htmlFor="memberSelect">Member <span className="text-destructive">*</span></Label>
                 <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
                 <PopoverTrigger asChild>
                     <Button
@@ -193,7 +193,7 @@ export default function CloseAccountPage() {
                                 selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                 )}
                             />
-                            {member.fullName} (Acct: {member.savingsAccountNumber || 'N/A'}, Bal: ${member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                            {member.fullName} (Acct: {member.savingsAccountNumber || 'N/A'}, Bal: ETB {member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                             </CommandItem>
                         ))}
                         </CommandGroup>
@@ -221,10 +221,10 @@ export default function CloseAccountPage() {
                 <Alert>
                     <AlertTitle className="font-bold">Final Payout Summary for {selectedMember.fullName}</AlertTitle>
                     <AlertDescription>
-                        <div className="flex justify-between py-1"><span>Current Savings Balance:</span> <span className="font-medium">${calculationResult.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                        <div className="flex justify-between py-1"><span>Accrued Interest (Calculated):</span> <span className="font-medium text-green-600">+ ${calculationResult.accruedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                        <div className="flex justify-between py-1"><span>Current Savings Balance:</span> <span className="font-medium">ETB {calculationResult.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                        <div className="flex justify-between py-1"><span>Accrued Interest (Calculated):</span> <span className="font-medium text-green-600">+ ETB {calculationResult.accruedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                         <Separator className="my-1"/>
-                        <div className="flex justify-between py-1 text-lg"><strong>Total Payout Amount:</strong> <strong className="text-primary">${calculationResult.totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
+                        <div className="flex justify-between py-1 text-lg"><strong>Total Payout Amount:</strong> <strong className="text-primary">ETB {calculationResult.totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
                     </AlertDescription>
                 </Alert>
                 

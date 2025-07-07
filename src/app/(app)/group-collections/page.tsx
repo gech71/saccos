@@ -429,8 +429,8 @@ export default function GroupCollectionsPage() {
                                 </TableHead>
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Account Number</TableHead>
-                                <TableHead className="text-right">Exp. Monthly Saving ($)</TableHead>
-                                <TableHead className="w-[200px] text-right">Amount to Collect ($)</TableHead>
+                                <TableHead className="text-right">Exp. Monthly Saving (ETB)</TableHead>
+                                <TableHead className="w-[200px] text-right">Amount to Collect (ETB)</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -441,7 +441,7 @@ export default function GroupCollectionsPage() {
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">${(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-right">ETB {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
@@ -494,7 +494,7 @@ export default function GroupCollectionsPage() {
                                     <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid Account Number' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
                                         <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
                                         <TableCell>{row['Savings Account Number']}</TableCell>
-                                        <TableCell className="text-right">${row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right">ETB {row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -520,7 +520,7 @@ export default function GroupCollectionsPage() {
                             <CardContent className="p-0 pt-2">
                                 <div className="text-lg font-bold text-primary flex justify-between items-center">
                                     <span>Total Collection Amount:</span>
-                                    <span>${collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span>ETB {collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </CardContent>
                           </Card>
@@ -528,7 +528,7 @@ export default function GroupCollectionsPage() {
                     <CardContent>
                        <div className="space-y-4">
                             <div>
-                                <Label htmlFor="batchDetails.date">Transaction Date</Label>
+                                <Label htmlFor="batchDetails.date">Transaction Date <span className="text-destructive">*</span></Label>
                                 <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required />
                             </div>
                             <div>
@@ -544,7 +544,7 @@ export default function GroupCollectionsPage() {
                                 <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                         <div>
-                                            <Label htmlFor="sourceName">{batchDetails.depositMode} Name</Label>
+                                            <Label htmlFor="sourceName">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
                                             <Input id="sourceName" name="sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.sourceName || ''} onChange={handleBatchDetailChange} />
                                         </div>
                                         <div>
@@ -603,7 +603,7 @@ export default function GroupCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
-                                <TableHead className="text-right">Amount ($)</TableHead>
+                                <TableHead className="text-right">Amount (ETB)</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Month</TableHead>
                                 <TableHead>Deposit Mode</TableHead>
@@ -614,7 +614,7 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map((transaction, i) => (
                                 <TableRow key={`${transaction.memberId}-${i}`}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="text-right">${transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">ETB {transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                     <TableCell>{transaction.month}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

@@ -15,7 +15,6 @@ export interface LoansPageData {
   loans: LoanWithDetails[];
   members: Pick<Member, 'id' | 'fullName'>[];
   loanTypes: LoanType[];
-  subcities: string[];
 }
 
 export async function getLoansPageData(): Promise<LoansPageData> {
@@ -47,13 +46,6 @@ export async function getLoansPageData(): Promise<LoansPageData> {
   });
   const loanTypes = await prisma.loanType.findMany({ orderBy: { name: 'asc' } });
 
-  const addressSubcities = await prisma.address.findMany({
-    select: { subCity: true },
-    distinct: ['subCity'],
-    where: { subCity: { not: null } }
-  });
-  const subcities = addressSubcities.map(a => a.subCity!);
-
   return {
     loans: loans.map(l => ({ 
       ...l, 
@@ -64,7 +56,6 @@ export async function getLoansPageData(): Promise<LoansPageData> {
     })),
     members,
     loanTypes,
-    subcities,
   };
 }
 

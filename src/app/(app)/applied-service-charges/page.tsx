@@ -148,9 +148,9 @@ export default function AppliedServiceChargesPage() {
     const dataToExport = filteredMemberSummaries.map(summary => ({
       'Member Name': summary.fullName,
       'School': summary.schoolName,
-      'Total Applied ($)': summary.totalApplied.toFixed(2),
-      'Total Paid ($)': summary.totalPaid.toFixed(2),
-      'Total Pending ($)': summary.totalPending.toFixed(2),
+      'Total Applied (ETB)': summary.totalApplied.toFixed(2),
+      'Total Paid (ETB)': summary.totalPaid.toFixed(2),
+      'Total Pending (ETB)': summary.totalPending.toFixed(2),
       'Fulfillment (%)': summary.fulfillmentPercentage.toFixed(1),
     }));
     exportToExcel(dataToExport, 'applied_service_charges_export');
@@ -179,21 +179,21 @@ export default function AppliedServiceChargesPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Applied Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">${globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">ETB {globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Paid Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">${globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-green-600">ETB {globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Pending Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-destructive">${globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-destructive">ETB {globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
         </Card>
       </div>
 
@@ -230,9 +230,9 @@ export default function AppliedServiceChargesPage() {
             <TableRow>
               <TableHead>Member Name</TableHead>
               <TableHead>School</TableHead>
-              <TableHead className="text-right">Total Applied ($)</TableHead>
-              <TableHead className="text-right">Total Paid ($)</TableHead>
-              <TableHead className="text-right text-destructive">Total Pending ($)</TableHead>
+              <TableHead className="text-right">Total Applied (ETB)</TableHead>
+              <TableHead className="text-right">Total Paid (ETB)</TableHead>
+              <TableHead className="text-right text-destructive">Total Pending (ETB)</TableHead>
               <TableHead className="text-center w-[150px]">Fulfillment</TableHead>
               <TableHead className="text-center w-[150px]">Actions</TableHead>
             </TableRow>
@@ -242,10 +242,10 @@ export default function AppliedServiceChargesPage() {
               <TableRow key={summary.memberId} className={summary.totalPending > 0 ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
-                <TableCell className="text-right">${summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-green-600 font-semibold">${summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">ETB {summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-green-600 font-semibold">ETB {summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right text-destructive font-semibold">
-                  {summary.totalPending > 0 ? `$${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
+                  {summary.totalPending > 0 ? `ETB ${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell className="text-center">
                     {summary.totalApplied > 0 ? (
@@ -289,7 +289,7 @@ export default function AppliedServiceChargesPage() {
           </DialogHeader>
           <form onSubmit={handleApplyChargeSubmit} className="space-y-4 py-4">
             <div>
-              <Label htmlFor="applyChargeMemberId">Member</Label>
+              <Label htmlFor="applyChargeMemberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
                 <PopoverTrigger asChild>
                   <Button
@@ -336,25 +336,25 @@ export default function AppliedServiceChargesPage() {
               </Popover>
             </div>
             <div>
-              <Label htmlFor="applyChargeServiceChargeTypeId">Service Charge Type</Label>
+              <Label htmlFor="applyChargeServiceChargeTypeId">Service Charge Type <span className="text-destructive">*</span></Label>
               <Select name="serviceChargeTypeId" value={applyChargeForm.serviceChargeTypeId} onValueChange={(value) => handleApplyChargeSelectChange('serviceChargeTypeId', value)} required>
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
                   {pageData.serviceChargeTypes.map(sct => (
-                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (${sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
+                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (ETB {sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
              <div>
-                <Label htmlFor="applyChargeAmount">Amount ($) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
+                <Label htmlFor="applyChargeAmount">Amount (ETB) <span className="text-xs text-muted-foreground">(from selected type)</span></Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="applyChargeAmount" name="amountCharged" type="number" value={applyChargeForm.amountCharged || ''} readOnly className="pl-7 bg-muted/50" />
                 </div>
             </div>
             <div>
-                <Label htmlFor="applyChargeDateApplied">Date Applied</Label>
+                <Label htmlFor="applyChargeDateApplied">Date Applied <span className="text-destructive">*</span></Label>
                 <Input id="applyChargeDateApplied" name="dateApplied" type="date" value={applyChargeForm.dateApplied || ''} onChange={handleApplyChargeFormChange} required />
             </div>
             <div>

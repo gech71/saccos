@@ -100,10 +100,10 @@ export default function ApproveTransactionsPage() {
   };
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if ('amount' in tx) return `$${(tx as Saving | Dividend).amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if ('amount' in tx) return `ETB ${(tx as Saving | Dividend).amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     if ('count' in tx) {
         const shareTx = tx as Share;
-        return `${shareTx.count} shares @ $${shareTx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share (Value: $${(shareTx.totalValueForAllocation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+        return `${shareTx.count} shares @ ETB ${shareTx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share (Value: ETB ${(shareTx.totalValueForAllocation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
     }
     return 'N/A';
   };
@@ -118,10 +118,10 @@ export default function ApproveTransactionsPage() {
   const handleExport = () => {
     const dataToExport = pendingTransactions.map(tx => {
       let details = '';
-      if ('amount' in tx) details = `$${(tx as Saving | Dividend).amount.toFixed(2)}`;
+      if ('amount' in tx) details = `ETB ${(tx as Saving | Dividend).amount.toFixed(2)}`;
       else if ('count' in tx) {
           const shareTx = tx as Share;
-          details = `${shareTx.count} shares @ $${shareTx.valuePerShare.toFixed(2)}/share`;
+          details = `${shareTx.count} shares @ ETB ${shareTx.valuePerShare.toFixed(2)}/share`;
       }
       return {
         'Date': new Date(tx.date || tx.allocationDate).toLocaleDateString(),

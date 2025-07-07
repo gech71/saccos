@@ -208,7 +208,7 @@ export default function DividendsPage() {
     const dataToExport = filteredDividends.map(d => ({
         'Member Name': (d as any).memberName || members.find(m => m.id === d.memberId)?.fullName || 'N/A',
         'Status': d.status,
-        'Dividend Amount ($)': d.amount,
+        'Dividend Amount (ETB)': d.amount,
         'Shares Held': d.shareCountAtDistribution,
         'Distribution Date': new Date(d.distributionDate).toLocaleDateString(),
         'Notes': d.notes || '',
@@ -238,7 +238,7 @@ export default function DividendsPage() {
                 <LucideLandmark className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">${totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-primary">ETB {totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -247,7 +247,7 @@ export default function DividendsPage() {
                 <TrendingUp className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">${averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-primary">ETB {averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
         </Card>
       </div>
@@ -283,7 +283,7 @@ export default function DividendsPage() {
             <TableRow>
               <TableHead>Member Name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Dividend Amount</TableHead>
+              <TableHead className="text-right">Dividend Amount (ETB)</TableHead>
               <TableHead className="text-right">Shares Held</TableHead>
               <TableHead>Distribution Date</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -296,7 +296,7 @@ export default function DividendsPage() {
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 <TableCell className="font-medium">{(dividend as any).memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">${dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">ETB {dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
@@ -395,7 +395,7 @@ export default function DividendsPage() {
               <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required readOnly className="bg-muted/50" />
             </div>
             <div>
-              <Label htmlFor="amount">Dividend Amount ($) <span className="text-destructive">*</span></Label>
+              <Label htmlFor="amount">Dividend Amount (ETB) <span className="text-destructive">*</span></Label>
               <Input id="amount" name="amount" type="number" step="0.01" placeholder="0.00" value={currentDividend.amount || ''} onChange={handleInputChange} required />
             </div>
             <div>

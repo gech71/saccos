@@ -211,11 +211,11 @@ export default function OverduePaymentsPage() {
     const dataToExport = filteredOverdueMembers.map(member => ({
         'Member Name': member.fullName,
         'School': member.schoolName,
-        'Overdue Savings ($)': member.overdueSavingsAmount.toFixed(2),
-        'Total Overdue Shares ($)': member.overdueSharesDetails.reduce((sum, d) => sum + d.overdueAmount, 0).toFixed(2),
-        'Overdue Shares Details': member.overdueSharesDetails.map(d => `${d.shareTypeName}: $${d.overdueAmount.toFixed(2)}`).join('; '),
-        'Overdue Service Charges ($)': member.totalOverdueServiceCharges.toFixed(2),
-        'Pending Service Charges': member.pendingServiceCharges.map(sc => `${sc.serviceChargeTypeName}: $${sc.amountCharged.toFixed(2)}`).join('; '),
+        'Overdue Savings (ETB)': member.overdueSavingsAmount.toFixed(2),
+        'Total Overdue Shares (ETB)': member.overdueSharesDetails.reduce((sum, d) => sum + d.overdueAmount, 0).toFixed(2),
+        'Overdue Shares Details': member.overdueSharesDetails.map(d => `${d.shareTypeName}: ETB ${d.overdueAmount.toFixed(2)}`).join('; '),
+        'Overdue Service Charges (ETB)': member.totalOverdueServiceCharges.toFixed(2),
+        'Pending Service Charges': member.pendingServiceCharges.map(sc => `${sc.serviceChargeTypeName}: ETB ${sc.amountCharged.toFixed(2)}`).join('; '),
     }));
     exportToExcel(dataToExport, 'overdue_payments_export');
   };
@@ -248,7 +248,7 @@ export default function OverduePaymentsPage() {
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">${totalOverdueSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">ETB {totalOverdueSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
         </Card>
          <Card className="shadow-md">
@@ -257,7 +257,7 @@ export default function OverduePaymentsPage() {
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">${totalOverdueSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">ETB {totalOverdueSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -266,7 +266,7 @@ export default function OverduePaymentsPage() {
                 <ReceiptText className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">${totalOverdueServiceChargesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">ETB {totalOverdueServiceChargesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </CardContent>
         </Card>
       </div>
@@ -305,9 +305,9 @@ export default function OverduePaymentsPage() {
             <TableRow>
               <TableHead>Member Name</TableHead>
               <TableHead>School</TableHead>
-              <TableHead className="text-right text-destructive">Overdue Savings ($)</TableHead>
+              <TableHead className="text-right text-destructive">Overdue Savings (ETB)</TableHead>
               <TableHead className="text-left">Overdue Shares Details</TableHead>
-              <TableHead className="text-right text-destructive">Overdue Service Charges ($)</TableHead>
+              <TableHead className="text-right text-destructive">Overdue Service Charges (ETB)</TableHead>
               <TableHead className="text-center w-[150px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -317,14 +317,14 @@ export default function OverduePaymentsPage() {
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.schoolName}</TableCell>
                 <TableCell className="text-right font-semibold text-destructive">
-                  {member.overdueSavingsAmount > 0 ? `$${member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
+                  {member.overdueSavingsAmount > 0 ? `ETB ${member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell>
                   {member.overdueSharesDetails.length > 0 ? (
                     <ul className="list-disc list-inside space-y-0.5 text-xs">
                       {member.overdueSharesDetails.map(detail => (
                         <li key={detail.shareTypeId}>
-                          <span className="font-medium">{detail.shareTypeName}</span>: <span className="text-destructive font-semibold">${detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="font-medium">{detail.shareTypeName}</span>: <span className="text-destructive font-semibold">ETB {detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </li>
                       ))}
                     </ul>
@@ -333,10 +333,10 @@ export default function OverduePaymentsPage() {
                 <TableCell className="text-right font-semibold text-destructive">
                    {member.totalOverdueServiceCharges > 0 ? (
                     <div className="flex flex-col items-end">
-                      <span>${member.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>ETB {member.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       <ul className="list-disc list-inside text-xs text-right">
                         {member.pendingServiceCharges.map(sc => (
-                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: ${sc.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></li>
+                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: ETB {sc.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></li>
                         ))}
                       </ul>
                     </div>
@@ -381,7 +381,7 @@ export default function OverduePaymentsPage() {
               {selectedOverdueMemberForPayment.overdueSavingsAmount > 0 && (
                 <div className="p-3 border rounded-md bg-background shadow-sm">
                   <Label htmlFor="savingsAmount" className="font-semibold text-primary">Savings Payment</Label>
-                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${selectedOverdueMemberForPayment.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ETB {selectedOverdueMemberForPayment.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -404,7 +404,7 @@ export default function OverduePaymentsPage() {
                   {selectedOverdueMemberForPayment.overdueSharesDetails.map(detail => (
                     <div key={detail.shareTypeId} className="ml-1 pl-2 border-l-2 border-accent/50">
                       <Label htmlFor={`shareAmount-${detail.shareTypeId}`}>{detail.shareTypeName}</Label>
-                      <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ETB {detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -426,7 +426,7 @@ export default function OverduePaymentsPage() {
               {selectedOverdueMemberForPayment.totalOverdueServiceCharges > 0 && (
                  <div className="p-3 border rounded-md bg-background shadow-sm">
                   <Label htmlFor="serviceChargeAmount" className="font-semibold text-primary">Service Charge Payment</Label>
-                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ${selectedOverdueMemberForPayment.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: ETB {selectedOverdueMemberForPayment.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <div className="relative">
                     <ReceiptText className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -447,7 +447,7 @@ export default function OverduePaymentsPage() {
 
               <div className="grid grid-cols-1 gap-4">
                  <div>
-                    <Label htmlFor="date">Payment Date</Label>
+                    <Label htmlFor="date">Payment Date <span className="text-destructive">*</span></Label>
                     <Input id="date" name="date" type="date" value={paymentForm.date} onChange={(e) => handlePaymentFormInputChange(e, 'date')} required />
                 </div>
               </div>
@@ -465,7 +465,7 @@ export default function OverduePaymentsPage() {
                 <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                     <div>
-                      <Label htmlFor="paymentDetails.sourceName">{paymentForm.depositMode} Name</Label>
+                      <Label htmlFor="paymentDetails.sourceName">{paymentForm.depositMode} Name <span className="text-destructive">*</span></Label>
                        <div className="relative">
                         {paymentForm.depositMode === 'Bank' && <Banknote className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
                         {paymentForm.depositMode === 'Wallet' && <Wallet className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}

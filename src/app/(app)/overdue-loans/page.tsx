@@ -15,7 +15,7 @@ import { getOverdueLoansPageData, type OverdueLoanInfo } from './actions';
 
 export default function OverdueLoansPage() {
     const [overdueLoans, setOverdueLoans] = useState<OverdueLoanInfo[]>([]);
-    const [schools, setSchools] = useState<Pick<School, 'id' | 'name'>[]>([]);
+    const [schools, setSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -69,7 +69,7 @@ export default function OverdueLoansPage() {
                         <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Overdue Balance</ShadcnCardTitle>
                         <AlertTriangle className="h-5 w-5 text-destructive" />
                     </CardHeader>
-                    <CardContent><div className="text-2xl font-bold text-destructive">${totalOverdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+                    <CardContent><div className="text-2xl font-bold text-destructive">ETB {totalOverdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
                 </Card>
             </div>
 
@@ -97,7 +97,7 @@ export default function OverdueLoansPage() {
                             <TableHead>Member</TableHead>
                             <TableHead>Loan Acct. #</TableHead>
                             <TableHead>Loan Type</TableHead>
-                            <TableHead className="text-right">Remaining Balance ($)</TableHead>
+                            <TableHead className="text-right">Remaining Balance (ETB)</TableHead>
                             <TableHead>Next Due Date</TableHead>
                             <TableHead className="text-center text-destructive">Days Overdue</TableHead>
                             <TableHead className="text-center">Actions</TableHead>
@@ -109,7 +109,7 @@ export default function OverdueLoansPage() {
                                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                                 <TableCell>{loan.loanTypeName}</TableCell>
-                                <TableCell className="text-right font-semibold">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell className="text-right font-semibold">ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
                                 <TableCell className="text-center font-bold text-destructive">{loan.daysOverdue}</TableCell>
                                 <TableCell className="text-center">

@@ -41,6 +41,10 @@ import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput } from './actions';
 
+const subcities = [
+  "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
+].sort();
+
 const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId' | 'addressId'> = {
   fullName: '',
   organization: null,
@@ -62,7 +66,6 @@ export default function LoansPage() {
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
-  const [subcities, setSubcities] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -86,7 +89,6 @@ export default function LoansPage() {
         setLoans(data.loans);
         setMembers(data.members);
         setLoanTypes(data.loanTypes);
-        setSubcities(data.subcities);
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
     }
@@ -264,8 +266,8 @@ export default function LoansPage() {
         'Member Name': loan.memberName || 'N/A',
         'Loan Type': loan.loanTypeName || 'N/A',
         'Status': loan.status,
-        'Principal Amount ($)': loan.principalAmount,
-        'Remaining Balance ($)': loan.remainingBalance,
+        'Principal Amount (ETB)': loan.principalAmount,
+        'Remaining Balance (ETB)': loan.remainingBalance,
         'Interest Rate (%)': (loan.interestRate * 100).toFixed(2),
         'Disbursement Date': new Date(loan.disbursementDate).toLocaleDateString(),
         'Next Due Date': loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A',
@@ -306,8 +308,8 @@ export default function LoansPage() {
               <TableHead>Acct. #</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Principal ($)</TableHead>
-              <TableHead className="text-right">Balance ($)</TableHead>
+              <TableHead className="text-right">Principal (ETB)</TableHead>
+              <TableHead className="text-right">Balance (ETB)</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead>Next Due</TableHead>
               <TableHead>Collateral</TableHead>
@@ -323,8 +325,8 @@ export default function LoansPage() {
                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">${loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">ETB {loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
@@ -359,7 +361,7 @@ export default function LoansPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div>
-              <Label htmlFor="loanMemberId">Member</Label>
+              <Label htmlFor="loanMemberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
                 <PopoverTrigger asChild>
                   <Button id="loanMemberId" variant="outline" role="combobox" className="w-full justify-between">
@@ -383,7 +385,7 @@ export default function LoansPage() {
               </Popover>
             </div>
             <div>
-              <Label htmlFor="loanTypeId">Loan Type</Label>
+              <Label htmlFor="loanTypeId">Loan Type <span className="text-destructive">*</span></Label>
               <Select name="loanTypeId" value={currentLoan.loanTypeId} onValueChange={(val) => handleSelectChange('loanTypeId', val)} required>
                 <SelectTrigger><SelectValue placeholder="Select a loan type" /></SelectTrigger>
                 <SelectContent>{loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name} ({lt.interestRate*100}% Interest, {lt.loanTerm} mos)</SelectItem>)}</SelectContent>
@@ -395,17 +397,17 @@ export default function LoansPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="principalAmount">Principal Amount ($)</Label>
+                <Label htmlFor="principalAmount">Principal Amount (ETB) <span className="text-destructive">*</span></Label>
                 <Input id="principalAmount" name="principalAmount" type="number" step="0.01" value={currentLoan.principalAmount || ''} onChange={handleInputChange} required />
               </div>
               <div>
-                <Label htmlFor="disbursementDate">Disbursement Date</Label>
+                <Label htmlFor="disbursementDate">Disbursement Date <span className="text-destructive">*</span></Label>
                 <Input id="disbursementDate" name="disbursementDate" type="date" value={currentLoan.disbursementDate} onChange={handleInputChange} required />
               </div>
             </div>
             {monthlyPayment !== null && (
               <div className="p-3 border rounded-md bg-muted text-sm">
-                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">${monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
+                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">ETB {monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
               </div>
             )}
             <div>
@@ -431,7 +433,7 @@ export default function LoansPage() {
                   </Button>
                   <h4 className="font-medium text-md">Guarantor {index + 1}</h4>
                   <div>
-                    <Label htmlFor={`collateral-fullName-${index}`}>Guarantor Full Name</Label>
+                    <Label htmlFor={`collateral-fullName-${index}`}>Guarantor Full Name <span className="text-destructive">*</span></Label>
                     <Input id={`collateral-fullName-${index}`} name="fullName" value={collateral.fullName} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} required />
                   </div>
                   
@@ -457,7 +459,7 @@ export default function LoansPage() {
                       <div>
                         <Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label>
                         <Select
-                          value={collateral.address?.subCity}
+                          value={collateral.address?.subCity || undefined}
                           onValueChange={(value) => handleCollateralChange(index, 'address.subCity', value)}
                         >
                           <SelectTrigger id={`collateral-addr-subcity-${index}`}>

@@ -214,7 +214,7 @@ export default function GroupLoanRepaymentsPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
               <div>
-                <Label htmlFor="schoolFilter">School</Label>
+                <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
                 <Select value={selectedSchool} onValueChange={setSelectedSchool}>
                   <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
                   <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
@@ -233,7 +233,7 @@ export default function GroupLoanRepaymentsPage() {
                 <CardTitle className="font-headline text-primary">Active Loans for {allSchools.find(s => s.id === selectedSchool)?.name}</CardTitle>
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
                     <span>{eligibleLoans.length} active/overdue loans found. {selectedLoanIds.length} selected.</span>
-                    <span className="font-bold text-primary">Total Amount to be Collected: ${totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="font-bold text-primary">Total Amount to be Collected: ETB {totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -253,7 +253,7 @@ export default function GroupLoanRepaymentsPage() {
                         <TableHead>Loan Acct. #</TableHead>
                         <TableHead>Remaining Balance</TableHead>
                         <TableHead>Exp. Monthly Repayment</TableHead>
-                        <TableHead className="w-[200px]">Amount to be Paid ($)</TableHead>
+                        <TableHead className="w-[200px]">Amount to be Paid (ETB)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -269,8 +269,8 @@ export default function GroupLoanRepaymentsPage() {
                           </TableCell>
                           <TableCell className="font-medium">{loan.memberName}</TableCell>
                           <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
-                          <TableCell className="text-right">${loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right">${(loan.monthlyRepaymentAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right">ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right">ETB {(loan.monthlyRepaymentAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                           <TableCell>
                             <Input
                               type="number"
@@ -293,7 +293,7 @@ export default function GroupLoanRepaymentsPage() {
                 <Label className="text-lg font-semibold text-primary mb-2 block">Batch Payment Details</Label>
                 <div className="space-y-4">
                     <div>
-                        <Label htmlFor="batchDetails.date">Payment Date</Label>
+                        <Label htmlFor="batchDetails.date">Payment Date <span className="text-destructive">*</span></Label>
                         <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required disabled={!canCreate} />
                     </div>
                     <div>
@@ -309,7 +309,7 @@ export default function GroupLoanRepaymentsPage() {
                         <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                                 <div>
-                                    <Label htmlFor="paymentDetails.sourceNameBatch">{batchDetails.depositMode} Name</Label>
+                                    <Label htmlFor="paymentDetails.sourceNameBatch">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
                                     <Input id="paymentDetails.sourceNameBatch" name="paymentDetails.sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.paymentDetails?.sourceName || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
                                 </div>
                                 <div>
@@ -369,7 +369,7 @@ export default function GroupLoanRepaymentsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Loan Acct. #</TableHead>
-                                <TableHead className="text-right">Amount Paid ($)</TableHead>
+                                <TableHead className="text-right">Amount Paid (ETB)</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Payment Mode</TableHead>
                             </TableRow>
@@ -378,7 +378,7 @@ export default function GroupLoanRepaymentsPage() {
                             {postedTransactions.map(transaction => (
                                 <TableRow key={transaction.loanId}>
                                     <TableCell className="font-mono text-xs">{transaction.loanAccountNumber}</TableCell>
-                                    <TableCell className="text-right">${transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">ETB {transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>
                                 </TableRow>

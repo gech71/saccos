@@ -119,7 +119,7 @@ export default function CollectionForecastPage() {
     const dataToExport = forecastData.map(item => ({
       'Member Name': item.fullName,
       'School': item.schoolName,
-      'Expected Contribution ($)': item.expectedContribution.toFixed(2),
+      'Expected Contribution (ETB)': item.expectedContribution.toFixed(2),
     }));
     
     const collectionTypeName = collectionType === 'savings' 
@@ -145,21 +145,21 @@ export default function CollectionForecastPage() {
         <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="schoolFilter">School</Label>
+                  <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
                   <Select value={selectedSchool} onValueChange={setSelectedSchool}>
                     <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
                     <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="yearFilter">Year</Label>
+                  <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
                     <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="monthFilter">Month</Label>
+                  <Label htmlFor="monthFilter">Month <span className="text-destructive">*</span></Label>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                     <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
                     <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
@@ -177,7 +177,7 @@ export default function CollectionForecastPage() {
             <div className="animate-in fade-in duration-300">
                 {collectionType === 'savings' ? (
                     <div>
-                        <Label htmlFor="savingTypeFilter">Saving Account Type</Label>
+                        <Label htmlFor="savingTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
                         <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
                             <SelectTrigger id="savingTypeFilter"><SelectValue placeholder="Select Saving Account Type" /></SelectTrigger>
                             <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
@@ -185,7 +185,7 @@ export default function CollectionForecastPage() {
                     </div>
                 ) : (
                     <div>
-                        <Label htmlFor="shareTypeFilter">Share Type</Label>
+                        <Label htmlFor="shareTypeFilter">Share Type <span className="text-destructive">*</span></Label>
                         <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
                             <SelectTrigger id="shareTypeFilter"><SelectValue placeholder="Select Share Type" /></SelectTrigger>
                             <SelectContent>{pageData.shareTypes.map(st => <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>)}</SelectContent>
@@ -233,7 +233,7 @@ export default function CollectionForecastPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">${summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-2xl font-bold text-primary">ETB {summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -245,7 +245,7 @@ export default function CollectionForecastPage() {
                   <TableRow>
                     <TableHead>Member Name</TableHead>
                     <TableHead>School</TableHead>
-                    <TableHead className="text-right">Expected Contribution ($)</TableHead>
+                    <TableHead className="text-right">Expected Contribution (ETB)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -253,7 +253,7 @@ export default function CollectionForecastPage() {
                     <TableRow key={result.memberId}>
                       <TableCell className="font-medium">{result.fullName}</TableCell>
                       <TableCell>{result.schoolName}</TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">${result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">ETB {result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>

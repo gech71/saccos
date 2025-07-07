@@ -24,7 +24,6 @@ export interface MembersPageData {
   schools: { id: string; name: string }[];
   shareTypes: { id: string; name: string; valuePerShare: number }[];
   savingAccountTypes: { id: string; name: string, expectedMonthlyContribution: number | null, interestRate: number }[];
-  subcities: string[];
 }
 
 export async function getMembersPageData(): Promise<MembersPageData> {
@@ -47,13 +46,6 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     const shareTypes = await prisma.shareType.findMany({ select: { id: true, name: true, valuePerShare: true }, orderBy: {name: 'asc'} });
     const savingAccountTypes = await prisma.savingAccountType.findMany({ select: { id: true, name: true, expectedMonthlyContribution: true, interestRate: true }, orderBy: {name: 'asc'} });
 
-    const addressSubcities = await prisma.address.findMany({
-        select: { subCity: true },
-        distinct: ['subCity'],
-        where: { subCity: { not: null } }
-    });
-    const subcities = addressSubcities.map(a => a.subCity!);
-
     // Map members to a more usable format for the client
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
         ...member,
@@ -71,7 +63,6 @@ export async function getMembersPageData(): Promise<MembersPageData> {
         schools,
         shareTypes,
         savingAccountTypes,
-        subcities,
     };
 }
 
