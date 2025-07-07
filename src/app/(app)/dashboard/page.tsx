@@ -63,7 +63,7 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Total Savings"
-            value={`Birr ${dashboardData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`${dashboardData.totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
             icon={<DollarSign className="h-6 w-6 text-accent" />}
           />
           <StatCard
@@ -73,7 +73,7 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Dividends Paid (YTD)"
-            value={`Birr ${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            value={`${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
             icon={<TrendingUp className="h-6 w-6 text-accent" />}
           />
         </div>

@@ -162,7 +162,7 @@ export default function LoanRepaymentsPage() {
                     <TableRow key={repayment.id}>
                         <TableCell className="font-medium">{repayment.member?.fullName}</TableCell>
                         <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">Birr {repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                         <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
                         <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
                     </TableRow>
@@ -197,7 +197,7 @@ export default function LoanRepaymentsPage() {
                         {activeLoans.map(loan => (
                           <CommandItem key={loan.id} value={`${loan.member?.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { setCurrentRepayment(prev => ({ ...prev, loanId: loan.id })); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: Birr {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>

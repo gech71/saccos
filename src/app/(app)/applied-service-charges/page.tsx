@@ -179,21 +179,21 @@ export default function AppliedServiceChargesPage() {
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Applied Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">Birr {globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">{globalSummaryStats.totalAppliedGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Paid Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">Birr {globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-green-600">{globalSummaryStats.totalPaidGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div></CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Pending Charges</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-destructive">Birr {globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-destructive">{globalSummaryStats.totalPendingGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div></CardContent>
         </Card>
       </div>
 
@@ -242,10 +242,10 @@ export default function AppliedServiceChargesPage() {
               <TableRow key={summary.memberId} className={summary.totalPending > 0 ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
-                <TableCell className="text-right">Birr {summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-green-600 font-semibold">Birr {summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">{summary.totalApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right text-green-600 font-semibold">{summary.totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-right text-destructive font-semibold">
-                  {summary.totalPending > 0 ? `Birr ${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
+                  {summary.totalPending > 0 ? `${summary.totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell className="text-center">
                     {summary.totalApplied > 0 ? (
@@ -341,7 +341,7 @@ export default function AppliedServiceChargesPage() {
                 <SelectTrigger id="applyChargeServiceChargeTypeId"><SelectValue placeholder="Select charge type" /></SelectTrigger>
                 <SelectContent>
                   {pageData.serviceChargeTypes.map(sct => (
-                    <SelectItem key={sct.id} value={sct.id}>{sct.name} (Birr {sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, {sct.frequency})</SelectItem>
+                    <SelectItem key={sct.id} value={sct.id}>{sct.name} ({sct.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr, {sct.frequency})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

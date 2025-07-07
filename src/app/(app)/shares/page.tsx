@@ -243,9 +243,9 @@ export default function SharesPage() {
         'Share Type': (share as any).shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name || 'N/A',
         'Status': share.status,
         'Share Count': share.count,
-        'Value per Share ($)': share.valuePerShare,
-        'Total Value ($)': share.totalValueForAllocation || (share.count * share.valuePerShare),
-        'Contribution Amount ($)': share.contributionAmount,
+        'Value per Share (Birr)': share.valuePerShare,
+        'Total Value (Birr)': share.totalValueForAllocation || (share.count * share.valuePerShare),
+        'Contribution Amount (Birr)': share.contributionAmount,
         'Allocation Date': new Date(share.allocationDate).toLocaleDateString(),
         'Deposit Mode': share.depositMode || 'N/A',
       };
@@ -280,7 +280,7 @@ export default function SharesPage() {
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">${totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-primary">{totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
       </div>
@@ -336,8 +336,8 @@ export default function SharesPage() {
                   <TableCell><Badge variant="outline">{shareWithDetails.shareTypeName}</Badge></TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">{share.count}</TableCell>
-                  <TableCell className="text-right">${share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right font-semibold">${currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right">{share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                  <TableCell className="text-right font-semibold">{currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                   <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -435,18 +435,18 @@ export default function SharesPage() {
               <Label htmlFor="shareTypeIdShare">Share Type</Label>
               <Select name="shareTypeId" value={currentShare.shareTypeId} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
                 <SelectTrigger id="shareTypeIdShare"><SelectValue placeholder="Select share type" /></SelectTrigger>
-                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} (${st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>))}</SelectContent>
+                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} ({st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/share)</SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="valuePerShareShare">Value per Share ($)</Label>
+              <Label htmlFor="valuePerShareShare">Value per Share (Birr)</Label>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input id="valuePerShareShare" name="valuePerShare" type="number" value={currentShare.valuePerShare || ''} readOnly className="pl-7 bg-muted/50" />
               </div>
             </div>
             <div>
-              <Label htmlFor="contributionAmountShare">Contribution Amount ($)</Label>
+              <Label htmlFor="contributionAmountShare">Contribution Amount (Birr)</Label>
               <div className="relative">
                 <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -465,9 +465,9 @@ export default function SharesPage() {
              {currentShare.contributionAmount! > 0 && currentShare.valuePerShare! > 0 && (
                 <div className="text-sm text-muted-foreground p-2 border rounded-md bg-accent/10">
                     <p>This contribution will allocate approximately <strong className="text-primary">{calculatedShares}</strong> share(s).</p>
-                    <p>Total value of allocated shares: <strong className="text-primary">${(calculatedShares * (currentShare.valuePerShare || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
+                    <p>Total value of allocated shares: <strong className="text-primary">{(calculatedShares * (currentShare.valuePerShare || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></p>
                     {currentShare.contributionAmount! > (calculatedShares * (currentShare.valuePerShare || 0)) && calculatedShares > 0 &&
-                        <p className="text-xs text-orange-600">Note: Remaining ${ (currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) } is not allocated as it's less than one share value.</p>
+                        <p className="text-xs text-orange-600">Note: Remaining {(currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr is not allocated as it's less than one share value.</p>
                     }
                 </div>
             )}

@@ -305,19 +305,19 @@ export default function SavingsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
         <StatCard
           title="Total Approved Deposits (in view)"
-          value={`Birr ${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${summaryStats.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
           icon={<ArrowUpCircle className="h-6 w-6 text-green-600" />}
           valueClassName="text-green-600"
         />
         <StatCard
           title="Total Approved Withdrawals (in view)"
-          value={`Birr ${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${summaryStats.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
           icon={<ArrowDownCircle className="h-6 w-6 text-destructive" />}
           valueClassName="text-destructive"
         />
         <StatCard
           title="Net Savings (in view)"
-          value={`Birr ${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={`${summaryStats.netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
           icon={<DollarSign className="h-6 w-6 text-accent" />}
         />
       </div>
@@ -385,7 +385,7 @@ export default function SavingsPage() {
                   </span>
                 </TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(tx.status)}>{tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">Birr {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                 <TableCell>{tx.depositMode || 'N/A'}</TableCell>
                 <TableCell className="text-right">

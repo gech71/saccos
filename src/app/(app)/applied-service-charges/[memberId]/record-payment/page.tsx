@@ -86,7 +86,7 @@ function RecordPaymentFormComponent() {
       return;
     }
     if (recordPaymentForm.amount > totalPending) {
-      toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed total pending (Birr ${totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).` });
+      toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed total pending (${totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr).` });
       return;
     }
     if ((recordPaymentForm.depositMode === 'Bank' || recordPaymentForm.depositMode === 'Wallet') && !recordPaymentForm.sourceName) {
@@ -112,7 +112,7 @@ function RecordPaymentFormComponent() {
   return (
     <div className="space-y-6">
         <div className="flex items-center justify-between">
-            <PageTitle title={`Record Payment for ${decodeURIComponent(memberName)}`} subtitle={`Total Pending Service Charges: Birr ${totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+            <PageTitle title={`Record Payment for ${decodeURIComponent(memberName)}`} subtitle={`Total Pending Service Charges: ${totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`} />
             <Button variant="outline" asChild>
                 <Link href="/applied-service-charges">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

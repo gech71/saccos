@@ -441,7 +441,7 @@ export default function GroupCollectionsPage() {
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">Birr {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-right">{(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
@@ -494,7 +494,7 @@ export default function GroupCollectionsPage() {
                                     <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid Account Number' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
                                         <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
                                         <TableCell>{row['Savings Account Number']}</TableCell>
-                                        <TableCell className="text-right">Birr {row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right">{row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -520,7 +520,7 @@ export default function GroupCollectionsPage() {
                             <CardContent className="p-0 pt-2">
                                 <div className="text-lg font-bold text-primary flex justify-between items-center">
                                     <span>Total Collection Amount:</span>
-                                    <span>Birr {collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span>{collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                                 </div>
                             </CardContent>
                           </Card>
@@ -614,7 +614,7 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map((transaction, i) => (
                                 <TableRow key={`${transaction.memberId}-${i}`}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="text-right">Birr {transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">{transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                     <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                     <TableCell>{transaction.month}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>

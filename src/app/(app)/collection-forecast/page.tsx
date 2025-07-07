@@ -233,7 +233,7 @@ export default function CollectionForecastPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-primary">Birr {summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="text-2xl font-bold text-primary">{summaryStats.totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
                     </CardContent>
                 </Card>
             </div>
@@ -253,7 +253,7 @@ export default function CollectionForecastPage() {
                     <TableRow key={result.memberId}>
                       <TableCell className="font-medium">{result.fullName}</TableCell>
                       <TableCell>{result.schoolName}</TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">Birr {result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right font-semibold text-green-600">{result.expectedContribution.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                     </TableRow>
                   )) : (
                     <TableRow>

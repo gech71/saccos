@@ -173,7 +173,7 @@ function AccountStatementContent() {
                 <div className="mb-6">
                     <StatCard
                       title="My Current Savings Balance"
-                      value={`Birr ${memberInitial.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      value={`${memberInitial.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
                       icon={<WalletCards className="h-6 w-6 text-accent" />}
                       description={`Account #: ${memberInitial.savingsAccountNumber}`}
                     />
@@ -350,20 +350,20 @@ function AccountStatementContent() {
                         <TableBody>
                             <TableRow className="font-semibold">
                                 <TableCell colSpan={4}>Balance Brought Forward</TableCell>
-                                <TableCell className="text-right">Birr {statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell className="text-right">{statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                             </TableRow>
                             {statementData.transactions.map(tx => (
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                     <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
-                                    <TableCell className="text-right text-red-600">{tx.debit > 0 ? `Birr ${tx.debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
-                                    <TableCell className="text-right text-green-600">{tx.credit > 0 ? `Birr ${tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</TableCell>
-                                    <TableCell className="text-right">Birr {tx.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right text-red-600">{tx.debit > 0 ? `${tx.debit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : '-'}</TableCell>
+                                    <TableCell className="text-right text-green-600">{tx.credit > 0 ? `${tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : '-'}</TableCell>
+                                    <TableCell className="text-right">{tx.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 </TableRow>
                             ))}
                              <TableRow className="font-semibold bg-gray-100">
                                 <TableCell colSpan={4}>Closing Balance as of {format(statementData.dateRange.to!, 'PPP')}</TableCell>
-                                <TableCell className="text-right">Birr {statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell className="text-right">{statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>

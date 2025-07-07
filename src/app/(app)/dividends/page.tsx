@@ -238,7 +238,7 @@ export default function DividendsPage() {
                 <LucideLandmark className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">Birr {totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-primary">{totalDividendsDistributed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -247,7 +247,7 @@ export default function DividendsPage() {
                 <TrendingUp className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">Birr {averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-primary">{averageDividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
       </div>
@@ -296,7 +296,7 @@ export default function DividendsPage() {
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 <TableCell className="font-medium">{(dividend as any).memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">Birr {dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                 <TableCell>{new Date(dividend.distributionDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">

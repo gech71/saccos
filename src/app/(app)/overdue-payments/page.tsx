@@ -213,9 +213,9 @@ export default function OverduePaymentsPage() {
         'School': member.schoolName,
         'Overdue Savings (Birr)': member.overdueSavingsAmount.toFixed(2),
         'Total Overdue Shares (Birr)': member.overdueSharesDetails.reduce((sum, d) => sum + d.overdueAmount, 0).toFixed(2),
-        'Overdue Shares Details': member.overdueSharesDetails.map(d => `${d.shareTypeName}: Birr ${d.overdueAmount.toFixed(2)}`).join('; '),
+        'Overdue Shares Details': member.overdueSharesDetails.map(d => `${d.shareTypeName}: ${d.overdueAmount.toFixed(2)} Birr`).join('; '),
         'Overdue Service Charges (Birr)': member.totalOverdueServiceCharges.toFixed(2),
-        'Pending Service Charges': member.pendingServiceCharges.map(sc => `${sc.serviceChargeTypeName}: Birr ${sc.amountCharged.toFixed(2)}`).join('; '),
+        'Pending Service Charges': member.pendingServiceCharges.map(sc => `${sc.serviceChargeTypeName}: ${sc.amountCharged.toFixed(2)} Birr`).join('; '),
     }));
     exportToExcel(dataToExport, 'overdue_payments_export');
   };
@@ -248,7 +248,7 @@ export default function OverduePaymentsPage() {
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">Birr {totalOverdueSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">{totalOverdueSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
          <Card className="shadow-md">
@@ -257,7 +257,7 @@ export default function OverduePaymentsPage() {
                 <DollarSign className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">Birr {totalOverdueSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">{totalOverdueSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -266,7 +266,7 @@ export default function OverduePaymentsPage() {
                 <ReceiptText className="h-5 w-5 text-destructive" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-destructive">Birr {totalOverdueServiceChargesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-2xl font-bold text-destructive">{totalOverdueServiceChargesGlobal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
       </div>
@@ -317,14 +317,14 @@ export default function OverduePaymentsPage() {
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.schoolName}</TableCell>
                 <TableCell className="text-right font-semibold text-destructive">
-                  {member.overdueSavingsAmount > 0 ? `Birr ${member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-muted-foreground/70">-</span>}
+                  {member.overdueSavingsAmount > 0 ? `${member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : <span className="text-muted-foreground/70">-</span>}
                 </TableCell>
                 <TableCell>
                   {member.overdueSharesDetails.length > 0 ? (
                     <ul className="list-disc list-inside space-y-0.5 text-xs">
                       {member.overdueSharesDetails.map(detail => (
                         <li key={detail.shareTypeId}>
-                          <span className="font-medium">{detail.shareTypeName}</span>: <span className="text-destructive font-semibold">Birr {detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="font-medium">{detail.shareTypeName}</span>: <span className="text-destructive font-semibold">{detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                         </li>
                       ))}
                     </ul>
@@ -333,10 +333,10 @@ export default function OverduePaymentsPage() {
                 <TableCell className="text-right font-semibold text-destructive">
                    {member.totalOverdueServiceCharges > 0 ? (
                     <div className="flex flex-col items-end">
-                      <span>Birr {member.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>{member.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                       <ul className="list-disc list-inside text-xs text-right">
                         {member.pendingServiceCharges.map(sc => (
-                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: Birr {sc.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></li>
+                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: {sc.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></li>
                         ))}
                       </ul>
                     </div>
@@ -381,7 +381,7 @@ export default function OverduePaymentsPage() {
               {selectedOverdueMemberForPayment.overdueSavingsAmount > 0 && (
                 <div className="p-3 border rounded-md bg-background shadow-sm">
                   <Label htmlFor="savingsAmount" className="font-semibold text-primary">Savings Payment</Label>
-                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: Birr {selectedOverdueMemberForPayment.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: {selectedOverdueMemberForPayment.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                   <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -404,7 +404,7 @@ export default function OverduePaymentsPage() {
                   {selectedOverdueMemberForPayment.overdueSharesDetails.map(detail => (
                     <div key={detail.shareTypeId} className="ml-1 pl-2 border-l-2 border-accent/50">
                       <Label htmlFor={`shareAmount-${detail.shareTypeId}`}>{detail.shareTypeName}</Label>
-                      <p className="text-xs text-muted-foreground mb-1">Currently Overdue: Birr {detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Currently Overdue: {detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                       <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -426,7 +426,7 @@ export default function OverduePaymentsPage() {
               {selectedOverdueMemberForPayment.totalOverdueServiceCharges > 0 && (
                  <div className="p-3 border rounded-md bg-background shadow-sm">
                   <Label htmlFor="serviceChargeAmount" className="font-semibold text-primary">Service Charge Payment</Label>
-                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: Birr {selectedOverdueMemberForPayment.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Currently Overdue: {selectedOverdueMemberForPayment.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                   <div className="relative">
                     <ReceiptText className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 

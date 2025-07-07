@@ -219,7 +219,7 @@ export default function ServiceChargeTypesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Amount ($)</TableHead>
+              <TableHead className="text-right">Amount (Birr)</TableHead>
               <TableHead className="text-center">Frequency</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -231,7 +231,7 @@ export default function ServiceChargeTypesPage() {
               <TableRow key={chargeType.id}>
                 <TableCell className="font-medium">{chargeType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{chargeType.description || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold">${chargeType.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{chargeType.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-center">
                   <Badge variant={chargeType.frequency === 'once' ? 'secondary' : chargeType.frequency === 'monthly' ? 'outline' : 'default'}>
                     <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
@@ -243,7 +243,7 @@ export default function ServiceChargeTypesPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -283,7 +283,7 @@ export default function ServiceChargeTypesPage() {
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="amount">Amount ($) <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="amount">Amount (Birr) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 

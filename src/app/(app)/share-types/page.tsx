@@ -198,8 +198,8 @@ export default function ShareTypesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Value per Share ($)</TableHead>
-              <TableHead className="text-right">Exp. Monthly Contrib. ($)</TableHead>
+              <TableHead className="text-right">Value per Share (Birr)</TableHead>
+              <TableHead className="text-right">Exp. Monthly Contrib. (Birr)</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -210,8 +210,8 @@ export default function ShareTypesPage() {
               <TableRow key={shareType.id}>
                 <TableCell className="font-medium">{shareType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{shareType.description || 'N/A'}</TableCell>
-                <TableCell className="text-right font-semibold">${shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">${(shareType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right font-semibold">{(shareType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -261,7 +261,7 @@ export default function ShareTypesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="valuePerShare">Value per Share ($) <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="valuePerShare">Value per Share (Birr) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
@@ -279,7 +279,7 @@ export default function ShareTypesPage() {
                     </div>
                 </div>
                 <div>
-                    <Label htmlFor="expectedMonthlyContribution">Expected Monthly Contribution ($)</Label>
+                    <Label htmlFor="expectedMonthlyContribution">Expected Monthly Contribution (Birr)</Label>
                      <div className="relative">
                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 

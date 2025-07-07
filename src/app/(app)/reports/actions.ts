@@ -74,9 +74,9 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
             schoolName: school.name,
             reportDate,
             summary: [
-                { label: 'Total Deposits', value: `Birr ${totalDeposits.toFixed(2)}` },
-                { label: 'Total Withdrawals', value: `Birr ${totalWithdrawals.toFixed(2)}` },
-                { label: 'Net Savings', value: `Birr ${(totalDeposits - totalWithdrawals).toFixed(2)}` },
+                { label: 'Total Deposits', value: `${totalDeposits.toFixed(2)} Birr` },
+                { label: 'Total Withdrawals', value: `${totalWithdrawals.toFixed(2)} Birr` },
+                { label: 'Net Savings', value: `${(totalDeposits - totalWithdrawals).toFixed(2)} Birr` },
                 { label: 'Total Transactions', value: savings.length.toString() },
             ],
             columns: ['Date', 'Member', 'Type', 'Amount', 'Status'],
@@ -123,7 +123,7 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
             reportDate,
             summary: [
                 { label: 'Total Shares Allocated', value: totalSharesCount.toString() },
-                { label: 'Total Value of Shares', value: `Birr ${totalSharesValue.toFixed(2)}` },
+                { label: 'Total Value of Shares', value: `${totalSharesValue.toFixed(2)} Birr` },
                 { label: 'Total Allocations', value: shares.length.toString() },
             ],
             columns: ['Date', 'Member', 'Share Type', 'Count', 'Value per Share', 'Total Value'],
@@ -168,7 +168,7 @@ export async function generateSimpleReport(schoolId: string, reportType: ReportT
             schoolName: school.name,
             reportDate,
             summary: [
-                { label: 'Total Dividends Distributed', value: `Birr ${totalDividendAmount.toFixed(2)}` },
+                { label: 'Total Dividends Distributed', value: `${totalDividendAmount.toFixed(2)} Birr` },
                 { label: 'Total Payouts', value: dividends.length.toString() },
             ],
             columns: ['Date', 'Member', 'Amount', 'Shares at Distribution'],

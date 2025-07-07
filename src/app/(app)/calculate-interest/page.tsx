@@ -281,7 +281,7 @@ export default function CalculateInterestPage() {
                 <CardTitle className="font-headline text-primary">Calculation Results</CardTitle>
                 <CardDescription>
                     Interest calculation for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
-                    Total calculated interest: <span className="font-bold text-primary">Birr {totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    Total calculated interest: <span className="font-bold text-primary">{totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -301,14 +301,14 @@ export default function CalculateInterestPage() {
                                 <TableRow key={result.memberId}>
                                     <TableCell className="font-medium">{result.fullName}</TableCell>
                                     <TableCell>{result.savingsAccountNumber || 'N/A'}</TableCell>
-                                    <TableCell className="text-right">Birr {result.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">{result.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                     <TableCell className="text-center">
                                         <Badge variant="secondary">
                                             <Percent className="mr-1.5 h-3 w-3"/>
                                             {(result.interestRate * 100).toFixed(2)}%
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right font-semibold text-green-600">Birr {result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right font-semibold text-green-600">{result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 </TableRow>
                             )) : (
                                 <TableRow>

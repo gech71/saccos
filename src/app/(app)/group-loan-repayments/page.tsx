@@ -233,7 +233,7 @@ export default function GroupLoanRepaymentsPage() {
                 <CardTitle className="font-headline text-primary">Active Loans for {allSchools.find(s => s.id === selectedSchool)?.name}</CardTitle>
                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
                     <span>{eligibleLoans.length} active/overdue loans found. {selectedLoanIds.length} selected.</span>
-                    <span className="font-bold text-primary">Total Amount to be Collected: ETB {totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="font-bold text-primary">Total Amount to be Collected: {totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -253,7 +253,7 @@ export default function GroupLoanRepaymentsPage() {
                         <TableHead>Loan Acct. #</TableHead>
                         <TableHead>Remaining Balance</TableHead>
                         <TableHead>Exp. Monthly Repayment</TableHead>
-                        <TableHead className="w-[200px]">Amount to be Paid (ETB)</TableHead>
+                        <TableHead className="w-[200px]">Amount to be Paid (Birr)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -269,8 +269,8 @@ export default function GroupLoanRepaymentsPage() {
                           </TableCell>
                           <TableCell className="font-medium">{loan.memberName}</TableCell>
                           <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
-                          <TableCell className="text-right">ETB {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                          <TableCell className="text-right">ETB {(loan.monthlyRepaymentAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                          <TableCell className="text-right">{(loan.monthlyRepaymentAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                           <TableCell>
                             <Input
                               type="number"
@@ -369,7 +369,7 @@ export default function GroupLoanRepaymentsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Loan Acct. #</TableHead>
-                                <TableHead className="text-right">Amount Paid (ETB)</TableHead>
+                                <TableHead className="text-right">Amount Paid (Birr)</TableHead>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Payment Mode</TableHead>
                             </TableRow>
@@ -378,7 +378,7 @@ export default function GroupLoanRepaymentsPage() {
                             {postedTransactions.map(transaction => (
                                 <TableRow key={transaction.loanId}>
                                     <TableCell className="font-mono text-xs">{transaction.loanAccountNumber}</TableCell>
-                                    <TableCell className="text-right">ETB {transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">{transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>
                                 </TableRow>

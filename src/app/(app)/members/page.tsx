@@ -321,7 +321,7 @@ export default function MembersPage() {
         'Expected Monthly Saving (Birr)': member.expectedMonthlySaving || 0,
         'Current Savings Balance (Birr)': member.savingsBalance,
         'Total Shares': member.sharesCount,
-        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: Birr ${c.monthlyCommittedAmount.toFixed(2)}/mo`).join('; '),
+        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: ${c.monthlyCommittedAmount.toFixed(2)} Birr/mo`).join('; '),
         'Join Date': new Date(member.joinDate).toLocaleDateString(),
     }));
     exportToExcel(dataToExport, 'members_export');
@@ -402,8 +402,8 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell>{member.savingAccountTypeName || member.savingAccountType?.name || 'N/A'}</TableCell>
-                <TableCell className="text-right">Birr {(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right">Birr {member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right">{(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right">{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
                   <div className="font-medium">{member.sharesCount} Shares</div>
                   {member.shareCommitments && member.shareCommitments.length > 0 ? (
@@ -411,7 +411,7 @@ export default function MembersPage() {
                       {member.shareCommitments.map((commitment) => (
                         <li key={commitment.shareTypeId}>
                           <span>{commitment.shareTypeName}: </span>
-                          <span className="font-semibold text-foreground">Birr {commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo</span>
+                          <span className="font-semibold text-foreground">{commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/mo</span>
                         </li>
                       ))}
                     </ul>
@@ -566,7 +566,7 @@ export default function MembersPage() {
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
                     <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} disabled={isViewingOnly}>
                         <SelectTrigger><SelectValue placeholder="Select saving account type (Optional)" /></SelectTrigger>
-                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, Birr {sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Exp. Contrib.)</SelectItem>))}</SelectContent>
+                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, {sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Birr Exp. Contrib.)</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
             </div>
@@ -624,7 +624,7 @@ export default function MembersPage() {
                             <SelectTrigger id={`commitment-type-${index}`}><SelectValue placeholder="Select share type" /></SelectTrigger>
                             <SelectContent>
                                 {shareTypes.map(st => (
-                                    <SelectItem key={st.id} value={st.id}>{st.name} (Birr {st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/share)</SelectItem>
+                                    <SelectItem key={st.id} value={st.id}>{st.name} ({st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/share)</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>

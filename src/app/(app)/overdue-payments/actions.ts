@@ -25,7 +25,7 @@ export interface OverdueMemberInfo {
   savingsBalance: number;
   overdueSavingsAmount: number;
   overdueSharesDetails: OverdueShareDetail[];
-  pendingServiceCharges: AppliedServiceCharge[];
+  pendingServiceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
   totalOverdueServiceCharges: number;
   hasAnyOverdue: boolean;
 }
@@ -33,7 +33,7 @@ export interface OverdueMemberInfo {
 export interface OverduePageData {
     overdueMembers: OverdueMemberInfo[];
     schools: Pick<School, 'id', 'name'>[];
-    shareTypes: Pick<ShareType, 'id' | 'name'>[];
+    shareTypes: Pick<ShareType, 'id', 'name'>[];
 }
 
 
@@ -85,7 +85,9 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
       .filter((d): d is OverdueShareDetail => d !== null);
       
     // Service Charges Overdue
-    const pendingServiceCharges = appliedCharges.filter(asc => asc.memberId === member.id).map(c => ({...c, dateApplied: c.dateApplied.toISOString()}));
+    const pendingServiceCharges = appliedCharges
+        .filter(asc => asc.memberId === member.id)
+        .map(c => ({...c, dateApplied: c.dateApplied.toISOString(), serviceChargeTypeName: c.serviceChargeType.name }));
     const totalOverdueServiceCharges = pendingServiceCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
 
     const hasAnyOverdue = overdueSavingsAmount > 0 || overdueSharesDetails.length > 0 || totalOverdueServiceCharges > 0;
