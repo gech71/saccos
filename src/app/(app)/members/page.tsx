@@ -478,17 +478,17 @@ export default function MembersPage() {
             {/* Personal Info Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
                 <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
                 <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="sex">Sex</Label>
+                <Label htmlFor="sex">Sex <span className="text-destructive">*</span></Label>
                 <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
                   <SelectContent>
@@ -499,7 +499,7 @@ export default function MembersPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Label htmlFor="phoneNumber">Phone Number <span className="text-destructive">*</span></Label>
                 <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
@@ -511,7 +511,7 @@ export default function MembersPage() {
                 <div>
                   <Label htmlFor="address.subCity">Sub City</Label>
                   <Select
-                    value={currentMember.address?.subCity}
+                    value={currentMember.address?.subCity || undefined}
                     onValueChange={(value) => handleNestedSelectChange('address.subCity', value)}
                     disabled={isViewingOnly}
                   >
@@ -541,21 +541,21 @@ export default function MembersPage() {
              <Label className="font-semibold text-base text-primary">School &amp; Financial Information</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="schoolId">School</Label>
+                <Label htmlFor="schoolId">School <span className="text-destructive">*</span></Label>
                 <Select name="schoolId" value={currentMember.schoolId} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
                   <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="joinDate">Join Date</Label>
+                <Label htmlFor="joinDate">Join Date <span className="text-destructive">*</span></Label>
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                    <Label htmlFor="savingsAccountNumber">Savings Account Number</Label>
+                    <Label htmlFor="savingsAccountNumber">Savings Account Number <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleMemberInputChange} placeholder="e.g., SA10023" required className="pl-8" readOnly={isViewingOnly} />
