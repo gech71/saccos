@@ -36,7 +36,7 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Admin Sign In</CardTitle>
+          <CardTitle className="font-headline text-3xl text-primary">Sign In</CardTitle>
           <CardDescription>Sign in to manage your NIB Saccos system.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -69,17 +69,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col items-center gap-2">
-            <Link href="/forgot-password" passHref>
-                <Button variant="link" className="text-sm font-normal text-muted-foreground">Forgot password?</Button>
-            </Link>
-            <p className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link href="/signup" passHref>
-                <Button variant="link" className="text-primary p-0 h-auto">Sign Up</Button>
-                </Link>
-            </p>
-        </CardFooter>
       </Card>
     </div>
   );
