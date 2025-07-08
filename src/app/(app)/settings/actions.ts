@@ -77,10 +77,40 @@ export async function syncUserOnLogin(
   name: string,
   email: string
 ) {
-  const user = await prisma.user.upsert({
+  // Attempt to find user by the external provider's ID first. This is the most common case.
+  const userByUserId = await prisma.user.findUnique({
     where: { userId },
-    update: { name, email },
-    create: {
+  });
+
+  if (userByUserId) {
+    // User found, update their name and email just in case they changed.
+    return prisma.user.update({
+      where: { userId },
+      data: { name, email },
+      include: { roles: true },
+    });
+  }
+
+  // If no user is found by userId, check if a user exists with that email.
+  // This handles cases where the userId might have changed or there's a data mismatch.
+  const userByEmail = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (userByEmail) {
+    // A user with this email exists, but with a different userId.
+    // We'll update their userId to the new one provided by the auth token.
+    // This treats the email as the more stable identifier for linking accounts.
+    return prisma.user.update({
+      where: { email },
+      data: { userId, name }, // Update their userId and name
+      include: { roles: true },
+    });
+  }
+
+  // If no user is found by either userId or email, create a new one.
+  return prisma.user.create({
+    data: {
       userId,
       name,
       email,
@@ -104,7 +134,6 @@ export async function syncUserOnLogin(
       roles: true,
     },
   });
-  return user;
 }
 
 export async function registerUserByAdmin(
