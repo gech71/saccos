@@ -78,13 +78,34 @@ export async function syncUserOnLogin(
   name: string,
   email: string
 ) {
-  // Attempt to find user by the external provider's ID first. This is the most common case.
   const userByUserId = await prisma.user.findUnique({
     where: { userId },
+    include: { roles: true },
   });
 
   if (userByUserId) {
-    // User found, update their name and email just in case they changed.
+    // User found by their auth ID. Check if the email from the token creates a conflict.
+    const potentialConflict = await prisma.user.findFirst({
+      where: {
+        email: email,
+        NOT: { userId: userId }, // Look for other users with this email
+      },
+    });
+
+    if (potentialConflict) {
+      // The email from the token is already used by another user in the DB.
+      // This is a conflict. We log it and only update the name to avoid a crash.
+      console.warn(
+        `Login attempt for userId ${userId} with email ${email}, but this email is already registered to user ${potentialConflict.id}. Only updating name.`
+      );
+      return prisma.user.update({
+        where: { userId },
+        data: { name }, // Only update name to prevent unique constraint violation
+        include: { roles: true },
+      });
+    }
+
+    // No email conflict, it's safe to update both name and email.
     return prisma.user.update({
       where: { userId },
       data: { name, email },
@@ -93,15 +114,15 @@ export async function syncUserOnLogin(
   }
 
   // If no user is found by userId, check if a user exists with that email.
-  // This handles cases where the userId might have changed or there's a data mismatch.
+  // This handles cases where the userId might have changed or there's a data mismatch (e.g., seed vs. live auth).
   const userByEmail = await prisma.user.findUnique({
     where: { email },
+    include: { roles: true },
   });
 
   if (userByEmail) {
     // A user with this email exists, but with a different userId.
-    // We'll update their userId to the new one provided by the auth token.
-    // This treats the email as the more stable identifier for linking accounts.
+    // We'll update their userId to the new one from the auth token, linking the accounts.
     return prisma.user.update({
       where: { email },
       data: { userId, name }, // Update their userId and name
