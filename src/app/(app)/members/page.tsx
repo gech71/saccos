@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -54,8 +54,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { exportToExcel } from '@/lib/utils';
-import { getMembersPageData, addMember, updateMember, deleteMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
+import { getMembersPageData, addMember, updateMember, deleteMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import * as XLSX from 'xlsx';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -78,6 +79,12 @@ const initialMemberFormState: Partial<Member> = {
   expectedMonthlySaving: 0,
 };
 
+type ParsedMember = {
+  fullName: string;
+  savingsBalance: number;
+  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in school';
+  originalRow: any;
+};
 
 export default function MembersPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +107,13 @@ export default function MembersPage() {
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importSchoolId, setImportSchoolId] = useState<string>('');
+  const [importSavingAccountTypeId, setImportSavingAccountTypeId] = useState<string>('');
+  const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('member:edit'), [user]);
@@ -326,6 +340,103 @@ export default function MembersPage() {
     }));
     exportToExcel(dataToExport, 'members_export');
   };
+  
+  // --- Import Logic ---
+  const openImportModal = () => {
+    setImportSchoolId('');
+    setImportSavingAccountTypeId('');
+    setParsedMembers([]);
+    setIsImportModalOpen(true);
+  };
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!importSchoolId || !importSavingAccountTypeId) {
+        toast({ variant: 'destructive', title: 'Selection Required', description: 'Please select a School and Saving Account Type before choosing a file.' });
+        event.target.value = ''; // Reset file input
+        return;
+      }
+      setIsParsing(true);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          const existingSchoolMemberNames = members
+            .filter(m => m.schoolId === importSchoolId)
+            .map(m => m.fullName.toLowerCase());
+            
+          const seenInFile = new Set<string>();
+
+          const validatedData: ParsedMember[] = dataRows.map(row => {
+            const fullName = row['Member Name']?.toString().trim();
+            const savingsBalance = parseFloat(row['Initial Savings Balance (Birr)']);
+
+            if (!fullName || isNaN(savingsBalance)) {
+              return null; // Skip invalid rows
+            }
+            
+            let status: ParsedMember['status'] = 'Ready to import';
+            if (existingSchoolMemberNames.includes(fullName.toLowerCase())) {
+              status = 'Already exists in school';
+            } else if (seenInFile.has(fullName.toLowerCase())) {
+              status = 'Duplicate in file';
+            }
+            seenInFile.add(fullName.toLowerCase());
+
+            return { fullName, savingsBalance, status, originalRow: row };
+          }).filter((r): r is ParsedMember => r !== null);
+          
+          setParsedMembers(validatedData);
+
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has "Member Name" and "Initial Savings Balance (Birr)" columns.' });
+        } finally {
+          setIsParsing(false);
+        }
+      };
+      reader.readAsBinaryString(file);
+    }
+  };
+  
+  const handleConfirmImport = async () => {
+    const membersToCreate = parsedMembers
+      .filter(m => m.status === 'Ready to import')
+      .map(m => ({ fullName: m.fullName, savingsBalance: m.savingsBalance }));
+      
+    if (membersToCreate.length === 0) {
+      toast({ title: 'No New Members', description: 'There are no new members to import.' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const result = await importMembers({
+        schoolId: importSchoolId,
+        savingAccountTypeId: importSavingAccountTypeId,
+        members: membersToCreate
+      });
+      
+      if (result.success) {
+        toast({ title: 'Import Complete', description: result.message });
+        await fetchPageData();
+        setIsImportModalOpen(false);
+      } else {
+        toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
+      }
+      
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -333,6 +444,11 @@ export default function MembersPage() {
         <Button onClick={handleExport} variant="outline" disabled={isLoading || members.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
+        {canCreate && (
+          <Button onClick={openImportModal} variant="outline" disabled={isLoading}>
+              <UploadCloud className="mr-2 h-4 w-4" /> Import Members
+          </Button>
+        )}
         {canCreate && (
           <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
               <PlusCircle className="mr-2 h-5 w-5" /> Add Member
@@ -370,15 +486,10 @@ export default function MembersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all members" />
-              </TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Saving Acct. #</TableHead>
-              <TableHead>Saving Acct. Type</TableHead>
-              <TableHead className="text-right">Exp. Monthly Saving (Birr)</TableHead>
               <TableHead className="text-right">Current Savings (Birr)</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -386,12 +497,9 @@ export default function MembersPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredMembers.length > 0 ? filteredMembers.map(member => (
               <TableRow key={member.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select member ${member.fullName}`} />
-                </TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>
                     <div className="text-sm">{member.email}</div>
@@ -401,8 +509,6 @@ export default function MembersPage() {
                   <Badge variant="secondary">{member.school?.name}</Badge>
                 </TableCell>
                 <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                <TableCell>{member.savingAccountTypeName || member.savingAccountType?.name || 'N/A'}</TableCell>
-                <TableCell className="text-right">{(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-right">{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
                   <div className="font-medium">{member.sharesCount} Shares</div>
@@ -444,7 +550,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={10} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -452,11 +558,6 @@ export default function MembersPage() {
           </TableBody>
         </Table>
       </div>
-      {filteredMembers.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
 
       {/* Member Add/Edit/View Modal */}
       <Dialog open={isMemberModalOpen} onOpenChange={(isOpen) => {
@@ -476,7 +577,6 @@ export default function MembersPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
-            {/* Personal Info Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
@@ -575,14 +675,14 @@ export default function MembersPage() {
                 <Label htmlFor="savingsBalance">Initial Savings Balance (Birr)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly}/>
+                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly || isEditingMember}/>
                 </div>
               </div>
                <div>
                 <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
                 <div className="relative">
                     <LucidePieChart className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly}/>
+                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly || isEditingMember}/>
                 </div>
               </div>
               <div>
@@ -670,6 +770,80 @@ export default function MembersPage() {
             </DialogFooter>
           </form>
         </DialogContent>
+      </Dialog>
+      
+      {/* Import Members Modal */}
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                  <DialogTitle className="font-headline">Import Members</DialogTitle>
+                  <DialogDescription>
+                      Upload an Excel file with "Member Name" and "Initial Savings Balance (Birr)" columns.
+                      Other required fields will use the defaults selected below.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="importSchool">School <span className="text-destructive">*</span></Label>
+                          <Select value={importSchoolId} onValueChange={setImportSchoolId} required>
+                              <SelectTrigger id="importSchool"><SelectValue placeholder="Assign all to school..." /></SelectTrigger>
+                              <SelectContent>{schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                      </div>
+                      <div>
+                          <Label htmlFor="importSavingType">Saving Account Type <span className="text-destructive">*</span></Label>
+                          <Select value={importSavingAccountTypeId} onValueChange={setImportSavingAccountTypeId} required>
+                              <SelectTrigger id="importSavingType"><SelectValue placeholder="Assign all to type..." /></SelectTrigger>
+                              <SelectContent>{savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                      </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
+                    <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" disabled={!importSchoolId || !importSavingAccountTypeId}/>
+                    <p className="text-xs text-muted-foreground mt-1">Select a file to preview the import.</p>
+                  </div>
+                  
+                  {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+
+                  {parsedMembers.length > 0 && (
+                      <div>
+                          <Label>Import Preview</Label>
+                           <div className="mt-2 h-64 overflow-y-auto rounded-md border">
+                                <Table>
+                                    <TableHeader className="sticky top-0 bg-muted">
+                                        <TableRow>
+                                            <TableHead>Member Name</TableHead>
+                                            <TableHead>Initial Savings Balance (Birr)</TableHead>
+                                            <TableHead>Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {parsedMembers.map((member, index) => (
+                                            <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                                                <TableCell>{member.fullName}</TableCell>
+                                                <TableCell>{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                                <TableCell><Badge variant={member.status !== 'Ready to import' ? 'destructive' : 'secondary'}>{member.status}</Badge></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                           </div>
+                           <p className="text-xs text-muted-foreground mt-1">
+                                {parsedMembers.filter(m => m.status === 'Ready to import').length} members will be imported. Others will be skipped.
+                           </p>
+                      </div>
+                  )}
+              </div>
+              <DialogFooter>
+                  <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                  <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedMembers.filter(m => m.status === 'Ready to import').length === 0}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Import Members
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
       </Dialog>
       
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

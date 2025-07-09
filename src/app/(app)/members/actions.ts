@@ -207,3 +207,73 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
         return { success: false, message: 'Failed to delete member. They may have related records that could not be deleted.' };
     }
 }
+
+export async function importMembers(data: {
+  schoolId: string;
+  savingAccountTypeId: string;
+  members: { fullName: string; savingsBalance: number }[];
+}): Promise<{ success: boolean; message: string, createdCount: number }> {
+    const { schoolId, savingAccountTypeId, members } = data;
+
+    if (!schoolId || !savingAccountTypeId || !members.length) {
+        return { success: false, message: 'School, Saving Account Type, and at least one member are required.', createdCount: 0 };
+    }
+
+    const savingAccountType = await prisma.savingAccountType.findUnique({
+        where: { id: savingAccountTypeId },
+    });
+
+    if (!savingAccountType) {
+        return { success: false, message: 'Invalid Saving Account Type selected.', createdCount: 0 };
+    }
+    
+    const existingMemberNames = (await prisma.member.findMany({
+        where: {
+            schoolId: schoolId,
+            fullName: { in: members.map(m => m.fullName) }
+        },
+        select: { fullName: true }
+    })).map(m => m.fullName.toLowerCase());
+    
+    const membersToCreate = members.filter(m => !existingMemberNames.includes(m.fullName.toLowerCase()));
+    const skippedCount = members.length - membersToCreate.length;
+
+    if (membersToCreate.length === 0) {
+        return { success: true, message: `Import finished. ${skippedCount} member(s) were skipped as they already exist in this school.`, createdCount: 0 };
+    }
+
+    const newMembersData = membersToCreate.map((member, i) => {
+        const uniqueSuffix = `${Date.now()}${i}`;
+        return {
+            fullName: member.fullName,
+            email: `imported.${uniqueSuffix}@placeholder.email`,
+            sex: 'Male' as 'Male' | 'Female' | 'Other',
+            phoneNumber: '0000000000',
+            schoolId: schoolId,
+            joinDate: new Date(),
+            savingsBalance: member.savingsBalance,
+            savingsAccountNumber: `IMP-${uniqueSuffix}`,
+            sharesCount: 0,
+            savingAccountTypeId: savingAccountTypeId,
+            expectedMonthlySaving: savingAccountType.expectedMonthlyContribution ?? 0,
+            status: 'active' as 'active' | 'inactive',
+        };
+    });
+
+    try {
+        const result = await prisma.member.createMany({
+            data: newMembersData,
+            skipDuplicates: true,
+        });
+
+        revalidatePath('/members');
+        return { 
+            success: true, 
+            message: `Successfully imported ${result.count} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
+            createdCount: result.count 
+        };
+    } catch (error) {
+        console.error("Failed to import members:", error);
+        return { success: false, message: 'An error occurred during the database operation.', createdCount: 0 };
+    }
+}
