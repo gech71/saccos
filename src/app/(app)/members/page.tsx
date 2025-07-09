@@ -570,10 +570,7 @@ export default function MembersPage() {
         </Table>
       </div>
 
-       <div className="flex items-center justify-between px-2 pt-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-            {filteredMembers.length} member(s) found.
-        </div>
+       <div className="flex flex-col items-center gap-2 pt-4">
         <div className="flex items-center space-x-6 lg:space-x-8">
             <div className="flex items-center space-x-2">
                 <p className="text-sm font-medium">Rows per page</p>
@@ -617,6 +614,9 @@ export default function MembersPage() {
                     Next
                 </Button>
             </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {filteredMembers.length} member(s) found.
         </div>
       </div>
 
