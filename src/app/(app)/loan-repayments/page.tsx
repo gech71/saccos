@@ -136,6 +136,37 @@ export default function LoanRepaymentsPage() {
     return Math.ceil(filteredRepayments.length / rowsPerPage);
   }, [filteredRepayments.length, rowsPerPage]);
 
+  const getPaginationItems = () => {
+    if (totalPages <= 1) return [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (i - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+
+    return rangeWithDots;
+  };
+  
+  const paginationItems = getPaginationItems();
 
   const handleExport = () => {
     const dataToExport = filteredRepayments.map(r => {
@@ -196,54 +227,69 @@ export default function LoanRepaymentsPage() {
       </div>
 
       {filteredRepayments.length > 0 && (
-        <div className="flex flex-col items-center gap-2 pt-4">
-          <div className="flex items-center space-x-6 lg:space-x-8">
-              <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Rows per page</p>
-                  <Select
-                      value={`${rowsPerPage}`}
-                      onValueChange={(value) => {
-                          setRowsPerPage(Number(value));
-                          setCurrentPage(1);
-                      }}
-                  >
-                      <SelectTrigger className="h-8 w-[70px]">
-                          <SelectValue placeholder={`${rowsPerPage}`} />
-                      </SelectTrigger>
-                      <SelectContent side="top">
-                          {[10, 15, 20, 25].map((pageSize) => (
-                              <SelectItem key={pageSize} value={`${pageSize}`}>
-                                  {pageSize}
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-              </div>
-              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                  Page {currentPage} of {totalPages || 1}
-              </div>
-              <div className="flex items-center space-x-2">
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                  >
-                      Previous
-                  </Button>
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= totalPages}
-                  >
-                      Next
-                  </Button>
-              </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {filteredRepayments.length} repayment(s) found.
-          </div>
+        <div className="flex flex-col items-center gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                    {paginationItems.map((item, index) =>
+                        typeof item === 'number' ? (
+                            <Button
+                                key={index}
+                                variant={currentPage === item ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-9 w-9 p-0"
+                                onClick={() => setCurrentPage(item)}
+                            >
+                                {item}
+                            </Button>
+                        ) : (
+                            <span key={index} className="px-2">
+                                {item}
+                            </span>
+                        )
+                    )}
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                </Button>
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                <div>Page {currentPage} of {totalPages || 1}</div>
+                <div>{filteredRepayments.length} repayment(s) found.</div>
+                <div className="flex items-center space-x-2">
+                    <p className="font-medium">Rows:</p>
+                    <Select
+                        value={`${rowsPerPage}`}
+                        onValueChange={(value) => {
+                            setRowsPerPage(Number(value));
+                            setCurrentPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={`${rowsPerPage}`} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 15, 20, 25, 50].map((pageSize) => (
+                                <SelectItem key={pageSize} value={`${pageSize}`}>
+                                    {pageSize}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
         </div>
       )}
 

@@ -129,6 +129,38 @@ export default function GroupCollectionsPage() {
     return Math.ceil(eligibleMembers.length / rowsPerPage);
   }, [eligibleMembers.length, rowsPerPage]);
 
+  const getPaginationItems = () => {
+    if (totalPages <= 1) return [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (i - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+
+    return rangeWithDots;
+  };
+  
+  const paginationItems = getPaginationItems();
+
   const handleLoadMembers = () => {
     if (!selectedSchool || !selectedAccountType || !selectedYear || !selectedMonth || !pageData) {
       toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select school, account type, year, and month.' });
@@ -473,10 +505,49 @@ export default function GroupCollectionsPage() {
                           </Table>
                       </div>
                        {eligibleMembers.length > 0 && (
-                        <div className="flex flex-col items-center gap-2 pt-4">
-                          <div className="flex items-center space-x-6 lg:space-x-8">
+                        <div className="flex flex-col items-center gap-4 pt-4">
+                          <div className="flex items-center space-x-2">
+                              <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(currentPage - 1)}
+                                  disabled={currentPage === 1}
+                              >
+                                  Previous
+                              </Button>
+                              <div className="flex items-center gap-1">
+                                  {paginationItems.map((item, index) =>
+                                      typeof item === 'number' ? (
+                                          <Button
+                                              key={index}
+                                              variant={currentPage === item ? 'default' : 'outline'}
+                                              size="sm"
+                                              className="h-9 w-9 p-0"
+                                              onClick={() => setCurrentPage(item)}
+                                          >
+                                              {item}
+                                          </Button>
+                                      ) : (
+                                          <span key={index} className="px-2">
+                                              {item}
+                                          </span>
+                                      )
+                                  )}
+                              </div>
+                              <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setCurrentPage(currentPage + 1)}
+                                  disabled={currentPage >= totalPages}
+                              >
+                                  Next
+                              </Button>
+                          </div>
+                          <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                              <div>Page {currentPage} of {totalPages || 1}</div>
+                              <div>{eligibleMembers.length} eligible member(s) found.</div>
                               <div className="flex items-center space-x-2">
-                                  <p className="text-sm font-medium">Rows per page</p>
+                                  <p className="font-medium">Rows:</p>
                                   <Select
                                       value={`${rowsPerPage}`}
                                       onValueChange={(value) => {
@@ -488,7 +559,7 @@ export default function GroupCollectionsPage() {
                                           <SelectValue placeholder={`${rowsPerPage}`} />
                                       </SelectTrigger>
                                       <SelectContent side="top">
-                                          {[10, 15, 20, 25].map((pageSize) => (
+                                          {[10, 15, 20, 25, 50].map((pageSize) => (
                                               <SelectItem key={pageSize} value={`${pageSize}`}>
                                                   {pageSize}
                                               </SelectItem>
@@ -496,30 +567,6 @@ export default function GroupCollectionsPage() {
                                       </SelectContent>
                                   </Select>
                               </div>
-                              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                  Page {currentPage} of {totalPages || 1}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                  <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setCurrentPage(currentPage - 1)}
-                                      disabled={currentPage === 1}
-                                  >
-                                      Previous
-                                  </Button>
-                                  <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setCurrentPage(currentPage + 1)}
-                                      disabled={currentPage >= totalPages}
-                                  >
-                                      Next
-                                  </Button>
-                              </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {eligibleMembers.length} eligible member(s) found.
                           </div>
                         </div>
                       )}
@@ -585,7 +632,7 @@ export default function GroupCollectionsPage() {
                             <CardContent className="p-0 pt-2">
                                 <div className="text-lg font-bold text-primary flex justify-between items-center">
                                     <span>Total Collection Amount:</span>
-                                    <span>{collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : excelSummary.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                                    <span>{(collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving : excelSummary.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                                 </div>
                             </CardContent>
                           </Card>
