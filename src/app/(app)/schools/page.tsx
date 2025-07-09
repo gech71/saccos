@@ -44,6 +44,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { exportToExcel } from '@/lib/utils';
 import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
 import { useAuth } from '@/contexts/auth-context';
@@ -68,6 +75,9 @@ export default function SchoolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   const canCreate = useMemo(() => user?.permissions.includes('school:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('school:edit'), [user]);
@@ -181,6 +191,16 @@ export default function SchoolsPage() {
     }));
     exportToExcel(dataToExport, 'schools_export');
   };
+  
+  const paginatedSchools = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredSchools.slice(startIndex, endIndex);
+  }, [filteredSchools, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredSchools.length / rowsPerPage);
+  }, [filteredSchools.length, rowsPerPage]);
 
   return (
     <div className="space-y-6">
@@ -245,7 +265,7 @@ export default function SchoolsPage() {
           <TableBody>
             {isLoading ? (
                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredSchools.length > 0 ? filteredSchools.map(school => (
+            ) : paginatedSchools.length > 0 ? paginatedSchools.map(school => (
               <TableRow key={school.id}>
                 <TableCell>
                   <Checkbox aria-label={`Select school ${school.name}`} />
@@ -259,7 +279,7 @@ export default function SchoolsPage() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -283,11 +303,56 @@ export default function SchoolsPage() {
           </TableBody>
         </Table>
       </div>
-       {filteredSchools.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
+
+      <div className="flex items-center justify-between px-2 pt-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+            {filteredSchools.length} school(s) found.
         </div>
-      )}
+        <div className="flex items-center space-x-6 lg:space-x-8">
+            <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Rows per page</p>
+                <Select
+                    value={`${rowsPerPage}`}
+                    onValueChange={(value) => {
+                        setRowsPerPage(Number(value));
+                        setCurrentPage(1);
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={`${rowsPerPage}`} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                        {[10, 15, 20, 25].map((pageSize) => (
+                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                {pageSize}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                Page {currentPage} of {totalPages || 1}
+            </div>
+            <div className="flex items-center space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                </Button>
+            </div>
+        </div>
+      </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[480px]">

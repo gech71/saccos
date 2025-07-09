@@ -108,6 +108,9 @@ export default function MembersPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  
   // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importSchoolId, setImportSchoolId] = useState<string>('');
@@ -341,6 +344,14 @@ export default function MembersPage() {
     exportToExcel(dataToExport, 'members_export');
   };
   
+  const paginatedMembers = useMemo(() => {
+    return filteredMembers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  }, [filteredMembers, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredMembers.length / rowsPerPage);
+  }, [filteredMembers.length, rowsPerPage]);
+  
   // --- Import Logic ---
   const openImportModal = () => {
     setImportSchoolId('');
@@ -490,7 +501,7 @@ export default function MembersPage() {
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Saving Acct. #</TableHead>
-              <TableHead className="text-right">Current Savings (Birr)</TableHead>
+              <TableHead className="text-right">Current Savings</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -498,7 +509,7 @@ export default function MembersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredMembers.length > 0 ? filteredMembers.map(member => (
+            ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>
@@ -557,6 +568,56 @@ export default function MembersPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+       <div className="flex items-center justify-between px-2 pt-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+            {filteredMembers.length} member(s) found.
+        </div>
+        <div className="flex items-center space-x-6 lg:space-x-8">
+            <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Rows per page</p>
+                <Select
+                    value={`${rowsPerPage}`}
+                    onValueChange={(value) => {
+                        setRowsPerPage(Number(value));
+                        setCurrentPage(1);
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={`${rowsPerPage}`} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                        {[10, 15, 20, 25].map((pageSize) => (
+                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                {pageSize}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                Page {currentPage} of {totalPages || 1}
+            </div>
+            <div className="flex items-center space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                </Button>
+            </div>
+        </div>
       </div>
 
       {/* Member Add/Edit/View Modal */}
@@ -815,7 +876,7 @@ export default function MembersPage() {
                                     <TableHeader className="sticky top-0 bg-muted">
                                         <TableRow>
                                             <TableHead>Member Name</TableHead>
-                                            <TableHead>Initial Savings Balance (Birr)</TableHead>
+                                            <TableHead>Initial Savings Balance</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
