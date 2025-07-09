@@ -92,6 +92,10 @@ export default function GroupCollectionsPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedExcelData[]>([]);
 
+  // PAGINATION STATE
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const canCreate = useMemo(() => user?.permissions.includes('groupCollection:create'), [user]);
 
   useEffect(() => {
@@ -114,6 +118,16 @@ export default function GroupCollectionsPage() {
     setEligibleMembers([]); 
     setSelectedMemberIds([]);
   };
+  
+  const paginatedEligibleMembers = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return eligibleMembers.slice(startIndex, endIndex);
+  }, [eligibleMembers, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(eligibleMembers.length / rowsPerPage);
+  }, [eligibleMembers.length, rowsPerPage]);
 
   const handleLoadMembers = () => {
     if (!selectedSchool || !selectedAccountType || !selectedYear || !selectedMonth || !pageData) {
@@ -434,14 +448,14 @@ export default function GroupCollectionsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {eligibleMembers.map(member => (
+                              {paginatedEligibleMembers.map(member => (
                                 <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
                                   <TableCell className="px-2">
                                     <Checkbox checked={selectedMemberIds.includes(member.id)} onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)} disabled={!canCreate} />
                                   </TableCell>
                                   <TableCell className="font-medium">{member.fullName}</TableCell>
                                   <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">{(member.expectedMonthlySaving || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                  <TableCell className="text-right">{member.expectedMonthlySaving?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
@@ -458,6 +472,57 @@ export default function GroupCollectionsPage() {
                             </TableBody>
                           </Table>
                       </div>
+                       {eligibleMembers.length > 0 && (
+                        <div className="flex flex-col items-center gap-2 pt-4">
+                          <div className="flex items-center space-x-6 lg:space-x-8">
+                              <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-medium">Rows per page</p>
+                                  <Select
+                                      value={`${rowsPerPage}`}
+                                      onValueChange={(value) => {
+                                          setRowsPerPage(Number(value));
+                                          setCurrentPage(1);
+                                      }}
+                                  >
+                                      <SelectTrigger className="h-8 w-[70px]">
+                                          <SelectValue placeholder={`${rowsPerPage}`} />
+                                      </SelectTrigger>
+                                      <SelectContent side="top">
+                                          {[10, 15, 20, 25].map((pageSize) => (
+                                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                  {pageSize}
+                                              </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                  Page {currentPage} of {totalPages || 1}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                  <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setCurrentPage(currentPage - 1)}
+                                      disabled={currentPage === 1}
+                                  >
+                                      Previous
+                                  </Button>
+                                  <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setCurrentPage(currentPage + 1)}
+                                      disabled={currentPage >= totalPages}
+                                  >
+                                      Next
+                                  </Button>
+                              </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {eligibleMembers.length} eligible member(s) found.
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                  )}
               </Card>

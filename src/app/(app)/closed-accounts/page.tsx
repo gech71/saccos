@@ -35,6 +35,9 @@ export default function ClosedAccountsPage() {
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   useEffect(() => {
     async function fetchData() {
         setIsLoading(true);
@@ -62,6 +65,16 @@ export default function ClosedAccountsPage() {
       return matchesSearchTerm && matchesSchoolFilter;
     });
   }, [closedAccounts, searchTerm, selectedSchoolFilter]);
+  
+  const paginatedAccounts = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredClosedAccounts.slice(startIndex, endIndex);
+  }, [filteredClosedAccounts, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredClosedAccounts.length / rowsPerPage);
+  }, [filteredClosedAccounts.length, rowsPerPage]);
 
   const handleExport = () => {
     if (filteredClosedAccounts.length === 0) return;
@@ -124,7 +137,7 @@ export default function ClosedAccountsPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredClosedAccounts.length > 0 ? filteredClosedAccounts.map(member => (
+            ) : paginatedAccounts.length > 0 ? paginatedAccounts.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
@@ -154,6 +167,58 @@ export default function ClosedAccountsPage() {
           </TableBody>
         </Table>
       </div>
+
+       {filteredClosedAccounts.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredClosedAccounts.length} closed account(s) found.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -69,6 +69,9 @@ export default function AppliedServiceChargesPage() {
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [applyChargeForm, setApplyChargeForm] = useState(initialApplyChargeFormState);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const canCreate = useMemo(() => user?.permissions.includes('serviceCharge:create'), [user]);
   const canRecordPayment = useMemo(() => user?.permissions.includes('serviceCharge:edit'), [user]);
   
@@ -95,6 +98,16 @@ export default function AppliedServiceChargesPage() {
       return matchesSearchTerm && matchesSchoolFilter;
     });
   }, [pageData, searchTerm, selectedSchoolFilter]);
+  
+  const paginatedSummaries = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredMemberSummaries.slice(startIndex, endIndex);
+  }, [filteredMemberSummaries, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredMemberSummaries.length / rowsPerPage);
+  }, [filteredMemberSummaries.length, rowsPerPage]);
 
   const globalSummaryStats = useMemo(() => {
     if (!filteredMemberSummaries) return { totalAppliedGlobal: 0, totalPaidGlobal: 0, totalPendingGlobal: 0 };
@@ -238,7 +251,7 @@ export default function AppliedServiceChargesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMemberSummaries.length > 0 ? filteredMemberSummaries.map(summary => (
+            {paginatedSummaries.length > 0 ? paginatedSummaries.map(summary => (
               <TableRow key={summary.memberId} className={summary.totalPending > 0 ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
@@ -278,6 +291,58 @@ export default function AppliedServiceChargesPage() {
           </TableBody>
         </Table>
       </div>
+
+      {filteredMemberSummaries.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredMemberSummaries.length} member(s) with service charges found.
+          </div>
+        </div>
+      )}
 
       <Dialog open={isApplyChargeModalOpen} onOpenChange={setIsApplyChargeModalOpen}>
         <DialogContent className="sm:max-w-md">

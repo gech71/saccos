@@ -11,6 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { LoanRepayment, Loan, Member } from '@prisma/client';
 import { cn } from '@/lib/utils';
@@ -50,6 +57,9 @@ export default function LoanRepaymentsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const canCreate = useMemo(() => user?.permissions.includes('loanRepayment:create'), [user]);
 
@@ -115,6 +125,17 @@ export default function LoanRepaymentsPage() {
       return repayment.member?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
     });
   }, [repayments, searchTerm]);
+  
+  const paginatedRepayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredRepayments.slice(startIndex, endIndex);
+  }, [filteredRepayments, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredRepayments.length / rowsPerPage);
+  }, [filteredRepayments.length, rowsPerPage]);
+
 
   const handleExport = () => {
     const dataToExport = filteredRepayments.map(r => {
@@ -157,7 +178,7 @@ export default function LoanRepaymentsPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : filteredRepayments.length > 0 ? filteredRepayments.map(repayment => {
+            ) : paginatedRepayments.length > 0 ? paginatedRepayments.map(repayment => {
                 return (
                     <TableRow key={repayment.id}>
                         <TableCell className="font-medium">{repayment.member?.fullName}</TableCell>
@@ -173,6 +194,58 @@ export default function LoanRepaymentsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {filteredRepayments.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredRepayments.length} repayment(s) found.
+          </div>
+        </div>
+      )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">

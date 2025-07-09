@@ -81,6 +81,9 @@ export default function OverduePaymentsPage() {
   const [selectedOverdueMemberForPayment, setSelectedOverdueMemberForPayment] = useState<OverdueMemberInfo | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(initialPaymentFormState);
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const canCreate = useMemo(() => user?.permissions.includes('overduePayment:create'), [user]);
 
   const fetchPageData = async () => {
@@ -108,6 +111,16 @@ export default function OverduePaymentsPage() {
     });
   }, [pageData, searchTerm, selectedSchoolFilter]);
   
+  const paginatedOverdueMembers = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredOverdueMembers.slice(startIndex, endIndex);
+  }, [filteredOverdueMembers, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredOverdueMembers.length / rowsPerPage);
+  }, [filteredOverdueMembers.length, rowsPerPage]);
+
   
   const handleOpenPaymentModal = (member: OverdueMemberInfo) => {
     setSelectedOverdueMemberForPayment(member);
@@ -312,7 +325,7 @@ export default function OverduePaymentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOverdueMembers.length > 0 ? filteredOverdueMembers.map(member => (
+            {paginatedOverdueMembers.length > 0 ? paginatedOverdueMembers.map(member => (
               <TableRow key={member.memberId} className={member.hasAnyOverdue ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>{member.schoolName}</TableCell>
@@ -366,6 +379,58 @@ export default function OverduePaymentsPage() {
           </TableBody>
         </Table>
       </div>
+
+       {filteredOverdueMembers.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredOverdueMembers.length} member(s) found.
+          </div>
+        </div>
+      )}
 
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
         <DialogContent className="sm:max-w-lg">

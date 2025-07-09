@@ -25,6 +25,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { exportToExcel } from '@/lib/utils';
 import { getPendingTransactions, approveTransaction, rejectTransaction, type PendingTransaction } from './actions';
 import type { Saving, Share, Dividend } from '@prisma/client';
@@ -41,8 +48,21 @@ export default function ApproveTransactionsPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const canApprove = useMemo(() => user?.permissions.includes('transactionApproval:edit'), [user]);
   
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return pendingTransactions.slice(startIndex, endIndex);
+  }, [pendingTransactions, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(pendingTransactions.length / rowsPerPage);
+  }, [pendingTransactions.length, rowsPerPage]);
+
   const fetchPendingTransactions = async () => {
     setIsLoading(true);
     try {
@@ -156,7 +176,7 @@ export default function ApproveTransactionsPage() {
           <TableBody>
             {isLoading ? (
                  <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : pendingTransactions.length > 0 ? pendingTransactions.map(tx => (
+            ) : paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
               <TableRow key={tx.id}>
                 <TableCell>{new Date(tx.date || tx.allocationDate).toLocaleDateString()}</TableCell>
                 <TableCell className="font-medium">{tx.memberName}</TableCell>
@@ -192,6 +212,58 @@ export default function ApproveTransactionsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {pendingTransactions.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {pendingTransactions.length} transaction(s) found.
+          </div>
+        </div>
+      )}
 
        <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
         <DialogContent className="sm:max-w-md">

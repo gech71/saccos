@@ -52,6 +52,9 @@ export default function CollectionForecastPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [forecastData, setForecastData] = useState<ForecastResult[] | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     async function fetchData() {
@@ -71,6 +74,18 @@ export default function CollectionForecastPage() {
   useEffect(() => {
       setSelectedTypeId(''); // Reset type selection when collection type changes
   }, [collectionType]);
+
+  const paginatedForecastData = useMemo(() => {
+    if (!forecastData) return [];
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return forecastData.slice(startIndex, endIndex);
+  }, [forecastData, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    if (!forecastData) return 0;
+    return Math.ceil(forecastData.length / rowsPerPage);
+  }, [forecastData, rowsPerPage]);
 
   const handleLoadForecast = async () => {
     if (!selectedSchool || !selectedTypeId) {
@@ -249,7 +264,7 @@ export default function CollectionForecastPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {forecastData.length > 0 ? forecastData.map(result => (
+                  {paginatedForecastData.length > 0 ? paginatedForecastData.map(result => (
                     <TableRow key={result.memberId}>
                       <TableCell className="font-medium">{result.fullName}</TableCell>
                       <TableCell>{result.schoolName}</TableCell>
@@ -265,6 +280,57 @@ export default function CollectionForecastPage() {
                 </TableBody>
               </Table>
             </div>
+             {forecastData.length > 0 && (
+                <div className="flex flex-col items-center gap-2 pt-4">
+                  <div className="flex items-center space-x-6 lg:space-x-8">
+                      <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium">Rows per page</p>
+                          <Select
+                              value={`${rowsPerPage}`}
+                              onValueChange={(value) => {
+                                  setRowsPerPage(Number(value));
+                                  setCurrentPage(1);
+                              }}
+                          >
+                              <SelectTrigger className="h-8 w-[70px]">
+                                  <SelectValue placeholder={`${rowsPerPage}`} />
+                              </SelectTrigger>
+                              <SelectContent side="top">
+                                  {[10, 15, 20, 25].map((pageSize) => (
+                                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                                          {pageSize}
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                          Page {currentPage} of {totalPages || 1}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(currentPage - 1)}
+                              disabled={currentPage === 1}
+                          >
+                              Previous
+                          </Button>
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(currentPage + 1)}
+                              disabled={currentPage >= totalPages}
+                          >
+                              Next
+                          </Button>
+                      </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {forecastData.length} member(s) found.
+                  </div>
+                </div>
+              )}
           </CardContent>
         </Card>
       )}

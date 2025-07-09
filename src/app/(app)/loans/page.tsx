@@ -82,6 +82,9 @@ export default function LoansPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
@@ -248,6 +251,16 @@ export default function LoansPage() {
       return matchesSearchTerm && matchesStatus;
     });
   }, [loans, searchTerm, selectedStatusFilter]);
+
+  const paginatedLoans = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredLoans.slice(startIndex, endIndex);
+  }, [filteredLoans, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredLoans.length / rowsPerPage);
+  }, [filteredLoans.length, rowsPerPage]);
   
   const getStatusBadgeVariant = (status: Loan['status']) => {
     switch (status) {
@@ -319,7 +332,7 @@ export default function LoansPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : filteredLoans.length > 0 ? filteredLoans.map(loan => (
+            ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => (
               <TableRow key={loan.id}>
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
@@ -352,6 +365,58 @@ export default function LoansPage() {
           </TableBody>
         </Table>
       </div>
+
+      {filteredLoans.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredLoans.length} loan(s) found.
+          </div>
+        </div>
+      )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-4xl">

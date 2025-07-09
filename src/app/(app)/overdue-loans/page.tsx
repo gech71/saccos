@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { School } from '@prisma/client';
-import { Search, Filter, AlertTriangle, SchoolIcon, Loader2 } from 'lucide-react';
+import { Search, Filter, AlertTriangle, SchoolIcon, Loader2, FileDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { getOverdueLoansPageData, type OverdueLoanInfo } from './actions';
+import { exportToExcel } from '@/lib/utils';
 
 export default function OverdueLoansPage() {
     const [overdueLoans, setOverdueLoans] = useState<OverdueLoanInfo[]>([]);
@@ -20,6 +21,9 @@ export default function OverdueLoansPage() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+    
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     useEffect(() => {
         async function fetchData() {
@@ -35,26 +39,48 @@ export default function OverdueLoansPage() {
     const filteredOverdueLoans = useMemo(() => {
         return overdueLoans.filter(loan => {
             const matchesSearchTerm = loan.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
-            // The action already fetches all overdue loans, so we filter client-side by school if needed
-            // This could be improved by passing filter to the action, but is fine for now.
-            // const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
-            // For now, this is a placeholder as we don't have schoolId on the loan directly in this fetched data.
-            // A more complex query would be needed in the action.
             return matchesSearchTerm;
         });
-    }, [overdueLoans, searchTerm, selectedSchoolFilter]);
+    }, [overdueLoans, searchTerm]);
+    
+    const paginatedOverdueLoans = useMemo(() => {
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = startIndex + rowsPerPage;
+      return filteredOverdueLoans.slice(startIndex, endIndex);
+    }, [filteredOverdueLoans, currentPage, rowsPerPage]);
+
+    const totalPages = useMemo(() => {
+      return Math.ceil(filteredOverdueLoans.length / rowsPerPage);
+    }, [filteredOverdueLoans.length, rowsPerPage]);
 
     const totalOverdueAmount = useMemo(() => {
         return filteredOverdueLoans.reduce((sum, loan) => sum + loan.remainingBalance, 0);
     }, [filteredOverdueLoans]);
     
+    const handleExport = () => {
+      if (filteredOverdueLoans.length === 0) return;
+      const dataToExport = filteredOverdueLoans.map(loan => ({
+        'Member Name': loan.memberName,
+        'Loan Acct. #': loan.loanAccountNumber || 'N/A',
+        'Loan Type': loan.loanTypeName || 'N/A',
+        'Remaining Balance (Birr)': loan.remainingBalance.toFixed(2),
+        'Next Due Date': loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A',
+        'Days Overdue': loan.daysOverdue,
+      }));
+      exportToExcel(dataToExport, 'overdue_loans_export');
+    };
+
     if (isLoading) {
         return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
 
     return (
         <div className="space-y-6">
-            <PageTitle title="Overdue Loans" subtitle="Monitor and manage loans with missed payment deadlines." />
+            <PageTitle title="Overdue Loans" subtitle="Monitor and manage loans with missed payment deadlines.">
+                <Button onClick={handleExport} variant="outline" disabled={filteredOverdueLoans.length === 0}>
+                    <FileDown className="mr-2 h-4 w-4" /> Export
+                </Button>
+            </PageTitle>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <Card className="shadow-md border-destructive">
@@ -104,7 +130,7 @@ export default function OverdueLoansPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredOverdueLoans.length > 0 ? filteredOverdueLoans.map(loan => (
+                        {paginatedOverdueLoans.length > 0 ? paginatedOverdueLoans.map(loan => (
                             <TableRow key={loan.id} className="bg-destructive/5">
                                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                                 <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
@@ -124,6 +150,58 @@ export default function OverdueLoansPage() {
                     </TableBody>
                 </Table>
             </div>
+            
+            {filteredOverdueLoans.length > 0 && (
+              <div className="flex flex-col items-center gap-2 pt-4">
+                <div className="flex items-center space-x-6 lg:space-x-8">
+                    <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium">Rows per page</p>
+                        <Select
+                            value={`${rowsPerPage}`}
+                            onValueChange={(value) => {
+                                setRowsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={`${rowsPerPage}`} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 15, 20, 25].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                        Page {currentPage} of {totalPages || 1}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            disabled={currentPage >= totalPages}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {filteredOverdueLoans.length} overdue loan(s) found.
+                </div>
+              </div>
+            )}
         </div>
     );
 }

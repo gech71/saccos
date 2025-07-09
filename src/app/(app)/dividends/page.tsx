@@ -84,6 +84,9 @@ export default function DividendsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
   const canCreate = useMemo(() => user?.permissions.includes('dividend:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('dividend:edit'), [user]);
   const canDelete = useMemo(() => user?.permissions.includes('dividend:delete'), [user]);
@@ -186,6 +189,17 @@ export default function DividendsPage() {
       return matchesSearchTerm && matchesMemberFilter;
     });
   }, [dividends, members, searchTerm, selectedMemberFilter]);
+
+  const paginatedDividends = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredDividends.slice(startIndex, endIndex);
+  }, [filteredDividends, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredDividends.length / rowsPerPage);
+  }, [filteredDividends.length, rowsPerPage]);
+
 
   const totalDividendsDistributed = useMemo(() => filteredDividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
   const averageDividendPerShare = useMemo(() => {
@@ -292,7 +306,7 @@ export default function DividendsPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredDividends.length > 0 ? filteredDividends.map(dividend => (
+            ) : paginatedDividends.length > 0 ? paginatedDividends.map(dividend => (
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
                 <TableCell className="font-medium">{(dividend as any).memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
@@ -328,9 +342,56 @@ export default function DividendsPage() {
           </TableBody>
         </Table>
       </div>
-       {filteredDividends.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
+
+       {filteredDividends.length > 0 && (
+        <div className="flex flex-col items-center gap-2 pt-4">
+          <div className="flex items-center space-x-6 lg:space-x-8">
+              <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select
+                      value={`${rowsPerPage}`}
+                      onValueChange={(value) => {
+                          setRowsPerPage(Number(value));
+                          setCurrentPage(1);
+                      }}
+                  >
+                      <SelectTrigger className="h-8 w-[70px]">
+                          <SelectValue placeholder={`${rowsPerPage}`} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                          {[10, 15, 20, 25].map((pageSize) => (
+                              <SelectItem key={pageSize} value={`${pageSize}`}>
+                                  {pageSize}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                  Page {currentPage} of {totalPages || 1}
+              </div>
+              <div className="flex items-center space-x-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                  >
+                      Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                  >
+                      Next
+                  </Button>
+              </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {filteredDividends.length} dividend record(s) found.
+          </div>
         </div>
       )}
 
