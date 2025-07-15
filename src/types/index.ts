@@ -4,6 +4,7 @@
 
 
 
+
 export interface School {
   id: string;
   name: string;
@@ -226,3 +227,11 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
 }
+
+
+export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' > & {
+    joinDate: string;
+    shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
+    address?: Prisma.AddressCreateWithoutMemberInput;
+    emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
+};

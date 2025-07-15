@@ -67,7 +67,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 }
 
 // Type for creating/updating a member, received from the client
-export type MemberInput = Omit<Member, 'id' | 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' > & {
+export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' > & {
     joinDate: string;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
     address?: Prisma.AddressCreateWithoutMemberInput;
@@ -76,7 +76,7 @@ export type MemberInput = Omit<Member, 'id' | 'schoolName' | 'savingAccountTypeN
 
 
 export async function addMember(data: MemberInput): Promise<Member> {
-    const { address, emergencyContact, shareCommitments, ...memberData } = data;
+    const { id, address, emergencyContact, shareCommitments, ...memberData } = data;
 
     // Check for uniqueness of savingsAccountNumber
     if (memberData.savingsAccountNumber) {
@@ -99,6 +99,7 @@ export async function addMember(data: MemberInput): Promise<Member> {
 
     const newMember = await prisma.member.create({
         data: {
+            id,
             ...memberData,
             status: 'active',
             joinDate: new Date(memberData.joinDate),
@@ -245,6 +246,7 @@ export async function importMembers(data: {
     const newMembersData = membersToCreate.map((member, i) => {
         const uniqueSuffix = `${Date.now()}${i}`;
         return {
+            id: `imported-${uniqueSuffix}`,
             fullName: member.fullName,
             email: `imported.${uniqueSuffix}@placeholder.email`,
             sex: 'Male' as 'Male' | 'Female' | 'Other',

@@ -63,6 +63,7 @@ const subcities = [
 ].sort();
 
 const initialMemberFormState: Partial<Member> = {
+  id: '',
   fullName: '',
   email: '',
   sex: 'Male',
@@ -226,14 +227,15 @@ export default function MembersPage() {
     e.preventDefault();
     if (isViewingOnly) return;
     
-    if (!currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber || !currentMember.savingAccountTypeId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Full Name, Email, Sex, Phone, School, Savings Account #, Saving Account Type).' });
+    if (!currentMember.id || !currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber || !currentMember.savingAccountTypeId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Member ID, Full Name, Email, Sex, Phone, School, Savings Account #, Saving Account Type).' });
         return;
     }
 
     setIsSubmitting(true);
     try {
         const memberInputData: MemberInput = {
+            id: currentMember.id!,
             fullName: currentMember.fullName!,
             email: currentMember.email!,
             sex: currentMember.sex!,
@@ -529,6 +531,7 @@ export default function MembersPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Member ID</TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
@@ -540,9 +543,10 @@ export default function MembersPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
               <TableRow key={member.id}>
+                <TableCell className="font-mono text-xs">{member.id}</TableCell>
                 <TableCell className="font-medium">{member.fullName}</TableCell>
                 <TableCell>
                     <div className="text-sm">{member.email}</div>
@@ -593,7 +597,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -688,17 +692,21 @@ export default function MembersPage() {
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
-              </div>
+                <div>
+                  <Label htmlFor="id">Member ID <span className="text-destructive">*</span></Label>
+                  <Input id="id" name="id" value={currentMember.id || ''} onChange={handleMemberInputChange} required readOnly={isEditingMember || isViewingOnly} />
+                </div>
+                <div>
+                  <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                  <Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
                 <Input id="email" name="email" type="email" value={currentMember.email || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+               <div>
                 <Label htmlFor="sex">Sex <span className="text-destructive">*</span></Label>
                 <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
@@ -709,6 +717,8 @@ export default function MembersPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phoneNumber">Phone Number <span className="text-destructive">*</span></Label>
                 <Input id="phoneNumber" name="phoneNumber" type="tel" value={currentMember.phoneNumber || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
