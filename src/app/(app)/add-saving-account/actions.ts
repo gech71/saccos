@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -60,17 +61,8 @@ export async function createSavingAccount(data: AccountCreationData) {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Update member with the new primary account information
-    await tx.member.update({
-      where: { id: memberId },
-      data: {
-        savingAccountTypeId: savingAccountTypeId,
-        savingsAccountNumber: finalAccountNumber,
-        expectedMonthlySaving: expectedMonthlySaving,
-      },
-    });
-
-    // If there's an initial balance, create a pending deposit transaction
+    // If there's an initial balance, create a pending deposit transaction.
+    // This is the core action now, rather than updating the member directly.
     if (initialBalance > 0) {
       await tx.saving.create({
         data: {
@@ -80,11 +72,24 @@ export async function createSavingAccount(data: AccountCreationData) {
           month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
           transactionType: 'deposit',
           status: 'pending',
-          notes: `Initial deposit for new account #${finalAccountNumber}`,
+          notes: `Initial deposit for new account #${finalAccountNumber} (${savingAccountType.name})`,
           depositMode: 'Bank', // Assume initial deposits are system-level/bank
           sourceName: 'System Opening Balance',
         },
       });
+    }
+
+    // Update the member's primary account details only if they don't have one set.
+    // This logic can be expanded in the future to manage multiple accounts.
+    if (!member.savingAccountTypeId) {
+        await tx.member.update({
+            where: { id: memberId },
+            data: {
+                savingAccountTypeId: savingAccountTypeId,
+                savingsAccountNumber: finalAccountNumber,
+                expectedMonthlySaving: expectedMonthlySaving,
+            },
+        });
     }
   });
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -513,7 +514,6 @@ export default function MembersPage() {
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
-              <TableHead>Saving Acct. #</TableHead>
               <TableHead className="text-right">Current Savings</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -521,7 +521,7 @@ export default function MembersPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-mono text-xs">{member.id}</TableCell>
@@ -533,7 +533,6 @@ export default function MembersPage() {
                 <TableCell>
                   <Badge variant="secondary">{member.school?.name}</Badge>
                 </TableCell>
-                <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
                 <TableCell className="text-right">{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
                   <div className="font-medium">{member.sharesCount} Shares</div>
@@ -575,7 +574,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
