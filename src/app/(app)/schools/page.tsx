@@ -57,6 +57,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 
 const initialSchoolFormState: Partial<School> = {
+  id: '',
   name: '',
   address: '',
   contactPerson: '',
@@ -107,8 +108,8 @@ export default function SchoolsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentSchool.name) {
-        toast({ variant: 'destructive', title: 'Error', description: 'School name is required.' });
+    if (!currentSchool.id || !currentSchool.name) {
+        toast({ variant: 'destructive', title: 'Error', description: 'School ID and Name are required.' });
         return;
     }
     
@@ -123,6 +124,7 @@ export default function SchoolsPage() {
         toast({ title: 'Success', description: 'School updated successfully.' });
       } else {
         await addSchool({
+          id: currentSchool.id,
           name: currentSchool.name,
           address: currentSchool.address,
           contactPerson: currentSchool.contactPerson,
@@ -134,7 +136,7 @@ export default function SchoolsPage() {
       setCurrentSchool(initialSchoolFormState);
       setIsEditing(false);
     } catch (error) {
-       toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+       toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. The School ID might already exist.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -284,9 +286,7 @@ export default function SchoolsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox aria-label="Select all schools" />
-              </TableHead>
+              <TableHead>School ID</TableHead>
               <TableHead>School Name</TableHead>
               <TableHead>Address</TableHead>
               <TableHead>Contact Person</TableHead>
@@ -299,9 +299,7 @@ export default function SchoolsPage() {
                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedSchools.length > 0 ? paginatedSchools.map(school => (
               <TableRow key={school.id}>
-                <TableCell>
-                  <Checkbox aria-label={`Select school ${school.name}`} />
-                </TableCell>
+                <TableCell className="font-mono text-xs">{school.id}</TableCell>
                 <TableCell className="font-medium">{school.name}</TableCell>
                 <TableCell>{school.address || 'N/A'}</TableCell>
                 <TableCell>{school.contactPerson || 'N/A'}</TableCell>
@@ -412,6 +410,10 @@ export default function SchoolsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4">
+             <div>
+              <Label htmlFor="id">School ID <span className="text-destructive">*</span></Label>
+              <Input id="id" name="id" value={currentSchool.id || ''} onChange={handleInputChange} required disabled={isEditing} />
+            </div>
             <div>
               <Label htmlFor="name">School Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentSchool.name || ''} onChange={handleInputChange} required />

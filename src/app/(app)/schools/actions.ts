@@ -32,7 +32,7 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
   }
 }
 
-export async function addSchool(data: Omit<School, 'id'>): Promise<School> {
+export async function addSchool(data: School): Promise<School> {
   const newSchool = await prisma.school.create({
     data,
   });
