@@ -77,7 +77,12 @@ export default function AddSavingAccountPage() {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: ['initialBalance', 'expectedMonthlySaving'].includes(name) ? parseFloat(value) : value }));
+    if (name === 'initialBalance' || name === 'expectedMonthlySaving') {
+      const parsedValue = parseFloat(value);
+      setFormState(prev => ({ ...prev, [name]: isNaN(parsedValue) ? 0 : parsedValue }));
+    } else {
+      setFormState(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,7 +193,7 @@ export default function AddSavingAccountPage() {
                 <Label htmlFor="initialBalance">Initial Savings Balance (Birr)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="initialBalance" name="initialBalance" type="number" step="0.01" value={formState.initialBalance} onChange={handleInputChange} className="pl-7" />
+                    <Input id="initialBalance" name="initialBalance" type="number" step="0.01" value={formState.initialBalance || ''} onChange={handleInputChange} className="pl-7" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">If > 0, a deposit will be created for approval.</p>
               </div>
@@ -197,7 +202,7 @@ export default function AddSavingAccountPage() {
                 <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
                  <div className="relative">
                     <CalendarPlus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="expectedMonthlySaving" name="expectedMonthlySaving" type="number" step="0.01" value={formState.expectedMonthlySaving} onChange={handleInputChange} className="pl-7" />
+                    <Input id="expectedMonthlySaving" name="expectedMonthlySaving" type="number" step="0.01" value={formState.expectedMonthlySaving || ''} onChange={handleInputChange} className="pl-7" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">This value is used for collection forecasting and fulfillment calculation.</p>
             </div>
