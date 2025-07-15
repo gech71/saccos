@@ -67,7 +67,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 }
 
 // Type for creating/updating a member, received from the client
-export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' > & {
+export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
     joinDate: string;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
     address?: Prisma.AddressCreateWithoutMemberInput;
@@ -78,15 +78,6 @@ export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 
 export async function addMember(data: MemberInput): Promise<Member> {
     const { id, address, emergencyContact, shareCommitments, ...memberData } = data;
 
-    // Check for uniqueness of savingsAccountNumber
-    if (memberData.savingsAccountNumber) {
-        const existingMemberByAccount = await prisma.member.findUnique({
-            where: { savingsAccountNumber: memberData.savingsAccountNumber },
-        });
-        if (existingMemberByAccount) {
-            throw new Error(`A member with savings account number '${memberData.savingsAccountNumber}' already exists.`);
-        }
-    }
     // Check for uniqueness of email
     if (memberData.email) {
         const existingMemberByEmail = await prisma.member.findUnique({
@@ -103,6 +94,10 @@ export async function addMember(data: MemberInput): Promise<Member> {
             ...memberData,
             status: 'active',
             joinDate: new Date(memberData.joinDate),
+            // Default values for fields that will be managed elsewhere
+            savingsBalance: 0,
+            sharesCount: 0,
+            expectedMonthlySaving: 0,
             address: address ? { create: address } : undefined,
             emergencyContact: emergencyContact ? { create: emergencyContact } : undefined,
             shareCommitments: shareCommitments ? {
@@ -122,15 +117,7 @@ export async function addMember(data: MemberInput): Promise<Member> {
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, ...memberData } = data;
 
-    // Uniqueness checks for email and savings account number
-    if (memberData.savingsAccountNumber) {
-        const existingMember = await prisma.member.findUnique({
-            where: { savingsAccountNumber: memberData.savingsAccountNumber },
-        });
-        if (existingMember && existingMember.id !== id) {
-            throw new Error(`Savings account number '${memberData.savingsAccountNumber}' is already in use by another member.`);
-        }
-    }
+    // Uniqueness checks for email
     if (memberData.email) {
         const existingMemberByEmail = await prisma.member.findUnique({
             where: { email: memberData.email },

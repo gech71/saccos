@@ -1,9 +1,6 @@
 
 
-
-
-
-
+import type { Prisma } from '@prisma/client';
 
 export interface School {
   id: string;
@@ -229,7 +226,7 @@ export interface AuthUser {
 }
 
 
-export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' > & {
+export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
     joinDate: string;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
     address?: Prisma.AddressCreateWithoutMemberInput;

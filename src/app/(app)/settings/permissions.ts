@@ -23,6 +23,7 @@ export const permissionsByGroup = {
     ],
     'Savings Accounts': [
         { id: 'savingAccount:view', label: 'View' },
+        { id: 'savingAccount:create', label: 'Create' },
     ],
     'Group Collections': [
         { id: 'groupCollection:view', label: 'View' },

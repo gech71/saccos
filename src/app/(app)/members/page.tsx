@@ -72,12 +72,7 @@ const initialMemberFormState: Partial<Member> = {
   emergencyContact: { name: '', phone: '' },
   schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],
-  savingsBalance: 0,
-  savingsAccountNumber: '',
-  sharesCount: 0,
   shareCommitments: [],
-  savingAccountTypeId: undefined,
-  expectedMonthlySaving: 0,
 };
 
 type ParsedMember = {
@@ -159,7 +154,7 @@ export default function MembersPage() {
             };
         });
     } else {
-        setCurrentMember(prev => ({ ...prev, [name]: name === 'savingsBalance' || name === 'sharesCount' || name === 'expectedMonthlySaving' ? parseFloat(value) : value }));
+        setCurrentMember(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -182,14 +177,6 @@ export default function MembersPage() {
 
   const handleMemberSelectChange = (name: keyof Member, value: string) => {
     setCurrentMember(prev => ({ ...prev, [name]: value }));
-    if (name === 'savingAccountTypeId') {
-        const selectedAccountType = savingAccountTypes.find(sat => sat.id === value);
-        setCurrentMember(prev => ({ 
-            ...prev,
-            savingAccountTypeName: selectedAccountType?.name || '',
-            expectedMonthlySaving: selectedAccountType?.expectedMonthlyContribution || 0,
-        }));
-    }
   };
 
   const handleShareCommitmentChange = (index: number, field: keyof MemberShareCommitment, value: string | number) => {
@@ -227,8 +214,8 @@ export default function MembersPage() {
     e.preventDefault();
     if (isViewingOnly) return;
     
-    if (!currentMember.id || !currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber || !currentMember.savingsAccountNumber || !currentMember.savingAccountTypeId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Member ID, Full Name, Email, Sex, Phone, School, Savings Account #, Saving Account Type).' });
+    if (!currentMember.id || !currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Member ID, Full Name, Email, Sex, Phone, School).' });
         return;
     }
 
@@ -244,14 +231,9 @@ export default function MembersPage() {
             emergencyContact: currentMember.emergencyContact,
             schoolId: currentMember.schoolId!,
             joinDate: currentMember.joinDate!,
-            savingsBalance: currentMember.savingsBalance || 0,
-            savingsAccountNumber: currentMember.savingsAccountNumber,
-            sharesCount: currentMember.sharesCount || 0,
             shareCommitments: (currentMember.shareCommitments || [])
               .filter(sc => sc.shareTypeId && sc.monthlyCommittedAmount > 0)
               .map(sc => ({ shareTypeId: sc.shareTypeId, monthlyCommittedAmount: sc.monthlyCommittedAmount})),
-            savingAccountTypeId: currentMember.savingAccountTypeId,
-            expectedMonthlySaving: currentMember.expectedMonthlySaving
         };
 
         if (isEditingMember && currentMember.id) {
@@ -273,12 +255,10 @@ export default function MembersPage() {
   };
   
   const prepMemberForModal = (member: MemberWithDetails) => {
-    const selectedAccountType = savingAccountTypes.find(sat => sat.id === member.savingAccountTypeId);
     setCurrentMember({
       ...member,
       joinDate: member.joinDate ? new Date(member.joinDate).toISOString().split('T')[0] : '',
       shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
-      expectedMonthlySaving: member.expectedMonthlySaving ?? selectedAccountType?.expectedMonthlyContribution ?? 0,
     });
     setIsMemberModalOpen(true);
   };
@@ -336,8 +316,6 @@ export default function MembersPage() {
         'Phone': member.phoneNumber,
         'School': member.school?.name,
         'Saving Account #': member.savingsAccountNumber || 'N/A',
-        'Saving Account Type': member.savingAccountTypeName || member.savingAccountType?.name || 'N/A',
-        'Expected Monthly Saving (Birr)': member.expectedMonthlySaving || 0,
         'Current Savings Balance (Birr)': member.savingsBalance,
         'Total Shares': member.sharesCount,
         'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: ${c.monthlyCommittedAmount.toFixed(2)} Birr/mo`).join('; '),
@@ -771,55 +749,6 @@ export default function MembersPage() {
               <div>
                 <Label htmlFor="joinDate">Join Date <span className="text-destructive">*</span></Label>
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                    <Label htmlFor="savingsAccountNumber">Savings Account Number <span className="text-destructive">*</span></Label>
-                    <div className="relative">
-                        <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="savingsAccountNumber" name="savingsAccountNumber" value={currentMember.savingsAccountNumber || ''} onChange={handleMemberInputChange} placeholder="e.g., SA10023" required className="pl-8" readOnly={isViewingOnly} />
-                    </div>
-                </div>
-                <div>
-                    <Label htmlFor="savingAccountTypeId">Saving Account Type <span className="text-destructive">*</span></Label>
-                    <Select name="savingAccountTypeId" value={currentMember.savingAccountTypeId} onValueChange={(value) => handleMemberSelectChange('savingAccountTypeId', value)} required disabled={isViewingOnly}>
-                        <SelectTrigger><SelectValue placeholder="Select saving account type" /></SelectTrigger>
-                        <SelectContent>{savingAccountTypes.map(sat => (<SelectItem key={sat.id} value={sat.id}>{sat.name} ({(sat.interestRate * 100).toFixed(2)}% Interest, {sat.expectedMonthlyContribution?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} Birr Exp. Contrib.)</SelectItem>))}</SelectContent>
-                    </Select>
-                </div>
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="savingsBalance">Initial Savings Balance (Birr)</Label>
-                <div className="relative">
-                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="savingsBalance" name="savingsBalance" type="number" step="0.01" value={currentMember.savingsBalance || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly || isEditingMember}/>
-                </div>
-              </div>
-               <div>
-                <Label htmlFor="sharesCount">Initial Shares Count (Overall)</Label>
-                <div className="relative">
-                    <LucidePieChart className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="sharesCount" name="sharesCount" type="number" step="1" value={currentMember.sharesCount || 0} onChange={handleMemberInputChange} className="pl-7" readOnly={isViewingOnly || isEditingMember}/>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
-                <div className="relative">
-                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        id="expectedMonthlySaving" 
-                        name="expectedMonthlySaving" 
-                        type="number" 
-                        step="0.01" 
-                        value={currentMember.expectedMonthlySaving || 0} 
-                        onChange={handleMemberInputChange} 
-                        className="pl-7 bg-muted/50" 
-                        readOnly 
-                    />
-                </div>
               </div>
             </div>
 

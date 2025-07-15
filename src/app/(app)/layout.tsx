@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { title: 'Basic Information', isGroupLabel: true },
   { title: 'Schools', href: '/schools', icon: School, permission: 'school:view' },
   { title: 'Members', href: '/members', icon: Users, permission: 'member:view' },
+  { title: 'Add Saving Account', href: '/add-saving-account', icon: UserPlus, permission: 'savingAccount:create' },
   
   { title: 'Savings', isGroupLabel: true },
   { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
