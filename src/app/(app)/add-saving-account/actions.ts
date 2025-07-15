@@ -24,26 +24,30 @@ interface AccountCreationData {
   memberId: string;
   savingAccountTypeId: string;
   initialBalance: number;
+  expectedMonthlySaving: number;
   accountNumber: string;
 }
 
 export async function createSavingAccount(data: AccountCreationData) {
-  const { memberId, savingAccountTypeId, initialBalance, accountNumber } = data;
+  const { memberId, savingAccountTypeId, initialBalance, expectedMonthlySaving, accountNumber } = data;
 
   const member = await prisma.member.findUnique({ where: { id: memberId } });
   if (!member) {
     throw new Error('Member not found.');
   }
 
-  // Use provided account number or generate a new one
-  const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
+  // Use provided account number or generate a new one if the member doesn't have one
+  const finalAccountNumber = accountNumber || member.savingsAccountNumber || `SA-${Date.now().toString().slice(-6)}`;
   
-  // Check if this account number is already in use
+  // Check if this account number is already in use by another member
   if (accountNumber) {
-    const existingAccount = await prisma.member.findUnique({
-        where: { savingsAccountNumber: accountNumber }
+    const existingAccount = await prisma.member.findFirst({
+        where: { 
+            savingsAccountNumber: accountNumber,
+            id: { not: memberId }
+        }
     });
-    if (existingAccount && existingAccount.id !== memberId) {
+    if (existingAccount) {
         throw new Error(`Account number ${accountNumber} is already assigned to another member.`);
     }
   }
@@ -62,7 +66,7 @@ export async function createSavingAccount(data: AccountCreationData) {
       data: {
         savingAccountTypeId: savingAccountTypeId,
         savingsAccountNumber: finalAccountNumber,
-        expectedMonthlySaving: savingAccountType.expectedMonthlyContribution ?? 0,
+        expectedMonthlySaving: expectedMonthlySaving,
       },
     });
 

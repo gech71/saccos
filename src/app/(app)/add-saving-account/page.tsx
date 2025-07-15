@@ -17,7 +17,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, DollarSign, UserPlus, Check, ChevronsUpDown, Hash } from 'lucide-react';
+import { Loader2, DollarSign, UserPlus, Check, ChevronsUpDown, Hash, CalendarPlus } from 'lucide-react';
 import type { Member, SavingAccountType } from '@prisma/client';
 import { getAccountCreationData, createSavingAccount } from './actions';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ interface AccountFormState {
   memberId: string;
   savingAccountTypeId: string;
   initialBalance: number;
+  expectedMonthlySaving: number;
   accountNumber: string;
 }
 
@@ -34,6 +35,7 @@ const initialFormState: AccountFormState = {
   memberId: '',
   savingAccountTypeId: '',
   initialBalance: 0,
+  expectedMonthlySaving: 0,
   accountNumber: '',
 };
 
@@ -65,11 +67,17 @@ export default function AddSavingAccountPage() {
   
   const handleSelectChange = (name: keyof AccountFormState, value: string) => {
     setFormState(prev => ({ ...prev, [name]: value }));
+    if (name === 'savingAccountTypeId') {
+      const selectedType = savingAccountTypes.find(sat => sat.id === value);
+      if (selectedType) {
+        setFormState(prev => ({ ...prev, expectedMonthlySaving: selectedType.expectedMonthlyContribution || 0 }));
+      }
+    }
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: name === 'initialBalance' ? parseFloat(value) : value }));
+    setFormState(prev => ({ ...prev, [name]: ['initialBalance', 'expectedMonthlySaving'].includes(name) ? parseFloat(value) : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,13 +185,21 @@ export default function AddSavingAccountPage() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="initialBalance">Initial Deposit (Birr)</Label>
+                <Label htmlFor="initialBalance">Initial Savings Balance (Birr)</Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="initialBalance" name="initialBalance" type="number" step="0.01" value={formState.initialBalance} onChange={handleInputChange} className="pl-7" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">If > 0, a deposit will be created for approval.</p>
               </div>
+            </div>
+            <div>
+                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
+                 <div className="relative">
+                    <CalendarPlus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="expectedMonthlySaving" name="expectedMonthlySaving" type="number" step="0.01" value={formState.expectedMonthlySaving} onChange={handleInputChange} className="pl-7" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">This value is used for collection forecasting and fulfillment calculation.</p>
             </div>
           </CardContent>
           <CardFooter>
