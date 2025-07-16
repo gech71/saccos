@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -15,11 +16,10 @@ export interface AdminDashboardData {
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const totalMembers = await prisma.member.count({ where: { status: 'active' } });
   
-  const totalSavingsResult = await prisma.member.aggregate({
-    _sum: { savingsBalance: true },
-    where: { status: 'active' },
+  const totalSavingsResult = await prisma.memberSavingAccount.aggregate({
+    _sum: { balance: true },
   });
-  const totalSavings = totalSavingsResult._sum.savingsBalance || 0;
+  const totalSavings = totalSavingsResult._sum.balance || 0;
 
   const totalSchools = await prisma.school.count();
 
@@ -71,20 +71,36 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     },
   });
 
-  const schoolSavings = await prisma.member.groupBy({
-    by: ['schoolId'],
+  const schoolSavings = await prisma.memberSavingAccount.groupBy({
+    by: ['member'],
     _sum: {
-      savingsBalance: true,
+      balance: true,
     },
-    where: { status: 'active' }
+    where: { member: { status: 'active' } }
+  });
+
+  const memberSchools = await prisma.member.findMany({
+      where: { status: 'active' },
+      select: { id: true, schoolId: true }
+  });
+  const memberSchoolMap = new Map(memberSchools.map(m => [m.id, m.schoolId]));
+
+  const schoolPerformanceMap: { [key: string]: number } = {};
+  schoolSavings.forEach(ss => {
+      const schoolId = memberSchoolMap.get((ss as any).memberId);
+      if (schoolId) {
+          if (!schoolPerformanceMap[schoolId]) {
+              schoolPerformanceMap[schoolId] = 0;
+          }
+          schoolPerformanceMap[schoolId] += ss._sum.balance || 0;
+      }
   });
 
   const schoolPerformance = schools.map(school => {
-    const savingsData = schoolSavings.find(s => s.schoolId === school.id);
     return {
       name: school.name,
       members: school._count.members,
-      savings: savingsData?._sum.savingsBalance || 0,
+      savings: schoolPerformanceMap[school.id] || 0,
     };
   });
 

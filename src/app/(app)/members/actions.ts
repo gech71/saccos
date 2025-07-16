@@ -3,19 +3,21 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Member, Prisma } from '@prisma/client';
+import type { Member, Prisma, SavingAccountType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
     school: { name: string } | null;
-    savingAccountType: { name: string } | null;
+    memberSavingAccounts: ({
+        savingAccountType: { name: string; };
+    } & Prisma.MemberSavingAccountGetPayload<{}>)[];
     shareCommitments: {
         shareTypeId: string;
         shareTypeName: string;
         monthlyCommittedAmount: number;
     }[];
-    savingAccountTypeName?: string; // Add this for easier display
+    totalSavingsBalance: number;
 }
 
 
@@ -24,14 +26,18 @@ export interface MembersPageData {
   members: MemberWithDetails[];
   schools: { id: string; name: string }[];
   shareTypes: { id: string; name: string; valuePerShare: number }[];
-  savingAccountTypes: { id: string; name: string, contributionType: 'FIXED' | 'PERCENTAGE', contributionValue: number, interestRate: number }[];
+  savingAccountTypes: SavingAccountType[];
 }
 
 export async function getMembersPageData(): Promise<MembersPageData> {
     const members = await prisma.member.findMany({
         include: {
             school: { select: { name: true } },
-            savingAccountType: { select: { name: true } },
+            memberSavingAccounts: {
+                include: {
+                    savingAccountType: { select: { name: true } }
+                }
+            },
             shareCommitments: {
                 include: {
                     shareType: { select: { name: true, valuePerShare: true } }
@@ -56,7 +62,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
             shareTypeName: sc.shareType.name,
             monthlyCommittedAmount: sc.monthlyCommittedAmount
         })),
-        savingAccountTypeName: member.savingAccountType?.name
+        totalSavingsBalance: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     }));
 
     return {
@@ -68,7 +74,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 }
 
 // Type for creating/updating a member, received from the client
-export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
+export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts'> & {
     joinDate: string;
     salary?: number | null;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
@@ -96,10 +102,6 @@ export async function addMember(data: MemberInput): Promise<Member> {
             ...memberData,
             status: 'active',
             joinDate: new Date(memberData.joinDate),
-            // Default values for fields that will be managed elsewhere
-            savingsBalance: 0,
-            sharesCount: 0,
-            expectedMonthlySaving: 0,
             address: address ? { create: address } : undefined,
             emergencyContact: emergencyContact ? { create: emergencyContact } : undefined,
             shareCommitments: shareCommitments ? {
@@ -233,45 +235,47 @@ export async function importMembers(data: {
         return { success: true, message: `Import finished. ${skippedCount} member(s) were skipped as they already exist in this school.`, createdCount: 0 };
     }
 
-    const newMembersData = membersToCreate.map((member, i) => {
+    let createdCount = 0;
+    
+    await prisma.$transaction(async (tx) => {
+      for (const [i, member] of membersToCreate.entries()) {
         const uniqueSuffix = `${Date.now()}${i}`;
         let expectedSaving = 0;
         if (savingAccountType.contributionType === 'FIXED') {
             expectedSaving = savingAccountType.contributionValue;
-        } // Percentage requires salary, which is 0 for imported members, so expected saving is 0.
+        }
 
-        return {
+        const newMember = await tx.member.create({
+          data: {
             id: `imported-${uniqueSuffix}`,
             fullName: member.fullName,
             email: `imported.${uniqueSuffix}@placeholder.email`,
-            sex: 'Male' as 'Male' | 'Female' | 'Other',
+            sex: 'Male',
             phoneNumber: '0000000000',
             schoolId: schoolId,
             joinDate: new Date(),
-            savingsBalance: member.savingsBalance,
-            savingsAccountNumber: `IMP-${uniqueSuffix}`,
-            sharesCount: 0,
-            savingAccountTypeId: savingAccountTypeId,
-            expectedMonthlySaving: expectedSaving,
-            status: 'active' as 'active' | 'inactive',
+            status: 'active',
             salary: 0,
-        };
-    });
-
-    try {
-        const result = await prisma.member.createMany({
-            data: newMembersData,
-            skipDuplicates: true,
+          }
         });
 
-        revalidatePath('/members');
-        return { 
-            success: true, 
-            message: `Successfully imported ${result.count} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
-            createdCount: result.count 
-        };
-    } catch (error) {
-        console.error("Failed to import members:", error);
-        return { success: false, message: 'An error occurred during the database operation.', createdCount: 0 };
-    }
+        await tx.memberSavingAccount.create({
+          data: {
+            memberId: newMember.id,
+            savingAccountTypeId: savingAccountTypeId,
+            accountNumber: `IMP-${uniqueSuffix}`,
+            expectedMonthlySaving: expectedSaving,
+            balance: member.savingsBalance,
+          }
+        });
+        createdCount++;
+      }
+    });
+
+    revalidatePath('/members');
+    return { 
+        success: true, 
+        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
+        createdCount: createdCount 
+    };
 }

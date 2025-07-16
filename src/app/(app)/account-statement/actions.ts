@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -11,24 +12,37 @@ export interface StatementData {
   transactions: (Saving & { debit: number; credit: number; balance: number })[];
   closingBalance: number;
   schoolName: string | null;
+  accountNumber: string | null;
 }
 
 export async function getMembersForStatement() {
-  return prisma.member.findMany({
-    select: { id: true, fullName: true, savingsAccountNumber: true, status: true },
+  const members = await prisma.member.findMany({
+    select: { id: true, fullName: true, status: true, memberSavingAccounts: { select: { accountNumber: true }} },
     orderBy: { fullName: 'asc' },
   });
+  // Simplification: returning the first account number if multiple exist
+  return members.map(m => ({
+    id: m.id,
+    fullName: m.fullName,
+    savingsAccountNumber: m.memberSavingAccounts[0]?.accountNumber || null,
+    status: m.status,
+  }));
 }
 
 export async function getMemberInitialData(memberId: string) {
-    return prisma.member.findUnique({
-        where: { id: memberId },
+    const account = await prisma.memberSavingAccount.findFirst({
+        where: { memberId },
         select: {
             id: true,
-            savingsBalance: true,
-            savingsAccountNumber: true,
+            balance: true,
+            accountNumber: true,
         },
     });
+    return {
+      id: memberId,
+      savingsBalance: account?.balance || 0,
+      savingsAccountNumber: account?.accountNumber || null,
+    }
 }
 
 export async function generateStatement(
@@ -41,12 +55,16 @@ export async function generateStatement(
 
   const member = await prisma.member.findUnique({
     where: { id: memberId },
-    include: { school: { select: { name: true } } },
+    include: { school: { select: { name: true } }, memberSavingAccounts: true },
   });
 
   if (!member) {
     return null;
   }
+
+  // This is a simplification. For a true multi-account statement, we'd need to select a specific account.
+  // Here we just use the first one.
+  const primaryAccount = member.memberSavingAccounts[0];
 
   const allMemberTransactions = await prisma.saving.findMany({
     where: { memberId, status: 'approved' },
@@ -77,6 +95,7 @@ export async function generateStatement(
   return {
     member,
     schoolName: member.school?.name ?? null,
+    accountNumber: primaryAccount?.accountNumber ?? null,
     dateRange,
     balanceBroughtForward,
     transactions: transactionsInPeriod,

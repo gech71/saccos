@@ -320,10 +320,7 @@ export default function MembersPage() {
         'Phone': member.phoneNumber,
         'School': member.school?.name,
         'Salary': member.salary,
-        'Saving Account #': member.savingsAccountNumber || 'N/A',
-        'Current Savings Balance (Birr)': member.savingsBalance,
-        'Total Shares': member.sharesCount,
-        'Share Commitments': (member.shareCommitments || []).map(c => `${c.shareTypeName}: ${c.monthlyCommittedAmount.toFixed(2)} Birr/mo`).join('; '),
+        'Total Savings Balance (Birr)': member.totalSavingsBalance,
         'Join Date': new Date(member.joinDate).toLocaleDateString(),
     }));
     exportToExcel(dataToExport, 'members_export');
@@ -518,15 +515,14 @@ export default function MembersPage() {
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
-              <TableHead>Salary</TableHead>
-              <TableHead className="text-right">Current Savings</TableHead>
-              <TableHead>Shares / Commitments</TableHead>
+              <TableHead className="text-right">Total Savings</TableHead>
+              <TableHead>Savings Accounts</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-mono text-xs">{member.id}</TableCell>
@@ -538,23 +534,19 @@ export default function MembersPage() {
                 <TableCell>
                   <Badge variant="secondary">{member.school?.name}</Badge>
                 </TableCell>
+                <TableCell className="text-right font-semibold">{member.totalSavingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
-                  {member.salary ? `${member.salary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : 'N/A'}
-                </TableCell>
-                <TableCell className="text-right">{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                <TableCell>
-                  <div className="font-medium">{member.sharesCount} Shares</div>
-                  {member.shareCommitments && member.shareCommitments.length > 0 ? (
-                    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                      {member.shareCommitments.map((commitment) => (
-                        <li key={commitment.shareTypeId}>
-                          <span>{commitment.shareTypeName}: </span>
-                          <span className="font-semibold text-foreground">{commitment.monthlyCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/mo</span>
+                  {member.memberSavingAccounts.length > 0 ? (
+                    <ul className="text-xs text-muted-foreground">
+                      {member.memberSavingAccounts.map((account) => (
+                        <li key={account.id}>
+                          <span>{account.savingAccountType.name}: </span>
+                          <span className="font-semibold text-foreground">{account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <div className="text-xs text-muted-foreground">No monthly commitments</div>
+                    <div className="text-xs text-muted-foreground">No savings accounts</div>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
@@ -582,7 +574,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>

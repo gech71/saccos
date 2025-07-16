@@ -25,10 +25,10 @@ import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/c
 import { Progress } from '@/components/ui/progress';
 import { exportToExcel } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { getSavingsAccountPageData, type MemberSavingsSummary } from './actions';
+import { getSavingsAccountPageData, type SavingsAccountSummary } from './actions';
 
 export default function SavingsAccountsPage() {
-  const [memberSummaries, setMemberSummaries] = useState<MemberSavingsSummary[]>([]);
+  const [accountSummaries, setAccountSummaries] = useState<SavingsAccountSummary[]>([]);
   const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -39,7 +39,7 @@ export default function SavingsAccountsPage() {
     async function fetchData() {
         setIsLoading(true);
         const data = await getSavingsAccountPageData();
-        setMemberSummaries(data.summaries);
+        setAccountSummaries(data.summaries);
         setAllSchools(data.schools);
         setIsLoading(false);
     }
@@ -47,22 +47,22 @@ export default function SavingsAccountsPage() {
   }, []);
 
 
-  const filteredMemberSummaries = useMemo(() => {
-    return memberSummaries.filter(summary => {
+  const filteredSummaries = useMemo(() => {
+    return accountSummaries.filter(summary => {
       const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
-  }, [memberSummaries, searchTerm, selectedSchoolFilter]);
+  }, [accountSummaries, searchTerm, selectedSchoolFilter]);
 
   const globalSummaryStats = useMemo(() => {
-    const totalSavingsGlobal = filteredMemberSummaries.reduce((sum, m) => sum + m.savingsBalance, 0);
-    const averageSavings = filteredMemberSummaries.length > 0 ? totalSavingsGlobal / filteredMemberSummaries.length : 0;
-    return { totalSavingsGlobal, averageSavings, memberCount: filteredMemberSummaries.length };
-  }, [filteredMemberSummaries]);
+    const totalSavingsGlobal = filteredSummaries.reduce((sum, m) => sum + m.savingsBalance, 0);
+    const averageSavings = filteredSummaries.length > 0 ? totalSavingsGlobal / filteredSummaries.length : 0;
+    return { totalSavingsGlobal, averageSavings, accountCount: filteredSummaries.length };
+  }, [filteredSummaries]);
 
   const handleExport = () => {
-    const dataToExport = filteredMemberSummaries.map(summary => ({
+    const dataToExport = filteredSummaries.map(summary => ({
       'Member Name': summary.fullName,
       'School': summary.schoolName,
       'Account Number': summary.savingsAccountNumber || 'N/A',
@@ -83,8 +83,8 @@ export default function SavingsAccountsPage() {
 
   return (
     <div className="space-y-6">
-      <PageTitle title="Savings Accounts Summary" subtitle="View member savings balances and contribution fulfillment.">
-        <Button onClick={handleExport} variant="outline" disabled={filteredMemberSummaries.length === 0}>
+      <PageTitle title="Savings Accounts Summary" subtitle="View member savings balances and contribution fulfillment for each account.">
+        <Button onClick={handleExport} variant="outline" disabled={filteredSummaries.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
       </PageTitle>
@@ -106,10 +106,10 @@ export default function SavingsAccountsPage() {
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Members (in view)</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Active Accounts (in view)</ShadcnCardTitle>
                 <Users className="h-5 w-5 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">{globalSummaryStats.memberCount}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-primary">{globalSummaryStats.accountCount}</div></CardContent>
         </Card>
       </div>
 
@@ -153,8 +153,8 @@ export default function SavingsAccountsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMemberSummaries.length > 0 ? filteredMemberSummaries.map(summary => (
-              <TableRow key={summary.memberId}>
+            {filteredSummaries.length > 0 ? filteredSummaries.map(summary => (
+              <TableRow key={`${summary.memberId}-${summary.savingsAccountNumber}`}>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
                 <TableCell>{summary.savingsAccountNumber || 'N/A'}</TableCell>
@@ -174,7 +174,7 @@ export default function SavingsAccountsPage() {
             )) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No members found matching your criteria.
+                  No member savings accounts found matching your criteria.
                 </TableCell>
               </TableRow>
             )}

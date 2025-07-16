@@ -32,32 +32,30 @@ interface AccountCreationData {
 export async function createSavingAccount(data: AccountCreationData) {
   const { memberId, savingAccountTypeId, initialBalance, expectedMonthlySaving, accountNumber } = data;
 
-  const member = await prisma.member.findUnique({ where: { id: memberId } });
-  if (!member) {
-    throw new Error('Member not found.');
-  }
-
-  // Use provided account number or generate a new one if the member doesn't have one
-  const finalAccountNumber = accountNumber || member.savingsAccountNumber || `SA-${Date.now().toString().slice(-6)}`;
-  
-  // Check if this account number is already in use by another member
-  if (accountNumber) {
-    const existingAccount = await prisma.member.findFirst({
-        where: { 
-            savingsAccountNumber: accountNumber,
-            id: { not: memberId }
-        }
-    });
-    if (existingAccount) {
-        throw new Error(`Account number ${accountNumber} is already assigned to another member.`);
-    }
-  }
-
   const savingAccountType = await prisma.savingAccountType.findUnique({
       where: { id: savingAccountTypeId },
   });
   if (!savingAccountType) {
       throw new Error('Selected saving account type not found.');
+  }
+
+  const existingAccount = await prisma.memberSavingAccount.findFirst({
+      where: { memberId, savingAccountTypeId }
+  });
+
+  if (existingAccount) {
+      throw new Error(`This member already has a '${savingAccountType.name}' account.`);
+  }
+
+  const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
+  
+  if (accountNumber) {
+    const existingByAcctNo = await prisma.memberSavingAccount.findFirst({
+        where: { accountNumber: accountNumber }
+    });
+    if (existingByAcctNo) {
+        throw new Error(`Account number ${accountNumber} is already in use.`);
+    }
   }
   
   if (initialBalance < expectedMonthlySaving) {
@@ -65,8 +63,18 @@ export async function createSavingAccount(data: AccountCreationData) {
   }
 
   await prisma.$transaction(async (tx) => {
-    // If there's an initial balance, create a pending deposit transaction.
-    // This is the core action now, rather than updating the member directly.
+    // 1. Create the new MemberSavingAccount link
+    const newMemberAccount = await tx.memberSavingAccount.create({
+      data: {
+        memberId,
+        savingAccountTypeId,
+        accountNumber: finalAccountNumber,
+        expectedMonthlySaving,
+        balance: 0, // Balance starts at 0, initial deposit will update it after approval
+      }
+    });
+
+    // 2. If there's an initial balance, create a pending deposit transaction.
     if (initialBalance > 0) {
       await tx.saving.create({
         data: {
@@ -81,19 +89,6 @@ export async function createSavingAccount(data: AccountCreationData) {
           sourceName: 'System Opening Balance',
         },
       });
-    }
-
-    // Update the member's primary account details only if they don't have one set.
-    // This logic can be expanded in the future to manage multiple accounts.
-    if (!member.savingAccountTypeId) {
-        await tx.member.update({
-            where: { id: memberId },
-            data: {
-                savingAccountTypeId: savingAccountTypeId,
-                savingsAccountNumber: finalAccountNumber,
-                expectedMonthlySaving: expectedMonthlySaving,
-            },
-        });
     }
   });
 

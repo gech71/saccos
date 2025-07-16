@@ -10,6 +10,7 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
+  await prisma.memberSavingAccount.deleteMany();
   await prisma.memberShareCommitment.deleteMany();
   await prisma.collateral.deleteMany();
   await prisma.organization.deleteMany();
@@ -117,11 +118,6 @@ async function main() {
       schoolId: school1.id,
       joinDate: new Date(2023, 0, 15),
       salary: 5000,
-      savingsBalance: 1250.75,
-      savingsAccountNumber: 'SA00001',
-      sharesCount: 70,
-      savingAccountTypeId: satRegular.id,
-      expectedMonthlySaving: 50,
       shareCommitments: {
         create: [
           { shareTypeId: stRegular.id, monthlyCommittedAmount: 20 },
@@ -147,11 +143,6 @@ async function main() {
       schoolId: school2.id,
       joinDate: new Date(2023, 2, 10),
       salary: 4500,
-      savingsBalance: 800.00,
-      savingsAccountNumber: 'SA00002',
-      sharesCount: 30,
-      savingAccountTypeId: satYouth.id,
-      expectedMonthlySaving: 25,
       shareCommitments: {
         create: [
           { shareTypeId: stRegular.id, monthlyCommittedAmount: 25 },
@@ -166,7 +157,29 @@ async function main() {
     },
   });
 
-  // 6. Seed Transactions
+  // 6. Seed Member Saving Accounts
+  await prisma.memberSavingAccount.create({
+      data: {
+          memberId: member1.id,
+          savingAccountTypeId: satRegular.id,
+          accountNumber: 'SA00001',
+          expectedMonthlySaving: 50,
+          balance: 1250.75
+      }
+  });
+
+   await prisma.memberSavingAccount.create({
+      data: {
+          memberId: member2.id,
+          savingAccountTypeId: satYouth.id,
+          accountNumber: 'SA00002',
+          expectedMonthlySaving: 25,
+          balance: 800.00
+      }
+  });
+
+
+  // 7. Seed Transactions
   console.log('Seeding transactions...');
   await prisma.saving.createMany({
     data: [

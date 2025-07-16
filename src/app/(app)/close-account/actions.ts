@@ -1,7 +1,12 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving } from '@prisma/client';
+import type { Saving, Member, MemberSavingAccount } from '@prisma/client';
+
+export type ActiveMemberForClosure = Pick<Member, 'id' | 'fullName'> & {
+    memberSavingAccounts: Pick<MemberSavingAccount, 'accountNumber' | 'balance'>[]
+};
 
 export async function getActiveMembersForClosure() {
   return prisma.member.findMany({
@@ -9,8 +14,12 @@ export async function getActiveMembersForClosure() {
     select: {
       id: true,
       fullName: true,
-      savingsAccountNumber: true,
-      savingsBalance: true,
+      memberSavingAccounts: {
+          select: {
+              accountNumber: true,
+              balance: true,
+          }
+      },
     },
     orderBy: { fullName: 'asc' },
   });
@@ -21,22 +30,29 @@ export async function calculateFinalPayout(memberId: string): Promise<{
   accruedInterest: number;
   totalPayout: number;
 } | null> {
-  const member = await prisma.member.findUnique({
-    where: { id: memberId },
-    include: { savingAccountType: true },
-  });
+    const memberAccounts = await prisma.memberSavingAccount.findMany({
+        where: { memberId },
+        include: { savingAccountType: true }
+    });
 
-  if (!member) return null;
+    if (memberAccounts.length === 0) return null;
 
-  const interestRate = member.savingAccountType?.interestRate || 0.01; // Fallback
-  // Simplified interest for demo: prorated for half a month
-  const accruedInterest = member.savingsBalance * (interestRate / 12) * 0.5;
+    let totalBalance = 0;
+    let totalAccruedInterest = 0;
 
-  return {
-    currentBalance: member.savingsBalance,
-    accruedInterest,
-    totalPayout: member.savingsBalance + accruedInterest,
-  };
+    for (const account of memberAccounts) {
+        const interestRate = account.savingAccountType?.interestRate || 0.01; // Fallback
+        // Simplified interest for demo: prorated for half a month
+        const accruedInterest = account.balance * (interestRate / 12) * 0.5;
+        totalBalance += account.balance;
+        totalAccruedInterest += accruedInterest;
+    }
+
+    return {
+        currentBalance: totalBalance,
+        accruedInterest: totalAccruedInterest,
+        totalPayout: totalBalance + totalAccruedInterest,
+    };
 }
 
 export async function confirmAccountClosure(
@@ -87,16 +103,25 @@ export async function confirmAccountClosure(
 
     return prisma.$transaction(async (tx) => {
         // 1. Post final interest
-        await tx.saving.create({ data: interestTransaction });
+        if (accruedInterest > 0) {
+            await tx.saving.create({ data: interestTransaction });
+        }
 
         // 2. Post final withdrawal
-        await tx.saving.create({ data: finalWithdrawal });
+        if (totalPayout > 0) {
+            await tx.saving.create({ data: finalWithdrawal });
+        }
 
-        // 3. Update member status and balance
+        // 3. Update all saving accounts for this member to zero balance
+        await tx.memberSavingAccount.updateMany({
+            where: { memberId },
+            data: { balance: 0 },
+        });
+
+        // 4. Update member status
         const updatedMember = await tx.member.update({
             where: { id: memberId },
             data: {
-                savingsBalance: 0,
                 status: 'inactive',
                 closureDate: now,
             },

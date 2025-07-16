@@ -64,15 +64,10 @@ export interface Member {
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
   salary: number | null;
-  savingsBalance: number;
-  savingsAccountNumber?: string;
-  sharesCount: number; // Total shares across all types for this member - should be sum of all their Share records' counts.
-  shareCommitments?: MemberShareCommitment[];
-  savingAccountTypeId?: string;
-  savingAccountTypeName?: string; // Denormalized for display
-  expectedMonthlySaving?: number; 
   status?: 'active' | 'inactive';
   closureDate?: string; // ISO date string
+  memberSavingAccounts?: any[]; // To hold the relation
+  shareCommitments?: MemberShareCommitment[];
 }
 
 export interface Saving {
@@ -228,7 +223,7 @@ export interface AuthUser {
 }
 
 
-export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
+export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts'> & {
     joinDate: string;
     salary?: number | null;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];

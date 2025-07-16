@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -23,15 +24,8 @@ import { Loader2, Check, ChevronsUpDown, Calculator, UserX, Banknote, Wallet } f
 import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure } from './actions';
+import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure, type ActiveMemberForClosure } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-
-type ActiveMember = {
-    id: string;
-    fullName: string | null;
-    savingsAccountNumber: string | null;
-    savingsBalance: number;
-}
 
 interface CalculationResult {
   currentBalance: number;
@@ -50,7 +44,7 @@ export default function CloseAccountPage() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const [activeMembers, setActiveMembers] = useState<ActiveMember[]>([]);
+  const [activeMembers, setActiveMembers] = useState<ActiveMemberForClosure[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   
@@ -76,6 +70,11 @@ export default function CloseAccountPage() {
   const selectedMember = useMemo(() => {
     return activeMembers.find(m => m.id === selectedMemberId);
   }, [selectedMemberId, activeMembers]);
+  
+  const totalBalanceForSelectedMember = useMemo(() => {
+      if (!selectedMember) return 0;
+      return selectedMember.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+  }, [selectedMember])
 
   const handleCalculate = async () => {
     if (!selectedMember) {
@@ -177,25 +176,28 @@ export default function CloseAccountPage() {
                     <CommandList>
                         <CommandEmpty>No active members found.</CommandEmpty>
                         <CommandGroup>
-                        {activeMembers.map((member) => (
-                            <CommandItem
-                            key={member.id}
-                            value={`${member.fullName} ${member.savingsAccountNumber}`}
-                            onSelect={() => {
-                                setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
-                                setOpenMemberCombobox(false);
-                                setCalculationResult(null);
-                            }}
-                            >
-                            <Check
-                                className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedMemberId === member.id ? "opacity-100" : "opacity-0"
-                                )}
-                            />
-                            {member.fullName} (Acct: {member.savingsAccountNumber || 'N/A'}, Bal: {member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr)
-                            </CommandItem>
-                        ))}
+                        {activeMembers.map((member) => {
+                            const totalBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+                            return (
+                                <CommandItem
+                                key={member.id}
+                                value={`${member.fullName} ${member.id}`}
+                                onSelect={() => {
+                                    setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
+                                    setOpenMemberCombobox(false);
+                                    setCalculationResult(null);
+                                }}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {member.fullName} (Total Bal: {totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr)
+                                </CommandItem>
+                            )
+                        })}
                         </CommandGroup>
                     </CommandList>
                     </Command>

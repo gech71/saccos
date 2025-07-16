@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
@@ -298,7 +299,7 @@ function AccountStatementContent() {
                     </div>
                      <div>
                         <Label className="font-semibold text-gray-700">Account Number:</Label>
-                        <div>{statementData.member.savingsAccountNumber}</div>
+                        <div>{statementData.accountNumber}</div>
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">School:</Label>
