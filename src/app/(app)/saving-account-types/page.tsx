@@ -192,10 +192,11 @@ export default function SavingAccountTypesPage() {
   }, [accountTypes, searchTerm]);
   
   const formatContribution = (type: SavingAccountType) => {
+      const value = type.contributionValue ?? 0;
       if (type.contributionType === 'PERCENTAGE') {
-          return `${(type.contributionValue * 100).toFixed(2)}% of Salary`;
+          return `${(value * 100).toFixed(2)}% of Salary`;
       }
-      return `${type.contributionValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
+      return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
   }
 
   return (
