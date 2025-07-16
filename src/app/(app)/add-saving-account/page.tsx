@@ -98,7 +98,7 @@ export default function AddSavingAccountPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (name === 'initialBalance' || name === 'expectedMonthlySaving') {
-      const parsedValue = parseFloat(value);
+      const parsedValue = value === '' ? 0 : parseFloat(value);
       setFormState(prev => ({ ...prev, [name]: isNaN(parsedValue) ? 0 : parsedValue }));
     } else {
       setFormState(prev => ({ ...prev, [name]: value }));

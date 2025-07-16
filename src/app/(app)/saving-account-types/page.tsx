@@ -95,10 +95,10 @@ export default function SavingAccountTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numValue = parseFloat(value);
     
     if (name === 'interestRate' || name === 'contributionValue') {
-      setCurrentAccountType(prev => ({...prev, [name]: numValue }));
+      const numValue = value === '' ? 0 : parseFloat(value);
+      setCurrentAccountType(prev => ({...prev, [name]: isNaN(numValue) ? 0 : numValue }));
     } else {
        setCurrentAccountType(prev => ({ ...prev, [name]: value }));
     }
