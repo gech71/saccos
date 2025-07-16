@@ -24,7 +24,7 @@ export interface MembersPageData {
   members: MemberWithDetails[];
   schools: { id: string; name: string }[];
   shareTypes: { id: string; name: string; valuePerShare: number }[];
-  savingAccountTypes: { id: string; name: string, expectedMonthlyContribution: number | null, interestRate: number }[];
+  savingAccountTypes: { id: string; name: string, contributionType: 'FIXED' | 'PERCENTAGE', contributionValue: number, interestRate: number }[];
 }
 
 export async function getMembersPageData(): Promise<MembersPageData> {
@@ -45,7 +45,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 
     const schools = await prisma.school.findMany({ select: { id: true, name: true }, orderBy: {name: 'asc'} });
     const shareTypes = await prisma.shareType.findMany({ select: { id: true, name: true, valuePerShare: true }, orderBy: {name: 'asc'} });
-    const savingAccountTypes = await prisma.savingAccountType.findMany({ select: { id: true, name: true, expectedMonthlyContribution: true, interestRate: true }, orderBy: {name: 'asc'} });
+    const savingAccountTypes = await prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true, interestRate: true }, orderBy: {name: 'asc'} });
 
     // Map members to a more usable format for the client
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
@@ -70,6 +70,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 // Type for creating/updating a member, received from the client
 export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
     joinDate: string;
+    salary?: number | null;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
     address?: Prisma.AddressCreateWithoutMemberInput;
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
@@ -116,7 +117,7 @@ export async function addMember(data: MemberInput): Promise<Member> {
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
-    const { address, emergencyContact, shareCommitments, ...memberData } = data;
+    const { address, emergencyContact, shareCommitments, salary, ...memberData } = data;
 
     // Uniqueness checks for email
     if (memberData.email) {
@@ -159,6 +160,7 @@ export async function updateMember(id: string, data: MemberInput): Promise<Membe
         where: { id },
         data: {
             ...memberData,
+            salary,
             joinDate: new Date(memberData.joinDate),
             address: addressUpdate,
             emergencyContact: emergencyContactUpdate,
@@ -233,6 +235,11 @@ export async function importMembers(data: {
 
     const newMembersData = membersToCreate.map((member, i) => {
         const uniqueSuffix = `${Date.now()}${i}`;
+        let expectedSaving = 0;
+        if (savingAccountType.contributionType === 'FIXED') {
+            expectedSaving = savingAccountType.contributionValue;
+        } // Percentage requires salary, which is 0 for imported members, so expected saving is 0.
+
         return {
             id: `imported-${uniqueSuffix}`,
             fullName: member.fullName,
@@ -245,7 +252,7 @@ export async function importMembers(data: {
             savingsAccountNumber: `IMP-${uniqueSuffix}`,
             sharesCount: 0,
             savingAccountTypeId: savingAccountTypeId,
-            expectedMonthlySaving: savingAccountType.expectedMonthlyContribution ?? 0,
+            expectedMonthlySaving: expectedSaving,
             status: 'active' as 'active' | 'inactive',
             salary: 0,
         };

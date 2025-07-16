@@ -230,6 +230,7 @@ export interface AuthUser {
 
 export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'savingsBalance' | 'savingsAccountNumber' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'sharesCount' > & {
     joinDate: string;
+    salary?: number | null;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
     address?: Prisma.AddressCreateWithoutMemberInput;
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
