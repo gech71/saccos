@@ -97,8 +97,7 @@ export default function SavingAccountTypesPage() {
     const { name, value } = e.target;
     
     if (name === 'interestRate' || name === 'contributionValue') {
-      const numValue = value === '' ? 0 : parseFloat(value);
-      setCurrentAccountType(prev => ({...prev, [name]: isNaN(numValue) ? 0 : numValue }));
+      setCurrentAccountType(prev => ({...prev, [name]: value === '' ? 0 : parseFloat(value) }));
     } else {
        setCurrentAccountType(prev => ({ ...prev, [name]: value }));
     }

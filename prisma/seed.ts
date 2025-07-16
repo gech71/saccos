@@ -92,8 +92,8 @@ async function main() {
   const school1 = await prisma.school.create({ data: { id: 'SCH-001', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' } });
   const school2 = await prisma.school.create({ data: { id: 'SCH-002', name: 'Riverside Academy', address: '456 Pine Ave', contactPerson: 'Bob Builder' } });
   
-  const satRegular = await prisma.savingAccountType.create({ data: { name: 'Regular Savings', interestRate: 0.02, expectedMonthlyContribution: 50 } });
-  const satYouth = await prisma.savingAccountType.create({ data: { name: 'Youth Saver', interestRate: 0.035, expectedMonthlyContribution: 25 } });
+  const satRegular = await prisma.savingAccountType.create({ data: { name: 'Regular Savings', interestRate: 0.02, contributionType: 'FIXED', contributionValue: 50 } });
+  const satYouth = await prisma.savingAccountType.create({ data: { name: 'Youth Saver', interestRate: 0.035, contributionType: 'FIXED', contributionValue: 25 } });
 
   const stRegular = await prisma.shareType.create({ data: { name: 'Regular Share', valuePerShare: 10, expectedMonthlyContribution: 20 } });
   const stEducation = await prisma.shareType.create({ data: { name: 'Educational Support Share', valuePerShare: 15, expectedMonthlyContribution: 10 } });
