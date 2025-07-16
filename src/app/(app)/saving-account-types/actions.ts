@@ -12,15 +12,33 @@ export async function getSavingAccountTypes(): Promise<SavingAccountType[]> {
 }
 
 export async function addSavingAccountType(data: Omit<SavingAccountType, 'id'>): Promise<SavingAccountType> {
-  const newAccountType = await prisma.savingAccountType.create({ data });
+  const { name, interestRate, contributionType, contributionValue, description } = data;
+  
+  const newAccountType = await prisma.savingAccountType.create({ 
+    data: {
+      name,
+      interestRate,
+      contributionType,
+      contributionValue,
+      description: description || null, // Explicitly handle optional field
+    }
+  });
   revalidatePath('/saving-account-types');
   return newAccountType;
 }
 
 export async function updateSavingAccountType(id: string, data: Partial<Omit<SavingAccountType, 'id'>>): Promise<SavingAccountType> {
+   const { name, interestRate, contributionType, contributionValue, description } = data;
+  
   const updatedAccountType = await prisma.savingAccountType.update({
     where: { id },
-    data,
+    data: {
+      name,
+      interestRate,
+      contributionType,
+      contributionValue,
+      description: description,
+    },
   });
   revalidatePath('/saving-account-types');
   return updatedAccountType;
