@@ -17,9 +17,11 @@ export async function addSavingAccountType(data: Omit<SavingAccountType, 'id'>):
   const newAccountType = await prisma.savingAccountType.create({ 
     data: {
       name,
-      interestRate,
+      interestRate: (interestRate || 0) / 100,
       contributionType,
-      contributionValue,
+      contributionValue: contributionType === 'PERCENTAGE' 
+          ? (contributionValue || 0) / 100 
+          : (contributionValue || 0),
       description,
     }
   });
@@ -34,9 +36,11 @@ export async function updateSavingAccountType(id: string, data: Partial<Omit<Sav
     where: { id },
     data: {
       name,
-      interestRate,
+      interestRate: interestRate !== undefined ? interestRate / 100 : undefined,
       contributionType,
-      contributionValue,
+      contributionValue: contributionValue !== undefined 
+          ? (contributionType === 'PERCENTAGE' ? contributionValue / 100 : contributionValue)
+          : undefined,
       description: description,
     },
   });
