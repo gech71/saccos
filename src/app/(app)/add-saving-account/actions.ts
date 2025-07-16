@@ -7,13 +7,13 @@ import type { Member, SavingAccountType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export async function getAccountCreationData(): Promise<{
-  members: Pick<Member, 'id' | 'fullName'>[];
+  members: Pick<Member, 'id' | 'fullName' | 'salary'>[];
   savingAccountTypes: SavingAccountType[];
 }> {
   const [members, savingAccountTypes] = await Promise.all([
     prisma.member.findMany({
       where: { status: 'active' },
-      select: { id: true, fullName: true },
+      select: { id: true, fullName: true, salary: true },
       orderBy: { fullName: 'asc' },
     }),
     prisma.savingAccountType.findMany({ orderBy: { name: 'asc' } }),
@@ -58,6 +58,10 @@ export async function createSavingAccount(data: AccountCreationData) {
   });
   if (!savingAccountType) {
       throw new Error('Selected saving account type not found.');
+  }
+  
+  if (initialBalance < expectedMonthlySaving) {
+      throw new Error(`Initial balance cannot be less than the expected monthly saving of ${expectedMonthlySaving.toFixed(2)} Birr.`);
   }
 
   await prisma.$transaction(async (tx) => {

@@ -22,7 +22,8 @@ export interface SavingAccountType {
   name: string;
   interestRate: number; // Store as decimal, e.g., 0.05 for 5%
   description?: string;
-  expectedMonthlyContribution?: number;
+  contributionType: 'FIXED' | 'PERCENTAGE';
+  contributionValue: number;
 }
 
 export interface LoanType {

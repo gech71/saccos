@@ -45,13 +45,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getSavingAccountTypes, addSavingAccountType, updateSavingAccountType, deleteSavingAccountType } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
 
-const initialFormState: Partial<Omit<SavingAccountType, 'id'>> = {
+const initialFormState: Partial<SavingAccountType> = {
   name: '',
   description: '',
   interestRate: undefined,
-  expectedMonthlyContribution: undefined,
+  contributionType: 'FIXED',
+  contributionValue: 0,
 };
 
 export default function SavingAccountTypesPage() {
@@ -94,13 +97,15 @@ export default function SavingAccountTypesPage() {
     const { name, value } = e.target;
     const numValue = parseFloat(value);
     
-    if (name === 'interestRate') {
+    if (name === 'interestRate' || name === 'contributionValue') {
       setCurrentAccountType(prev => ({...prev, [name]: numValue }));
-    } else if (name === 'expectedMonthlyContribution') {
-       setCurrentAccountType(prev => ({...prev, [name]: numValue }));
     } else {
        setCurrentAccountType(prev => ({ ...prev, [name]: value }));
     }
+  };
+  
+  const handleContributionTypeChange = (value: 'FIXED' | 'PERCENTAGE') => {
+      setCurrentAccountType(prev => ({...prev, contributionType: value}));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,8 +114,8 @@ export default function SavingAccountTypesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Account type name and a valid non-negative interest rate are required.' });
       return;
     }
-    if (currentAccountType.expectedMonthlyContribution !== undefined && currentAccountType.expectedMonthlyContribution < 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Expected monthly contribution cannot be negative.' });
+    if (currentAccountType.contributionValue === undefined || currentAccountType.contributionValue < 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Contribution value cannot be negative.' });
         return;
     }
 
@@ -120,7 +125,10 @@ export default function SavingAccountTypesPage() {
         name: currentAccountType.name!,
         description: currentAccountType.description,
         interestRate: (currentAccountType.interestRate || 0) / 100, // Convert percentage to decimal
-        expectedMonthlyContribution: currentAccountType.expectedMonthlyContribution,
+        contributionType: currentAccountType.contributionType!,
+        contributionValue: currentAccountType.contributionType === 'PERCENTAGE' 
+            ? (currentAccountType.contributionValue || 0) / 100 // Convert percentage to decimal
+            : currentAccountType.contributionValue || 0,
     };
 
     try {
@@ -150,7 +158,9 @@ export default function SavingAccountTypesPage() {
     setCurrentAccountType({
         ...accountType, 
         interestRate: accountType.interestRate * 100, // Convert decimal to percentage for display
-        expectedMonthlyContribution: accountType.expectedMonthlyContribution || 0,
+        contributionValue: accountType.contributionType === 'PERCENTAGE' 
+            ? accountType.contributionValue * 100 // Convert percentage decimal to display
+            : accountType.contributionValue,
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -180,6 +190,13 @@ export default function SavingAccountTypesPage() {
       (st.description && st.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [accountTypes, searchTerm]);
+  
+  const formatContribution = (type: SavingAccountType) => {
+      if (type.contributionType === 'PERCENTAGE') {
+          return `${(type.contributionValue * 100).toFixed(2)}% of Salary`;
+      }
+      return `${type.contributionValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
+  }
 
   return (
     <div className="space-y-6">
@@ -209,8 +226,8 @@ export default function SavingAccountTypesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Interest Rate</TableHead>
-              <TableHead className="text-right">Expected Monthly Contrib. (Birr)</TableHead>
+              <TableHead className="text-right">Interest Rate (Annual)</TableHead>
+              <TableHead className="text-right">Expected Monthly Contrib.</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,7 +239,9 @@ export default function SavingAccountTypesPage() {
                 <TableCell className="font-medium">{accountType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{accountType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">{(accountType.interestRate * 100).toFixed(2)}%</TableCell>
-                <TableCell className="text-right font-semibold">{(accountType.expectedMonthlyContribution || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right font-semibold">
+                    <Badge variant="secondary">{formatContribution(accountType)}</Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -266,41 +285,50 @@ export default function SavingAccountTypesPage() {
               <Label htmlFor="name">Account Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentAccountType.name || ''} onChange={handleInputChange} required />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="interestRate">Interest Rate (%) <span className="text-destructive">*</span></Label>
-                    <div className="relative">
-                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="interestRate" 
-                            name="interestRate" 
-                            type="number" 
-                            step="0.01" 
-                            min="0"
-                            value={currentAccountType.interestRate ?? ''}
-                            onChange={handleInputChange} 
-                            required 
-                            className="pr-7"
-                            placeholder="e.g., 2.5"
-                        />
-                    </div>
+             <div>
+                <Label htmlFor="interestRate">Interest Rate (%) <span className="text-destructive">*</span></Label>
+                <div className="relative">
+                    <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        id="interestRate" 
+                        name="interestRate" 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        value={currentAccountType.interestRate ?? ''}
+                        onChange={handleInputChange} 
+                        required 
+                        className="pr-7"
+                        placeholder="e.g., 2.5"
+                    />
                 </div>
-                <div>
-                    <Label htmlFor="expectedMonthlyContribution">Expected Monthly Contribution (Birr)</Label>
-                     <div className="relative">
-                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="expectedMonthlyContribution" 
-                            name="expectedMonthlyContribution" 
-                            type="number" 
-                            step="0.01" 
-                            min="0"
-                            value={currentAccountType.expectedMonthlyContribution ?? ''} 
-                            onChange={handleInputChange}
-                            className="pl-7"
-                            placeholder="0.00"
-                        />
-                    </div>
+            </div>
+            <div>
+                <Label>Expected Monthly Contribution</Label>
+                <RadioGroup value={currentAccountType.contributionType || 'FIXED'} onValueChange={handleContributionTypeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="FIXED" id="fixed" /><Label htmlFor="fixed">Fixed Amount</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="PERCENTAGE" id="percentage" /><Label htmlFor="percentage">Percentage of Salary</Label></div>
+                </RadioGroup>
+            </div>
+            <div>
+                <Label htmlFor="contributionValue">Value</Label>
+                <div className="relative">
+                    {currentAccountType.contributionType === 'FIXED' ? (
+                         <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    ) : (
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Input 
+                        id="contributionValue" 
+                        name="contributionValue" 
+                        type="number" 
+                        step="0.01" 
+                        min="0"
+                        value={currentAccountType.contributionValue ?? ''} 
+                        onChange={handleInputChange}
+                        className={currentAccountType.contributionType === 'FIXED' ? 'pl-7' : 'pr-7'}
+                        placeholder="0.00"
+                    />
                 </div>
             </div>
             <div>

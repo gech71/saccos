@@ -17,11 +17,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, DollarSign, UserPlus, Check, ChevronsUpDown, Hash, CalendarPlus } from 'lucide-react';
+import { Loader2, DollarSign, UserPlus, Check, ChevronsUpDown, Hash, CalendarPlus, AlertCircle } from 'lucide-react';
 import type { Member, SavingAccountType } from '@prisma/client';
 import { getAccountCreationData, createSavingAccount } from './actions';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AccountFormState {
   memberId: string;
@@ -40,7 +41,7 @@ const initialFormState: AccountFormState = {
 };
 
 export default function AddSavingAccountPage() {
-  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName' | 'salary'>[]>([]);
   const [savingAccountTypes, setSavingAccountTypes] = useState<SavingAccountType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,14 +66,33 @@ export default function AddSavingAccountPage() {
     fetchData();
   }, [toast]);
   
+  const selectedMember = useMemo(() => {
+    return members.find(m => m.id === formState.memberId);
+  }, [formState.memberId, members]);
+
+  const selectedAccountType = useMemo(() => {
+    return savingAccountTypes.find(sat => sat.id === formState.savingAccountTypeId);
+  }, [formState.savingAccountTypeId, savingAccountTypes]);
+
+  useEffect(() => {
+    if (selectedMember && selectedAccountType) {
+      let expectedSaving = 0;
+      if (selectedAccountType.contributionType === 'FIXED') {
+        expectedSaving = selectedAccountType.contributionValue;
+      } else if (selectedAccountType.contributionType === 'PERCENTAGE' && selectedMember.salary) {
+        expectedSaving = selectedMember.salary * selectedAccountType.contributionValue;
+      }
+      setFormState(prev => ({
+        ...prev,
+        expectedMonthlySaving: expectedSaving,
+      }));
+    } else {
+      setFormState(prev => ({ ...prev, expectedMonthlySaving: 0 }));
+    }
+  }, [selectedMember, selectedAccountType]);
+  
   const handleSelectChange = (name: keyof AccountFormState, value: string) => {
     setFormState(prev => ({ ...prev, [name]: value }));
-    if (name === 'savingAccountTypeId') {
-      const selectedType = savingAccountTypes.find(sat => sat.id === value);
-      if (selectedType) {
-        setFormState(prev => ({ ...prev, expectedMonthlySaving: selectedType.expectedMonthlyContribution || 0 }));
-      }
-    }
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,6 +111,10 @@ export default function AddSavingAccountPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and an account type.' });
       return;
     }
+    if (formState.initialBalance < formState.expectedMonthlySaving) {
+      toast({ variant: 'destructive', title: 'Validation Error', description: `Initial balance cannot be less than the expected monthly saving of ${formState.expectedMonthlySaving.toFixed(2)} Birr.` });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -103,6 +127,14 @@ export default function AddSavingAccountPage() {
       setIsSubmitting(false);
     }
   };
+  
+  const expectedMonthlySavingText = useMemo(() => {
+    if (!selectedAccountType) return "This value is used for collection forecasting and fulfillment calculation.";
+    if (selectedAccountType.contributionType === 'PERCENTAGE') {
+        return `Calculated as ${selectedAccountType.contributionValue * 100}% of the member's salary.`;
+    }
+    return `Fixed amount based on the selected account type.`;
+  }, [selectedAccountType]);
 
   return (
     <div className="space-y-8">
@@ -181,6 +213,16 @@ export default function AddSavingAccountPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+             <div>
+                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
+                 <div className="relative">
+                    <CalendarPlus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="expectedMonthlySaving" name="expectedMonthlySaving" type="number" step="0.01" value={formState.expectedMonthlySaving || ''} readOnly className="pl-7 bg-muted/50" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{expectedMonthlySavingText}</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="accountNumber">Savings Account Number (Optional)</Label>
@@ -198,14 +240,15 @@ export default function AddSavingAccountPage() {
                 <p className="text-xs text-muted-foreground mt-1">If > 0, a deposit will be created for approval.</p>
               </div>
             </div>
-            <div>
-                <Label htmlFor="expectedMonthlySaving">Expected Monthly Saving (Birr)</Label>
-                 <div className="relative">
-                    <CalendarPlus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="expectedMonthlySaving" name="expectedMonthlySaving" type="number" step="0.01" value={formState.expectedMonthlySaving || ''} onChange={handleInputChange} className="pl-7" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">This value is used for collection forecasting and fulfillment calculation.</p>
-            </div>
+            {formState.initialBalance > 0 && formState.initialBalance < formState.expectedMonthlySaving && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        The initial balance is less than the expected monthly saving for this account type.
+                    </AlertDescription>
+                </Alert>
+            )}
+           
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSubmitting || isLoading} className="w-full md:w-auto ml-auto">
