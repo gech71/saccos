@@ -73,6 +73,7 @@ const initialMemberFormState: Partial<Member> = {
   emergencyContact: { name: '', phone: '' },
   schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],
+  salary: 0,
   shareCommitments: [],
 };
 
@@ -155,7 +156,8 @@ export default function MembersPage() {
             };
         });
     } else {
-        setCurrentMember(prev => ({ ...prev, [name]: value }));
+        const val = name === 'salary' ? parseFloat(value) : value;
+        setCurrentMember(prev => ({ ...prev, [name]: val }));
     }
   };
 
@@ -232,6 +234,7 @@ export default function MembersPage() {
             emergencyContact: currentMember.emergencyContact,
             schoolId: currentMember.schoolId!,
             joinDate: currentMember.joinDate!,
+            salary: currentMember.salary,
             shareCommitments: (currentMember.shareCommitments || [])
               .filter(sc => sc.shareTypeId && sc.monthlyCommittedAmount > 0)
               .map(sc => ({ shareTypeId: sc.shareTypeId, monthlyCommittedAmount: sc.monthlyCommittedAmount})),
@@ -316,6 +319,7 @@ export default function MembersPage() {
         'Email': member.email,
         'Phone': member.phoneNumber,
         'School': member.school?.name,
+        'Salary': member.salary,
         'Saving Account #': member.savingsAccountNumber || 'N/A',
         'Current Savings Balance (Birr)': member.savingsBalance,
         'Total Shares': member.sharesCount,
@@ -514,6 +518,7 @@ export default function MembersPage() {
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
+              <TableHead>Salary</TableHead>
               <TableHead className="text-right">Current Savings</TableHead>
               <TableHead>Shares / Commitments</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
@@ -521,7 +526,7 @@ export default function MembersPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
               <TableRow key={member.id}>
                 <TableCell className="font-mono text-xs">{member.id}</TableCell>
@@ -532,6 +537,9 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary">{member.school?.name}</Badge>
+                </TableCell>
+                <TableCell>
+                  {member.salary ? `${member.salary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : 'N/A'}
                 </TableCell>
                 <TableCell className="text-right">{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
@@ -574,7 +582,7 @@ export default function MembersPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No members found.
                 </TableCell>
               </TableRow>
@@ -737,7 +745,7 @@ export default function MembersPage() {
             
             <Separator className="my-4" />
              <Label className="font-semibold text-base text-primary">School &amp; Financial Information</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <Label htmlFor="schoolId">School <span className="text-destructive">*</span></Label>
                 <Select name="schoolId" value={currentMember.schoolId} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
@@ -748,6 +756,10 @@ export default function MembersPage() {
               <div>
                 <Label htmlFor="joinDate">Join Date <span className="text-destructive">*</span></Label>
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
+              </div>
+               <div>
+                <Label htmlFor="salary">Salary (Birr)</Label>
+                <Input id="salary" name="salary" type="number" step="0.01" value={currentMember.salary || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} />
               </div>
             </div>
 

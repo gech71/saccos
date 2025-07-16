@@ -62,6 +62,7 @@ export interface Member {
   schoolId: string;
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
+  salary: number | null;
   savingsBalance: number;
   savingsAccountNumber?: string;
   sharesCount: number; // Total shares across all types for this member - should be sum of all their Share records' counts.

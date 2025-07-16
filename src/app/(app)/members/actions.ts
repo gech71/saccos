@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -246,6 +247,7 @@ export async function importMembers(data: {
             savingAccountTypeId: savingAccountTypeId,
             expectedMonthlySaving: savingAccountType.expectedMonthlyContribution ?? 0,
             status: 'active' as 'active' | 'inactive',
+            salary: 0,
         };
     });
 

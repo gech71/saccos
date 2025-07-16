@@ -1,4 +1,5 @@
 
+
 import { PrismaClient } from '@prisma/client';
 import { permissionsList } from '../src/app/(app)/settings/permissions';
 
@@ -88,8 +89,8 @@ async function main() {
 
   // 4. Seed Core Types
   console.log('Seeding core types...');
-  const school1 = await prisma.school.create({ data: { name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' } });
-  const school2 = await prisma.school.create({ data: { name: 'Riverside Academy', address: '456 Pine Ave', contactPerson: 'Bob Builder' } });
+  const school1 = await prisma.school.create({ data: { id: 'SCH-001', name: 'Greenwood High', address: '123 Oak St', contactPerson: 'Alice Wonderland' } });
+  const school2 = await prisma.school.create({ data: { id: 'SCH-002', name: 'Riverside Academy', address: '456 Pine Ave', contactPerson: 'Bob Builder' } });
   
   const satRegular = await prisma.savingAccountType.create({ data: { name: 'Regular Savings', interestRate: 0.02, expectedMonthlyContribution: 50 } });
   const satYouth = await prisma.savingAccountType.create({ data: { name: 'Youth Saver', interestRate: 0.035, expectedMonthlyContribution: 25 } });
@@ -108,12 +109,14 @@ async function main() {
   console.log('Seeding members...');
   const member1 = await prisma.member.create({
     data: {
+      id: 'MEM-001',
       fullName: 'John Doe',
       email: 'john.doe@example.com',
       sex: 'Male',
       phoneNumber: '0911223344',
       schoolId: school1.id,
       joinDate: new Date(2023, 0, 15),
+      salary: 5000,
       savingsBalance: 1250.75,
       savingsAccountNumber: 'SA00001',
       sharesCount: 70,
@@ -136,12 +139,14 @@ async function main() {
 
   const member2 = await prisma.member.create({
     data: {
+      id: 'MEM-002',
       fullName: 'Jane Smith',
       email: 'jane.smith@example.com',
       sex: 'Female',
       phoneNumber: '0922334455',
       schoolId: school2.id,
       joinDate: new Date(2023, 2, 10),
+      salary: 4500,
       savingsBalance: 800.00,
       savingsAccountNumber: 'SA00002',
       sharesCount: 30,
