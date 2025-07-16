@@ -20,7 +20,7 @@ export async function addSavingAccountType(data: Omit<SavingAccountType, 'id'>):
       interestRate,
       contributionType,
       contributionValue,
-      description: description || null,
+      description,
     }
   });
   revalidatePath('/saving-account-types');
