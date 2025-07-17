@@ -3,6 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import { subMonths, format, startOfMonth } from 'date-fns';
+import type { School } from '@prisma/client';
 
 export interface AdminDashboardData {
   totalMembers: number;
@@ -14,36 +15,49 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  const totalMembers = await prisma.member.count({ where: { status: 'active' } });
-  
-  const totalSavingsResult = await prisma.memberSavingAccount.aggregate({
-    _sum: { balance: true },
-  });
+  // Fetch raw data in parallel
+  const [
+    totalMembers,
+    totalSavingsResult,
+    totalSchools,
+    totalDividendsResult,
+    savingsLast6Months,
+    schoolsWithMemberCounts,
+    allMemberSavingAccounts,
+  ] = await Promise.all([
+    prisma.member.count({ where: { status: 'active' } }),
+    prisma.memberSavingAccount.aggregate({ _sum: { balance: true } }),
+    prisma.school.count(),
+    prisma.dividend.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: 'approved',
+        distributionDate: { gte: new Date(new Date().getFullYear(), 0, 1) },
+      },
+    }),
+    prisma.saving.findMany({
+      where: {
+        status: 'approved',
+        transactionType: 'deposit',
+        date: { gte: startOfMonth(subMonths(new Date(), 5)) },
+      },
+      select: { amount: true, date: true },
+      orderBy: { date: 'asc' },
+    }),
+    prisma.school.findMany({
+        include: { _count: { select: { members: { where: { status: 'active' } } } } },
+    }),
+    prisma.memberSavingAccount.findMany({
+        where: { member: { status: 'active' } },
+        select: { balance: true, member: { select: { schoolId: true } } }
+    }),
+  ]);
+
+  // Process total stats
   const totalSavings = totalSavingsResult._sum.balance || 0;
-
-  const totalSchools = await prisma.school.count();
-
-  const totalDividendsResult = await prisma.dividend.aggregate({
-    _sum: { amount: true },
-    where: {
-      status: 'approved',
-      distributionDate: { gte: new Date(new Date().getFullYear(), 0, 1) },
-    },
-  });
   const totalDividendsYTD = totalDividendsResult._sum.amount || 0;
 
-  // Savings Trend for the last 6 months
-  const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
-  const savingsLast6Months = await prisma.saving.findMany({
-    where: {
-      status: 'approved',
-      transactionType: 'deposit',
-      date: { gte: sixMonthsAgo },
-    },
-    select: { amount: true, date: true },
-    orderBy: { date: 'asc' },
-  });
-
+  // Process Savings Trend
   const monthlySavings: { [key: string]: number } = {};
   for (let i = 5; i >= 0; i--) {
     const month = format(subMonths(new Date(), i), 'MMM');
@@ -62,49 +76,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     savings: monthlySavings[month],
   }));
 
-  // School Performance
-  const schools = await prisma.school.findMany({
-    include: {
-      _count: {
-        select: { members: { where: { status: 'active' } } },
-      },
-    },
-  });
-
-  const schoolSavings = await prisma.memberSavingAccount.groupBy({
-    by: ['memberId'],
-    _sum: {
-      balance: true,
-    },
-    where: { member: { status: 'active' } }
-  });
-  
-  const memberSchools = await prisma.member.findMany({
-      where: { status: 'active' },
-      select: { id: true, schoolId: true }
-  });
-  const memberSchoolMap = new Map(memberSchools.map(m => [m.id, m.schoolId]));
-
-  const schoolPerformanceMap: { [key: string]: number } = {};
-  schoolSavings.forEach(ss => {
-      const schoolId = memberSchoolMap.get(ss.memberId);
-      if (schoolId) {
-          if (!schoolPerformanceMap[schoolId]) {
-              schoolPerformanceMap[schoolId] = 0;
-          }
-          schoolPerformanceMap[schoolId] += ss._sum.balance || 0;
+  // Process School Performance
+  const schoolSavingsMap = new Map<string, number>();
+  allMemberSavingAccounts.forEach(account => {
+      if (account.member.schoolId) {
+          const currentTotal = schoolSavingsMap.get(account.member.schoolId) || 0;
+          schoolSavingsMap.set(account.member.schoolId, currentTotal + account.balance);
       }
   });
 
-
-  const schoolPerformance = schools.map(school => {
-    return {
-      name: school.name,
-      members: school._count.members,
-      savings: schoolPerformanceMap[school.id] || 0,
-    };
-  });
-
+  const schoolPerformance = schoolsWithMemberCounts.map(school => ({
+    name: school.name,
+    members: school._count.members,
+    savings: schoolSavingsMap.get(school.id) || 0,
+  }));
 
   return {
     totalMembers,
