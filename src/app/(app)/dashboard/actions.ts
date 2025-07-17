@@ -3,7 +3,6 @@
 
 import prisma from '@/lib/prisma';
 import { subMonths, format, startOfMonth } from 'date-fns';
-import type { School } from '@prisma/client';
 
 export interface AdminDashboardData {
   totalMembers: number;
@@ -15,15 +14,13 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  // Fetch raw data in parallel
   const [
     totalMembers,
     totalSavingsResult,
     totalSchools,
     totalDividendsResult,
     savingsLast6Months,
-    schoolsWithMemberCounts,
-    allMemberSavingAccounts,
+    schools,
   ] = await Promise.all([
     prisma.member.count({ where: { status: 'active' } }),
     prisma.memberSavingAccount.aggregate({ _sum: { balance: true } }),
@@ -45,19 +42,25 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       orderBy: { date: 'asc' },
     }),
     prisma.school.findMany({
-        include: { _count: { select: { members: { where: { status: 'active' } } } } },
-    }),
-    prisma.memberSavingAccount.findMany({
-        where: { member: { status: 'active' } },
-        select: { balance: true, member: { select: { schoolId: true } } }
+      include: {
+        _count: { select: { members: { where: { status: 'active' } } } },
+        members: {
+          where: { status: 'active' },
+          include: {
+            memberSavingAccounts: {
+              select: {
+                balance: true
+              }
+            }
+          }
+        }
+      },
     }),
   ]);
 
-  // Process total stats
   const totalSavings = totalSavingsResult._sum.balance || 0;
   const totalDividendsYTD = totalDividendsResult._sum.amount || 0;
 
-  // Process Savings Trend
   const monthlySavings: { [key: string]: number } = {};
   for (let i = 5; i >= 0; i--) {
     const month = format(subMonths(new Date(), i), 'MMM');
@@ -75,21 +78,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     month,
     savings: monthlySavings[month],
   }));
-
-  // Process School Performance
-  const schoolSavingsMap = new Map<string, number>();
-  allMemberSavingAccounts.forEach(account => {
-      if (account.member.schoolId) {
-          const currentTotal = schoolSavingsMap.get(account.member.schoolId) || 0;
-          schoolSavingsMap.set(account.member.schoolId, currentTotal + account.balance);
-      }
+  
+  const schoolPerformance = schools.map(school => {
+    const totalSchoolSavings = school.members.reduce((schoolSum, member) => {
+      const memberTotal = member.memberSavingAccounts.reduce((memberSum, account) => memberSum + account.balance, 0);
+      return schoolSum + memberTotal;
+    }, 0);
+    
+    return {
+      name: school.name,
+      members: school._count.members,
+      savings: totalSchoolSavings,
+    };
   });
-
-  const schoolPerformance = schoolsWithMemberCounts.map(school => ({
-    name: school.name,
-    members: school._count.members,
-    savings: schoolSavingsMap.get(school.id) || 0,
-  }));
 
   return {
     totalMembers,
