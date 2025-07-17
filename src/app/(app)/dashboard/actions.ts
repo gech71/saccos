@@ -72,13 +72,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   });
 
   const schoolSavings = await prisma.memberSavingAccount.groupBy({
-    by: ['member'],
+    by: ['memberId'],
     _sum: {
       balance: true,
     },
     where: { member: { status: 'active' } }
   });
-
+  
   const memberSchools = await prisma.member.findMany({
       where: { status: 'active' },
       select: { id: true, schoolId: true }
@@ -87,7 +87,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   const schoolPerformanceMap: { [key: string]: number } = {};
   schoolSavings.forEach(ss => {
-      const schoolId = memberSchoolMap.get((ss as any).memberId);
+      const schoolId = memberSchoolMap.get(ss.memberId);
       if (schoolId) {
           if (!schoolPerformanceMap[schoolId]) {
               schoolPerformanceMap[schoolId] = 0;
@@ -95,6 +95,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
           schoolPerformanceMap[schoolId] += ss._sum.balance || 0;
       }
   });
+
 
   const schoolPerformance = schools.map(school => {
     return {
