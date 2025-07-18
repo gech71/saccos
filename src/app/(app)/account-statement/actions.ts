@@ -71,39 +71,45 @@ export async function generateStatement(
     return null;
   }
 
-  // Fetch all approved savings transactions specifically for the selected account
-  const allAccountTransactions = await prisma.saving.findMany({
+  // Fetch all approved savings transactions that occurred *before* the statement's start date
+  const transactionsBeforeRange = await prisma.saving.findMany({
     where: {
-        memberId,
         memberSavingAccountId: accountId,
-        status: 'approved'
+        status: 'approved',
+        date: {
+            lt: dateRange.from,
+        }
     },
     orderBy: { date: 'asc' },
   });
-
-  // Start with the initial balance when the account was created.
-  // Then, add/subtract all transactions that happened *before* the statement's date range.
-  const transactionsBeforeRange = allAccountTransactions.filter(tx => new Date(tx.date) < dateRange.from!);
   
+  // Calculate Balance Brought Forward by summing up all transactions before the start date.
   const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, 0); // Start the reduce from 0, as we are only considering transactions.
+  }, 0); // Start the balance from 0, as we are summing up all historical transactions.
 
-  // Process transactions *within* the date range
+  // Fetch and process transactions *within* the date range
+  const transactionsInPeriodRaw = await prisma.saving.findMany({
+      where: {
+          memberSavingAccountId: accountId,
+          status: 'approved',
+          date: {
+              gte: dateRange.from,
+              lte: dateRange.to
+          }
+      },
+      orderBy: { date: 'asc' },
+  });
+
   let runningBalance = balanceBroughtForward;
-  const transactionsInPeriod = allAccountTransactions
-    .filter(tx => {
-        const txDate = new Date(tx.date);
-        return txDate >= dateRange.from! && txDate <= dateRange.to!;
-    })
-    .map(tx => {
+  const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
       const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
       runningBalance += credit - debit;
       return { ...tx, debit, credit, balance: runningBalance };
-    });
+  });
 
   return {
     member,
