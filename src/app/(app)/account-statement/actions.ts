@@ -71,44 +71,40 @@ export async function generateStatement(
     return null;
   }
   
-  // Find the initial deposit transaction to get the account's opening balance
+  // 1. Find the initial deposit transaction to get the account's opening balance
   const openingTransaction = await prisma.saving.findFirst({
       where: {
           memberSavingAccountId: accountId,
           status: 'approved',
+          notes: {
+            contains: 'Initial deposit'
+          }
       },
       orderBy: {
           date: 'asc'
       }
   });
 
-  const openingBalance = openingTransaction?.amount || 0;
-  const openingBalanceDate = openingTransaction?.date || new Date(0);
-
-  // Fetch all approved savings transactions that occurred *after* the opening balance and *before* the statement's start date
+  // 2. Fetch all approved transactions that occurred *before* the statement's start date
   const transactionsBeforeRange = await prisma.saving.findMany({
     where: {
         memberSavingAccountId: accountId,
         status: 'approved',
         date: {
             lt: dateRange.from,
-            // Start from the opening balance date, but exclude the opening transaction itself if it's found
-            gte: openingTransaction ? openingBalanceDate : undefined,
         },
-        // Explicitly exclude the opening transaction itself if it's already accounted for
-        id: openingTransaction ? { not: openingTransaction.id } : undefined,
     },
     orderBy: { date: 'asc' },
   });
   
-  // Calculate Balance Brought Forward by starting with the opening balance and then applying all subsequent transactions before the range.
+  // 3. Calculate Balance Brought Forward by applying all transactions before the range.
   const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, openingBalance); // Start the balance from the actual opening balance.
+  }, 0); // Start with 0 and sum up all prior transactions
 
-  // Fetch and process transactions *within* the date range
+  // 4. Fetch transactions *within* the date range
   const transactionsInPeriodRaw = await prisma.saving.findMany({
       where: {
           memberSavingAccountId: accountId,
@@ -117,22 +113,13 @@ export async function generateStatement(
               gte: dateRange.from,
               lte: dateRange.to
           },
-          // Ensure we don't re-fetch the opening transaction if it falls within the period
-          id: openingTransaction ? { not: openingTransaction.id } : undefined,
       },
       orderBy: { date: 'asc' },
   });
   
-  // Re-include the opening transaction if it falls within the date range, but don't add to BBF
-  const periodTransactionsWithOpening = [...transactionsInPeriodRaw];
-  if (openingTransaction && openingTransaction.date >= dateRange.from && openingTransaction.date <= dateRange.to) {
-    periodTransactionsWithOpening.unshift(openingTransaction);
-    periodTransactionsWithOpening.sort((a,b) => a.date.getTime() - b.date.getTime());
-  }
-
-
+  // 5. Process transactions for the statement, starting with the BBF
   let runningBalance = balanceBroughtForward;
-  const transactionsInPeriod = periodTransactionsWithOpening.map(tx => {
+  const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
       const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
       runningBalance += credit - debit;
