@@ -212,7 +212,7 @@ async function main() {
       loanTerm: ltEmergency.loanTerm,
       repaymentFrequency: ltEmergency.repaymentFrequency,
       collaterals: {
-        create: [{
+        create: {
           fullName: 'Guarantor Person',
           organization: {
             create: {
@@ -228,7 +228,7 @@ async function main() {
               wereda: '01'
             },
           },
-        }],
+        },
       },
     },
   });
