@@ -81,14 +81,15 @@ export async function generateStatement(
     orderBy: { date: 'asc' },
   });
 
-  // Calculate Balance Brought Forward from transactions *before* the date range
-  const balanceBroughtForward = allAccountTransactions
-    .filter(tx => new Date(tx.date) < dateRange.from!)
-    .reduce((balance, tx) => {
-      if (tx.transactionType === 'deposit') return balance + tx.amount;
-      if (tx.transactionType === 'withdrawal') return balance - tx.amount;
-      return balance;
-    }, 0);
+  // Start with the initial balance when the account was created.
+  // Then, add/subtract all transactions that happened *before* the statement's date range.
+  const transactionsBeforeRange = allAccountTransactions.filter(tx => new Date(tx.date) < dateRange.from!);
+  
+  const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
+    if (tx.transactionType === 'deposit') return balance + tx.amount;
+    if (tx.transactionType === 'withdrawal') return balance - tx.amount;
+    return balance;
+  }, 0); // Start the reduce from 0, as we are only considering transactions.
 
   // Process transactions *within* the date range
   let runningBalance = balanceBroughtForward;
