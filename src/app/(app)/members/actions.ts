@@ -296,7 +296,7 @@ export async function importMembers(data: {
     revalidatePath('/members');
     return { 
         success: true, 
-        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
+        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} school(s) were skipped as duplicates.` : ''}`.trim(),
         createdCount: createdCount 
     };
 }

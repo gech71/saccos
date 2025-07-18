@@ -394,10 +394,11 @@ export default function MembersPage() {
           const validatedData: ParsedMember[] = dataRows.map(row => {
             const memberId = row['MemberID']?.toString().trim();
             const fullName = row['MemberFullName']?.toString().trim();
-            const savingsValue = row['SavingCollected']?.toString().trim() ?? '0';
-            const savingsBalance = parseFloat(savingsValue);
+            const savingsValue = row['SavingCollected']; // Keep as is
             const schoolId = row['SchoolID']?.toString().trim();
 
+            const savingsBalance = parseFloat(savingsValue);
+            
             if (!memberId || !fullName || isNaN(savingsBalance) || !schoolId) {
               return { memberId, fullName, savingsBalance, schoolId, status: 'Invalid Data', originalRow: row };
             }
@@ -923,7 +924,7 @@ export default function MembersPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </Dialog>
     </div>
   );
 }
