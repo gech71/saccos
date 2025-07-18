@@ -71,21 +71,7 @@ export async function generateStatement(
     return null;
   }
   
-  // 1. Find the initial deposit transaction to get the account's opening balance
-  const openingTransaction = await prisma.saving.findFirst({
-      where: {
-          memberSavingAccountId: accountId,
-          status: 'approved',
-          notes: {
-            contains: 'Initial deposit'
-          }
-      },
-      orderBy: {
-          date: 'asc'
-      }
-  });
-
-  // 2. Fetch all approved transactions that occurred *before* the statement's start date
+  // 1. Fetch all approved transactions that occurred *before* the statement's start date
   const transactionsBeforeRange = await prisma.saving.findMany({
     where: {
         memberSavingAccountId: accountId,
@@ -97,14 +83,14 @@ export async function generateStatement(
     orderBy: { date: 'asc' },
   });
   
-  // 3. Calculate Balance Brought Forward by applying all transactions before the range.
+  // 2. Calculate Balance Brought Forward by applying all transactions before the range.
   const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
   }, 0); // Start with 0 and sum up all prior transactions
 
-  // 4. Fetch transactions *within* the date range
+  // 3. Fetch transactions *within* the date range
   const transactionsInPeriodRaw = await prisma.saving.findMany({
       where: {
           memberSavingAccountId: accountId,
@@ -117,7 +103,7 @@ export async function generateStatement(
       orderBy: { date: 'asc' },
   });
   
-  // 5. Process transactions for the statement, starting with the BBF
+  // 4. Process transactions for the statement, starting with the BBF
   let runningBalance = balanceBroughtForward;
   const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
