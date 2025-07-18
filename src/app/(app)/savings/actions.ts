@@ -2,14 +2,16 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, Member } from '@prisma/client';
+import type { Member, MemberSavingAccount, Saving } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export type SavingWithMemberName = Saving & { memberName: string | null };
 
 export interface SavingsPageData {
   savings: SavingWithMemberName[];
-  members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance' | 'status'>[];
+  members: (Pick<Member, 'id' | 'fullName' | 'status'> & {
+    memberSavingAccounts: Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'>[];
+  })[];
 }
 
 export async function getSavingsPageData(): Promise<SavingsPageData> {
@@ -20,9 +22,19 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
       },
       orderBy: { date: 'desc' },
     }),
-    // Admin should be able to see and create transactions for ANY member, not just active ones.
     prisma.member.findMany({
-      select: { id: true, fullName: true, savingsAccountNumber: true, savingsBalance: true, status: true },
+      select: { 
+        id: true, 
+        fullName: true, 
+        status: true,
+        memberSavingAccounts: {
+          select: {
+            id: true,
+            accountNumber: true,
+            balance: true
+          }
+        }
+      },
       orderBy: { fullName: 'asc' },
     }),
   ]);
@@ -48,8 +60,11 @@ export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
-  if (data.transactionType === 'withdrawal' && data.amount > member.savingsBalance) {
-      throw new Error("Withdrawal amount cannot exceed the member's current savings balance.");
+  const account = await prisma.memberSavingAccount.findUnique({ where: {id: data.memberSavingAccountId! }})
+  if (!account) throw new Error('Savings account not found');
+
+  if (data.transactionType === 'withdrawal' && data.amount > account.balance) {
+      throw new Error("Withdrawal amount cannot exceed the selected account's balance.");
   }
 
   const { memberName, ...restOfData } = data;
@@ -71,8 +86,11 @@ export async function updateSavingTransaction(id: string, data: SavingInput): Pr
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
-  if (data.transactionType === 'withdrawal' && data.amount > member.savingsBalance) {
-      throw new Error("Withdrawal amount cannot exceed the member's current savings balance.");
+  const account = await prisma.memberSavingAccount.findUnique({ where: {id: data.memberSavingAccountId! }})
+  if (!account) throw new Error('Savings account not found');
+  
+  if (data.transactionType === 'withdrawal' && data.amount > account.balance) {
+      throw new Error("Withdrawal amount cannot exceed the account's current balance.");
   }
 
   const { memberName, ...restOfData } = data;

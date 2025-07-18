@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
@@ -23,24 +22,19 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
 import { useSearchParams } from 'next/navigation';
-import { generateStatement, getMembersForStatement, getMemberInitialData, type StatementData } from './actions';
+import { generateStatement, getMembersForStatement, type StatementData, type MemberForStatement } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-
-type MemberForSelect = {
-    id: string;
-    fullName: string | null;
-    savingsAccountNumber: string | null;
-    status: string;
-}
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
   
-  const [allMembers, setAllMembers] = useState<MemberForSelect[]>([]);
+  const [allMembers, setAllMembers] = useState<MemberForStatement[]>([]);
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -68,16 +62,22 @@ function AccountStatementContent() {
         setSelectedMemberId(memberIdFromQuery);
     }
   }, [user, searchParams]);
+  
+  // Reset account selection when member changes
+  useEffect(() => {
+      setSelectedAccountId('');
+      setStatementData(null);
+  }, [selectedMemberId]);
 
   const handleGenerateStatement = async () => {
-    if (!selectedMemberId || !dateRange?.from || !dateRange?.to) {
-      toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a member and a valid date range.' });
+    if (!selectedMemberId || !selectedAccountId || !dateRange?.from || !dateRange?.to) {
+      toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a member, an account, and a valid date range.' });
       return;
     }
     setIsLoading(true);
 
     try {
-        const data = await generateStatement(selectedMemberId, dateRange);
+        const data = await generateStatement(selectedMemberId, selectedAccountId, dateRange);
         if (data) {
             setStatementData(data);
             toast({ title: 'Statement Generated', description: `Statement for ${data.member.fullName} is ready.` });
@@ -162,9 +162,9 @@ function AccountStatementContent() {
             <Card className="statement-form">
                 <CardHeader>
                 <CardTitle>Selection Criteria</CardTitle>
-                <CardDescription>Select a member and date range to generate their statement.</CardDescription>
+                <CardDescription>Select a member, account, and date range to generate their statement.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <Label htmlFor="member-select">Member</Label>
                     <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
@@ -184,14 +184,14 @@ function AccountStatementContent() {
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                        <CommandInput placeholder="Search member by name or account..." />
+                        <CommandInput placeholder="Search member by name..." />
                         <CommandList>
                             <CommandEmpty>No member found.</CommandEmpty>
                             <CommandGroup>
                             {allMembers.map((member) => (
                                 <CommandItem
                                 key={member.id}
-                                value={`${member.fullName} ${member.savingsAccountNumber}`}
+                                value={`${member.fullName}`}
                                 onSelect={() => {
                                     setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
                                     setOpenMemberCombobox(false)
@@ -203,7 +203,7 @@ function AccountStatementContent() {
                                     selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                     )}
                                 />
-                                {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                                {member.fullName}
                                 {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                                 </CommandItem>
                             ))}
@@ -212,6 +212,21 @@ function AccountStatementContent() {
                         </Command>
                     </PopoverContent>
                     </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="account-select">Savings Account</Label>
+                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={!selectedMember}>
+                      <SelectTrigger id="account-select">
+                          <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {selectedMember?.memberSavingAccounts.map(account => (
+                              <SelectItem key={account.id} value={account.id}>
+                                  {account.savingAccountType?.name} ({account.accountNumber})
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
                 </div>
                 <div>
                     <Label htmlFor="date-range-picker">Statement Period</Label>
@@ -251,7 +266,7 @@ function AccountStatementContent() {
                 </div>
                 </CardContent>
                 <CardFooter>
-                <Button onClick={handleGenerateStatement} disabled={isLoading}>
+                <Button onClick={handleGenerateStatement} disabled={isLoading || !selectedAccountId}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Generate Statement
                 </Button>
@@ -299,7 +314,7 @@ function AccountStatementContent() {
                     </div>
                      <div>
                         <Label className="font-semibold text-gray-700">Account Number:</Label>
-                        <div>{statementData.accountNumber}</div>
+                        <div>{statementData.account.accountNumber} ({statementData.account.savingAccountType?.name})</div>
                     </div>
                     <div>
                         <Label className="font-semibold text-gray-700">School:</Label>

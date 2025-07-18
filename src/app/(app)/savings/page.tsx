@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -44,7 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { Member } from '@prisma/client';
+import type { Member, MemberSavingAccount } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
@@ -64,6 +63,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   memberId: '',
+  memberSavingAccountId: '',
   amount: 0,
   date: new Date().toISOString().split('T')[0],
   month: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
@@ -74,7 +74,9 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   evidenceUrl: '',
 };
 
-type MemberForSelect = Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber' | 'savingsBalance' | 'status'>;
+type MemberForSelect = (Pick<Member, 'id' | 'fullName' | 'status'> & {
+    memberSavingAccounts: Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'>[];
+});
 
 export default function SavingsPage() {
   const [savingsTransactions, setSavingsTransactions] = useState<SavingWithMemberName[]>([]);
@@ -133,9 +135,9 @@ export default function SavingsPage() {
   const handleSelectChange = (name: string, value: string) => {
     setCurrentTransaction(prev => {
       const updatedSaving = { ...prev, [name]: value };
-      if (name === 'memberId' && !isEditing && updatedSaving.transactionType === 'withdrawal') {
-        const member = members.find(m => m.id === value);
-        updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
+      if (name === 'memberId') {
+        // Reset account when member changes
+        updatedSaving.memberSavingAccountId = '';
       }
       return updatedSaving;
     });
@@ -149,16 +151,8 @@ export default function SavingsPage() {
         updatedSaving.sourceName = undefined;
         updatedSaving.transactionReference = undefined;
         updatedSaving.evidenceUrl = undefined;
-
-        if (!isEditing && updatedSaving.memberId) {
-          const member = members.find(m => m.id === updatedSaving.memberId);
-          updatedSaving.amount = (member && typeof member.savingsBalance === 'number') ? member.savingsBalance : 0;
-        }
       } else { 
         updatedSaving.depositMode = prev.depositMode || initialTransactionFormState.depositMode;
-        if (!isEditing) { 
-          updatedSaving.amount = 0;
-        }
       }
       return updatedSaving;
     });
@@ -170,8 +164,8 @@ export default function SavingsPage() {
 
   const handleSubmitTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentTransaction.memberId || currentTransaction.amount === undefined || currentTransaction.amount <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and enter a valid positive amount.' });
+    if (!currentTransaction.memberId || !currentTransaction.memberSavingAccountId || currentTransaction.amount === undefined || currentTransaction.amount <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, their account, and enter a valid positive amount.' });
         return;
     }
     if (currentTransaction.transactionType === 'deposit' && !currentTransaction.depositMode) {
@@ -286,6 +280,12 @@ export default function SavingsPage() {
     }));
     exportToExcel(dataToExport, 'savings_transactions_export');
   };
+  
+  const selectedMemberAccounts = useMemo(() => {
+      if (!currentTransaction.memberId) return [];
+      const member = members.find(m => m.id === currentTransaction.memberId);
+      return member?.memberSavingAccounts || [];
+  }, [currentTransaction.memberId, members]);
 
   return (
     <div className="space-y-6">
@@ -454,7 +454,7 @@ export default function SavingsPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            value={`${member.fullName} ${member.id}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -466,7 +466,7 @@ export default function SavingsPage() {
                                 currentTransaction.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                            {member.fullName}
                              {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                           </CommandItem>
                         ))}
@@ -476,6 +476,19 @@ export default function SavingsPage() {
                 </PopoverContent>
               </Popover>
             </div>
+             <div>
+                <Label htmlFor="memberSavingAccountId">Savings Account <span className="text-destructive">*</span></Label>
+                <Select name="memberSavingAccountId" onValueChange={(val) => handleSelectChange('memberSavingAccountId', val)} value={currentTransaction.memberSavingAccountId} disabled={!currentTransaction.memberId}>
+                    <SelectTrigger><SelectValue placeholder="Select member's account..." /></SelectTrigger>
+                    <SelectContent>
+                        {selectedMemberAccounts.map(account => (
+                            <SelectItem key={account.id} value={account.id}>
+                                {account.accountNumber} (Bal: {account.balance.toFixed(2)} Birr)
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="amount">Amount (Birr) <span className="text-destructive">*</span></Label>
