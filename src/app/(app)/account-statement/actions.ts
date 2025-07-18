@@ -76,9 +76,6 @@ export async function generateStatement(
       where: {
           memberSavingAccountId: accountId,
           status: 'approved',
-          notes: {
-              contains: 'Initial deposit'
-          }
       },
       orderBy: {
           date: 'asc'
@@ -119,13 +116,23 @@ export async function generateStatement(
           date: {
               gte: dateRange.from,
               lte: dateRange.to
-          }
+          },
+          // Ensure we don't re-fetch the opening transaction if it falls within the period
+          id: openingTransaction ? { not: openingTransaction.id } : undefined,
       },
       orderBy: { date: 'asc' },
   });
+  
+  // Re-include the opening transaction if it falls within the date range, but don't add to BBF
+  const periodTransactionsWithOpening = [...transactionsInPeriodRaw];
+  if (openingTransaction && openingTransaction.date >= dateRange.from && openingTransaction.date <= dateRange.to) {
+    periodTransactionsWithOpening.unshift(openingTransaction);
+    periodTransactionsWithOpening.sort((a,b) => a.date.getTime() - b.date.getTime());
+  }
+
 
   let runningBalance = balanceBroughtForward;
-  const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
+  const transactionsInPeriod = periodTransactionsWithOpening.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
       const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
       runningBalance += credit - debit;
