@@ -209,4 +209,3 @@ export default async function MemberProfilePage({ params }: { params: { memberId
         </div>
     );
 }
-
