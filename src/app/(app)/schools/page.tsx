@@ -35,8 +35,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import type { School } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -57,6 +55,7 @@ import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, impor
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import { Badge } from '@/components/ui/badge';
+import type { School } from '@prisma/client';
 
 
 const initialSchoolFormState: Partial<School> = {
@@ -69,6 +68,8 @@ const initialSchoolFormState: Partial<School> = {
 type ParsedSchool = {
   id: string;
   name: string;
+  address?: string;
+  contactPerson?: string;
   status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name';
 };
 
@@ -79,7 +80,7 @@ export default function SchoolsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<string | null>(null);
 
-  const [currentSchool, setCurrentSchool] = useState<Partial<School>>({});
+  const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,7 +143,7 @@ export default function SchoolsPage() {
           name: currentSchool.name,
           address: currentSchool.address,
           contactPerson: currentSchool.contactPerson,
-        } as School);
+        });
         toast({ title: 'Success', description: 'School added successfully.' });
       }
       await fetchSchools(); // Refresh data
@@ -274,6 +275,8 @@ export default function SchoolsPage() {
           const validatedData: ParsedSchool[] = dataRows.map(row => {
             const id = row['School ID']?.toString().trim();
             const name = row['School Name']?.toString().trim();
+            const address = row['Address']?.toString().trim();
+            const contactPerson = row['Contact Person']?.toString().trim();
 
             if (!id || !name) {
               return { id, name, status: 'Invalid ID or Name' };
@@ -287,7 +290,7 @@ export default function SchoolsPage() {
             }
             seenInFile.add(id);
 
-            return { id, name, status };
+            return { id, name, address, contactPerson, status };
           });
           
           setParsedSchools(validatedData);
@@ -303,7 +306,9 @@ export default function SchoolsPage() {
   };
 
   const handleConfirmImport = async () => {
-    const schoolsToImport = parsedSchools.filter(s => s.status === 'Ready to import');
+    const schoolsToImport = parsedSchools
+      .filter(s => s.status === 'Ready to import')
+      .map(s => ({ id: s.id, name: s.name, address: s.address, contactPerson: s.contactPerson }));
       
     if (schoolsToImport.length === 0) {
       toast({ title: 'No New Schools', description: 'There are no new schools to import.' });

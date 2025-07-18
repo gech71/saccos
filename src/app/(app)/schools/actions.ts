@@ -32,7 +32,7 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
   }
 }
 
-export async function addSchool(data: School): Promise<School> {
+export async function addSchool(data: Omit<School, '_count'>): Promise<School> {
   const newSchool = await prisma.school.create({
     data,
   });
@@ -40,7 +40,7 @@ export async function addSchool(data: School): Promise<School> {
   return newSchool;
 }
 
-export async function updateSchool(id: string, data: Partial<Omit<School, 'id'>>): Promise<School> {
+export async function updateSchool(id: string, data: Partial<Omit<School, 'id' | '_count'>>): Promise<School> {
   const updatedSchool = await prisma.school.update({
     where: { id },
     data,
@@ -67,7 +67,7 @@ export async function deleteSchool(id: string): Promise<{ success: boolean, mess
 }
 
 
-export async function importSchools(schools: {id: string, name: string}[]): Promise<{ success: boolean, message: string, createdCount: number }> {
+export async function importSchools(schools: {id: string, name: string, address?: string, contactPerson?: string}[]): Promise<{ success: boolean, message: string, createdCount: number }> {
     if (!schools || schools.length === 0) {
         return { success: false, message: 'No school data provided for import.', createdCount: 0 };
     }
