@@ -44,13 +44,13 @@ export async function getSavingsAccountPageData(): Promise<SavingsAccountPageDat
   const summaries: SavingsAccountSummary[] = memberSavingAccounts
     .filter(account => account.member.status === 'active')
     .map(account => {
-        const { balance, expectedMonthlySaving, member, savingAccountType } = account;
-        const joinDateObj = new Date(member.joinDate);
+        const { balance, expectedMonthlySaving, member, savingAccountType, createdAt } = account;
+        const accountCreationDate = new Date(createdAt);
         const currentDate = new Date();
         
         let contributionPeriods = 0;
-        if (joinDateObj <= currentDate) {
-        contributionPeriods = differenceInMonths(currentDate, joinDateObj) + 1;
+        if (accountCreationDate <= currentDate) {
+            contributionPeriods = differenceInMonths(currentDate, accountCreationDate) + 1;
         }
         contributionPeriods = Math.max(0, contributionPeriods);
 
@@ -60,7 +60,7 @@ export async function getSavingsAccountPageData(): Promise<SavingsAccountPageDat
         if (totalExpected > 0) {
             fulfillmentPercentage = (balance / totalExpected) * 100;
         } else if (balance > 0) {
-            fulfillmentPercentage = 100;
+            fulfillmentPercentage = 100; // If no expected contribution but has balance, they've fulfilled 100% of "nothing"
         }
 
         return {
