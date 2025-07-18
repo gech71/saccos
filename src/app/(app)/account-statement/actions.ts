@@ -108,7 +108,7 @@ export async function generateStatement(
   // treat it as the BBF and remove it from the transaction list to prevent double counting.
   if (balanceBroughtForward === 0 && transactionsInPeriodRaw.length > 0) {
       const firstTransaction = transactionsInPeriodRaw[0];
-      if (firstTransaction.notes?.includes('Initial deposit') && isSameDay(firstTransaction.date, dateRange.from)) {
+      if (firstTransaction.notes?.toLowerCase().includes('initial deposit') && isSameDay(firstTransaction.date, dateRange.from)) {
         balanceBroughtForward = firstTransaction.amount;
         // Remove this transaction from the list as it's now the BBF
         transactionsInPeriodRaw.shift();
