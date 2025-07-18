@@ -2,17 +2,18 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Member, SavingAccountType, School, Saving, Prisma } from '@prisma/client';
+import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface CalculationPageData {
-    members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
+    members: Pick<Member, 'id' | 'fullName'>[];
     schools: Pick<School, 'id' | 'name'>[];
     savingAccountTypes: Pick<SavingAccountType, 'id' | 'name' | 'interestRate'>[];
 }
 
 export interface InterestCalculationResult {
   memberId: string;
+  memberSavingAccountId: string;
   fullName: string;
   savingsAccountNumber?: string | null;
   savingsBalance: number;
@@ -22,13 +23,13 @@ export interface InterestCalculationResult {
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
     const [members, schools, savingAccountTypes] = await Promise.all([
-        prisma.member.findMany({ 
+        prisma.member.findMany({
             where: { status: 'active' },
-            select: { id: true, fullName: true, savingsAccountNumber: true }, 
-            orderBy: { fullName: 'asc' } 
+            select: { id: true, fullName: true },
+            orderBy: { fullName: 'asc' }
         }),
         prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-        prisma.savingAccountType.findMany({ select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
+        prisma.savingAccountType.findMany({ where: { interestRate: { gt: 0 } }, select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
     ]);
     return { members, schools, savingAccountTypes };
 }
@@ -41,39 +42,40 @@ export async function calculateInterest(criteria: {
 }): Promise<InterestCalculationResult[]> {
   const { scope, schoolId, memberId, accountTypeId } = criteria;
   
-  let whereClause: Prisma.MemberWhereInput = {
-    status: 'active',
-    savingsBalance: { gt: 0 },
+  let whereClause: Prisma.MemberSavingAccountWhereInput = {
+    balance: { gt: 0 },
+    member: { status: 'active' },
     savingAccountType: {
         interestRate: { gt: 0 }
     }
   };
 
   if (scope === 'school' && schoolId) {
-    whereClause.schoolId = schoolId;
+    whereClause.member = { ...whereClause.member, schoolId: schoolId };
   } else if (scope === 'member' && memberId) {
-    whereClause.id = memberId;
+    whereClause.member = { ...whereClause.member, id: memberId };
   } else if (scope === 'accountType' && accountTypeId) {
     whereClause.savingAccountTypeId = accountTypeId;
   }
 
-  const membersToProcess = await prisma.member.findMany({
+  const accountsToProcess = await prisma.memberSavingAccount.findMany({
     where: whereClause,
-    include: { savingAccountType: true },
+    include: { member: { select: { fullName: true } }, savingAccountType: true },
   });
 
-  const results: InterestCalculationResult[] = membersToProcess.map(member => {
-    if (!member.savingAccountType) return null;
+  const results: InterestCalculationResult[] = accountsToProcess.map(account => {
+    if (!account.savingAccountType) return null;
 
-    const monthlyRate = member.savingAccountType.interestRate / 12;
-    const calculatedInterest = member.savingsBalance * monthlyRate;
+    const monthlyRate = account.savingAccountType.interestRate / 12;
+    const calculatedInterest = account.balance * monthlyRate;
 
     return {
-      memberId: member.id,
-      fullName: member.fullName,
-      savingsAccountNumber: member.savingsAccountNumber,
-      savingsBalance: member.savingsBalance,
-      interestRate: member.savingAccountType.interestRate,
+      memberId: account.memberId,
+      memberSavingAccountId: account.id,
+      fullName: account.member.fullName,
+      savingsAccountNumber: account.accountNumber,
+      savingsBalance: account.balance,
+      interestRate: account.savingAccountType.interestRate,
       calculatedInterest,
     };
   }).filter((res): res is InterestCalculationResult => res !== null && res.calculatedInterest > 0);
@@ -102,6 +104,7 @@ export async function postInterestTransactions(
     try {
         const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
           memberId: result.memberId,
+          memberSavingAccountId: result.memberSavingAccountId,
           amount: result.calculatedInterest,
           date: new Date(year, monthIndex + 1, 0), // Last day of the selected month
           month: `${monthName} ${period.year}`,
