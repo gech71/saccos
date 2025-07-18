@@ -70,25 +70,44 @@ export async function generateStatement(
   if (!member || !account) {
     return null;
   }
+  
+  // Find the initial deposit transaction to get the account's opening balance
+  const openingTransaction = await prisma.saving.findFirst({
+      where: {
+          memberSavingAccountId: accountId,
+          notes: {
+              contains: 'Initial deposit'
+          }
+      },
+      orderBy: {
+          date: 'asc'
+      }
+  });
 
-  // Fetch all approved savings transactions that occurred *before* the statement's start date
+  const openingBalance = openingTransaction?.amount || 0;
+  const openingBalanceDate = openingTransaction?.date || new Date(0);
+
+  // Fetch all approved savings transactions that occurred *after* the opening balance and *before* the statement's start date
   const transactionsBeforeRange = await prisma.saving.findMany({
     where: {
         memberSavingAccountId: accountId,
         status: 'approved',
         date: {
             lt: dateRange.from,
-        }
+            gte: openingBalanceDate // Start from the opening balance date
+        },
+        // Exclude the opening transaction itself if it's already accounted for
+        id: openingTransaction ? { not: openingTransaction.id } : undefined,
     },
     orderBy: { date: 'asc' },
   });
   
-  // Calculate Balance Brought Forward by summing up all transactions before the start date.
+  // Calculate Balance Brought Forward by starting with the opening balance and then applying all subsequent transactions before the range.
   const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, 0); // Start the balance from 0, as we are summing up all historical transactions.
+  }, openingBalance); // Start the balance from the actual opening balance.
 
   // Fetch and process transactions *within* the date range
   const transactionsInPeriodRaw = await prisma.saving.findMany({
