@@ -294,27 +294,34 @@ export async function createOrUpdateRole(
 ): Promise<Role> {
   const { id, ...roleData } = data;
   
-  const permissionsString = Array.isArray(roleData.permissions) 
-    ? roleData.permissions.join(',') 
+  // Ensure permissions are always a string, joining if it's an array.
+  const permissionsString = Array.isArray(roleData.permissions)
+    ? roleData.permissions.join(',')
     : roleData.permissions || '';
+
+  const dataToSave = {
+    ...roleData,
+    permissions: permissionsString,
+  };
 
   if (id) {
     // Update
     const updatedRole = await prisma.role.update({
       where: { id },
-      data: { ...roleData, permissions: permissionsString },
+      data: dataToSave,
     });
     revalidatePath("/settings");
     return updatedRole;
   } else {
     // Create
     const newRole = await prisma.role.create({
-      data: { ...roleData, permissions: permissionsString } as RoleInput,
+      data: dataToSave as RoleInput,
     });
     revalidatePath("/settings");
     return newRole;
   }
 }
+
 
 export async function deleteRole(
   roleId: string
@@ -352,9 +359,12 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   const permissions = new Set<string>();
   user.roles.forEach((role) => {
-    role.permissions.split(',').forEach((permission) => {
-      if (permission) permissions.add(permission);
-    });
+    // Ensure role.permissions is treated as a string before splitting
+    if (typeof role.permissions === 'string') {
+        role.permissions.split(',').forEach((permission) => {
+            if (permission) permissions.add(permission);
+        });
+    }
   });
   
   // If user has 'Admin' role, give all permissions by default for safety.
