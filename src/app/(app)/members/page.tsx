@@ -79,9 +79,11 @@ const initialMemberFormState: Partial<MemberWithDetails> = {
 };
 
 type ParsedMember = {
+  memberId: string;
   fullName: string;
   savingsBalance: number;
-  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in school';
+  schoolId: string;
+  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid Data' | 'Invalid School ID';
   originalRow: any;
 };
 
@@ -112,7 +114,6 @@ export default function MembersPage() {
   
   // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importSchoolId, setImportSchoolId] = useState<string>('');
   const [importSavingAccountTypeId, setImportSavingAccountTypeId] = useState<string>('');
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
   const [isParsing, setIsParsing] = useState(false);
@@ -363,7 +364,6 @@ export default function MembersPage() {
   
   // --- Import Logic ---
   const openImportModal = () => {
-    setImportSchoolId('');
     setImportSavingAccountTypeId('');
     setParsedMembers([]);
     setIsImportModalOpen(true);
@@ -372,8 +372,8 @@ export default function MembersPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!importSchoolId || !importSavingAccountTypeId) {
-        toast({ variant: 'destructive', title: 'Selection Required', description: 'Please select a School and Saving Account Type before choosing a file.' });
+      if (!importSavingAccountTypeId) {
+        toast({ variant: 'destructive', title: 'Selection Required', description: 'Please select a Saving Account Type before choosing a file.' });
         event.target.value = ''; // Reset file input
         return;
       }
@@ -387,35 +387,38 @@ export default function MembersPage() {
           const worksheet = workbook.Sheets[sheetName];
           const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-          const existingSchoolMemberNames = members
-            .filter(m => m.schoolId === importSchoolId)
-            .map(m => m.fullName.toLowerCase());
-            
+          const existingMemberIds = new Set(members.map(m => m.id));
+          const schoolIds = new Set(schools.map(s => s.id));
           const seenInFile = new Set<string>();
 
           const validatedData: ParsedMember[] = dataRows.map(row => {
-            const fullName = row['Member Name']?.toString().trim();
-            const savingsBalance = parseFloat(row['Initial Savings Balance (Birr)']);
+            const memberId = row['MemberID']?.toString().trim();
+            const fullName = row['MemberFullName']?.toString().trim();
+            const savingsBalance = parseFloat(row['SavingCollected']);
+            const schoolId = row['SchoolID']?.toString().trim();
 
-            if (!fullName || isNaN(savingsBalance)) {
-              return null; // Skip invalid rows
+            if (!memberId || !fullName || isNaN(savingsBalance) || !schoolId) {
+              return { memberId, fullName, savingsBalance, schoolId, status: 'Invalid Data', originalRow: row };
             }
             
             let status: ParsedMember['status'] = 'Ready to import';
-            if (existingSchoolMemberNames.includes(fullName.toLowerCase())) {
-              status = 'Already exists in school';
-            } else if (seenInFile.has(fullName.toLowerCase())) {
+            if (existingMemberIds.has(memberId)) {
+              status = 'Already exists in DB';
+            } else if (seenInFile.has(memberId)) {
               status = 'Duplicate in file';
+            } else if (!schoolIds.has(schoolId)) {
+              status = 'Invalid School ID';
             }
-            seenInFile.add(fullName.toLowerCase());
 
-            return { fullName, savingsBalance, status, originalRow: row };
+            seenInFile.add(memberId);
+
+            return { memberId, fullName, savingsBalance, schoolId, status, originalRow: row };
           }).filter((r): r is ParsedMember => r !== null);
           
           setParsedMembers(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has "Member Name" and "Initial Savings Balance (Birr)" columns.' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "SavingCollected", and "SchoolID".' });
         } finally {
           setIsParsing(false);
         }
@@ -427,7 +430,12 @@ export default function MembersPage() {
   const handleConfirmImport = async () => {
     const membersToCreate = parsedMembers
       .filter(m => m.status === 'Ready to import')
-      .map(m => ({ fullName: m.fullName, savingsBalance: m.savingsBalance }));
+      .map(m => ({
+        memberId: m.memberId,
+        fullName: m.fullName,
+        savingsBalance: m.savingsBalance,
+        schoolId: m.schoolId,
+      }));
       
     if (membersToCreate.length === 0) {
       toast({ title: 'No New Members', description: 'There are no new members to import.' });
@@ -437,7 +445,6 @@ export default function MembersPage() {
     setIsSubmitting(true);
     try {
       const result = await importMembers({
-        schoolId: importSchoolId,
         savingAccountTypeId: importSavingAccountTypeId,
         members: membersToCreate
       });
@@ -457,6 +464,16 @@ export default function MembersPage() {
     }
   };
 
+  const getValidationBadge = (status: ParsedMember['status']) => {
+    switch (status) {
+        case 'Ready to import': return <Badge variant="default">Ready</Badge>;
+        case 'Already exists in DB': return <Badge variant="secondary">Exists in DB</Badge>;
+        case 'Duplicate in file': return <Badge variant="secondary">Duplicate in File</Badge>;
+        case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
+        case 'Invalid School ID': return <Badge variant="destructive">Invalid School ID</Badge>;
+        default: return <Badge variant="destructive">Error</Badge>;
+    }
+};
 
   return (
     <div className="space-y-6">
@@ -823,34 +840,24 @@ export default function MembersPage() {
       
       {/* Import Members Modal */}
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-3xl">
               <DialogHeader>
                   <DialogTitle className="font-headline">Import Members</DialogTitle>
                   <DialogDescription>
-                      Upload an Excel file with "Member Name" and "Initial Savings Balance (Birr)" columns.
-                      Other required fields will use the defaults selected below.
+                      Upload an Excel file with columns: "MemberID", "MemberFullName", "SavingCollected", and "SchoolID".
                   </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                          <Label htmlFor="importSchool">School <span className="text-destructive">*</span></Label>
-                          <Select value={importSchoolId} onValueChange={setImportSchoolId} required>
-                              <SelectTrigger id="importSchool"><SelectValue placeholder="Assign all to school..." /></SelectTrigger>
-                              <SelectContent>{schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                      </div>
-                      <div>
-                          <Label htmlFor="importSavingType">Saving Account Type <span className="text-destructive">*</span></Label>
-                          <Select value={importSavingAccountTypeId} onValueChange={setImportSavingAccountTypeId} required>
-                              <SelectTrigger id="importSavingType"><SelectValue placeholder="Assign all to type..." /></SelectTrigger>
-                              <SelectContent>{savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                      </div>
+                  <div>
+                      <Label htmlFor="importSavingType">Assign Savings to Account Type <span className="text-destructive">*</span></Label>
+                      <Select value={importSavingAccountTypeId} onValueChange={setImportSavingAccountTypeId} required>
+                          <SelectTrigger id="importSavingType"><SelectValue placeholder="Assign all to type..." /></SelectTrigger>
+                          <SelectContent>{savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                      </Select>
                   </div>
                   <div>
                     <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
-                    <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" disabled={!importSchoolId || !importSavingAccountTypeId}/>
+                    <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" disabled={!importSavingAccountTypeId}/>
                     <p className="text-xs text-muted-foreground mt-1">Select a file to preview the import.</p>
                   </div>
                   
@@ -863,17 +870,21 @@ export default function MembersPage() {
                                 <Table>
                                     <TableHeader className="sticky top-0 bg-muted">
                                         <TableRow>
-                                            <TableHead>Member Name</TableHead>
-                                            <TableHead>Initial Savings Balance</TableHead>
+                                            <TableHead>Member ID</TableHead>
+                                            <TableHead>Full Name</TableHead>
+                                            <TableHead>School ID</TableHead>
+                                            <TableHead>Saving Collected</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {parsedMembers.map((member, index) => (
                                             <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                                                <TableCell>{member.memberId}</TableCell>
                                                 <TableCell>{member.fullName}</TableCell>
+                                                <TableCell>{member.schoolId}</TableCell>
                                                 <TableCell>{member.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                                <TableCell><Badge variant={member.status !== 'Ready to import' ? 'destructive' : 'secondary'}>{member.status}</Badge></TableCell>
+                                                <TableCell>{getValidationBadge(member.status)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

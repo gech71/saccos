@@ -204,14 +204,13 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
 }
 
 export async function importMembers(data: {
-  schoolId: string;
   savingAccountTypeId: string;
-  members: { fullName: string; savingsBalance: number }[];
+  members: { memberId: string, fullName: string; savingsBalance: number; schoolId: string }[];
 }): Promise<{ success: boolean; message: string, createdCount: number }> {
-    const { schoolId, savingAccountTypeId, members } = data;
+    const { savingAccountTypeId, members } = data;
 
-    if (!schoolId || !savingAccountTypeId || !members.length) {
-        return { success: false, message: 'School, Saving Account Type, and at least one member are required.', createdCount: 0 };
+    if (!savingAccountTypeId || !members.length) {
+        return { success: false, message: 'Saving Account Type, and at least one member are required.', createdCount: 0 };
     }
 
     const savingAccountType = await prisma.savingAccountType.findUnique({
@@ -222,19 +221,16 @@ export async function importMembers(data: {
         return { success: false, message: 'Invalid Saving Account Type selected.', createdCount: 0 };
     }
     
-    const existingMemberNames = (await prisma.member.findMany({
-        where: {
-            schoolId: schoolId,
-            fullName: { in: members.map(m => m.fullName) }
-        },
-        select: { fullName: true }
-    })).map(m => m.fullName.toLowerCase());
+    const existingMemberIds = (await prisma.member.findMany({
+        where: { id: { in: members.map(m => m.memberId) } },
+        select: { id: true }
+    })).map(m => m.id);
     
-    const membersToCreate = members.filter(m => !existingMemberNames.includes(m.fullName.toLowerCase()));
+    const membersToCreate = members.filter(m => !existingMemberIds.includes(m.memberId));
     const skippedCount = members.length - membersToCreate.length;
 
     if (membersToCreate.length === 0) {
-        return { success: true, message: `Import finished. ${skippedCount} member(s) were skipped as they already exist in this school.`, createdCount: 0 };
+        return { success: true, message: `Import finished. ${skippedCount} member(s) were skipped as they already exist.`, createdCount: 0 };
     }
 
     let createdCount = 0;
@@ -249,27 +245,50 @@ export async function importMembers(data: {
 
         const newMember = await tx.member.create({
           data: {
-            id: `imported-${uniqueSuffix}`,
+            id: member.memberId,
             fullName: member.fullName,
-            email: `imported.${uniqueSuffix}@placeholder.email`,
-            sex: 'Male',
-            phoneNumber: '0000000000',
-            schoolId: schoolId,
+            email: `${member.memberId}.${uniqueSuffix}@placeholder.email`,
+            sex: 'Male', // Default value
+            phoneNumber: '0000000000', // Default value
+            schoolId: member.schoolId,
             joinDate: new Date(),
             status: 'active',
             salary: 0,
           }
         });
 
-        await tx.memberSavingAccount.create({
+        const newSavingAccount = await tx.memberSavingAccount.create({
           data: {
             memberId: newMember.id,
             savingAccountTypeId: savingAccountTypeId,
-            accountNumber: `IMP-${uniqueSuffix}`,
+            accountNumber: `IMP-${newMember.id.slice(-6)}`,
             expectedMonthlySaving: expectedSaving,
-            balance: member.savingsBalance,
+            balance: 0, // Balance is updated via transaction
           }
         });
+        
+        if (member.savingsBalance > 0) {
+            await tx.saving.create({
+                data: {
+                    memberId: newMember.id,
+                    memberSavingAccountId: newSavingAccount.id,
+                    amount: member.savingsBalance,
+                    date: new Date(),
+                    month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                    transactionType: 'deposit',
+                    status: 'approved', // Initial imported balances are auto-approved
+                    notes: `Initial balance from import.`,
+                    depositMode: 'Bank',
+                    sourceName: 'System Import',
+                },
+            });
+
+             await tx.memberSavingAccount.update({
+                where: { id: newSavingAccount.id },
+                data: { balance: member.savingsBalance },
+             });
+        }
+        
         createdCount++;
       }
     });
