@@ -396,18 +396,20 @@ export default function MembersPage() {
             const fullName = row['MemberFullName']?.toString().trim();
             const schoolId = row['SchoolID']?.toString().trim();
             
-            // Robustly find the savings value from multiple possible column headers
-            const savingsValue = row['Initial Savings Balance'] ?? row['SavingCollected'] ?? row['InitialSavingsBalance'] ?? row['savingsbalance'] ?? 0;
+            // Robustly find the savings value from multiple possible column headers, ignoring case
+            const keys = Object.keys(row);
+            const savingsKey = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'savingcollected' || k.toLowerCase().replace(/\s/g, '') === 'initialsavingsbalance');
+            const savingsValue = savingsKey ? row[savingsKey] : 0;
 
             let savingsBalance = 0;
             if (typeof savingsValue === 'string') {
-                // Remove currency symbols, commas, and other non-numeric characters before parsing
                 savingsBalance = parseFloat(savingsValue.replace(/[^0-9.-]+/g,""));
             } else if (typeof savingsValue === 'number') {
                 savingsBalance = savingsValue;
             }
+            savingsBalance = isNaN(savingsBalance) ? 0 : savingsBalance; // Ensure it's not NaN
 
-            if (!memberId || !fullName || isNaN(savingsBalance) || !schoolId) {
+            if (!memberId || !fullName || !schoolId) {
               return { memberId, fullName, savingsBalance, schoolId, status: 'Invalid Data', originalRow: row };
             }
             
@@ -428,7 +430,7 @@ export default function MembersPage() {
           setParsedMembers(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "Initial Savings Balance", and "SchoolID".' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "SavingCollected" or "Initial Savings Balance", and "SchoolID".' });
         } finally {
           setIsParsing(false);
         }
@@ -855,7 +857,7 @@ export default function MembersPage() {
               <DialogHeader>
                   <DialogTitle className="font-headline">Import Members</DialogTitle>
                   <DialogDescription>
-                      Upload an Excel file with columns: "MemberID", "MemberFullName", "Initial Savings Balance", and "SchoolID".
+                      Upload an Excel file with columns: "MemberID", "MemberFullName", "Initial Savings Balance" (or "SavingCollected"), and "SchoolID".
                   </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -937,4 +939,6 @@ export default function MembersPage() {
     </div>
   );
 }
+
+
 
