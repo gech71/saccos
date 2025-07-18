@@ -72,8 +72,8 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
   
   return allTransactions.sort(
       (a, b) => {
-        const dateA = new Date(a.date || a.allocationDate || a.disbursementDate).getTime();
-        const dateB = new Date(b.date || b.allocationDate || b.disbursementDate).getTime();
+        const dateA = new Date((a as any).date || (a as any).allocationDate || (a as any).disbursementDate).getTime();
+        const dateB = new Date((b as any).date || (b as any).allocationDate || (b as any).disbursementDate).getTime();
         return dateA - dateB;
       }
     );
@@ -95,16 +95,14 @@ export async function approveTransaction(txId: string, txType: string): Promise<
       if (txType.startsWith('Savings')) {
         const savingTx = await tx.saving.findUnique({ where: { id: txId } });
         if (!savingTx || savingTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
-        
+        if (!savingTx.memberSavingAccountId) throw new Error('Transaction is not linked to a specific savings account.');
+
         await tx.saving.update({ where: { id: txId }, data: { status: 'approved' } });
         
-        const memberAccounts = await tx.memberSavingAccount.findMany({ where: { memberId: savingTx.memberId }});
-        if (memberAccounts.length === 0) throw new Error('No savings account found for this member.');
-
-        const accountToUpdate = memberAccounts[0];
         const amountChange = savingTx.transactionType === 'deposit' ? savingTx.amount : -savingTx.amount;
+        
         await tx.memberSavingAccount.update({
-          where: { id: accountToUpdate.id },
+          where: { id: savingTx.memberSavingAccountId },
           data: { balance: { increment: amountChange } },
         });
 
@@ -138,7 +136,8 @@ export async function approveTransaction(txId: string, txType: string): Promise<
     return { success: true, message: 'Transaction approved successfully.' };
   } catch (error) {
     console.error('Approval Error:', error);
-    return { success: false, message: 'Failed to approve transaction.' };
+    const message = error instanceof Error ? error.message : 'Failed to approve transaction.';
+    return { success: false, message };
   }
 }
 
@@ -166,13 +165,17 @@ export async function approveMultipleTransactions(
 ): Promise<{ success: boolean; message: string }> {
   try {
     for (const { txId, txType } of transactions) {
-      // Re-using the single approval logic for atomicity
-      await approveTransaction(txId, txType);
+      // Re-using the single approval logic for atomicity and validation
+      const result = await approveTransaction(txId, txType);
+      if (!result.success) {
+        throw new Error(`Failed to approve transaction ${txId}: ${result.message}`);
+      }
     }
     return { success: true, message: `${transactions.length} transactions approved successfully.` };
   } catch (error) {
     console.error('Bulk Approval Error:', error);
-    return { success: false, message: 'One or more transactions failed to approve during bulk operation.' };
+    const message = error instanceof Error ? error.message : 'One or more transactions failed to approve during bulk operation.';
+    return { success: false, message };
   }
 }
 
