@@ -97,6 +97,21 @@ export async function addMember(data: MemberInput): Promise<Member> {
             throw new Error(`A member with email '${memberData.email}' already exists.`);
         }
     }
+    
+    // Prepare a clean payload for address creation, removing relational IDs
+    let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
+    if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
+        const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
+        cleanAddressPayload = restOfAddress;
+    }
+
+    // Prepare a clean payload for emergency contact creation, removing relational IDs
+    let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
+    if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
+        const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
+        cleanEmergencyContactPayload = restOfContact;
+    }
+
 
     const newMember = await prisma.member.create({
         data: {
@@ -104,8 +119,8 @@ export async function addMember(data: MemberInput): Promise<Member> {
             ...memberData,
             status: 'active',
             joinDate: new Date(memberData.joinDate),
-            address: address ? { create: address } : undefined,
-            emergencyContact: emergencyContact ? { create: emergencyContact } : undefined,
+            address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
+            emergencyContact: cleanEmergencyContactPayload ? { create: cleanEmergencyContactPayload } : undefined,
             shareCommitments: shareCommitments ? {
                 create: shareCommitments.map(sc => ({
                     monthlyCommittedAmount: sc.monthlyCommittedAmount,
@@ -263,7 +278,7 @@ export async function importMembers(data: {
             savingAccountTypeId: savingAccountTypeId,
             accountNumber: `IMP-${newMember.id.slice(-6)}`,
             expectedMonthlySaving: expectedSaving,
-            balance: member.savingsBalance, // Set initial balance directly
+            balance: 0, // Set initial balance to 0, it will be updated by the approved deposit.
           }
         });
         
@@ -282,6 +297,11 @@ export async function importMembers(data: {
                     sourceName: 'System Import',
                 },
             });
+             
+             await tx.memberSavingAccount.update({
+                where: { id: newSavingAccount.id },
+                data: { balance: member.savingsBalance },
+             });
         }
         
         createdCount++;
