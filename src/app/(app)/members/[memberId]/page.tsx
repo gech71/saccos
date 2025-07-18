@@ -1,5 +1,5 @@
 
-import { getMemberDetails, type MemberDetails } from './actions';
+import { getMemberDetails } from './actions';
 import { notFound } from 'next/navigation';
 import { PageTitle } from '@/components/page-title';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { User, School, Phone, Home, Shield, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 const StatInfo = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: React.ReactNode }) => (
     <div className="flex items-start gap-4">
@@ -32,7 +33,11 @@ export default async function MemberProfilePage({ params }: { params: { memberId
 
     return (
         <div className="space-y-8">
-            <PageTitle title="Member Profile" subtitle={`A comprehensive overview of ${member.fullName}`} />
+            <PageTitle title="Member Profile" subtitle={`A comprehensive overview of ${member.fullName}`}>
+                <Button asChild variant="outline">
+                    <Link href="/members">Back to Members List</Link>
+                </Button>
+            </PageTitle>
 
             <Card>
                 <CardHeader className="flex flex-col md:flex-row items-start gap-6">
