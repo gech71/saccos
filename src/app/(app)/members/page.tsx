@@ -70,7 +70,7 @@ const initialMemberFormState: Partial<MemberWithDetails> = {
   email: '',
   sex: 'Male',
   phoneNumber: '',
-  address: { id: '', city: '', subCity: '', wereda: '', kebele: '', houseNumber: '', memberId: null },
+  address: { id: '', city: '', subCity: '', wereda: '', kebele: '', houseNumber: '', memberId: null, collateralId: null },
   emergencyContact: { id: '', name: '', phone: '', memberId: null },
   schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],
@@ -873,7 +873,7 @@ export default function MembersPage() {
                                             <TableHead>Member ID</TableHead>
                                             <TableHead>Full Name</TableHead>
                                             <TableHead>School ID</TableHead>
-                                            <TableHead>Saving Collected</TableHead>
+                                            <TableHead>Initial Savings Balance</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
