@@ -84,13 +84,14 @@ export async function generateStatement(
   });
   
   // 2. Calculate Balance Brought Forward by applying all transactions before the range.
+  // This correctly establishes the starting balance for the statement period.
   const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, 0); // Start with 0 and sum up all prior transactions
+  }, 0); // Start with 0 and sum up all prior transactions to get the BBF.
 
-  // 3. Fetch transactions *within* the date range
+  // 3. Fetch transactions *within* the date range for the main statement body
   const transactionsInPeriodRaw = await prisma.saving.findMany({
       where: {
           memberSavingAccountId: accountId,
@@ -103,7 +104,7 @@ export async function generateStatement(
       orderBy: { date: 'asc' },
   });
   
-  // 4. Process transactions for the statement, starting with the BBF
+  // 4. Process transactions for the statement, starting with the correctly calculated BBF
   let runningBalance = balanceBroughtForward;
   const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
