@@ -66,7 +66,8 @@ export async function deleteSchool(id: string): Promise<{ success: boolean, mess
   return { success: true, message: 'School deleted successfully.' };
 }
 
-export async function importSchools(schools: {id: string, name: string, address?: string, contactPerson?: string}[]): Promise<{ success: boolean, message: string, createdCount: number }> {
+
+export async function importSchools(schools: {id: string, name: string}[]): Promise<{ success: boolean, message: string, createdCount: number }> {
     if (!schools || schools.length === 0) {
         return { success: false, message: 'No school data provided for import.', createdCount: 0 };
     }

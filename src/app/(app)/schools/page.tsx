@@ -69,8 +69,6 @@ const initialSchoolFormState: Partial<School> = {
 type ParsedSchool = {
   id: string;
   name: string;
-  address?: string;
-  contactPerson?: string;
   status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name';
 };
 
@@ -274,10 +272,8 @@ export default function SchoolsPage() {
           const seenInFile = new Set<string>();
 
           const validatedData: ParsedSchool[] = dataRows.map(row => {
-            const id = row['ID']?.toString().trim();
-            const name = row['Name']?.toString().trim();
-            const address = row['Address']?.toString().trim();
-            const contactPerson = row['Contact Person']?.toString().trim();
+            const id = row['School ID']?.toString().trim();
+            const name = row['School Name']?.toString().trim();
 
             if (!id || !name) {
               return { id, name, status: 'Invalid ID or Name' };
@@ -291,13 +287,13 @@ export default function SchoolsPage() {
             }
             seenInFile.add(id);
 
-            return { id, name, address, contactPerson, status };
+            return { id, name, status };
           });
           
           setParsedSchools(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: ID, Name, Address, Contact Person.' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "School ID" and "School Name".' });
         } finally {
           setIsParsing(false);
         }
@@ -517,7 +513,7 @@ export default function SchoolsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Import Schools from Excel</DialogTitle>
             <DialogDescription>
-              Upload an Excel file with columns: ID, Name, Address, Contact Person. The ID must be unique.
+              Upload an Excel file with columns: "School ID" and "School Name". The ID must be unique.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -533,8 +529,8 @@ export default function SchoolsPage() {
                   <Table>
                     <TableHeader className="sticky top-0 bg-muted">
                       <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Name</TableHead>
+                        <TableHead>School ID</TableHead>
+                        <TableHead>School Name</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
