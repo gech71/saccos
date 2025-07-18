@@ -10,6 +10,7 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
+  await prisma.saving.deleteMany();
   await prisma.memberSavingAccount.deleteMany();
   await prisma.memberShareCommitment.deleteMany();
   await prisma.collateral.deleteMany();
@@ -18,7 +19,6 @@ async function main() {
   await prisma.emergencyContact.deleteMany();
   await prisma.loanRepayment.deleteMany();
   await prisma.appliedServiceCharge.deleteMany();
-  await prisma.saving.deleteMany();
   await prisma.share.deleteMany();
   await prisma.dividend.deleteMany();
   await prisma.loan.deleteMany();
@@ -158,7 +158,7 @@ async function main() {
   });
 
   // 6. Seed Member Saving Accounts
-  await prisma.memberSavingAccount.create({
+  const msa1 = await prisma.memberSavingAccount.create({
       data: {
           memberId: member1.id,
           savingAccountTypeId: satRegular.id,
@@ -168,7 +168,7 @@ async function main() {
       }
   });
 
-   await prisma.memberSavingAccount.create({
+   const msa2 = await prisma.memberSavingAccount.create({
       data: {
           memberId: member2.id,
           savingAccountTypeId: satYouth.id,
@@ -183,10 +183,10 @@ async function main() {
   console.log('Seeding transactions...');
   await prisma.saving.createMany({
     data: [
-      { memberId: member1.id, amount: 100.00, date: new Date(2024, 0, 15), transactionType: 'deposit', status: 'approved', depositMode: 'Bank', month: 'January 2024' },
-      { memberId: member2.id, amount: 75.00, date: new Date(2024, 0, 20), transactionType: 'deposit', status: 'approved', depositMode: 'Cash', month: 'January 2024' },
-      { memberId: member1.id, amount: 50.00, date: new Date(2024, 2, 5), transactionType: 'withdrawal', status: 'approved', month: 'March 2024' },
-      { memberId: member2.id, amount: 25.00, date: new Date(), transactionType: 'deposit', status: 'pending', depositMode: 'Cash', month: 'July 2024' },
+      { memberId: member1.id, memberSavingAccountId: msa1.id, amount: 100.00, date: new Date(2024, 0, 15), transactionType: 'deposit', status: 'approved', depositMode: 'Bank', month: 'January 2024' },
+      { memberId: member2.id, memberSavingAccountId: msa2.id, amount: 75.00, date: new Date(2024, 0, 20), transactionType: 'deposit', status: 'approved', depositMode: 'Cash', month: 'January 2024' },
+      { memberId: member1.id, memberSavingAccountId: msa1.id, amount: 50.00, date: new Date(2024, 2, 5), transactionType: 'withdrawal', status: 'approved', month: 'March 2024' },
+      { memberId: member2.id, memberSavingAccountId: msa2.id, amount: 25.00, date: new Date(), transactionType: 'deposit', status: 'pending', depositMode: 'Cash', month: 'July 2024' },
     ],
   });
 

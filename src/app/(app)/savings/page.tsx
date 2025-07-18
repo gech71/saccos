@@ -103,19 +103,20 @@ export default function SavingsPage() {
   const canEdit = user?.permissions.includes('saving:edit');
   const canDelete = user?.permissions.includes('saving:delete');
 
+  const fetchPageData = async () => {
+    setIsLoading(true);
+    try {
+        const data = await getSavingsPageData();
+        setSavingsTransactions(data.savings);
+        setMembers(data.members);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
+    }
+    setIsLoading(false);
+  }
+
   useEffect(() => {
     if (user) {
-      async function fetchPageData() {
-        setIsLoading(true);
-        try {
-            const data = await getSavingsPageData();
-            setSavingsTransactions(data.savings);
-            setMembers(data.members);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load savings data.' });
-        }
-        setIsLoading(false);
-      }
       fetchPageData();
     }
   }, [user, toast]);
