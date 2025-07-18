@@ -26,10 +26,10 @@ export async function getMembersForStatement(): Promise<MemberForStatement[]> {
         some: {} // Only get members who have at least one savings account
       }
     },
-    select: { 
-        id: true, 
-        fullName: true, 
-        status: true, 
+    select: {
+        id: true,
+        fullName: true,
+        status: true,
         memberSavingAccounts: {
             select: {
                 id: true,
@@ -41,7 +41,7 @@ export async function getMembersForStatement(): Promise<MemberForStatement[]> {
                     }
                 }
             }
-        } 
+        }
     },
     orderBy: { fullName: 'asc' },
   });
@@ -61,7 +61,7 @@ export async function generateStatement(
     where: { id: memberId },
     include: { school: { select: { name: true } } },
   });
-  
+
   const account = await prisma.memberSavingAccount.findUnique({
       where: { id: accountId, memberId: memberId },
       include: { savingAccountType: true }
@@ -73,10 +73,10 @@ export async function generateStatement(
 
   // Fetch all approved savings transactions specifically for the selected account
   const allAccountTransactions = await prisma.saving.findMany({
-    where: { 
+    where: {
         memberId,
-        memberSavingAccountId: accountId, 
-        status: 'approved' 
+        memberSavingAccountId: accountId,
+        status: 'approved'
     },
     orderBy: { date: 'asc' },
   });
