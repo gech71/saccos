@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -58,6 +58,7 @@ import { exportToExcel } from '@/lib/utils';
 import { getMembersPageData, addMember, updateMember, deleteMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
+import Link from 'next/link';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -558,8 +559,10 @@ export default function MembersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                       <DropdownMenuItem onClick={() => openViewMemberModal(member)}>
-                        <FileText className="mr-2 h-4 w-4" /> View Details
+                       <DropdownMenuItem asChild>
+                        <Link href={`/members/${member.id}`}>
+                            <UserRound className="mr-2 h-4 w-4" /> View Profile
+                        </Link>
                       </DropdownMenuItem>
                       {canEdit && <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
