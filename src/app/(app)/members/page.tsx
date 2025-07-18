@@ -394,11 +394,14 @@ export default function MembersPage() {
           const validatedData: ParsedMember[] = dataRows.map(row => {
             const memberId = row['MemberID']?.toString().trim();
             const fullName = row['MemberFullName']?.toString().trim();
-            const savingsValue = row['Initial Savings Balance'] || row['SavingCollected'];
             const schoolId = row['SchoolID']?.toString().trim();
             
+            // Robustly find the savings value from multiple possible column headers
+            const savingsValue = row['Initial Savings Balance'] ?? row['SavingCollected'] ?? row['InitialSavingsBalance'] ?? row['savingsbalance'] ?? 0;
+
             let savingsBalance = 0;
             if (typeof savingsValue === 'string') {
+                // Remove currency symbols, commas, and other non-numeric characters before parsing
                 savingsBalance = parseFloat(savingsValue.replace(/[^0-9.-]+/g,""));
             } else if (typeof savingsValue === 'number') {
                 savingsBalance = savingsValue;
@@ -934,3 +937,4 @@ export default function MembersPage() {
     </div>
   );
 }
+
