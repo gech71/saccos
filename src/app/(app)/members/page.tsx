@@ -394,7 +394,8 @@ export default function MembersPage() {
           const validatedData: ParsedMember[] = dataRows.map(row => {
             const memberId = row['MemberID']?.toString().trim();
             const fullName = row['MemberFullName']?.toString().trim();
-            const savingsBalance = parseFloat(row['SavingCollected']);
+            const savingsValue = row['SavingCollected']?.toString().trim() ?? '0';
+            const savingsBalance = parseFloat(savingsValue);
             const schoolId = row['SchoolID']?.toString().trim();
 
             if (!memberId || !fullName || isNaN(savingsBalance) || !schoolId) {
