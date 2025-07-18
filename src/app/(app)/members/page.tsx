@@ -394,11 +394,16 @@ export default function MembersPage() {
           const validatedData: ParsedMember[] = dataRows.map(row => {
             const memberId = row['MemberID']?.toString().trim();
             const fullName = row['MemberFullName']?.toString().trim();
-            const savingsValue = row['SavingCollected']; // Keep as is
+            const savingsValue = row['Initial Savings Balance'] || row['SavingCollected'];
             const schoolId = row['SchoolID']?.toString().trim();
-
-            const savingsBalance = parseFloat(savingsValue);
             
+            let savingsBalance = 0;
+            if (typeof savingsValue === 'string') {
+                savingsBalance = parseFloat(savingsValue.replace(/[^0-9.-]+/g,""));
+            } else if (typeof savingsValue === 'number') {
+                savingsBalance = savingsValue;
+            }
+
             if (!memberId || !fullName || isNaN(savingsBalance) || !schoolId) {
               return { memberId, fullName, savingsBalance, schoolId, status: 'Invalid Data', originalRow: row };
             }
@@ -420,7 +425,7 @@ export default function MembersPage() {
           setParsedMembers(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "SavingCollected", and "SchoolID".' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "Initial Savings Balance", and "SchoolID".' });
         } finally {
           setIsParsing(false);
         }
@@ -847,7 +852,7 @@ export default function MembersPage() {
               <DialogHeader>
                   <DialogTitle className="font-headline">Import Members</DialogTitle>
                   <DialogDescription>
-                      Upload an Excel file with columns: "MemberID", "MemberFullName", "SavingCollected", and "SchoolID".
+                      Upload an Excel file with columns: "MemberID", "MemberFullName", "Initial Savings Balance", and "SchoolID".
                   </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
