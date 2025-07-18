@@ -65,3 +65,33 @@ export async function deleteSchool(id: string): Promise<{ success: boolean, mess
   revalidatePath('/schools');
   return { success: true, message: 'School deleted successfully.' };
 }
+
+export async function importSchools(schools: {id: string, name: string, address?: string, contactPerson?: string}[]): Promise<{ success: boolean, message: string, createdCount: number }> {
+    if (!schools || schools.length === 0) {
+        return { success: false, message: 'No school data provided for import.', createdCount: 0 };
+    }
+
+    const existingSchoolIds = (await prisma.school.findMany({
+        where: { id: { in: schools.map(s => s.id) } },
+        select: { id: true }
+    })).map(s => s.id);
+
+    const schoolsToCreate = schools.filter(s => !existingSchoolIds.includes(s.id));
+    const skippedCount = schools.length - schoolsToCreate.length;
+
+    if (schoolsToCreate.length === 0) {
+        return { success: true, message: `Import finished. ${skippedCount} school(s) were skipped as they already exist.`, createdCount: 0 };
+    }
+
+    const result = await prisma.school.createMany({
+        data: schoolsToCreate,
+        skipDuplicates: true,
+    });
+
+    revalidatePath('/schools');
+    return { 
+        success: true, 
+        message: `Successfully imported ${result.count} new schools. ${skippedCount > 0 ? `${skippedCount} school(s) were skipped as duplicates.` : ''}`.trim(),
+        createdCount: result.count 
+    };
+}

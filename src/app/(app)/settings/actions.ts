@@ -147,7 +147,7 @@ export async function syncUserOnLogin(
               "school:view",
               "member:view",
               "saving:view",
-            ],
+            ].join(','),
           },
         },
       },
@@ -293,19 +293,23 @@ export async function createOrUpdateRole(
   data: Partial<RoleInput> & { id?: string }
 ): Promise<Role> {
   const { id, ...roleData } = data;
+  
+  const permissionsString = Array.isArray(roleData.permissions) 
+    ? roleData.permissions.join(',') 
+    : roleData.permissions || '';
 
   if (id) {
     // Update
     const updatedRole = await prisma.role.update({
       where: { id },
-      data: roleData,
+      data: { ...roleData, permissions: permissionsString },
     });
     revalidatePath("/settings");
     return updatedRole;
   } else {
     // Create
     const newRole = await prisma.role.create({
-      data: roleData as RoleInput,
+      data: { ...roleData, permissions: permissionsString } as RoleInput,
     });
     revalidatePath("/settings");
     return newRole;
@@ -346,17 +350,18 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   if (!user) return [];
 
-  // If user has 'Admin' role, give all permissions by default.
-  if (user.roles.some((role) => role.name === "Admin")) {
-    return permissionsList.map((p) => p.id);
-  }
-
   const permissions = new Set<string>();
   user.roles.forEach((role) => {
-    role.permissions.forEach((permission) => {
-      permissions.add(permission);
+    role.permissions.split(',').forEach((permission) => {
+      if (permission) permissions.add(permission);
     });
   });
+  
+  // If user has 'Admin' role, give all permissions by default for safety.
+  if (user.roles.some((role) => role.name === "Admin")) {
+    permissionsList.forEach((p) => permissions.add(p.id));
+  }
+
 
   return Array.from(permissions);
 }

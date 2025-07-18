@@ -48,7 +48,7 @@ async function main() {
     data: {
       name: 'Admin',
       description: 'Administrator with full access',
-      permissions: adminPermissions,
+      permissions: adminPermissions.join(','),
     },
   });
   
@@ -56,7 +56,7 @@ async function main() {
     data: {
       name: 'Staff',
       description: 'Regular staff member with limited access',
-      permissions: staffPermissions,
+      permissions: staffPermissions.join(','),
     },
   });
 

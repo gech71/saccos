@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -53,8 +53,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { exportToExcel } from '@/lib/utils';
-import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, type SchoolWithMemberCount } from './actions';
+import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, importSchools, type SchoolWithMemberCount } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import * as XLSX from 'xlsx';
+import { Badge } from '@/components/ui/badge';
 
 
 const initialSchoolFormState: Partial<School> = {
@@ -62,6 +64,14 @@ const initialSchoolFormState: Partial<School> = {
   name: '',
   address: '',
   contactPerson: '',
+};
+
+type ParsedSchool = {
+  id: string;
+  name: string;
+  address?: string;
+  contactPerson?: string;
+  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name';
 };
 
 export default function SchoolsPage() {
@@ -81,6 +91,11 @@ export default function SchoolsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
+  // Import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [parsedSchools, setParsedSchools] = useState<ParsedSchool[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+
   const canCreate = useMemo(() => user?.permissions.includes('school:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('school:edit'), [user]);
   const canDelete = useMemo(() => user?.permissions.includes('school:delete'), [user]);
@@ -237,12 +252,106 @@ export default function SchoolsPage() {
   
   const paginationItems = getPaginationItems();
 
+  const openImportModal = () => {
+    setParsedSchools([]);
+    setIsImportModalOpen(true);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsParsing(true);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          const existingSchoolIds = new Set(schools.map(s => s.id));
+          const seenInFile = new Set<string>();
+
+          const validatedData: ParsedSchool[] = dataRows.map(row => {
+            const id = row['ID']?.toString().trim();
+            const name = row['Name']?.toString().trim();
+            const address = row['Address']?.toString().trim();
+            const contactPerson = row['Contact Person']?.toString().trim();
+
+            if (!id || !name) {
+              return { id, name, status: 'Invalid ID or Name' };
+            }
+
+            let status: ParsedSchool['status'] = 'Ready to import';
+            if (existingSchoolIds.has(id)) {
+              status = 'Already exists in DB';
+            } else if (seenInFile.has(id)) {
+              status = 'Duplicate in file';
+            }
+            seenInFile.add(id);
+
+            return { id, name, address, contactPerson, status };
+          });
+          
+          setParsedSchools(validatedData);
+
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: ID, Name, Address, Contact Person.' });
+        } finally {
+          setIsParsing(false);
+        }
+      };
+      reader.readAsBinaryString(file);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    const schoolsToImport = parsedSchools.filter(s => s.status === 'Ready to import');
+      
+    if (schoolsToImport.length === 0) {
+      toast({ title: 'No New Schools', description: 'There are no new schools to import.' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const result = await importSchools(schoolsToImport);
+      if (result.success) {
+        toast({ title: 'Import Complete', description: result.message });
+        await fetchSchools();
+        setIsImportModalOpen(false);
+      } else {
+        toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getValidationBadge = (status: ParsedSchool['status']) => {
+    switch (status) {
+      case 'Ready to import': return <Badge variant="default">Ready</Badge>;
+      case 'Already exists in DB': return <Badge variant="secondary">Exists</Badge>;
+      case 'Duplicate in file': return <Badge variant="secondary">Duplicate</Badge>;
+      case 'Invalid ID or Name': return <Badge variant="destructive">Invalid</Badge>;
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <PageTitle title="School Management" subtitle="Manage participating schools in the association.">
         <Button onClick={handleExport} variant="outline" disabled={isLoading || schools.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
+         {canCreate && (
+          <Button onClick={openImportModal} variant="outline" disabled={isLoading}>
+              <UploadCloud className="mr-2 h-4 w-4" /> Import Schools
+          </Button>
+        )}
         {canCreate && (
           <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow">
             <PlusCircle className="mr-2 h-5 w-5" /> Add School
@@ -401,6 +510,60 @@ export default function SchoolsPage() {
             </div>
         </div>
       )}
+
+      {/* Import Modal */}
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Import Schools from Excel</DialogTitle>
+            <DialogDescription>
+              Upload an Excel file with columns: ID, Name, Address, Contact Person. The ID must be unique.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
+              <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
+            </div>
+            {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+            {parsedSchools.length > 0 && (
+              <div>
+                <Label>Import Preview</Label>
+                <div className="mt-2 h-64 overflow-y-auto rounded-md border">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-muted">
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parsedSchools.map((school, index) => (
+                        <TableRow key={index} className={school.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                          <TableCell>{school.id}</TableCell>
+                          <TableCell>{school.name}</TableCell>
+                          <TableCell>{getValidationBadge(school.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {parsedSchools.filter(s => s.status === 'Ready to import').length} school(s) will be imported. Others will be skipped.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+            <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedSchools.filter(s => s.status === 'Ready to import').length === 0}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Import Schools
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[480px]">
