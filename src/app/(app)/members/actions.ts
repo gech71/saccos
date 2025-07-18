@@ -249,7 +249,7 @@ export async function importMembers(data: {
             fullName: member.fullName,
             email: `${member.memberId}.${uniqueSuffix}@placeholder.email`,
             sex: 'Male', // Default value
-            phoneNumber: `0000000000-${uniqueSuffix}`, // Placeholder phone
+            phoneNumber: `0000000000${uniqueSuffix}`, // Placeholder phone
             schoolId: member.schoolId,
             joinDate: new Date(),
             status: 'active',
@@ -263,7 +263,7 @@ export async function importMembers(data: {
             savingAccountTypeId: savingAccountTypeId,
             accountNumber: `IMP-${newMember.id.slice(-6)}`,
             expectedMonthlySaving: expectedSaving,
-            balance: 0, // Balance is updated via transaction
+            balance: member.savingsBalance, // Set initial balance directly
           }
         });
         
@@ -282,15 +282,12 @@ export async function importMembers(data: {
                     sourceName: 'System Import',
                 },
             });
-
-             await tx.memberSavingAccount.update({
-                where: { id: newSavingAccount.id },
-                data: { balance: member.savingsBalance },
-             });
         }
         
         createdCount++;
       }
+    }, {
+        timeout: 30000 // Set timeout to 30 seconds
     });
 
     revalidatePath('/members');
