@@ -78,7 +78,8 @@ export async function createSavingAccount(data: AccountCreationData) {
     if (initialBalance > 0) {
       await tx.saving.create({
         data: {
-          memberId: memberId,
+          member: { connect: { id: memberId } },
+          memberSavingAccount: { connect: { id: newMemberAccount.id }},
           amount: initialBalance,
           date: new Date(),
           month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
