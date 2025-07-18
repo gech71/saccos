@@ -249,7 +249,7 @@ export async function importMembers(data: {
             fullName: member.fullName,
             email: `${member.memberId}.${uniqueSuffix}@placeholder.email`,
             sex: 'Male', // Default value
-            phoneNumber: '0000000000', // Default value
+            phoneNumber: `0000000000-${uniqueSuffix}`, // Placeholder phone
             schoolId: member.schoolId,
             joinDate: new Date(),
             status: 'active',
@@ -296,7 +296,7 @@ export async function importMembers(data: {
     revalidatePath('/members');
     return { 
         success: true, 
-        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} school(s) were skipped as duplicates.` : ''}`.trim(),
+        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
         createdCount: createdCount 
     };
 }
