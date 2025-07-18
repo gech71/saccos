@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { Member, School, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
+import type { Member, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -64,14 +64,14 @@ const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
 ].sort();
 
-const initialMemberFormState: Partial<Member> = {
+const initialMemberFormState: Partial<MemberWithDetails> = {
   id: '',
   fullName: '',
   email: '',
   sex: 'Male',
   phoneNumber: '',
-  address: { city: '', subCity: '', wereda: '', kebele: '', houseNumber: '' },
-  emergencyContact: { name: '', phone: '' },
+  address: { id: '', city: '', subCity: '', wereda: '', kebele: '', houseNumber: '', memberId: null },
+  emergencyContact: { id: '', name: '', phone: '', memberId: null },
   schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],
   salary: 0,
@@ -98,7 +98,7 @@ export default function MembersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<Member>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [isViewingOnly, setIsViewingOnly] = useState(false);
   
@@ -147,7 +147,7 @@ export default function MembersPage() {
     if (nameParts.length > 1) {
         const [parentKey, childKey] = nameParts as [keyof Member, string];
         setCurrentMember(prev => {
-            const currentParentValue = prev[parentKey] || {};
+            const currentParentValue = prev[parentKey as keyof typeof prev] || {};
             return {
                 ...prev,
                 [parentKey]: {
@@ -167,7 +167,7 @@ export default function MembersPage() {
     if (nameParts.length > 1) {
         const [parentKey, childKey] = nameParts as [keyof Member, string];
         setCurrentMember(prev => {
-            const currentParentValue = prev[parentKey] || {};
+            const currentParentValue = prev[parentKey as keyof typeof prev] || {};
             return {
                 ...prev,
                 [parentKey]: {

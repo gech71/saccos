@@ -18,6 +18,8 @@ export interface MemberWithDetails extends Member {
         monthlyCommittedAmount: number;
     }[];
     totalSavingsBalance: number;
+    address: Prisma.AddressGetPayload<{}> | null;
+    emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;
 }
 
 

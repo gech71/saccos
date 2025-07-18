@@ -49,17 +49,8 @@ export interface Member {
   email: string;
   sex: 'Male' | 'Female' | 'Other';
   phoneNumber: string;
-  address: {
-    city: string;
-    subCity: string;
-    wereda: string;
-    kebele?: string;
-    houseNumber?: string;
-  };
-  emergencyContact: {
-    name: string;
-    phone: string;
-  };
+  address: Prisma.AddressGetPayload<{}> | null;
+  emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;
   schoolId: string;
   schoolName?: string; // Denormalized for display
   joinDate: string; // ISO date string
