@@ -75,6 +75,7 @@ export async function generateStatement(
   const openingTransaction = await prisma.saving.findFirst({
       where: {
           memberSavingAccountId: accountId,
+          status: 'approved',
           notes: {
               contains: 'Initial deposit'
           }
@@ -94,9 +95,10 @@ export async function generateStatement(
         status: 'approved',
         date: {
             lt: dateRange.from,
-            gte: openingBalanceDate // Start from the opening balance date
+            // Start from the opening balance date, but exclude the opening transaction itself if it's found
+            gte: openingTransaction ? openingBalanceDate : undefined,
         },
-        // Exclude the opening transaction itself if it's already accounted for
+        // Explicitly exclude the opening transaction itself if it's already accounted for
         id: openingTransaction ? { not: openingTransaction.id } : undefined,
     },
     orderBy: { date: 'asc' },
