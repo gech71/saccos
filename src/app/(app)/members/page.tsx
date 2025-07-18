@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -278,12 +279,6 @@ export default function MembersPage() {
     prepMemberForModal(member);
     setIsEditingMember(true);
     setIsViewingOnly(false);
-  };
-  
-  const openViewMemberModal = (member: MemberWithDetails) => {
-    prepMemberForModal(member);
-    setIsEditingMember(false);
-    setIsViewingOnly(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -654,11 +649,11 @@ export default function MembersPage() {
 
       {/* Member Add/Edit/View Modal */}
       <Dialog open={isMemberModalOpen} onOpenChange={(isOpen) => {
-        setIsMemberModalOpen(isOpen);
         if (!isOpen) {
             setIsViewingOnly(false);
             setCurrentMember(initialMemberFormState);
         }
+        setIsMemberModalOpen(isOpen);
       }}>
         <DialogContent className="sm:max-w-3xl"> 
           <DialogHeader>
