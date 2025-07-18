@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, ShareType } from '@prisma/client';
+import type { School, SavingAccountType, ShareType, Member } from '@prisma/client';
 
 export interface ForecastResult {
     memberId: string;
@@ -12,9 +12,9 @@ export interface ForecastResult {
 }
 
 export interface ForecastPageData {
-    schools: Pick<School, 'id' | 'name'>[];
-    savingAccountTypes: Pick<SavingAccountType, 'id' | 'name'>[];
-    shareTypes: Pick<ShareType, 'id' | 'name'>[];
+    schools: Pick<School, 'id', 'name'>[];
+    savingAccountTypes: Pick<SavingAccountType, 'id', 'name'>[];
+    shareTypes: Pick<ShareType, 'id', 'name'>[];
 }
 
 export async function getForecastPageData(): Promise<ForecastPageData> {
@@ -42,6 +42,9 @@ export async function getCollectionForecast(criteria: {
             school: { select: { name: true } },
             shareCommitments: {
                 where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
+            },
+            memberSavingAccounts: {
+                where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
             }
         }
     });
@@ -50,13 +53,19 @@ export async function getCollectionForecast(criteria: {
 
     if (collectionType === 'savings') {
         results = members
-            .filter(m => m.savingAccountTypeId === typeId && (m.expectedMonthlySaving ?? 0) > 0)
-            .map(m => ({
-                memberId: m.id,
-                fullName: m.fullName,
-                schoolName: m.school?.name ?? 'N/A',
-                expectedContribution: m.expectedMonthlySaving ?? 0,
-            }));
+            .map(m => {
+                const relevantAccount = m.memberSavingAccounts.find(acc => acc.savingAccountTypeId === typeId);
+                if (relevantAccount && (relevantAccount.expectedMonthlySaving ?? 0) > 0) {
+                    return {
+                        memberId: m.id,
+                        fullName: m.fullName,
+                        schoolName: m.school?.name ?? 'N/A',
+                        expectedContribution: relevantAccount.expectedMonthlySaving ?? 0,
+                    };
+                }
+                return null;
+            })
+            .filter((r): r is ForecastResult => r !== null);
     } else { // 'shares'
         results = members
             .map(m => {

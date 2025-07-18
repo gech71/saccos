@@ -24,14 +24,14 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import type { School, SavingAccountType, Member, Saving } from '@prisma/client';
+import type { Saving, SavingAccountType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
 import * as XLSX from 'xlsx';
-import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData } from './actions';
+import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData, type MemberWithSavingAccounts } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 
 const currentYear = new Date().getFullYear();
@@ -56,12 +56,21 @@ const initialBatchTransactionState: BatchSavingDetails = {
   depositMode: 'Cash',
 };
 
+type EligibleAccount = {
+    memberId: string;
+    fullName: string;
+    accountId: string;
+    accountNumber: string;
+    expectedMonthlySaving: number;
+}
+
 interface ParsedExcelData {
   'Member Name'?: string;
   'Savings Account Number': string;
   'Amount': number;
   memberName?: string;
   memberId?: string;
+  accountId?: string;
   status: 'Valid' | 'Invalid Account Number' | 'Duplicate';
 }
 
@@ -82,8 +91,8 @@ export default function GroupCollectionsPage() {
   const [selectedAccountType, setSelectedAccountType] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
-  const [eligibleMembers, setEligibleMembers] = useState<GroupCollectionsPageData['members']>([]);
-  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [eligibleAccounts, setEligibleAccounts] = useState<EligibleAccount[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [collectionAmounts, setCollectionAmounts] = useState<Record<string, number>>({});
   
@@ -115,19 +124,19 @@ export default function GroupCollectionsPage() {
   // FILTER-BASED COLLECTION LOGIC
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (value: string) => {
     setter(value);
-    setEligibleMembers([]); 
-    setSelectedMemberIds([]);
+    setEligibleAccounts([]); 
+    setSelectedAccountIds([]);
   };
   
-  const paginatedEligibleMembers = useMemo(() => {
+  const paginatedEligibleAccounts = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    return eligibleMembers.slice(startIndex, endIndex);
-  }, [eligibleMembers, currentPage, rowsPerPage]);
+    return eligibleAccounts.slice(startIndex, endIndex);
+  }, [eligibleAccounts, currentPage, rowsPerPage]);
 
   const totalPages = useMemo(() => {
-    return Math.ceil(eligibleMembers.length / rowsPerPage);
-  }, [eligibleMembers.length, rowsPerPage]);
+    return Math.ceil(eligibleAccounts.length / rowsPerPage);
+  }, [eligibleAccounts.length, rowsPerPage]);
 
   const getPaginationItems = () => {
     if (totalPages <= 1) return [];
@@ -170,53 +179,65 @@ export default function GroupCollectionsPage() {
     setPostedTransactions(null); 
     
     setTimeout(() => {
-      const filtered = pageData.members.filter(member =>
-        member.schoolId === selectedSchool &&
-        member.savingAccountTypeId === selectedAccountType &&
-        (member.expectedMonthlySaving ?? 0) > 0
-      );
-      setEligibleMembers(filtered);
-      setSelectedMemberIds(filtered.map(m => m.id)); 
+        const filteredAccounts: EligibleAccount[] = [];
+        pageData.members.forEach(member => {
+            if (member.schoolId === selectedSchool) {
+                member.memberSavingAccounts.forEach(account => {
+                    if (account.savingAccountType?.id === selectedAccountType && (account.expectedMonthlySaving ?? 0) > 0) {
+                        filteredAccounts.push({
+                            memberId: member.id,
+                            fullName: member.fullName,
+                            accountId: account.id,
+                            accountNumber: account.accountNumber,
+                            expectedMonthlySaving: account.expectedMonthlySaving
+                        });
+                    }
+                });
+            }
+        });
+
+      setEligibleAccounts(filteredAccounts);
+      setSelectedAccountIds(filteredAccounts.map(acc => acc.accountId)); 
       
       const initialAmounts: Record<string, number> = {};
-      filtered.forEach(m => {
-          initialAmounts[m.id] = m.expectedMonthlySaving || 0;
+      filteredAccounts.forEach(acc => {
+          initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
       });
       setCollectionAmounts(initialAmounts);
 
       setIsLoadingMembers(false);
-      if (filtered.length === 0) {
-        toast({ title: 'No Members Found', description: 'No members match the selected criteria or have an expected monthly saving for the selected account type.' });
+      if (filteredAccounts.length === 0) {
+        toast({ title: 'No Eligible Accounts Found', description: 'No member accounts match the selected criteria or have an expected monthly saving.' });
       }
     }, 300);
   };
   
   const handleSelectAllChange = (checked: boolean) => {
-    setSelectedMemberIds(checked ? eligibleMembers.map(member => member.id) : []);
+    setSelectedAccountIds(checked ? eligibleAccounts.map(acc => acc.accountId) : []);
   };
 
-  const handleRowSelectChange = (memberId: string, checked: boolean) => {
-    setSelectedMemberIds(prev =>
-      checked ? [...prev, memberId] : prev.filter(id => id !== memberId)
+  const handleRowSelectChange = (accountId: string, checked: boolean) => {
+    setSelectedAccountIds(prev =>
+      checked ? [...prev, accountId] : prev.filter(id => id !== accountId)
     );
   };
   
-  const handleCollectionAmountChange = (memberId: string, amount: string) => {
-    setCollectionAmounts(prev => ({ ...prev, [memberId]: parseFloat(amount) || 0 }));
+  const handleCollectionAmountChange = (accountId: string, amount: string) => {
+    setCollectionAmounts(prev => ({ ...prev, [accountId]: parseFloat(amount) || 0 }));
   };
 
-  const isAllSelected = eligibleMembers.length > 0 && selectedMemberIds.length === eligibleMembers.length;
+  const isAllSelected = eligibleAccounts.length > 0 && selectedAccountIds.length === eligibleAccounts.length;
 
   const summaryForSelection = useMemo(() => {
-    const membersInSelection = selectedMemberIds.length;
-    const totalAmountToCollect = selectedMemberIds.reduce((sum, memberId) => {
-        return sum + (collectionAmounts[memberId] || 0);
+    const membersInSelection = selectedAccountIds.length;
+    const totalAmountToCollect = selectedAccountIds.reduce((sum, accountId) => {
+        return sum + (collectionAmounts[accountId] || 0);
     }, 0);
     return {
       count: membersInSelection,
       totalExpectedSaving: totalAmountToCollect,
     };
-  }, [selectedMemberIds, collectionAmounts]);
+  }, [selectedAccountIds, collectionAmounts]);
 
 
   // EXCEL-BASED COLLECTION LOGIC
@@ -257,13 +278,16 @@ export default function GroupCollectionsPage() {
                 return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Duplicate' };
             }
             
-            const member = pageData.members.find(m => m.savingsAccountNumber?.trim() === accountNumber);
-            if (member) {
-                seenAccountNumbers.add(accountNumber);
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, memberName: member.fullName, status: 'Valid' };
-            } else {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
+            // Find account by number
+            for (const member of pageData.members) {
+                const account = member.memberSavingAccounts.find(acc => acc.accountNumber === accountNumber);
+                if (account) {
+                    seenAccountNumbers.add(accountNumber);
+                    return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, accountId: account.id, memberName: member.fullName, status: 'Valid' };
+                }
             }
+            
+            return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
         });
 
         setParsedData(validatedData);
@@ -304,24 +328,25 @@ export default function GroupCollectionsPage() {
     let newTransactions: Omit<Saving, 'id'>[] = [];
 
     if (collectionMode === 'filter') {
-        const membersToProcess = selectedMemberIds
-            .map(memberId => {
-                const member = pageData?.members.find(m => m.id === memberId);
+        const accountsToProcess = selectedAccountIds
+            .map(accountId => {
+                const account = eligibleAccounts.find(acc => acc.accountId === accountId);
                 return {
-                    member: member!,
-                    amount: collectionAmounts[memberId] || 0,
+                    account: account!,
+                    amount: collectionAmounts[accountId] || 0,
                 }
             })
             .filter(({ amount }) => amount > 0);
 
-        if (membersToProcess.length === 0) {
-            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select members and ensure their collection amounts are greater than zero.' });
+        if (accountsToProcess.length === 0) {
+            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select accounts and ensure their collection amounts are greater than zero.' });
             return;
         }
 
-        newTransactions = membersToProcess.map(({member, amount}) => ({
-            memberId: member.id,
-            memberName: member.fullName,
+        newTransactions = accountsToProcess.map(({account, amount}) => ({
+            memberId: account.memberId,
+            memberSavingAccountId: account.accountId,
+            memberName: account.fullName,
             amount: amount,
             date: transactionDateObj,
             month: transactionMonthString,
@@ -341,6 +366,7 @@ export default function GroupCollectionsPage() {
         }
          newTransactions = validRows.map(row => ({
             memberId: row.memberId!,
+            memberSavingAccountId: row.accountId!,
             memberName: row.memberName!,
             amount: row.Amount,
             date: transactionDateObj,
@@ -364,8 +390,8 @@ export default function GroupCollectionsPage() {
     if (result.success) {
         toast({ title: 'Collection Submitted', description: result.message });
         setPostedTransactions(newTransactions as Saving[]);
-        setEligibleMembers([]); 
-        setSelectedMemberIds([]);
+        setEligibleAccounts([]); 
+        setSelectedAccountIds([]);
         setParsedData([]);
         setExcelFile(null);
     } else {
@@ -379,8 +405,8 @@ export default function GroupCollectionsPage() {
     setCollectionMode('filter');
     setSelectedSchool('');
     setSelectedAccountType('');
-    setEligibleMembers([]);
-    setSelectedMemberIds([]);
+    setEligibleAccounts([]);
+    setSelectedAccountIds([]);
     setExcelFile(null);
     setParsedData([]);
     setBatchDetails(initialBatchTransactionState);
@@ -464,7 +490,7 @@ export default function GroupCollectionsPage() {
                     Load Members
                   </Button>
                 </CardContent>
-                 {eligibleMembers.length > 0 && (
+                 {eligibleAccounts.length > 0 && (
                     <CardContent>
                       <div className="overflow-x-auto rounded-lg border shadow-sm">
                           <Table>
@@ -480,23 +506,23 @@ export default function GroupCollectionsPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {paginatedEligibleMembers.map(member => (
-                                <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? 'selected' : undefined}>
+                              {paginatedEligibleAccounts.map(account => (
+                                <TableRow key={account.accountId} data-state={selectedAccountIds.includes(account.accountId) ? 'selected' : undefined}>
                                   <TableCell className="px-2">
-                                    <Checkbox checked={selectedMemberIds.includes(member.id)} onCheckedChange={(checked) => handleRowSelectChange(member.id, !!checked)} disabled={!canCreate} />
+                                    <Checkbox checked={selectedAccountIds.includes(account.accountId)} onCheckedChange={(checked) => handleRowSelectChange(account.accountId, !!checked)} disabled={!canCreate} />
                                   </TableCell>
-                                  <TableCell className="font-medium">{member.fullName}</TableCell>
-                                  <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">{member.expectedMonthlySaving?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                  <TableCell className="font-medium">{account.fullName}</TableCell>
+                                  <TableCell>{account.accountNumber || 'N/A'}</TableCell>
+                                  <TableCell className="text-right">{account.expectedMonthlySaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                   <TableCell className="text-right">
                                     <Input
                                       type="number"
                                       step="0.01"
                                       placeholder="0.00"
-                                      value={collectionAmounts[member.id] || ''}
-                                      onChange={(e) => handleCollectionAmountChange(member.id, e.target.value)}
+                                      value={collectionAmounts[account.accountId] || ''}
+                                      onChange={(e) => handleCollectionAmountChange(account.accountId, e.target.value)}
                                       className="text-right"
-                                      disabled={!selectedMemberIds.includes(member.id) || !canCreate}
+                                      disabled={!selectedAccountIds.includes(account.accountId) || !canCreate}
                                     />
                                   </TableCell>
                                 </TableRow>
@@ -504,7 +530,7 @@ export default function GroupCollectionsPage() {
                             </TableBody>
                           </Table>
                       </div>
-                       {eligibleMembers.length > 0 && (
+                       {eligibleAccounts.length > 0 && (
                         <div className="flex flex-col items-center gap-4 pt-4">
                           <div className="flex items-center space-x-2">
                               <Button
@@ -545,7 +571,7 @@ export default function GroupCollectionsPage() {
                           </div>
                           <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
                               <div>Page {currentPage} of {totalPages || 1}</div>
-                              <div>{eligibleMembers.length} eligible member(s) found.</div>
+                              <div>{eligibleAccounts.length} eligible account(s) found.</div>
                               <div className="flex items-center space-x-2">
                                   <p className="font-medium">Rows:</p>
                                   <Select
@@ -577,7 +603,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "Member Name", "Savings Account Number", "Amount".</CardDescription>
+                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "Member Name", "Savings Account Number", and "Amount".</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
                         <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
@@ -618,7 +644,7 @@ export default function GroupCollectionsPage() {
                 </Card>
             )}
 
-            {((collectionMode === 'filter' && eligibleMembers.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) && canCreate && (
+            {((collectionMode === 'filter' && eligibleAccounts.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) && canCreate && (
                 <Card className="shadow-lg animate-in fade-in duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">3. Batch Transaction Details</CardTitle>
@@ -626,7 +652,7 @@ export default function GroupCollectionsPage() {
                           <Card className="bg-muted/50 p-4">
                             <CardTitle className="text-base flex justify-between items-center">
                                 <span>Summary for Submission</span>
-                                {collectionMode === 'filter' && <Badge>{summaryForSelection.count} Members</Badge>}
+                                {collectionMode === 'filter' && <Badge>{summaryForSelection.count} Accounts</Badge>}
                                 {collectionMode === 'excel' && <Badge>{excelSummary.count} Transactions</Badge>}
                             </CardTitle>
                             <CardContent className="p-0 pt-2">

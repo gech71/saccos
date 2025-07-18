@@ -2,13 +2,19 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, Member, Saving } from '@prisma/client';
+import type { School, SavingAccountType, Member, Saving, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+export type MemberWithSavingAccounts = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
+    memberSavingAccounts: (Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'expectedMonthlySaving'> & {
+        savingAccountType: Pick<SavingAccountType, 'id' | 'name'> | null;
+    })[];
+};
+
 export interface GroupCollectionsPageData {
-  schools: Pick<School, 'id' | 'name'>[];
-  savingAccountTypes: Pick<SavingAccountType, 'id' | 'name'>[];
-  members: Pick<Member, 'id' | 'fullName' | 'schoolId' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'savingsAccountNumber' >[];
+  schools: Pick<School, 'id', 'name'>[];
+  savingAccountTypes: Pick<SavingAccountType, 'id', 'name'>[];
+  members: MemberWithSavingAccounts[];
 }
 
 export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPageData> {
@@ -21,9 +27,19 @@ export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPag
             id: true,
             fullName: true,
             schoolId: true,
-            savingAccountTypeId: true,
-            expectedMonthlySaving: true,
-            savingsAccountNumber: true,
+            memberSavingAccounts: {
+                select: {
+                    id: true,
+                    accountNumber: true,
+                    expectedMonthlySaving: true,
+                    savingAccountType: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    }
+                }
+            }
         },
         orderBy: { fullName: 'asc' }
     }),
@@ -31,16 +47,15 @@ export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPag
   return { schools, savingAccountTypes, members };
 }
 
-export type BatchSavingData = Omit<Saving, 'id'>;
+export type BatchSavingData = Omit<Saving, 'id'> & { memberName?: string };
 
 export async function recordBatchSavings(savingsData: BatchSavingData[]): Promise<{ success: boolean; message: string }> {
   try {
-    // Prisma's `createMany` doesn't allow fields that are not in the model.
-    // The `memberName` is passed from the client for convenience but must be stripped before writing.
     const cleanData = savingsData.map(({ memberName, ...rest }) => rest);
 
     await prisma.saving.createMany({
       data: cleanData,
+      skipDuplicates: true,
     });
     
     revalidatePath('/savings');
