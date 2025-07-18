@@ -469,13 +469,14 @@ export default function MembersPage() {
   const getValidationBadge = (status: ParsedMember['status']) => {
     switch (status) {
         case 'Ready to import': return <Badge variant="default">Ready</Badge>;
-        case 'Already exists in DB': return <Badge variant="secondary">Exists in DB</Badge>;
-        case 'Duplicate in file': return <Badge variant="secondary">Duplicate in File</Badge>;
-        case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
-        case 'Invalid School ID': return <Badge variant="destructive">Invalid School ID</Badge>;
+        case 'Already exists in DB': return <Badge variant="secondary">Exists</Badge>;
+        case 'Duplicate in file': return <Badge variant="secondary">Duplicate</Badge>;
+        case 'Invalid Data': return <Badge variant="destructive">Invalid</Badge>;
+        case 'Invalid School ID': return <Badge variant="destructive">Invalid School</Badge>;
         default: return <Badge variant="destructive">Error</Badge>;
     }
-};
+  };
+
 
   return (
     <div className="space-y-6">
@@ -924,7 +925,7 @@ export default function MembersPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </Dialog>
+      </AlertDialog>
     </div>
   );
 }
