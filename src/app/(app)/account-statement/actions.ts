@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, Saving, MemberSavingAccount, SavingAccountType } from '@prisma/client';
 import type { DateRange } from 'react-day-picker';
+import { isSameDay } from 'date-fns';
 
 export interface StatementData {
   member: Member;
@@ -84,15 +85,14 @@ export async function generateStatement(
   });
   
   // 2. Calculate Balance Brought Forward by applying all transactions before the range.
-  // This correctly establishes the starting balance for the statement period.
-  const balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
+  let balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, 0); // Start with 0 and sum up all prior transactions to get the BBF.
+  }, 0); 
 
   // 3. Fetch transactions *within* the date range for the main statement body
-  const transactionsInPeriodRaw = await prisma.saving.findMany({
+  let transactionsInPeriodRaw = await prisma.saving.findMany({
       where: {
           memberSavingAccountId: accountId,
           status: 'approved',
@@ -103,6 +103,17 @@ export async function generateStatement(
       },
       orderBy: { date: 'asc' },
   });
+  
+  // SPECIAL CASE: If BBF is 0 and there's an initial deposit on the start date,
+  // treat it as the BBF and remove it from the transaction list to prevent double counting.
+  if (balanceBroughtForward === 0 && transactionsInPeriodRaw.length > 0) {
+      const firstTransaction = transactionsInPeriodRaw[0];
+      if (firstTransaction.notes?.includes('Initial deposit') && isSameDay(firstTransaction.date, dateRange.from)) {
+        balanceBroughtForward = firstTransaction.amount;
+        // Remove this transaction from the list as it's now the BBF
+        transactionsInPeriodRaw.shift();
+      }
+  }
   
   // 4. Process transactions for the statement, starting with the correctly calculated BBF
   let runningBalance = balanceBroughtForward;
