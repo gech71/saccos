@@ -584,7 +584,7 @@ export default function MembersPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                        <DropdownMenuItem asChild>
-                        <Link href={`/members/${member.id}`}>
+                        <Link href={`/member-profile/${member.id}`}>
                             <UserRound className="mr-2 h-4 w-4" /> View Profile
                         </Link>
                       </DropdownMenuItem>
@@ -939,6 +939,7 @@ export default function MembersPage() {
     </div>
   );
 }
+
 
 
 
