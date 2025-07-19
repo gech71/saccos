@@ -104,17 +104,6 @@ export async function generateStatement(
       orderBy: { date: 'asc' },
   });
   
-  // SPECIAL CASE: If BBF is 0 and there's an initial deposit on the start date,
-  // treat it as the BBF and remove it from the transaction list to prevent double counting.
-  if (balanceBroughtForward === 0 && transactionsInPeriodRaw.length > 0) {
-      const firstTransaction = transactionsInPeriodRaw[0];
-      if (firstTransaction.notes?.toLowerCase().includes('initial deposit') && isSameDay(firstTransaction.date, dateRange.from)) {
-        balanceBroughtForward = firstTransaction.amount;
-        // Remove this transaction from the list as it's now the BBF
-        transactionsInPeriodRaw.shift();
-      }
-  }
-  
   // 4. Process transactions for the statement, starting with the correctly calculated BBF
   let runningBalance = balanceBroughtForward;
   const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
