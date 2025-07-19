@@ -4,7 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, Saving, MemberSavingAccount, SavingAccountType } from '@prisma/client';
 import type { DateRange } from 'react-day-picker';
-import { isSameDay } from 'date-fns';
+import { startOfDay } from 'date-fns';
 
 export interface StatementData {
   member: Member;
@@ -58,6 +58,10 @@ export async function generateStatement(
     return null;
   }
 
+  // Normalize date range to start of the day for `from` and end of the day for `to`
+  const fromDate = startOfDay(dateRange.from);
+  const toDate = new Date(dateRange.to.setHours(23, 59, 59, 999));
+
   const member = await prisma.member.findUnique({
     where: { id: memberId },
     include: { school: { select: { name: true } } },
@@ -78,7 +82,7 @@ export async function generateStatement(
         memberSavingAccountId: accountId,
         status: 'approved',
         date: {
-            lt: dateRange.from,
+            lt: fromDate,
         },
     },
     orderBy: { date: 'asc' },
@@ -97,8 +101,8 @@ export async function generateStatement(
           memberSavingAccountId: accountId,
           status: 'approved',
           date: {
-              gte: dateRange.from,
-              lte: dateRange.to
+              gte: fromDate,
+              lte: toDate,
           },
       },
       orderBy: { date: 'asc' },
