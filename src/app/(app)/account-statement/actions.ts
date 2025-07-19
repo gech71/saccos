@@ -12,6 +12,8 @@ export interface StatementData {
   dateRange: DateRange;
   balanceBroughtForward: number;
   transactions: (Saving & { debit: number; credit: number; balance: number })[];
+  totalDeposits: number;
+  totalWithdrawals: number;
   closingBalance: number;
   schoolName: string | null;
 }
@@ -110,9 +112,14 @@ export async function generateStatement(
   
   // 4. Process transactions for the statement, starting with the correctly calculated BBF
   let runningBalance = balanceBroughtForward;
+  let totalDeposits = 0;
+  let totalWithdrawals = 0;
+
   const transactionsInPeriod = transactionsInPeriodRaw.map(tx => {
       const credit = tx.transactionType === 'deposit' ? tx.amount : 0;
       const debit = tx.transactionType === 'withdrawal' ? tx.amount : 0;
+      totalDeposits += credit;
+      totalWithdrawals += debit;
       runningBalance += credit - debit;
       return { ...tx, debit, credit, balance: runningBalance };
   });
@@ -124,6 +131,8 @@ export async function generateStatement(
     dateRange,
     balanceBroughtForward,
     transactions: transactionsInPeriod,
+    totalDeposits,
+    totalWithdrawals,
     closingBalance: runningBalance,
   };
 }

@@ -11,13 +11,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown, DollarSign } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
-import { StatCard } from '@/components/stat-card';
-import { WalletCards } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +23,7 @@ import { useSearchParams } from 'next/navigation';
 import { generateStatement, getMembersForStatement, type StatementData, type MemberForStatement } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
@@ -328,6 +327,32 @@ function AccountStatementContent() {
                     </div>
                 </div>
 
+                {/* Summary Section */}
+                <Card className="mb-6 bg-muted/50 border-primary/20">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Summary for Period</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Opening Balance</p>
+                            <p className="font-semibold">{statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Total Deposits</p>
+                            <p className="font-semibold text-green-600">+ {statementData.totalDeposits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Total Withdrawals</p>
+                            <p className="font-semibold text-red-600">- {statementData.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-muted-foreground">Closing Balance</p>
+                            <p className="font-bold text-primary">{statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+
                 {/* Transactions Table */}
                 <div className="overflow-x-auto rounded-lg border border-gray-300 shadow-sm">
                     <Table>
@@ -345,7 +370,7 @@ function AccountStatementContent() {
                                 <TableCell colSpan={4}>Balance Brought Forward</TableCell>
                                 <TableCell className="text-right">{statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                             </TableRow>
-                            {statementData.transactions.map(tx => (
+                            {statementData.transactions.length > 0 ? statementData.transactions.map(tx => (
                                 <TableRow key={tx.id}>
                                     <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                     <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
@@ -353,7 +378,11 @@ function AccountStatementContent() {
                                     <TableCell className="text-right text-green-600">{tx.credit > 0 ? `${tx.credit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : '-'}</TableCell>
                                     <TableCell className="text-right">{tx.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 </TableRow>
-                            ))}
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">No transactions in this period.</TableCell>
+                                </TableRow>
+                            )}
                              <TableRow className="font-semibold bg-gray-100">
                                 <TableCell colSpan={4}>Closing Balance as of {format(statementData.dateRange.to!, 'PPP')}</TableCell>
                                 <TableCell className="text-right">{statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
