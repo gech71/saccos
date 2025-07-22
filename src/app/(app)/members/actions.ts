@@ -88,6 +88,14 @@ export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 
 export async function addMember(data: MemberInput): Promise<Member> {
     const { id, address, emergencyContact, shareCommitments, ...memberData } = data;
 
+    // Check for uniqueness of member ID
+    const existingMemberById = await prisma.member.findUnique({
+        where: { id: id },
+    });
+    if (existingMemberById) {
+        throw new Error(`The member id already existed`);
+    }
+
     // Check for uniqueness of email
     if (memberData.email) {
         const existingMemberByEmail = await prisma.member.findUnique({

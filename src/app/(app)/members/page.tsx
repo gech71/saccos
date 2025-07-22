@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -111,6 +111,8 @@ export default function MembersPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  const [sortConfig, setSortConfig] = useState<{ key: keyof MemberWithDetails; direction: 'ascending' | 'descending' } | null>({ key: 'id', direction: 'ascending' });
   
   // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -300,14 +302,39 @@ export default function MembersPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  const requestSort = (key: keyof MemberWithDetails) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedMembers = useMemo(() => {
+    let sortableMembers = [...members];
+    if (sortConfig !== null) {
+      sortableMembers.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableMembers;
+  }, [members, sortConfig]);
+
   const filteredMembers = useMemo(() => {
-    return members.filter(member => {
-      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                member.email.toLowerCase().includes(searchTerm.toLowerCase());
+    return sortedMembers.filter(member => {
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTermLower) ||
+                                member.id.toLowerCase().includes(searchTermLower);
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
-  }, [members, searchTerm, selectedSchoolFilter]);
+  }, [sortedMembers, searchTerm, selectedSchoolFilter]);
 
   const handleExport = () => {
     const dataToExport = filteredMembers.map(member => ({
@@ -511,7 +538,7 @@ export default function MembersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search members by name or email..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -536,7 +563,12 @@ export default function MembersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member ID</TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => requestSort('id')} className="px-0">
+                    Member ID
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>School</TableHead>
@@ -763,7 +795,7 @@ export default function MembersPage() {
             </div>
             
             <Separator className="my-4" />
-             <Label className="font-semibold text-base text-primary">School &amp; Financial Information</Label>
+             <Label className="font-semibold text-base text-primary">School & Financial Information</Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <Label htmlFor="schoolId">School <span className="text-destructive">*</span></Label>
@@ -939,6 +971,7 @@ export default function MembersPage() {
     </div>
   );
 }
+
 
 
 

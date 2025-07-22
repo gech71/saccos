@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -98,6 +99,9 @@ export default function SavingsPage() {
   const { toast } = useToast();
   
   const { user } = useAuth();
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   const canCreate = user?.permissions.includes('saving:create');
   const canEdit = user?.permissions.includes('saving:edit');
@@ -254,6 +258,48 @@ export default function SavingsPage() {
       return matchesSearchTerm && matchesStatus && matchesType;
     });
   }, [savingsTransactions, searchTerm, selectedStatusFilter, selectedTypeFilter]);
+  
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(filteredTransactions.length / rowsPerPage);
+  }, [filteredTransactions.length, rowsPerPage]);
+
+  const getPaginationItems = () => {
+    if (totalPages <= 1) return [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (i - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+
+    return rangeWithDots;
+  };
+  
+  const paginationItems = getPaginationItems();
 
   const summaryStats = useMemo(() => {
     const approvedTransactions = filteredTransactions.filter(tx => tx.status === 'approved');
@@ -376,7 +422,7 @@ export default function SavingsPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredTransactions.length > 0 ? filteredTransactions.map(tx => (
+            ) : paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
               <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
                 <TableCell className="font-medium">{tx.memberName || 'N/A'}</TableCell>
                 <TableCell>
@@ -418,6 +464,73 @@ export default function SavingsPage() {
           </TableBody>
         </Table>
       </div>
+
+        {filteredTransactions.length > 0 && (
+            <div className="flex flex-col items-center gap-4 pt-4">
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                        {paginationItems.map((item, index) =>
+                            typeof item === 'number' ? (
+                                <Button
+                                    key={index}
+                                    variant={currentPage === item ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-9 w-9 p-0"
+                                    onClick={() => setCurrentPage(item)}
+                                >
+                                    {item}
+                                </Button>
+                            ) : (
+                                <span key={index} className="px-2">
+                                    {item}
+                                </span>
+                            )
+                        )}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                    >
+                        Next
+                    </Button>
+                </div>
+                <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                    <div>Page {currentPage} of {totalPages || 1}</div>
+                    <div>{filteredTransactions.length} transaction(s) found.</div>
+                    <div className="flex items-center space-x-2">
+                        <p className="font-medium">Rows:</p>
+                        <Select
+                            value={`${rowsPerPage}`}
+                            onValueChange={(value) => {
+                                setRowsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={`${rowsPerPage}`} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 15, 20, 25, 50].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </div>
+      )}
 
     {/* Transaction Modal */}
       <Dialog open={isModalOpen} onOpenChange={(open) => {if (!isSubmitting) setIsModalOpen(open)}}>
