@@ -3,7 +3,7 @@
 
 import { getMemberDetails } from './actions';
 import type { MemberDetails } from './actions';
-import { notFound, useRouter, useParams } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,6 @@ export default function MemberProfilePage() {
     const memberId = params.memberId as string;
     const [details, setDetails] = useState<MemberDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
 
     const [transactionFilter, setTransactionFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all');
     const [transactionDateRange, setTransactionDateRange] = useState<DateRange | undefined>(undefined);
@@ -132,40 +131,36 @@ export default function MemberProfilePage() {
             <PageTitle title="Member Profile" subtitle={`A complete financial overview of ${member.fullName}.`}/>
 
             {/* Header Card */}
-            <Card className="overflow-hidden shadow-xl">
-                <CardHeader className="bg-gradient-to-br from-primary/80 to-accent/80 p-6 flex flex-col md:flex-row items-center gap-6">
-                    <Avatar className="h-28 w-28 border-4 border-white shadow-lg">
+            <Card className="overflow-hidden shadow-xl bg-gradient-to-r from-yellow-500 via-yellow-600 to-amber-700 text-white rounded-xl">
+                <div className="p-6 flex flex-col md:flex-row items-center gap-6">
+                    <Avatar className="h-24 w-24 border-4 border-white/50 shadow-lg flex-shrink-0">
                         <AvatarImage src={`https://placehold.co/128x128.png?text=${member.fullName.charAt(0)}`} alt={member.fullName} data-ai-hint="user avatar"/>
-                        <AvatarFallback><User className="h-16 w-16" /></AvatarFallback>
+                        <AvatarFallback className="text-slate-600"><User className="h-12 w-12" /></AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                        <div className="text-center md:text-left col-span-1">
-                            <CardTitle className="text-3xl font-headline text-white">{member.fullName}</CardTitle>
-                            <CardDescription className="text-lg text-primary-foreground/90 mt-1">{member.email}</CardDescription>
-                            <div className="mt-2">
-                            <Badge variant={member.status === 'active' ? 'default' : 'destructive'} className="bg-white text-primary-foreground font-bold py-1 px-3 text-sm">{member.status}</Badge>
-                            </div>
+                    <div className="flex-1 text-center md:text-left">
+                        <h2 className="text-3xl font-bold">{member.fullName}</h2>
+                        <p className="text-lg text-white/80">{member.email}</p>
+                        <Badge variant="secondary" className="mt-2 bg-white/90 text-amber-800 font-bold">{member.status}</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4 text-center md:text-right w-full md:w-auto">
+                        <div>
+                            <p className="text-sm font-light opacity-80">Total Savings</p>
+                            <p className="text-xl font-bold">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
                         </div>
-                        <div className="col-span-2 grid grid-cols-2 lg:grid-cols-4 items-center gap-4 text-white">
-                             <div className="text-center">
-                                <p className="text-sm font-light opacity-90">Total Savings</p>
-                                <p className="text-2xl font-bold">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                             </div>
-                             <div className="text-center">
-                                <p className="text-sm font-light opacity-90">Total Shares</p>
-                                <p className="text-2xl font-bold">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                             </div>
-                              <div className="text-center">
-                                <p className="text-sm font-light opacity-90">Active Loans</p>
-                                <p className="text-2xl font-bold">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                             </div>
-                             <div className="text-center">
-                                <p className="text-sm font-light opacity-90">Join Date</p>
-                                <p className="text-2xl font-bold">{format(new Date(member.joinDate), 'PPP')}</p>
-                             </div>
+                        <div>
+                            <p className="text-sm font-light opacity-80">Total Shares</p>
+                            <p className="text-xl font-bold">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-light opacity-80">Active Loans</p>
+                            <p className="text-xl font-bold">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-light opacity-80">Join Date</p>
+                            <p className="text-xl font-bold">{format(new Date(member.joinDate), 'PP')}</p>
                         </div>
                     </div>
-                </CardHeader>
+                </div>
             </Card>
 
             {/* Financial Summary & Personal Info */}
