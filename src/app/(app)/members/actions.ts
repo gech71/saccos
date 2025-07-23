@@ -48,7 +48,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
             address: true,
             emergencyContact: true,
         },
-        orderBy: { fullName: 'asc' }
+        orderBy: { id: 'asc' }
     });
 
     const schools = await prisma.school.findMany({ select: { id: true, name: true }, orderBy: {name: 'asc'} });

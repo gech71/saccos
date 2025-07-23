@@ -58,7 +58,6 @@ export async function createSavingAccount(data: AccountCreationData) {
     }
   }
   
-  // This check is now done on the client-side, but good to have server-side as well
   if (initialBalance < 0) {
       throw new Error(`Initial balance cannot be negative.`);
   }
