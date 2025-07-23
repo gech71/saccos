@@ -142,7 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Header />
         </div>
         <div className="flex flex-1">
-          <div className="no-print">
+          <div className="no-print flex-shrink-0">
             <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r">
                 <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
                 <Logo />
