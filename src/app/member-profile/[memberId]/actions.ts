@@ -2,8 +2,8 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { format } from 'date-fns';
-import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge } from '@prisma/client';
+import { format, compareDesc } from 'date-fns';
+import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving } from '@prisma/client';
 
 export interface MemberDetails {
     member: Member;
@@ -17,6 +17,7 @@ export interface MemberDetails {
     serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
     monthlyLoanRepayments: { month: string, totalRepaid: number }[];
+    allSavingsTransactions: Saving[];
 }
 
 
@@ -62,8 +63,8 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                     dateApplied: 'desc'
                 }
             },
-            savings: {
-                where: { status: 'approved' },
+            savings: { // Fetch all savings transactions for the member
+                where: { status: 'approved' }, // Only approved ones affect balance history
                 orderBy: {
                     date: 'desc'
                 }
@@ -94,7 +95,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         month,
         ...data,
         net: data.deposits - data.withdrawals
-    })).sort((a,b) => new Date(b.month).getTime() - new Date(a.month).getTime());
+    })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
     // Process monthly loan repayments
     const monthlyLoanRepaymentsMap = new Map<string, number>();
@@ -107,7 +108,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     const monthlyLoanRepayments = Array.from(monthlyLoanRepaymentsMap.entries()).map(([month, totalRepaid]) => ({
         month,
         totalRepaid
-    })).sort((a,b) => new Date(b.month).getTime() - new Date(a.month).getTime());
+    })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
 
     return {
@@ -121,6 +122,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         loanRepayments: member.loanRepayments,
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
         monthlySavings,
-        monthlyLoanRepayments
+        monthlyLoanRepayments,
+        allSavingsTransactions: member.savings,
     };
 }

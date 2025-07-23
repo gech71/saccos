@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PageTitle } from '@/components/page-title';
 
 const StatInfo = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: React.ReactNode }) => (
     <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/50">
@@ -128,8 +127,6 @@ export default function MemberProfilePage() {
 
     return (
         <div className="container mx-auto p-4 md:p-8 space-y-8 bg-background">
-            <PageTitle title="Member Profile" subtitle={`A complete financial overview of ${member.fullName}.`}/>
-
             {/* Header Card */}
             <Card className="overflow-hidden shadow-xl bg-gradient-to-r from-yellow-500 via-yellow-600 to-amber-700 text-white rounded-xl">
                 <div className="p-6 flex flex-col md:flex-row items-center gap-6">
