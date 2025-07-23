@@ -17,7 +17,7 @@ export interface MemberDetails {
     serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
     monthlyLoanRepayments: { month: string, totalRepaid: number }[];
-    allSavingsTransactions: Saving[];
+    allSavingsTransactions: (Saving & { balanceAfter: number })[];
 }
 
 
@@ -63,10 +63,10 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                     dateApplied: 'desc'
                 }
             },
-            savings: { // Fetch all savings transactions for the member
-                where: { status: 'approved' }, // Only approved ones affect balance history
+            savings: { 
+                where: { status: 'approved' },
                 orderBy: {
-                    date: 'desc'
+                    date: 'asc' // Sort ASC to calculate running balance correctly
                 }
             }
         }
@@ -75,6 +75,19 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     if (!member) {
         return null;
     }
+
+    // Calculate running balance for savings
+    const totalInitialBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.initialBalance, 0);
+    let runningBalance = totalInitialBalance;
+    const savingsWithBalance = member.savings.map(tx => {
+        if (tx.transactionType === 'deposit') {
+            runningBalance += tx.amount;
+        } else {
+            runningBalance -= tx.amount;
+        }
+        return { ...tx, balanceAfter: runningBalance };
+    }).sort((a,b) => compareDesc(new Date(a.date), new Date(b.date))); // Sort back to DESC for display
+
 
     // Process monthly savings
     const monthlySavingsMap = new Map<string, { deposits: number, withdrawals: number }>();
@@ -123,6 +136,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
         monthlySavings,
         monthlyLoanRepayments,
-        allSavingsTransactions: member.savings,
+        allSavingsTransactions: savingsWithBalance,
     };
 }
