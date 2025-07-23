@@ -3,7 +3,7 @@
 
 import { getMemberDetails } from './actions';
 import type { MemberDetails } from './actions';
-import { notFound, useRouter } from 'next/navigation';
+import { notFound, useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +52,9 @@ const SectionCard = ({ title, description, children, actionButton }: { title: st
     </Card>
 );
 
-export default function MemberProfilePage({ params }: { params: { memberId: string } }) {
+export default function MemberProfilePage() {
+    const params = useParams();
+    const memberId = params.memberId as string;
     const [details, setDetails] = useState<MemberDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
@@ -64,7 +66,6 @@ export default function MemberProfilePage({ params }: { params: { memberId: stri
     const rowsPerPage = 10;
 
     useEffect(() => {
-        const memberId = params.memberId;
         if (!memberId) return;
 
         async function loadData() {
@@ -84,7 +85,7 @@ export default function MemberProfilePage({ params }: { params: { memberId: stri
             }
         }
         loadData();
-    }, [params.memberId]);
+    }, [memberId]);
 
     const filteredTransactions = useMemo(() => {
         if (!details) return [];
