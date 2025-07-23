@@ -90,12 +90,14 @@ export async function generateStatement(
     orderBy: { date: 'asc' },
   });
   
-  // 2. Calculate Balance Brought Forward by applying all transactions before the range.
-  let balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
+  // 2. Calculate Balance Brought Forward by starting with the account's initial balance
+  //    and then applying all transactions that happened BEFORE the statement period.
+  let balanceBroughtForward = account.initialBalance;
+  balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
-  }, 0); 
+  }, balanceBroughtForward); 
 
   // 3. Fetch transactions *within* the date range for the main statement body
   let transactionsInPeriodRaw = await prisma.saving.findMany({

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -111,15 +112,11 @@ export default function AddSavingAccountPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a member and an account type.' });
       return;
     }
-    if (formState.initialBalance < formState.expectedMonthlySaving) {
-      toast({ variant: 'destructive', title: 'Validation Error', description: `Initial balance cannot be less than the expected monthly saving of ${formState.expectedMonthlySaving.toFixed(2)} Birr.` });
-      return;
-    }
     
     setIsSubmitting(true);
     try {
       await createSavingAccount(formState);
-      toast({ title: 'Success', description: 'Saving account created and initial deposit is pending approval.' });
+      toast({ title: 'Success', description: 'Saving account created successfully.' });
       router.push('/savings-accounts');
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
@@ -237,18 +234,9 @@ export default function AddSavingAccountPage() {
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="initialBalance" name="initialBalance" type="number" step="0.01" value={formState.initialBalance || ''} onChange={handleInputChange} className="pl-7" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">If > 0, a deposit will be created for approval.</p>
+                <p className="text-xs text-muted-foreground mt-1">This amount will be the opening balance.</p>
               </div>
             </div>
-            {formState.initialBalance > 0 && formState.initialBalance < formState.expectedMonthlySaving && (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        The initial balance is less than the expected monthly saving for this account type.
-                    </AlertDescription>
-                </Alert>
-            )}
-           
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSubmitting || isLoading} className="w-full md:w-auto ml-auto">

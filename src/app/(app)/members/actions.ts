@@ -280,37 +280,16 @@ export async function importMembers(data: {
           }
         });
 
-        const newSavingAccount = await tx.memberSavingAccount.create({
+        await tx.memberSavingAccount.create({
           data: {
             memberId: newMember.id,
             savingAccountTypeId: savingAccountTypeId,
             accountNumber: `IMP-${newMember.id.slice(-6)}`,
             expectedMonthlySaving: expectedSaving,
-            balance: 0, // Set initial balance to 0, it will be updated by the approved deposit.
+            initialBalance: member.savingsBalance, // Set initial balance
+            balance: member.savingsBalance, // Set current balance
           }
         });
-        
-        if (member.savingsBalance > 0) {
-            await tx.saving.create({
-                data: {
-                    memberId: newMember.id,
-                    memberSavingAccountId: newSavingAccount.id,
-                    amount: member.savingsBalance,
-                    date: new Date(),
-                    month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-                    transactionType: 'deposit',
-                    status: 'approved', // Initial imported balances are auto-approved
-                    notes: `Initial balance from import.`,
-                    depositMode: 'Bank',
-                    sourceName: 'System Import',
-                },
-            });
-             
-             await tx.memberSavingAccount.update({
-                where: { id: newSavingAccount.id },
-                data: { balance: member.savingsBalance },
-             });
-        }
         
         createdCount++;
       }

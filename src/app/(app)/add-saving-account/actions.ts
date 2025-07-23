@@ -58,43 +58,25 @@ export async function createSavingAccount(data: AccountCreationData) {
     }
   }
   
-  if (initialBalance < expectedMonthlySaving) {
-      throw new Error(`Initial balance cannot be less than the expected monthly saving of ${expectedMonthlySaving.toFixed(2)} Birr.`);
+  // This check is now done on the client-side, but good to have server-side as well
+  if (initialBalance < 0) {
+      throw new Error(`Initial balance cannot be negative.`);
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Create the new MemberSavingAccount link
-    const newMemberAccount = await tx.memberSavingAccount.create({
-      data: {
-        memberId,
-        savingAccountTypeId,
-        accountNumber: finalAccountNumber,
-        expectedMonthlySaving,
-        balance: 0, // Balance starts at 0, initial deposit will update it after approval
-      }
-    });
-
-    // 2. If there's an initial balance, create a pending deposit transaction.
-    if (initialBalance > 0) {
-      await tx.saving.create({
-        data: {
-          member: { connect: { id: memberId } },
-          memberSavingAccount: { connect: { id: newMemberAccount.id }},
-          amount: initialBalance,
-          date: new Date(),
-          month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-          transactionType: 'deposit',
-          status: 'pending',
-          notes: `Initial deposit for new account #${finalAccountNumber} (${savingAccountType.name})`,
-          depositMode: 'Bank', // Assume initial deposits are system-level/bank
-          sourceName: 'System Opening Balance',
-        },
-      });
+  // Create the new MemberSavingAccount with the initial balance set directly.
+  await prisma.memberSavingAccount.create({
+    data: {
+      memberId,
+      savingAccountTypeId,
+      accountNumber: finalAccountNumber,
+      expectedMonthlySaving,
+      initialBalance: initialBalance,
+      balance: initialBalance, // Set the current balance to the initial balance
     }
   });
+
 
   revalidatePath('/members');
   revalidatePath('/savings-accounts');
   revalidatePath('/savings');
-  revalidatePath('/approve-transactions');
 }
