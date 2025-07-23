@@ -27,7 +27,6 @@ async function main() {
   await prisma.shareType.deleteMany();
   await prisma.savingAccountType.deleteMany();
   await prisma.school.deleteMany();
-  await prisma.building.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   console.log('Database cleaned.');
