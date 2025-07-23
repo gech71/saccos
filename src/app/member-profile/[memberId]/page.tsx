@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { getMemberDetails } from './actions';
@@ -128,33 +129,33 @@ export default function MemberProfilePage() {
     return (
         <div className="container mx-auto p-4 md:p-8 space-y-8 bg-background">
             {/* Header Card */}
-            <Card className="overflow-hidden shadow-xl bg-gradient-to-r from-yellow-500 via-yellow-600 to-amber-700 text-white rounded-xl">
+            <Card className="overflow-hidden shadow-xl rounded-xl">
                 <div className="p-6 flex flex-col md:flex-row items-center gap-6">
-                    <Avatar className="h-24 w-24 border-4 border-white/50 shadow-lg flex-shrink-0">
+                    <Avatar className="h-24 w-24 border-4 border-muted shadow-lg flex-shrink-0">
                         <AvatarImage src={`https://placehold.co/128x128.png?text=${member.fullName.charAt(0)}`} alt={member.fullName} data-ai-hint="user avatar"/>
-                        <AvatarFallback className="text-slate-600"><User className="h-12 w-12" /></AvatarFallback>
+                        <AvatarFallback className="text-muted-foreground"><User className="h-12 w-12" /></AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-3xl font-bold">{member.fullName}</h2>
-                        <p className="text-lg text-white/80">{member.email}</p>
-                        <Badge variant="secondary" className="mt-2 bg-white/90 text-amber-800 font-bold">{member.status}</Badge>
+                        <h2 className="text-3xl font-bold text-primary">{member.fullName}</h2>
+                        <p className="text-lg text-muted-foreground">{member.email}</p>
+                        <Badge variant="outline" className="mt-2 text-foreground font-bold">{member.status}</Badge>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4 text-center md:text-right w-full md:w-auto">
                         <div>
-                            <p className="text-sm font-light opacity-80">Total Savings</p>
-                            <p className="text-xl font-bold">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                            <p className="text-sm text-muted-foreground">Total Savings</p>
+                            <p className="text-xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
                         </div>
                         <div>
-                            <p className="text-sm font-light opacity-80">Total Shares</p>
-                            <p className="text-xl font-bold">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                            <p className="text-sm text-muted-foreground">Total Shares</p>
+                            <p className="text-xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
                         </div>
                         <div>
-                            <p className="text-sm font-light opacity-80">Active Loans</p>
-                            <p className="text-xl font-bold">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                            <p className="text-sm text-muted-foreground">Active Loans</p>
+                            <p className="text-xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
                         </div>
                         <div>
-                            <p className="text-sm font-light opacity-80">Join Date</p>
-                            <p className="text-xl font-bold">{format(new Date(member.joinDate), 'PP')}</p>
+                            <p className="text-sm text-muted-foreground">Join Date</p>
+                            <p className="text-xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p>
                         </div>
                     </div>
                 </div>
@@ -220,7 +221,6 @@ export default function MemberProfilePage() {
                                 <TableHead>Type</TableHead>
                                 <TableHead className="text-right">Amount (Birr)</TableHead>
                                 <TableHead className="text-right">Balance</TableHead>
-                                <TableHead>Notes</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -235,10 +235,9 @@ export default function MemberProfilePage() {
                                     </TableCell>
                                     <TableCell className="text-right font-medium">{tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                     <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">{tx.notes}</TableCell>
                                 </TableRow>
                             )) : (
-                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={4} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
