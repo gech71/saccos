@@ -65,13 +65,12 @@ type EligibleAccount = {
 }
 
 interface ParsedExcelData {
-  'Member Name'?: string;
-  'Savings Account Number': string;
-  'Amount': number;
+  'MemberID'?: string;
+  'SavingCollected'?: number;
   memberName?: string;
   memberId?: string;
   accountId?: string;
-  status: 'Valid' | 'Invalid Account Number' | 'Duplicate';
+  status: 'Valid' | 'Invalid MemberID' | 'Duplicate' | 'Invalid Data';
 }
 
 export default function GroupCollectionsPage() {
@@ -250,8 +249,8 @@ export default function GroupCollectionsPage() {
   };
 
   const handleProcessFile = () => {
-    if (!excelFile || !pageData) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file and wait for page data to load.' });
+    if (!excelFile || !pageData || !selectedAccountType) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type and an Excel file.' });
         return;
     }
     setIsParsing(true);
@@ -264,30 +263,28 @@ export default function GroupCollectionsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-        const seenAccountNumbers = new Set<string>();
+        const seenMemberIDs = new Set<string>();
         const validatedData = dataRows.map((row): ParsedExcelData => {
-            const providedMemberName = row['Member Name']?.toString().trim();
-            const accountNumber = row['Savings Account Number']?.toString().trim();
-            const amount = parseFloat(row['Amount']);
+            const memberId = row['MemberID']?.toString().trim();
+            const savingCollected = parseFloat(row['SavingCollected']);
             
-            if (!accountNumber || isNaN(amount) || amount <= 0) {
-                return { 'Savings Account Number': accountNumber || 'N/A', 'Amount': amount || 0, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
+            if (!memberId || isNaN(savingCollected) || savingCollected <= 0) {
+                return { 'MemberID': memberId || 'N/A', 'SavingCollected': savingCollected || 0, status: 'Invalid Data' };
             }
             
-            if (seenAccountNumbers.has(accountNumber)) {
-                return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Duplicate' };
+            if (seenMemberIDs.has(memberId)) {
+                return { 'MemberID': memberId, 'SavingCollected': savingCollected, status: 'Duplicate' };
             }
             
-            // Find account by number
-            for (const member of pageData.members) {
-                const account = member.memberSavingAccounts.find(acc => acc.accountNumber === accountNumber);
-                if (account) {
-                    seenAccountNumbers.add(accountNumber);
-                    return { 'Savings Account Number': accountNumber, 'Amount': amount, memberId: member.id, accountId: account.id, memberName: member.fullName, status: 'Valid' };
-                }
+            const member = pageData.members.find(m => m.id === memberId);
+            const account = member?.memberSavingAccounts.find(acc => acc.savingAccountType?.id === selectedAccountType);
+
+            if (member && account) {
+                seenMemberIDs.add(memberId);
+                return { 'MemberID': memberId, 'SavingCollected': savingCollected, memberId: member.id, accountId: account.id, memberName: member.fullName, status: 'Valid' };
             }
             
-            return { 'Savings Account Number': accountNumber, 'Amount': amount, 'Member Name': providedMemberName, status: 'Invalid Account Number' };
+            return { 'MemberID': memberId, 'SavingCollected': savingCollected, status: 'Invalid MemberID' };
         });
 
         setParsedData(validatedData);
@@ -295,7 +292,7 @@ export default function GroupCollectionsPage() {
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns: "Member Name", "Savings Account Number", and "Amount".' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns: "MemberID" and "SavingCollected".' });
       } finally {
         setIsParsing(false);
       }
@@ -307,7 +304,7 @@ export default function GroupCollectionsPage() {
     const validRows = parsedData.filter(d => d.status === 'Valid');
     return {
       count: validRows.length,
-      totalAmount: validRows.reduce((sum, row) => sum + row.Amount, 0),
+      totalAmount: validRows.reduce((sum, row) => sum + (row.SavingCollected || 0), 0),
     };
   }, [parsedData]);
 
@@ -368,7 +365,7 @@ export default function GroupCollectionsPage() {
             memberId: row.memberId!,
             memberSavingAccountId: row.accountId!,
             memberName: row.memberName!,
-            amount: row.Amount,
+            amount: row.SavingCollected!,
             date: transactionDateObj,
             month: transactionMonthString,
             transactionType: 'deposit',
@@ -415,8 +412,9 @@ export default function GroupCollectionsPage() {
   const getValidationBadge = (status: ParsedExcelData['status']) => {
     switch (status) {
       case 'Valid': return <Badge variant="default">Valid</Badge>;
-      case 'Invalid Account Number': return <Badge variant="destructive">Invalid Acct #</Badge>;
+      case 'Invalid MemberID': return <Badge variant="destructive">Invalid MemberID</Badge>;
       case 'Duplicate': return <Badge variant="secondary">Duplicate</Badge>;
+      case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
     }
   };
   
@@ -603,17 +601,27 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "Member Name", "Savings Account Number", and "Amount".</CardDescription>
+                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID", "SavingCollected".</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col sm:flex-row gap-4 items-start">
-                        <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
-                            <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
-                            <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate} />
+                    <CardContent className="space-y-4">
+                        <div>
+                            <Label htmlFor="accountTypeFilterExcel">Saving Account Type <span className="text-destructive">*</span></Label>
+                            <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+                                <SelectTrigger id="accountTypeFilterExcel"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
+                                <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                             <p className="text-xs text-muted-foreground mt-1">All imported savings will be assigned to this account type.</p>
                         </div>
-                        <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
-                            {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                            Process File
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-4 items-start">
+                            <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
+                                <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
+                                <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate || !selectedAccountType} />
+                            </div>
+                            <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
+                                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                                Process File
+                            </Button>
+                        </div>
                     </CardContent>
                     {parsedData.length > 0 && (
                         <CardContent>
@@ -622,17 +630,17 @@ export default function GroupCollectionsPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Member Name</TableHead>
-                                   <TableHead>Savings Account #</TableHead>
+                                   <TableHead>MemberID</TableHead>
                                    <TableHead className="text-right">Amount</TableHead>
                                    <TableHead>Status</TableHead>
                                  </TableRow>
                                </TableHeader>
                                <TableBody>
                                 {parsedData.map((row, index) => (
-                                    <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid Account Number' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
-                                        <TableCell>{row.memberName || row['Member Name'] || 'N/A'}</TableCell>
-                                        <TableCell>{row['Savings Account Number']}</TableCell>
-                                        <TableCell className="text-right">{row.Amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                    <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid MemberID' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
+                                        <TableCell>{row.memberName || 'N/A'}</TableCell>
+                                        <TableCell>{row.MemberID}</TableCell>
+                                        <TableCell className="text-right">{row.SavingCollected?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
                                     </TableRow>
                                 ))}
