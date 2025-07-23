@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -269,9 +270,9 @@ export async function importMembers(data: {
           data: {
             id: member.memberId,
             fullName: member.fullName,
-            email: `${member.memberId}.${uniqueSuffix}@placeholder.email`,
+            email: `${member.memberId}@placeholder.email`,
             sex: 'Male', // Default value
-            phoneNumber: `0000000000${uniqueSuffix}`, // Placeholder phone
+            phoneNumber: uniqueSuffix, // Placeholder phone
             schoolId: member.schoolId,
             joinDate: new Date(),
             status: 'active',
