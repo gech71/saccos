@@ -36,7 +36,7 @@ const StatInfo = ({ icon, label, value }: { icon: React.ReactNode, label: string
 );
 
 const SectionCard = ({ title, description, children, actionButton }: { title: string, description?: string, children: React.ReactNode, actionButton?: React.ReactNode }) => (
-    <Card className="shadow-lg">
+    <Card className="shadow-sm">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -127,9 +127,9 @@ export default function MemberProfilePage() {
     const { member, school, monthlySavings, monthlyLoanRepayments, shares, loans, serviceCharges } = details;
 
     return (
-        <div className="container mx-auto p-4 md:p-8 space-y-8 bg-background">
+        <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
             {/* Header Card */}
-            <Card className="overflow-hidden shadow-xl rounded-xl">
+            <Card className="overflow-hidden shadow-sm rounded-xl">
                 <div className="p-6 flex flex-col md:flex-row items-center gap-6">
                     <Avatar className="h-24 w-24 border-4 border-muted shadow-lg flex-shrink-0">
                         <AvatarImage src={`https://placehold.co/128x128.png?text=${member.fullName.charAt(0)}`} alt={member.fullName} data-ai-hint="user avatar"/>
