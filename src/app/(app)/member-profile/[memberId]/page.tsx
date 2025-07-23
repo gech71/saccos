@@ -64,10 +64,13 @@ export default function MemberProfilePage({ params }: { params: { memberId: stri
     const rowsPerPage = 10;
 
     useEffect(() => {
+        const memberId = params.memberId;
+        if (!memberId) return;
+
         async function loadData() {
             setIsLoading(true);
             try {
-                const data = await getMemberDetails(params.memberId);
+                const data = await getMemberDetails(memberId);
                 if (!data) {
                     notFound();
                 } else {
@@ -262,5 +265,3 @@ export default function MemberProfilePage({ params }: { params: { memberId: stri
         </div>
     );
 }
-
-    
