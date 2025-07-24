@@ -252,7 +252,8 @@ export default function SavingsPage() {
   const filteredTransactions = useMemo(() => {
     return savingsTransactions.filter(tx => {
       const memberName = tx.memberName || '';
-      const matchesSearchTerm = memberName.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = memberName.toLowerCase().includes(searchTermLower) || (tx.memberId && tx.memberId.toLowerCase().includes(searchTermLower));
       const matchesStatus = selectedStatusFilter === 'all' || tx.status === selectedStatusFilter;
       const matchesType = selectedTypeFilter === 'all' || tx.transactionType === selectedTypeFilter;
       return matchesSearchTerm && matchesStatus && matchesType;
@@ -374,7 +375,7 @@ export default function SavingsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -580,7 +581,7 @@ export default function SavingsPage() {
                                 currentTransaction.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName}
+                            {member.fullName} ({member.id})
                              {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                           </CommandItem>
                         ))}
