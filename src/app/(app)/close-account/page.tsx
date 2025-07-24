@@ -172,7 +172,7 @@ export default function CloseAccountPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
-                    <CommandInput placeholder="Search member..." />
+                    <CommandInput placeholder="Search by name or ID..." />
                     <CommandList>
                         <CommandEmpty>No active members found.</CommandEmpty>
                         <CommandGroup>
@@ -194,7 +194,7 @@ export default function CloseAccountPage() {
                                     selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                     )}
                                 />
-                                {member.fullName} (Total Bal: {totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr)
+                                {member.fullName} (ID: {member.id})
                                 </CommandItem>
                             )
                         })}

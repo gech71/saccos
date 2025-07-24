@@ -224,14 +224,14 @@ export default function CalculateInterestPage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
-                      <CommandInput placeholder="Search member..." />
+                      <CommandInput placeholder="Search by name or ID..." />
                       <CommandList>
                         <CommandEmpty>No member found.</CommandEmpty>
                         <CommandGroup>
                           {pageData.members.map((member) => (
                             <CommandItem
                               key={member.id}
-                              value={`${member.fullName} ${member.savingsAccountNumber}`}
+                              value={`${member.fullName} ${member.id}`}
                               onSelect={() => {
                                 setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
                                 setOpenMemberCombobox(false);
@@ -243,7 +243,7 @@ export default function CalculateInterestPage() {
                                   selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                              {member.fullName} ({member.id})
                             </CommandItem>
                           ))}
                         </CommandGroup>
