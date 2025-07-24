@@ -163,14 +163,14 @@ export default function AddSavingAccountPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                   <Command>
-                    <CommandInput placeholder="Search member..." />
+                    <CommandInput placeholder="Search by name or ID..." />
                     <CommandList>
                       <CommandEmpty>No member found.</CommandEmpty>
                       <CommandGroup>
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={member.fullName}
+                            value={`${member.fullName} ${member.id}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
