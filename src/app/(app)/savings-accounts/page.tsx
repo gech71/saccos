@@ -52,7 +52,9 @@ export default function SavingsAccountsPage() {
 
   const filteredSummaries = useMemo(() => {
     return accountSummaries.filter(summary => {
-      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTermLower) ||
+                                summary.memberId.toLowerCase().includes(searchTermLower);
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -163,7 +165,7 @@ export default function SavingsAccountsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -189,6 +191,7 @@ export default function SavingsAccountsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Member ID</TableHead>
               <TableHead>Member Name</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Account Number</TableHead>
@@ -200,6 +203,7 @@ export default function SavingsAccountsPage() {
           <TableBody>
             {paginatedSummaries.length > 0 ? paginatedSummaries.map(summary => (
               <TableRow key={`${summary.memberId}-${summary.savingsAccountNumber}`}>
+                <TableCell className="font-mono text-xs">{summary.memberId}</TableCell>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
                 <TableCell>{summary.savingsAccountNumber || 'N/A'}</TableCell>
@@ -218,7 +222,7 @@ export default function SavingsAccountsPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   No member savings accounts found matching your criteria.
                 </TableCell>
               </TableRow>
