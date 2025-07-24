@@ -561,7 +561,7 @@ export default function SavingsPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                   <Command>
-                    <CommandInput placeholder="Search member..." />
+                    <CommandInput placeholder="Search by name or ID..." />
                     <CommandList>
                       <CommandEmpty>No member found.</CommandEmpty>
                       <CommandGroup>
