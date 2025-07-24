@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -55,7 +55,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { exportToExcel } from '@/lib/utils';
-import { getMembersPageData, addMember, updateMember, deleteMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
+import { getMembersPageData, addMember, updateMember, deleteMember, importMembers, transferMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
@@ -119,6 +119,12 @@ export default function MembersPage() {
   const [importSavingAccountTypeId, setImportSavingAccountTypeId] = useState<string>('');
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+
+  // Transfer state
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [memberToTransfer, setMemberToTransfer] = useState<MemberWithDetails | null>(null);
+  const [newSchoolId, setNewSchoolId] = useState<string>('');
+  const [transferReason, setTransferReason] = useState('');
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('member:edit'), [user]);
@@ -232,7 +238,7 @@ export default function MembersPage() {
             id: currentMember.id!,
             fullName: currentMember.fullName!,
             email: currentMember.email!,
-            sex: currentMember.sex!,
+            sex: currentMember.sex as 'Male' | 'Female',
             phoneNumber: currentMember.phoneNumber!,
             address: currentMember.address,
             emergencyContact: currentMember.emergencyContact,
@@ -514,6 +520,31 @@ export default function MembersPage() {
     }
   };
 
+  // --- Transfer Logic ---
+  const openTransferModal = (member: MemberWithDetails) => {
+    setMemberToTransfer(member);
+    setNewSchoolId('');
+    setTransferReason('');
+    setIsTransferModalOpen(true);
+  };
+
+  const handleTransferSubmit = async () => {
+    if (!memberToTransfer || !newSchoolId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a new school for the transfer.' });
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await transferMember(memberToTransfer.id, newSchoolId, transferReason);
+    if (result.success) {
+      toast({ title: 'Transfer Successful', description: result.message });
+      await fetchPageData();
+      setIsTransferModalOpen(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Transfer Failed', description: result.message });
+    }
+    setIsSubmitting(false);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -622,6 +653,9 @@ export default function MembersPage() {
                       </DropdownMenuItem>
                       {canEdit && <DropdownMenuItem onClick={() => openEditMemberModal(member)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit Member
+                      </DropdownMenuItem>}
+                      {canEdit && <DropdownMenuItem onClick={() => openTransferModal(member)}>
+                        <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer School
                       </DropdownMenuItem>}
                       <Separator />
                       {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -881,6 +915,48 @@ export default function MembersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Transfer Member Modal */}
+      <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer {memberToTransfer?.fullName}</DialogTitle>
+            <DialogDescription>
+              Select a new school for this member. Their history at the current school will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Current School</Label>
+              <Input value={memberToTransfer?.school?.name} readOnly disabled className="bg-muted" />
+            </div>
+            <div>
+              <Label htmlFor="newSchoolId">New School <span className="text-destructive">*</span></Label>
+              <Select value={newSchoolId} onValueChange={setNewSchoolId}>
+                  <SelectTrigger id="newSchoolId">
+                    <SelectValue placeholder="Select new school" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schools.filter(s => s.id !== memberToTransfer?.schoolId).map(school => (
+                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="transferReason">Reason for Transfer (Optional)</Label>
+              <Textarea id="transferReason" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button onClick={handleTransferSubmit} disabled={isSubmitting || !newSchoolId}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm Transfer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Import Members Modal */}
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
@@ -970,11 +1046,3 @@ export default function MembersPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

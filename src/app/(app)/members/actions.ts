@@ -139,6 +139,21 @@ export async function addMember(data: MemberInput): Promise<Member> {
             } : undefined,
         },
     });
+    
+    // Create initial school history record
+    const school = await prisma.school.findUnique({ where: {id: newMember.schoolId }});
+    if (school) {
+        await prisma.schoolHistory.create({
+            data: {
+                memberId: newMember.id,
+                schoolId: school.id,
+                schoolName: school.name, // Denormalized
+                startDate: newMember.joinDate,
+                endDate: null,
+            }
+        });
+    }
+
     revalidatePath('/members');
     return newMember;
 }
@@ -290,6 +305,19 @@ export async function importMembers(data: {
             balance: member.savingsBalance, // Set current balance
           }
         });
+
+        const school = await tx.school.findUnique({ where: {id: newMember.schoolId }});
+        if (school) {
+            await tx.schoolHistory.create({
+                data: {
+                    memberId: newMember.id,
+                    schoolId: school.id,
+                    schoolName: school.name,
+                    startDate: newMember.joinDate,
+                    endDate: null,
+                }
+            });
+        }
         
         createdCount++;
       }
@@ -303,4 +331,73 @@ export async function importMembers(data: {
         message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
         createdCount: createdCount 
     };
+}
+
+
+export async function transferMember(
+    memberId: string, 
+    newSchoolId: string, 
+    reason?: string
+): Promise<{ success: boolean; message: string }> {
+    const today = new Date();
+
+    try {
+        const member = await prisma.member.findUnique({
+            where: { id: memberId },
+            include: { school: true }
+        });
+
+        if (!member) {
+            return { success: false, message: "Member not found." };
+        }
+        
+        if (member.schoolId === newSchoolId) {
+            return { success: false, message: "Member is already in the selected school." };
+        }
+
+        const newSchool = await prisma.school.findUnique({ where: { id: newSchoolId } });
+        if (!newSchool) {
+            return { success: false, message: "The new school does not exist." };
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // 1. End the current school history record
+            const currentHistory = await tx.schoolHistory.findFirst({
+                where: { memberId: memberId, endDate: null },
+                orderBy: { startDate: 'desc' }
+            });
+
+            if (currentHistory) {
+                await tx.schoolHistory.update({
+                    where: { id: currentHistory.id },
+                    data: { endDate: today }
+                });
+            }
+
+            // 2. Create the new school history record
+            await tx.schoolHistory.create({
+                data: {
+                    memberId: memberId,
+                    schoolId: newSchoolId,
+                    schoolName: newSchool.name,
+                    startDate: today,
+                    endDate: null,
+                    reason: reason,
+                }
+            });
+
+            // 3. Update the member's current schoolId
+            await tx.member.update({
+                where: { id: memberId },
+                data: { schoolId: newSchoolId }
+            });
+        });
+
+        revalidatePath('/members');
+        revalidatePath(`/member-profile/${memberId}`);
+        return { success: true, message: `Successfully transferred ${member.fullName} to ${newSchool.name}.` };
+    } catch (error) {
+        console.error("Transfer failed:", error);
+        return { success: false, message: "An unexpected error occurred during the transfer." };
+    }
 }

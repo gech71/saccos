@@ -124,13 +124,13 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, monthlySavings, monthlyLoanRepayments, shares, loans, serviceCharges } = details;
+    const { member, school, monthlySavings, monthlyLoanRepayments, shares, loans, serviceCharges, schoolHistory } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
             {/* Header Card */}
             <Card className="overflow-hidden shadow-sm rounded-xl">
-                <div className="p-6 flex flex-col md:flex-row items-center gap-6">
+                <div className="p-6 flex flex-col md:flex-row items-center gap-6 bg-card">
                     <Avatar className="h-24 w-24 border-4 border-muted shadow-lg flex-shrink-0">
                         <AvatarImage src={`https://placehold.co/128x128.png?text=${member.fullName.charAt(0)}`} alt={member.fullName} data-ai-hint="user avatar"/>
                         <AvatarFallback className="text-muted-foreground"><User className="h-12 w-12" /></AvatarFallback>
@@ -161,95 +161,121 @@ export default function MemberProfilePage() {
                 </div>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <SectionCard title="Financial Summary">
-                    <div className="space-y-4">
-                        <StatInfo icon={<PiggyBank className="h-5 w-5"/>} label="Total Initial Balance" value={`${summaryStats.totalInitialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr`} />
-                        {details.savingAccounts.map(acc => (
-                           <div key={acc.id} className="ml-4 pl-4 border-l-2">
-                              <p className="text-sm font-semibold">{acc.savingAccountType?.name}</p>
-                              <p className="text-xs text-muted-foreground">Balance: {acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                           </div>
-                        ))}
+            <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <SectionCard title="Financial Summary">
+                        <div className="space-y-4">
+                            <StatInfo icon={<PiggyBank className="h-5 w-5"/>} label="Total Initial Balance" value={`${summaryStats.totalInitialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr`} />
+                            {details.savingAccounts.map(acc => (
+                               <div key={acc.id} className="ml-4 pl-4 border-l-2">
+                                  <p className="text-sm font-semibold">{acc.savingAccountType?.name}</p>
+                                  <p className="text-xs text-muted-foreground">Balance: {acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                               </div>
+                            ))}
+                        </div>
+                    </SectionCard>
+                    <SectionCard title="Member Information">
+                        <div className="space-y-4">
+                            <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
+                            <StatInfo icon={<School className="h-5 w-5"/>} label="School" value={school?.name} />
+                        </div>
+                    </SectionCard>
+                </div>
+                 <SectionCard title="School History" description="Record of schools the member has been associated with.">
+                    <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>School Name</TableHead>
+                                    <TableHead>Start Date</TableHead>
+                                    <TableHead>End Date</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {schoolHistory.length > 0 ? schoolHistory.map(history => (
+                                    <TableRow key={history.id}>
+                                        <TableCell className="font-medium">{history.schoolName}</TableCell>
+                                        <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
+                                        <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : <Badge>Current</Badge>}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow><TableCell colSpan={3} className="h-24 text-center">No school history found.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
                 </SectionCard>
-                <SectionCard title="Member Information">
-                    <div className="space-y-4">
-                        <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
-                        <StatInfo icon={<School className="h-5 w-5"/>} label="School" value={school?.name} />
+                <SectionCard title="All Savings Transactions" description="A complete log of all deposits and withdrawals.">
+                    <div className="flex flex-col md:flex-row gap-2 mb-4">
+                        <Select value={transactionFilter} onValueChange={(val) => setTransactionFilter(val as any)}>
+                            <SelectTrigger className="w-full md:w-[180px]">
+                                <SelectValue placeholder="Filter by type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                <SelectItem value="deposit">Deposits</SelectItem>
+                                <SelectItem value="withdrawal">Withdrawals</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full md:w-auto justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {transactionDateRange?.from ? (
+                                        transactionDateRange.to ? (
+                                            <>{format(transactionDateRange.from, "LLL dd, y")} - {format(transactionDateRange.to, "LLL dd, y")}</>
+                                        ) : (
+                                            format(transactionDateRange.from, "LLL dd, y")
+                                        )
+                                    ) : (
+                                        <span>Pick a date</span>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="range" selected={transactionDateRange} onSelect={setTransactionDateRange} initialFocus />
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="ghost" onClick={() => setTransactionDateRange(undefined)} className={!transactionDateRange ? 'hidden' : ''}>Clear</Button>
                     </div>
+                    <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead className="text-right">Amount (Birr)</TableHead>
+                                    <TableHead className="text-right">Balance</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
+                                    <TableRow key={tx.id}>
+                                        <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                        <TableCell>
+                                            <span className={`flex items-center gap-1.5 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}
+                                                <span className="capitalize">{tx.transactionType}</span>
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">{tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow><TableCell colSpan={4} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 pt-4">
+                            <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+                            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                            <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                        </div>
+                    )}
                 </SectionCard>
             </div>
-            <SectionCard title="All Savings Transactions" description="A complete log of all deposits and withdrawals.">
-                    <div className="flex flex-col md:flex-row gap-2 mb-4">
-                    <Select value={transactionFilter} onValueChange={(val) => setTransactionFilter(val as any)}>
-                        <SelectTrigger className="w-full md:w-[180px]">
-                            <SelectValue placeholder="Filter by type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="deposit">Deposits</SelectItem>
-                            <SelectItem value="withdrawal">Withdrawals</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full md:w-auto justify-start text-left font-normal">
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {transactionDateRange?.from ? (
-                                    transactionDateRange.to ? (
-                                        <>{format(transactionDateRange.from, "LLL dd, y")} - {format(transactionDateRange.to, "LLL dd, y")}</>
-                                    ) : (
-                                        format(transactionDateRange.from, "LLL dd, y")
-                                    )
-                                ) : (
-                                    <span>Pick a date</span>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="range" selected={transactionDateRange} onSelect={setTransactionDateRange} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                    <Button variant="ghost" onClick={() => setTransactionDateRange(undefined)} className={!transactionDateRange ? 'hidden' : ''}>Clear</Button>
-                </div>
-                <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="text-right">Amount (Birr)</TableHead>
-                                <TableHead className="text-right">Balance</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
-                                <TableRow key={tx.id}>
-                                    <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                                    <TableCell>
-                                        <span className={`flex items-center gap-1.5 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}
-                                            <span className="capitalize">{tx.transactionType}</span>
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium">{tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                    <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={4} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-                {totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 pt-4">
-                        <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
-                        <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                        <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
-                    </div>
-                )}
-            </SectionCard>
         </div>
     );
 }

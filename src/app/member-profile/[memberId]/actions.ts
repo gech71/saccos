@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import { format, compareDesc } from 'date-fns';
-import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving } from '@prisma/client';
+import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory } from '@prisma/client';
 
 export interface MemberDetails {
     member: Member;
@@ -18,6 +19,7 @@ export interface MemberDetails {
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
     monthlyLoanRepayments: { month: string, totalRepaid: number }[];
     allSavingsTransactions: (Saving & { balanceAfter: number })[];
+    schoolHistory: SchoolHistory[];
 }
 
 
@@ -67,6 +69,11 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 where: { status: 'approved' },
                 orderBy: {
                     date: 'asc' // Sort ASC to calculate running balance correctly
+                }
+            },
+            schoolHistory: {
+                orderBy: {
+                    startDate: 'desc'
                 }
             }
         }
@@ -137,5 +144,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         monthlySavings,
         monthlyLoanRepayments,
         allSavingsTransactions: savingsWithBalance,
+        schoolHistory: member.schoolHistory,
     };
 }
