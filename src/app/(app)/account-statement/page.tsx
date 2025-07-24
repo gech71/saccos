@@ -183,14 +183,14 @@ function AccountStatementContent() {
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                        <CommandInput placeholder="Search member by name..." />
+                        <CommandInput placeholder="Search by name or ID..." />
                         <CommandList>
                             <CommandEmpty>No member found.</CommandEmpty>
                             <CommandGroup>
                             {allMembers.map((member) => (
                                 <CommandItem
                                 key={member.id}
-                                value={`${member.fullName}`}
+                                value={`${member.fullName} ${member.id}`}
                                 onSelect={() => {
                                     setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
                                     setOpenMemberCombobox(false)
@@ -411,3 +411,5 @@ export default function AccountStatementPage() {
         </Suspense>
     )
 }
+
+    
