@@ -190,8 +190,7 @@ export default function SchoolsPage() {
   const filteredSchools = useMemo(() => {
     return schools.filter(school => 
       school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (school.address && school.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (school.contactPerson && school.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()))
+      school.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [schools, searchTerm]);
   
@@ -385,7 +384,7 @@ export default function SchoolsPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search schools by name, address, or contact..."
+          placeholder="Search schools by name or ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 w-full"
