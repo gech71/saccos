@@ -47,7 +47,7 @@ export interface Member {
   id: string;
   fullName: string;
   email: string;
-  sex: 'Male' | 'Female' | 'Other';
+  sex: 'Male' | 'Female';
   phoneNumber: string;
   address: Prisma.AddressGetPayload<{}> | null;
   emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;

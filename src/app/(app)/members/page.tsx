@@ -744,12 +744,11 @@ export default function MembersPage() {
               </div>
                <div>
                 <Label htmlFor="sex">Sex <span className="text-destructive">*</span></Label>
-                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female' | 'Other')} required disabled={isViewingOnly}>
+                <Select name="sex" value={currentMember.sex || 'Male'} onValueChange={(value) => handleMemberSelectChange('sex', value as 'Male' | 'Female')} required disabled={isViewingOnly}>
                   <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Male">Male</SelectItem>
                     <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -971,6 +970,7 @@ export default function MembersPage() {
     </div>
   );
 }
+
 
 
 
