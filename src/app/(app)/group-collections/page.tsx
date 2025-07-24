@@ -26,13 +26,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Saving, SavingAccountType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2 } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
 import * as XLSX from 'xlsx';
 import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData, type MemberWithSavingAccounts } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import { exportToExcel } from '@/lib/utils';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -62,6 +63,7 @@ type EligibleAccount = {
     accountId: string;
     accountNumber: string;
     expectedMonthlySaving: number;
+    schoolName: string;
 }
 
 interface ParsedExcelData {
@@ -178,6 +180,7 @@ export default function GroupCollectionsPage() {
     setPostedTransactions(null); 
     
     setTimeout(() => {
+        const schoolName = pageData.schools.find(s => s.id === selectedSchool)?.name || 'N/A';
         const filteredAccounts: EligibleAccount[] = [];
         pageData.members.forEach(member => {
             if (member.schoolId === selectedSchool) {
@@ -188,7 +191,8 @@ export default function GroupCollectionsPage() {
                             fullName: member.fullName,
                             accountId: account.id,
                             accountNumber: account.accountNumber,
-                            expectedMonthlySaving: account.expectedMonthlySaving
+                            expectedMonthlySaving: account.expectedMonthlySaving,
+                            schoolName: schoolName
                         });
                     }
                 });
@@ -237,6 +241,24 @@ export default function GroupCollectionsPage() {
       totalExpectedSaving: totalAmountToCollect,
     };
   }, [selectedAccountIds, collectionAmounts]);
+
+  const handleExport = () => {
+    if (eligibleAccounts.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: 'There is no data to export.' });
+        return;
+    }
+    const dataToExport = eligibleAccounts.map(item => ({
+      'Member Name': item.fullName,
+      'Account Number': item.accountNumber,
+      'School': item.schoolName,
+      'Expected Contribution (Birr)': item.expectedMonthlySaving,
+    }));
+    
+    const schoolName = pageData?.schools.find(s => s.id === selectedSchool)?.name || 'school';
+    const accountTypeName = pageData?.savingAccountTypes.find(s => s.id === selectedAccountType)?.name || 'account';
+
+    exportToExcel(dataToExport, `group_collection_${schoolName.replace(/\s/g, '_')}_${accountTypeName.replace(/\s/g, '_')}`);
+  };
 
 
   // EXCEL-BASED COLLECTION LOGIC
@@ -490,6 +512,11 @@ export default function GroupCollectionsPage() {
                 </CardContent>
                  {eligibleAccounts.length > 0 && (
                     <CardContent>
+                      <div className="flex justify-end mb-4">
+                          <Button variant="outline" onClick={handleExport} disabled={eligibleAccounts.length === 0}>
+                              <FileDown className="mr-2 h-4 w-4" /> Export Loaded Members
+                          </Button>
+                      </div>
                       <div className="overflow-x-auto rounded-lg border shadow-sm">
                           <Table>
                             <TableHeader>
