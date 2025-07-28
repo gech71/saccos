@@ -199,7 +199,7 @@ export default function MemberProfilePage() {
                 {/* Savings Tab */}
                 <TabsContent value="savings" className="mt-6 space-y-6">
                     <SectionCard title="Saving Accounts Summary">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                              {savingAccounts.map(acc => (
                                <Card key={acc.id} className="p-4 flex justify-between items-center shadow-sm bg-card hover:bg-muted/50 transition-colors">
                                   <div className="flex-1">
