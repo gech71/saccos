@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import { getMemberDetails } from './actions';
 import type { MemberDetails } from './actions';
 import { notFound, useParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -198,24 +199,20 @@ export default function MemberProfilePage() {
                 {/* Savings Tab */}
                 <TabsContent value="savings" className="mt-6 space-y-6">
                     <SectionCard title="Saving Accounts Summary">
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              {savingAccounts.map(acc => (
-                               <div key={acc.id} className="p-4 border rounded-lg shadow-sm bg-card">
-                                  <div className="flex justify-between items-start">
-                                      <div>
-                                          <p className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</p>
-                                          <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
-                                      </div>
-                                      <div className="text-right">
-                                         <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                                         <p className="text-xs text-muted-foreground">Current Balance</p>
-                                      </div>
+                               <Card key={acc.id} className="p-4 flex justify-between items-center shadow-sm bg-card hover:bg-muted/50 transition-colors">
+                                  <div className="flex-1">
+                                      <p className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</p>
+                                      <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
                                   </div>
-                                  <div className="mt-2 text-right">
-                                    <p className="text-sm font-medium">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                                    <p className="text-xs text-muted-foreground">Initial Balance</p>
+                                  <div className="text-right ml-4">
+                                     <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                     <p className="text-xs text-muted-foreground">Current Balance</p>
+                                     <p className="mt-2 text-sm font-medium text-muted-foreground">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                     <p className="text-xs text-muted-foreground">Initial Balance</p>
                                   </div>
-                               </div>
+                               </Card>
                             ))}
                         </div>
                     </SectionCard>
