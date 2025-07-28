@@ -200,10 +200,21 @@ export default function MemberProfilePage() {
                     <SectionCard title="Saving Accounts Summary">
                         <div className="space-y-4">
                              {savingAccounts.map(acc => (
-                               <div key={acc.id} className="p-3 border rounded-md">
-                                  <p className="text-base font-semibold">{acc.savingAccountType?.name}</p>
-                                  <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
-                                  <p className="text-lg font-bold text-green-600 mt-1">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                               <div key={acc.id} className="p-4 border rounded-lg shadow-sm bg-card">
+                                  <div className="flex justify-between items-start">
+                                      <div>
+                                          <p className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</p>
+                                          <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
+                                      </div>
+                                      <div className="text-right">
+                                         <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                         <p className="text-xs text-muted-foreground">Current Balance</p>
+                                      </div>
+                                  </div>
+                                  <div className="mt-2 text-right">
+                                    <p className="text-sm font-medium">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                    <p className="text-xs text-muted-foreground">Initial Balance</p>
+                                  </div>
                                </div>
                             ))}
                         </div>
