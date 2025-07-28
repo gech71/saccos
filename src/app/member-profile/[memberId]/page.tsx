@@ -143,7 +143,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, serviceCharges, schoolHistory, address, emergencyContact } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, serviceCharges, schoolHistory, address } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -180,21 +180,19 @@ export default function MemberProfilePage() {
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p><p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</p></CardContent></Card>
                     </div>
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <SectionCard title="Personal Information">
-                             <div className="space-y-4">
-                                <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
-                                <StatInfo icon={<School className="h-5 w-5"/>} label="Current School" value={school?.name} />
-                                <StatInfo icon={<Home className="h-5 w-5"/>} label="Address" value={`${address?.subCity || ''}, ${address?.city || ''}`} subValue={`Wereda: ${address?.wereda || 'N/A'}, Kebele: ${address?.kebele || 'N/A'}, H.No: ${address?.houseNumber || 'N/A'}`} />
-                             </div>
-                        </SectionCard>
-                        <SectionCard title="Emergency Contact">
-                           <div className="space-y-4">
-                                <StatInfo icon={<User className="h-5 w-5"/>} label="Contact Name" value={emergencyContact?.name} />
-                                <StatInfo icon={<ShieldAlert className="h-5 w-5"/>} label="Contact Phone" value={emergencyContact?.phone} />
-                            </div>
-                        </SectionCard>
-                    </div>
+                     <SectionCard title="Member Information">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
+                            <StatInfo icon={<User className="h-5 w-5"/>} label="Gender" value={member.sex} />
+                            <StatInfo icon={<School className="h-5 w-5"/>} label="Current School" value={school?.name} />
+                            <StatInfo 
+                                icon={<Home className="h-5 w-5"/>} 
+                                label="Address" 
+                                value={`${address?.subCity || 'N/A'}, ${address?.city || 'N/A'}`} 
+                                subValue={`Wereda: ${address?.wereda || 'N/A'}, Kebele: ${address?.kebele || 'N/A'}, H.No: ${address?.houseNumber || 'N/A'}`} 
+                            />
+                         </div>
+                    </SectionCard>
                 </TabsContent>
 
                 {/* Savings Tab */}
