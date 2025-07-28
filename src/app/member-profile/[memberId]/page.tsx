@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { getMemberDetails } from './actions';
@@ -10,8 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format } from 'date-fns';
-import { User, School, Phone, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2 } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
+import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -25,12 +24,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const StatInfo = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: React.ReactNode }) => (
-    <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/50">
-        <div className="text-primary mt-1">{icon}</div>
+const StatInfo = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: React.ReactNode, subValue?: string }) => (
+    <div className="flex items-start gap-4">
+        <div className="text-primary mt-1 flex-shrink-0">{icon}</div>
         <div>
             <p className="text-sm text-muted-foreground">{label}</p>
             <p className="font-semibold">{value || 'N/A'}</p>
+            {subValue && <p className="text-xs text-muted-foreground">{subValue}</p>}
         </div>
     </div>
 );
@@ -115,6 +115,25 @@ export default function MemberProfilePage() {
 
         return { totalSavings, totalShares, totalLoans, totalInitialBalance };
     }, [details]);
+    
+    const getLoanStatusBadge = (status: string) => {
+        switch (status) {
+            case 'pending': return <Badge variant="secondary">Pending</Badge>;
+            case 'active': return <Badge variant="default">Active</Badge>;
+            case 'overdue': return <Badge variant="destructive">Overdue</Badge>;
+            case 'paid_off': return <Badge className="bg-green-100 text-green-800 border-green-200">Paid Off</Badge>;
+            case 'rejected': return <Badge variant="destructive">Rejected</Badge>;
+            default: return <Badge variant="outline">{status}</Badge>;
+        }
+    };
+     const getServiceChargeStatusBadge = (status: string) => {
+        switch (status) {
+            case 'pending': return <Badge variant="secondary">Pending</Badge>;
+            case 'paid': return <Badge variant="default">Paid</Badge>;
+            case 'waived': return <Badge variant="outline">Waived</Badge>;
+            default: return <Badge variant="outline">{status}</Badge>;
+        }
+    };
 
     if (isLoading || !details) {
         return (
@@ -124,12 +143,12 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, monthlySavings, monthlyLoanRepayments, shares, loans, serviceCharges, schoolHistory } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, serviceCharges, schoolHistory, address, emergencyContact } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
             {/* Header Card */}
-            <Card className="overflow-hidden shadow-sm rounded-xl">
+            <Card className="overflow-hidden shadow-lg rounded-xl">
                 <div className="p-6 flex flex-col md:flex-row items-center gap-6 bg-card">
                     <Avatar className="h-24 w-24 border-4 border-muted shadow-lg flex-shrink-0">
                         <AvatarImage src={`https://placehold.co/128x128.png?text=${member.fullName.charAt(0)}`} alt={member.fullName} data-ai-hint="user avatar"/>
@@ -138,145 +157,271 @@ export default function MemberProfilePage() {
                     <div className="flex-1 text-center md:text-left">
                         <h2 className="text-3xl font-bold text-primary">{member.fullName}</h2>
                         <p className="text-lg text-muted-foreground">{member.email}</p>
-                        <Badge variant="outline" className="mt-2 text-foreground font-bold">{member.status}</Badge>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4 text-center md:text-right w-full md:w-auto">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Savings</p>
-                            <p className="text-xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Shares</p>
-                            <p className="text-xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Active Loans</p>
-                            <p className="text-xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Join Date</p>
-                            <p className="text-xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p>
-                        </div>
+                        <Badge variant={member.status === 'active' ? 'default' : 'destructive'} className="mt-2 text-foreground font-bold">{member.status}</Badge>
                     </div>
                 </div>
             </Card>
 
-            <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <SectionCard title="Financial Summary">
+            <Tabs defaultValue="overview" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="savings">Savings</TabsTrigger>
+                    <TabsTrigger value="shares">Shares</TabsTrigger>
+                    <TabsTrigger value="loans">Loans</TabsTrigger>
+                    <TabsTrigger value="charges">Service Charges</TabsTrigger>
+                    <TabsTrigger value="history">School History</TabsTrigger>
+                </TabsList>
+                
+                {/* Overview Tab */}
+                <TabsContent value="overview" className="mt-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Value</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p><p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</p></CardContent></Card>
+                    </div>
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <SectionCard title="Personal Information">
+                             <div className="space-y-4">
+                                <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
+                                <StatInfo icon={<School className="h-5 w-5"/>} label="Current School" value={school?.name} />
+                                <StatInfo icon={<Home className="h-5 w-5"/>} label="Address" value={`${address?.subCity || ''}, ${address?.city || ''}`} subValue={`Wereda: ${address?.wereda || 'N/A'}, Kebele: ${address?.kebele || 'N/A'}, H.No: ${address?.houseNumber || 'N/A'}`} />
+                             </div>
+                        </SectionCard>
+                        <SectionCard title="Emergency Contact">
+                           <div className="space-y-4">
+                                <StatInfo icon={<User className="h-5 w-5"/>} label="Contact Name" value={emergencyContact?.name} />
+                                <StatInfo icon={<ShieldAlert className="h-5 w-5"/>} label="Contact Phone" value={emergencyContact?.phone} />
+                            </div>
+                        </SectionCard>
+                    </div>
+                </TabsContent>
+
+                {/* Savings Tab */}
+                <TabsContent value="savings" className="mt-6 space-y-6">
+                    <SectionCard title="Saving Accounts Summary">
                         <div className="space-y-4">
-                            <StatInfo icon={<PiggyBank className="h-5 w-5"/>} label="Total Initial Balance" value={`${summaryStats.totalInitialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr`} />
-                            {details.savingAccounts.map(acc => (
-                               <div key={acc.id} className="ml-4 pl-4 border-l-2">
-                                  <p className="text-sm font-semibold">{acc.savingAccountType?.name}</p>
-                                  <p className="text-xs text-muted-foreground">Balance: {acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                             {savingAccounts.map(acc => (
+                               <div key={acc.id} className="p-3 border rounded-md">
+                                  <p className="text-base font-semibold">{acc.savingAccountType?.name}</p>
+                                  <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
+                                  <p className="text-lg font-bold text-green-600 mt-1">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
                                </div>
                             ))}
                         </div>
                     </SectionCard>
-                    <SectionCard title="Member Information">
-                        <div className="space-y-4">
-                            <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
-                            <StatInfo icon={<School className="h-5 w-5"/>} label="School" value={school?.name} />
-                        </div>
-                    </SectionCard>
-                </div>
-                 <SectionCard title="School History" description="Record of schools the member has been associated with.">
-                    <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>School Name</TableHead>
-                                    <TableHead>Start Date</TableHead>
-                                    <TableHead>End Date</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {schoolHistory.length > 0 ? schoolHistory.map(history => (
-                                    <TableRow key={history.id}>
-                                        <TableCell className="font-medium">{history.schoolName}</TableCell>
-                                        <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
-                                        <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : <Badge>Current</Badge>}</TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow><TableCell colSpan={3} className="h-24 text-center">No school history found.</TableCell></TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </SectionCard>
-                <SectionCard title="All Savings Transactions" description="A complete log of all deposits and withdrawals.">
-                    <div className="flex flex-col md:flex-row gap-2 mb-4">
-                        <Select value={transactionFilter} onValueChange={(val) => setTransactionFilter(val as any)}>
-                            <SelectTrigger className="w-full md:w-[180px]">
-                                <SelectValue placeholder="Filter by type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="deposit">Deposits</SelectItem>
-                                <SelectItem value="withdrawal">Withdrawals</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full md:w-auto justify-start text-left font-normal">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {transactionDateRange?.from ? (
-                                        transactionDateRange.to ? (
-                                            <>{format(transactionDateRange.from, "LLL dd, y")} - {format(transactionDateRange.to, "LLL dd, y")}</>
+                    <SectionCard title="All Savings Transactions" description="A complete log of all deposits and withdrawals.">
+                        <div className="flex flex-col md:flex-row gap-2 mb-4">
+                            <Select value={transactionFilter} onValueChange={(val) => setTransactionFilter(val as any)}>
+                                <SelectTrigger className="w-full md:w-[180px]">
+                                    <SelectValue placeholder="Filter by type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Types</SelectItem>
+                                    <SelectItem value="deposit">Deposits</SelectItem>
+                                    <SelectItem value="withdrawal">Withdrawals</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full md:w-auto justify-start text-left font-normal">
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {transactionDateRange?.from ? (
+                                            transactionDateRange.to ? (
+                                                <>{format(transactionDateRange.from, "LLL dd, y")} - {format(transactionDateRange.to, "LLL dd, y")}</>
+                                            ) : (
+                                                format(transactionDateRange.from, "LLL dd, y")
+                                            )
                                         ) : (
-                                            format(transactionDateRange.from, "LLL dd, y")
-                                        )
-                                    ) : (
-                                        <span>Pick a date</span>
-                                    )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar mode="range" selected={transactionDateRange} onSelect={setTransactionDateRange} initialFocus />
-                            </PopoverContent>
-                        </Popover>
-                        <Button variant="ghost" onClick={() => setTransactionDateRange(undefined)} className={!transactionDateRange ? 'hidden' : ''}>Clear</Button>
-                    </div>
-                    <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
+                                            <span>Pick a date</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="range" selected={transactionDateRange} onSelect={setTransactionDateRange} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                            {transactionDateRange && <Button variant="ghost" onClick={() => setTransactionDateRange(undefined)}>Clear</Button>}
+                        </div>
+                        <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead className="text-right">Debit</TableHead>
                                     <TableHead className="text-right">Credit</TableHead>
                                     <TableHead className="text-right">Balance</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
-                                    <TableRow key={tx.id}>
-                                        <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                                        <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
-                                        <TableCell className="text-right font-medium text-destructive">
-                                            {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium text-green-600">
-                                            {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 pt-4">
-                            <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
-                            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                            <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                    {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
+                                        <TableRow key={tx.id}>
+                                            <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                            <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
+                                            <TableCell className="text-right font-medium text-destructive">
+                                                {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-medium text-green-600">
+                                                {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
-                    )}
-                </SectionCard>
-            </div>
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-2 pt-4">
+                                <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+                                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                                <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                            </div>
+                        )}
+                    </SectionCard>
+                </TabsContent>
+                
+                {/* Shares Tab */}
+                <TabsContent value="shares" className="mt-6">
+                    <SectionCard title="Share Allocations">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Allocation Date</TableHead>
+                                    <TableHead>Share Type</TableHead>
+                                    <TableHead className="text-right">Count</TableHead>
+                                    <TableHead className="text-right">Value per Share</TableHead>
+                                    <TableHead className="text-right">Total Value</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {shares.length > 0 ? shares.map(share => (
+                                        <TableRow key={share.id}>
+                                            <TableCell>{format(new Date(share.allocationDate), 'PPP')}</TableCell>
+                                            <TableCell>{share.shareTypeName}</TableCell>
+                                            <TableCell className="text-right">{share.count}</TableCell>
+                                            <TableCell className="text-right">{share.valuePerShare.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right font-semibold">{(share.count * share.valuePerShare).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={5} className="h-24 text-center">No share allocations found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+                
+                {/* Loans Tab */}
+                <TabsContent value="loans" className="mt-6 space-y-6">
+                     <SectionCard title="Loan History">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Disbursed</TableHead>
+                                    <TableHead>Loan Type</TableHead>
+                                    <TableHead className="text-right">Principal</TableHead>
+                                    <TableHead className="text-right">Balance</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Next Due Date</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {loans.length > 0 ? loans.map(loan => (
+                                        <TableRow key={loan.id}>
+                                            <TableCell>{format(new Date(loan.disbursementDate), 'PPP')}</TableCell>
+                                            <TableCell>{loan.loanTypeName}</TableCell>
+                                            <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell>{getLoanStatusBadge(loan.status)}</TableCell>
+                                            <TableCell>{loan.nextDueDate ? format(new Date(loan.nextDueDate), 'PPP') : 'N/A'}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={6} className="h-24 text-center">No loans found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                     <SectionCard title="Loan Repayment History">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Payment Date</TableHead>
+                                    <TableHead>Loan Acct. #</TableHead>
+                                    <TableHead className="text-right">Amount Paid</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {loanRepayments.length > 0 ? loanRepayments.map(repayment => (
+                                        <TableRow key={repayment.id}>
+                                            <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
+                                            <TableCell>{loans.find(l => l.id === repayment.loanId)?.loanAccountNumber || 'N/A'}</TableCell>
+                                            <TableCell className="text-right font-semibold">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={3} className="h-24 text-center">No loan repayments found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+                
+                {/* Service Charges Tab */}
+                <TabsContent value="charges" className="mt-6">
+                    <SectionCard title="Applied Service Charges">
+                       <div className="overflow-x-auto rounded-md border">
+                             <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Date Applied</TableHead>
+                                    <TableHead>Charge Type</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {serviceCharges.length > 0 ? serviceCharges.map(charge => (
+                                        <TableRow key={charge.id}>
+                                            <TableCell>{format(new Date(charge.dateApplied), 'PPP')}</TableCell>
+                                            <TableCell>{charge.serviceChargeTypeName}</TableCell>
+                                            <TableCell className="text-right">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No service charges found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+                
+                 {/* School History Tab */}
+                <TabsContent value="history" className="mt-6">
+                    <SectionCard title="School Association History">
+                        <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>School Name</TableHead>
+                                        <TableHead>Start Date</TableHead>
+                                        <TableHead>End Date</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {schoolHistory.length > 0 ? schoolHistory.map(history => (
+                                        <TableRow key={history.id}>
+                                            <TableCell className="font-medium">{history.schoolName}</TableCell>
+                                            <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
+                                            <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : <Badge>Current</Badge>}</TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow><TableCell colSpan={3} className="h-24 text-center">No school history found.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </SectionCard>
+                </TabsContent>
+
+            </Tabs>
         </div>
     );
 }
