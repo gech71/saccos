@@ -86,14 +86,16 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     // Calculate running balance for savings
     const totalInitialBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.initialBalance, 0);
     let runningBalance = totalInitialBalance;
-    const savingsWithBalance = member.savings.map(tx => {
-        if (tx.transactionType === 'deposit') {
-            runningBalance += tx.amount;
-        } else {
-            runningBalance -= tx.amount;
-        }
-        return { ...tx, balanceAfter: runningBalance };
-    }).sort((a,b) => compareDesc(new Date(a.date), new Date(b.date))); // Sort back to DESC for display
+    const savingsWithBalance = member.savings
+        .map(tx => {
+            if (tx.transactionType === 'deposit') {
+                runningBalance += tx.amount;
+            } else {
+                runningBalance -= tx.amount;
+            }
+            return { ...tx, balanceAfter: runningBalance };
+        })
+        .sort((a,b) => compareDesc(new Date(a.date), new Date(b.date))); // Sort back to DESC for display
 
 
     // Process monthly savings

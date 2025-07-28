@@ -243,8 +243,9 @@ export default function MemberProfilePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Date</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead className="text-right">Amount (Birr)</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Debit</TableHead>
+                                    <TableHead className="text-right">Credit</TableHead>
                                     <TableHead className="text-right">Balance</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -252,17 +253,17 @@ export default function MemberProfilePage() {
                                 {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
                                     <TableRow key={tx.id}>
                                         <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                                        <TableCell>
-                                            <span className={`flex items-center gap-1.5 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}
-                                                <span className="capitalize">{tx.transactionType}</span>
-                                            </span>
+                                        <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
+                                        <TableCell className="text-right font-medium text-destructive">
+                                            {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                         </TableCell>
-                                        <TableCell className="text-right font-medium">{tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        <TableCell className="text-right font-medium text-green-600">
+                                            {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
+                                        </TableCell>
                                         <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                     </TableRow>
                                 )) : (
-                                    <TableRow><TableCell colSpan={4} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
