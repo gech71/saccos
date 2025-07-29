@@ -256,6 +256,7 @@ export default function MemberProfilePage() {
                                     <TableHead>Description</TableHead>
                                     <TableHead className="text-right">Debit</TableHead>
                                     <TableHead className="text-right">Credit</TableHead>
+                                    <TableHead>Reference</TableHead>
                                     <TableHead className="text-right">Balance</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
@@ -269,10 +270,11 @@ export default function MemberProfilePage() {
                                             <TableCell className="text-right font-medium text-green-600">
                                                 {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{tx.transactionReference || 'N/A'}</TableCell>
                                             <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                         </TableRow>
                                     )) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
