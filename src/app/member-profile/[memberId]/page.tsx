@@ -199,7 +199,7 @@ export default function MemberProfilePage() {
                 {/* Savings Tab */}
                 <TabsContent value="savings" className="mt-6 space-y-6">
                     <SectionCard title="Saving Accounts Summary">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                             {savingAccounts.map(acc => (
                                <Card key={acc.id} className="p-4 flex flex-col justify-between shadow-sm bg-card hover:bg-muted/50 transition-colors">
                                   <div className="flex-1 mb-4">
@@ -256,26 +256,26 @@ export default function MemberProfilePage() {
                         <div className="overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead className="w-[15%]">Date</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right w-[15%]">Debit</TableHead>
-                                    <TableHead className="text-right w-[15%]">Credit</TableHead>
-                                    <TableHead className="w-[15%]">Reference</TableHead>
-                                    <TableHead className="text-right w-[15%]">Balance</TableHead>
+                                    <TableHead className="text-left w-[15%]">Date</TableHead>
+                                    <TableHead className="text-left w-[15%]">Description</TableHead>
+                                    <TableHead className="text-left w-[15%]">Debit</TableHead>
+                                    <TableHead className="text-left w-[15%]">Credit</TableHead>
+                                    <TableHead className="text-left w-[15%]">Reference</TableHead>
+                                    <TableHead className="text-left w-[15%]">Balance</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
                                         <TableRow key={tx.id}>
                                             <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                             <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
-                                            <TableCell className="text-right font-medium text-destructive">
+                                            <TableCell className="font-medium text-destructive">
                                                 {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
-                                            <TableCell className="text-right font-medium text-green-600">
+                                            <TableCell className="font-medium text-green-600">
                                                 {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground truncate">{tx.transactionReference || 'N/A'}</TableCell>
-                                            <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow><TableCell colSpan={6} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
