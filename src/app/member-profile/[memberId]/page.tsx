@@ -199,18 +199,22 @@ export default function MemberProfilePage() {
                 {/* Savings Tab */}
                 <TabsContent value="savings" className="mt-6 space-y-6">
                     <SectionCard title="Saving Accounts Summary">
-                        <div className="grid grid-cols-1 gap-4">
-                             {savingAccounts.map(acc => (
-                               <Card key={acc.id} className="p-4 flex justify-between items-center shadow-sm bg-card hover:bg-muted/50 transition-colors">
-                                  <div className="flex-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {savingAccounts.map(acc => (
+                               <Card key={acc.id} className="p-4 flex flex-col justify-between shadow-sm bg-card hover:bg-muted/50 transition-colors">
+                                  <div className="flex-1 mb-4">
                                       <p className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</p>
                                       <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
                                   </div>
-                                  <div className="text-right ml-4">
-                                     <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                  <div className="flex justify-between items-baseline">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Initial Balance</p>
+                                      <p className="font-medium">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                    </div>
+                                    <div className="text-right">
                                      <p className="text-xs text-muted-foreground">Current Balance</p>
-                                     <p className="mt-2 text-sm font-medium text-muted-foreground">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
-                                     <p className="text-xs text-muted-foreground">Initial Balance</p>
+                                     <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                  </div>
                                   </div>
                                </Card>
                             ))}
@@ -252,12 +256,12 @@ export default function MemberProfilePage() {
                         <div className="overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead>Date</TableHead>
+                                    <TableHead className="w-[120px]">Date</TableHead>
                                     <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Debit</TableHead>
-                                    <TableHead className="text-right">Credit</TableHead>
-                                    <TableHead>Reference</TableHead>
-                                    <TableHead className="text-right">Balance</TableHead>
+                                    <TableHead className="text-right w-[120px]">Debit</TableHead>
+                                    <TableHead className="text-right w-[120px]">Credit</TableHead>
+                                    <TableHead className="w-[150px]">Reference</TableHead>
+                                    <TableHead className="text-right w-[130px]">Balance</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
@@ -270,7 +274,7 @@ export default function MemberProfilePage() {
                                             <TableCell className="text-right font-medium text-green-600">
                                                 {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground">{tx.transactionReference || 'N/A'}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground truncate">{tx.transactionReference || 'N/A'}</TableCell>
                                             <TableCell className="text-right font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                         </TableRow>
                                     )) : (
