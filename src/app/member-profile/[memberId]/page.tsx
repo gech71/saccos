@@ -182,7 +182,7 @@ export default function MemberProfilePage() {
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p><p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</p></CardContent></Card>
                     </div>
                      <SectionCard title="Member Information">
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                             <StatInfo icon={<Phone className="h-5 w-5"/>} label="Phone Number" value={member.phoneNumber} />
                             <StatInfo icon={<User className="h-5 w-5"/>} label="Gender" value={member.sex} />
                             <StatInfo icon={<School className="h-5 w-5"/>} label="Current School" value={school?.name} />
@@ -256,12 +256,12 @@ export default function MemberProfilePage() {
                         <div className="overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead className="w-[120px]">Date</TableHead>
+                                    <TableHead className="w-[15%]">Date</TableHead>
                                     <TableHead>Description</TableHead>
-                                    <TableHead className="text-right w-[120px]">Debit</TableHead>
-                                    <TableHead className="text-right w-[120px]">Credit</TableHead>
-                                    <TableHead className="w-[150px]">Reference</TableHead>
-                                    <TableHead className="text-right w-[130px]">Balance</TableHead>
+                                    <TableHead className="text-right w-[15%]">Debit</TableHead>
+                                    <TableHead className="text-right w-[15%]">Credit</TableHead>
+                                    <TableHead className="w-[15%]">Reference</TableHead>
+                                    <TableHead className="text-right w-[15%]">Balance</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
