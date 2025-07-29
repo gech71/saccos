@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -275,8 +276,8 @@ export default function GroupCollectionsPage() {
   };
 
   const handleProcessFile = () => {
-    if (!excelFile || !pageData || !selectedAccountType) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type and an Excel file.' });
+    if (!excelFile || !pageData || !selectedAccountType || !selectedYear || !selectedMonth) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type, a Collection Period, and an Excel file.' });
         return;
     }
     setIsParsing(true);
@@ -346,8 +347,8 @@ export default function GroupCollectionsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    const transactionDateObj = new Date(batchDetails.date);
-    const transactionMonthString = `${months.find(m => m.value === transactionDateObj.getMonth())?.label} ${transactionDateObj.getFullYear()}`;
+    const transactionDateObj = new Date(parseInt(selectedYear), parseInt(selectedMonth), 15); // Use a consistent day
+    const transactionMonthString = `${months.find(m => m.value.toString() === selectedMonth)?.label} ${selectedYear}`;
     let newTransactions: Omit<Saving, 'id'>[] = [];
 
     if (collectionMode === 'filter') {
@@ -672,7 +673,7 @@ export default function GroupCollectionsPage() {
                 <Card className="shadow-lg animate-in fade-in-50 duration-300">
                     <CardHeader>
                         <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID", "SavingCollected".</CardDescription>
+                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID" and "SavingCollected".</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>
@@ -683,10 +684,27 @@ export default function GroupCollectionsPage() {
                             </Select>
                              <p className="text-xs text-muted-foreground mt-1">All imported savings will be assigned to this account type.</p>
                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="excelYearFilter">Collection Period <span className="text-destructive">*</span></Label>
+                                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                    <SelectTrigger id="excelYearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                                    <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label htmlFor="excelMonthFilter">&nbsp;</Label>
+                                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                    <SelectTrigger id="excelMonthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
+                                    <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                         <p className="text-xs text-muted-foreground mt-1">Savings will be recorded for the selected month.</p>
                         <div className="flex flex-col sm:flex-row gap-4 items-start">
                             <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
                                 <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
-                                <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate || !selectedAccountType} />
+                                <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate || !selectedAccountType || !selectedYear || !selectedMonth} />
                             </div>
                             <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
                                 {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
@@ -858,3 +876,4 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
