@@ -40,12 +40,12 @@ import { exportToExcel } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
 const months = [
-  { value: 0, label: 'January' }, { value: 1, label: 'February' }, { value: 2, label: 'March' },
-  { value: 3, label: 'April' }, { value: 4, label: 'May' }, { value: 5, label: 'June' },
-  { value: 6, label: 'July' }, { value: 7, label: 'August' }, { value: 8, label: 'September' },
-  { value: 9, label: 'October' }, { value: 10, label: 'November' }, { value: 11, label: 'December' }
+  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
+  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
+  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
+  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
 type BatchSavingDetails = {
@@ -347,7 +347,8 @@ export default function GroupCollectionsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    const transactionDateObj = new Date(parseInt(selectedYear), parseInt(selectedMonth), 15); // Use a consistent day
+    // Use last day of the month for batch transactions
+    const transactionDateObj = new Date(parseInt(selectedYear), parseInt(selectedMonth) + 1, 0);
     const transactionMonthString = `${months.find(m => m.value.toString() === selectedMonth)?.label} ${selectedYear}`;
     let newTransactions: Omit<Saving, 'id'>[] = [];
 
@@ -876,4 +877,5 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
 
