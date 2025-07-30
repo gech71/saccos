@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -55,6 +54,7 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   memberId: undefined,
   loanTypeId: undefined,
   principalAmount: 0,
+  loanTerm: 0,
   disbursementDate: new Date().toISOString().split('T')[0],
   status: 'pending',
   loanAccountNumber: '',
@@ -106,27 +106,25 @@ export default function LoansPage() {
   const selectedLoanType = useMemo(() => loanTypes.find(lt => lt.id === currentLoan.loanTypeId), [loanTypes, currentLoan.loanTypeId]);
 
   useEffect(() => {
-    if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0) {
-        if (selectedLoanType.interestRate > 0 && selectedLoanType.loanTerm > 0) {
+    if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0 && currentLoan.loanTerm && currentLoan.loanTerm > 0) {
+        if (selectedLoanType.interestRate > 0) {
             const monthlyRate = selectedLoanType.interestRate / 12;
-            const numberOfPayments = selectedLoanType.loanTerm;
+            const numberOfPayments = currentLoan.loanTerm;
             const principal = currentLoan.principalAmount;
             const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
             setMonthlyPayment(payment);
-        } else if (selectedLoanType.loanTerm > 0) {
-             const payment = currentLoan.principalAmount / selectedLoanType.loanTerm;
-             setMonthlyPayment(payment);
         } else {
-            setMonthlyPayment(null);
+             const payment = currentLoan.principalAmount / currentLoan.loanTerm;
+             setMonthlyPayment(payment);
         }
     } else {
         setMonthlyPayment(null);
     }
-  }, [currentLoan.principalAmount, selectedLoanType]);
+  }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentLoan(prev => ({ ...prev, [name]: name === 'principalAmount' ? parseFloat(value) : value }));
+    setCurrentLoan(prev => ({ ...prev, [name]: name === 'principalAmount' || name === 'loanTerm' ? parseFloat(value) : value }));
   };
 
   const handleSelectChange = (name: keyof LoanInput, value: string) => {
@@ -363,11 +361,11 @@ export default function LoansPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="principalAmount">Principal Amount (ETB)</Label>
-                <Input id="principalAmount" name="principalAmount" type="number" step="100" value={currentLoan.principalAmount || ''} onChange={handleInputChange} required />
+                <Input id="principalAmount" name="principalAmount" type="number" step="100" value={currentLoan.principalAmount || ''} onChange={handleInputChange} placeholder={selectedLoanType ? `${selectedLoanType.minLoanAmount.toLocaleString()} - ${selectedLoanType.maxLoanAmount.toLocaleString()}` : 'Select type first'} required />
               </div>
               <div>
                 <Label htmlFor="loanTerm">Repayment Period (Months)</Label>
-                <Input id="loanTerm" name="loanTerm" type="number" step="1" value={selectedLoanType?.loanTerm || ''} onChange={(e) => {}} readOnly className="bg-muted"/>
+                <Input id="loanTerm" name="loanTerm" type="number" step="1" value={currentLoan.loanTerm || ''} onChange={handleInputChange} placeholder={selectedLoanType ? `${selectedLoanType.minRepaymentPeriod} - ${selectedLoanType.maxRepaymentPeriod}` : 'Select type first'} required />
               </div>
             </div>
 

@@ -59,7 +59,10 @@ import { useAuth } from '@/contexts/auth-context';
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
   interestRate: undefined,
-  loanTerm: 12,
+  minLoanAmount: 1000,
+  maxLoanAmount: 5000,
+  minRepaymentPeriod: 1,
+  maxRepaymentPeriod: 12,
   repaymentFrequency: 'monthly',
   nplInterestRate: undefined,
   nplGracePeriodDays: 30,
@@ -110,7 +113,7 @@ export default function LoanTypesPage() {
     const { name, value } = e.target;
     setCurrentLoanType(prev => ({
       ...prev,
-      [name]: (name === 'interestRate' || name === 'nplInterestRate' || name === 'loanTerm' || name === 'nplGracePeriodDays') ? parseFloat(value) : value
+      [name]: (name.includes('Amount') || name.includes('Rate') || name.includes('Period')) ? parseFloat(value) : value
     }));
   };
   
@@ -124,16 +127,22 @@ export default function LoanTypesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentLoanType.name || currentLoanType.interestRate === undefined || currentLoanType.interestRate < 0 || currentLoanType.loanTerm === undefined || currentLoanType.loanTerm <= 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Loan type name, a valid interest rate, and a positive loan term are required.' });
+    const {name, interestRate, minLoanAmount, maxLoanAmount, minRepaymentPeriod, maxRepaymentPeriod, nplInterestRate} = currentLoanType;
+
+    if (!name || interestRate === undefined || interestRate < 0 ) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Loan type name and a valid interest rate are required.' });
       return;
     }
-    if (currentLoanType.nplInterestRate === undefined || currentLoanType.nplInterestRate < 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'NPL Interest Rate must be a non-negative number.' });
+    if (minLoanAmount === undefined || maxLoanAmount === undefined || minLoanAmount <= 0 || maxLoanAmount <= minLoanAmount) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please provide a valid loan amount range.' });
         return;
     }
-    if (currentLoanType.nplGracePeriodDays !== undefined && currentLoanType.nplGracePeriodDays < 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'NPL Grace Period cannot be negative.' });
+    if (minRepaymentPeriod === undefined || maxRepaymentPeriod === undefined || minRepaymentPeriod <= 0 || maxRepaymentPeriod < minRepaymentPeriod) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please provide a valid repayment period range.' });
+        return;
+    }
+    if (nplInterestRate === undefined || nplInterestRate < 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'NPL Interest Rate must be a non-negative number.' });
         return;
     }
     
@@ -141,7 +150,10 @@ export default function LoanTypesPage() {
     const dataToSave = {
         name: currentLoanType.name!,
         interestRate: (currentLoanType.interestRate || 0) / 100,
-        loanTerm: currentLoanType.loanTerm!,
+        minLoanAmount: currentLoanType.minLoanAmount,
+        maxLoanAmount: currentLoanType.maxLoanAmount,
+        minRepaymentPeriod: currentLoanType.minRepaymentPeriod,
+        maxRepaymentPeriod: currentLoanType.maxRepaymentPeriod,
         repaymentFrequency: currentLoanType.repaymentFrequency!,
         nplInterestRate: (currentLoanType.nplInterestRate || 0) / 100,
         nplGracePeriodDays: currentLoanType.nplGracePeriodDays,
@@ -251,44 +263,23 @@ export default function LoanTypesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Loan Range (ETB)</TableHead>
+              <TableHead>Repayment Period (Months)</TableHead>
               <TableHead className="text-right">Interest Rate (Annual)</TableHead>
-              <TableHead className="text-right">Loan Term (Months)</TableHead>
-              <TableHead className="text-center">Repayment</TableHead>
               <TableHead className="text-right">NPL Rate (Annual)</TableHead>
-              <TableHead className="text-right">NPL Grace (Days)</TableHead>
-              <TableHead className="text-center">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center gap-1 cursor-help">
-                      Concurrent <ShieldQuestion className="h-4 w-4 text-muted-foreground"/>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Can this loan be taken with other active loans?</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
             ) : paginatedLoanTypes.length > 0 ? paginatedLoanTypes.map(loanType => (
               <TableRow key={loanType.id}>
                 <TableCell className="font-medium">{loanType.name}</TableCell>
+                <TableCell>{loanType.minLoanAmount.toLocaleString()} - {loanType.maxLoanAmount.toLocaleString()}</TableCell>
+                <TableCell>{loanType.minRepaymentPeriod} - {loanType.maxRepaymentPeriod}</TableCell>
                 <TableCell className="text-right font-semibold text-green-600">{(loanType.interestRate * 100).toFixed(2)}%</TableCell>
-                <TableCell className="text-right">{loanType.loanTerm}</TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline">{getFrequencyLabel(loanType.repaymentFrequency)}</Badge>
-                </TableCell>
                 <TableCell className="text-right font-semibold text-destructive">{(loanType.nplInterestRate * 100).toFixed(2)}%</TableCell>
-                <TableCell className="text-right">{loanType.nplGracePeriodDays || 0}</TableCell>
-                 <TableCell className="text-center">
-                  <Badge variant={loanType.allowConcurrent ? 'default' : 'secondary'}>
-                    {loanType.allowConcurrent ? 'Yes' : 'No'}
-                  </Badge>
-                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -310,7 +301,7 @@ export default function LoanTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No loan types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -319,60 +310,8 @@ export default function LoanTypesPage() {
         </Table>
       </div>
 
-       {filteredLoanTypes.length > 0 && (
-        <div className="flex flex-col items-center gap-2 pt-4">
-          <div className="flex items-center space-x-6 lg:space-x-8">
-              <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Rows per page</p>
-                  <Select
-                      value={`${rowsPerPage}`}
-                      onValueChange={(value) => {
-                          setRowsPerPage(Number(value));
-                          setCurrentPage(1);
-                      }}
-                  >
-                      <SelectTrigger className="h-8 w-[70px]">
-                          <SelectValue placeholder={`${rowsPerPage}`} />
-                      </SelectTrigger>
-                      <SelectContent side="top">
-                          {[10, 15, 20, 25].map((pageSize) => (
-                              <SelectItem key={pageSize} value={`${pageSize}`}>
-                                  {pageSize}
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-              </div>
-              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                  Page {currentPage} of {totalPages || 1}
-              </div>
-              <div className="flex items-center space-x-2">
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                  >
-                      Previous
-                  </Button>
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= totalPages}
-                  >
-                      Next
-                  </Button>
-              </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {filteredLoanTypes.length} loan type(s) found.
-          </div>
-        </div>
-      )}
-
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Loan Type' : 'Add New Loan Type'}</DialogTitle>
             <DialogDescription>
@@ -384,77 +323,52 @@ export default function LoanTypesPage() {
               <Label htmlFor="name">Loan Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentLoanType.name || ''} onChange={handleInputChange} required />
             </div>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="minLoanAmount">Min Loan Amount (ETB)</Label>
+                    <Input id="minLoanAmount" name="minLoanAmount" type="number" step="100" min="0" value={currentLoanType.minLoanAmount ?? ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                    <Label htmlFor="maxLoanAmount">Max Loan Amount (ETB)</Label>
+                    <Input id="maxLoanAmount" name="maxLoanAmount" type="number" step="100" min="0" value={currentLoanType.maxLoanAmount ?? ''} onChange={handleInputChange} />
+                </div>
+            </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="minRepaymentPeriod">Min Repayment Period (Months)</Label>
+                    <Input id="minRepaymentPeriod" name="minRepaymentPeriod" type="number" step="1" min="1" value={currentLoanType.minRepaymentPeriod ?? ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                    <Label htmlFor="maxRepaymentPeriod">Max Repayment Period (Months)</Label>
+                    <Input id="maxRepaymentPeriod" name="maxRepaymentPeriod" type="number" step="1" min="1" value={currentLoanType.maxRepaymentPeriod ?? ''} onChange={handleInputChange} />
+                </div>
+            </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="interestRate">Interest Rate (Annual %) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="interestRate" 
-                            name="interestRate" 
-                            type="number" 
-                            step="0.01" 
-                            min="0"
-                            value={currentLoanType.interestRate || ''} 
-                            onChange={handleInputChange} 
-                            required 
-                            className="pr-7"
-                            placeholder="e.g., 8.5"
-                        />
+                        <Input id="interestRate" name="interestRate" type="number" step="0.01" min="0" value={currentLoanType.interestRate || ''} onChange={handleInputChange} required className="pr-7" placeholder="e.g., 8.5" />
                     </div>
                 </div>
                 <div>
                     <Label htmlFor="nplInterestRate">NPL Interest Rate (Annual %)</Label>
                      <div className="relative">
                         <AlertTriangle className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive/70" />
-                        <Input 
-                            id="nplInterestRate" 
-                            name="nplInterestRate" 
-                            type="number" 
-                            step="0.01" 
-                            min="0"
-                            value={currentLoanType.nplInterestRate || ''} 
-                            onChange={handleInputChange}
-                            className="pr-7"
-                            placeholder="e.g., 15"
-                        />
+                        <Input id="nplInterestRate" name="nplInterestRate" type="number" step="0.01" min="0" value={currentLoanType.nplInterestRate || ''} onChange={handleInputChange} className="pr-7" placeholder="e.g., 15" />
                     </div>
                 </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
                     <Label htmlFor="nplGracePeriodDays">NPL Grace Period (Days)</Label>
                     <div className="relative">
                         <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="nplGracePeriodDays" 
-                            name="nplGracePeriodDays" 
-                            type="number" 
-                            step="1" 
-                            min="0"
-                            value={currentLoanType.nplGracePeriodDays || ''} 
-                            onChange={handleInputChange}
-                            className="pl-8"
-                            placeholder="e.g., 30"
-                        />
-                    </div>
-                </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="loanTerm">Loan Term (in months) <span className="text-destructive">*</span></Label>
-                    <div className="relative">
-                        <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="loanTerm" 
-                            name="loanTerm" 
-                            type="number" 
-                            step="1" 
-                            min="1"
-                            value={currentLoanType.loanTerm || ''} 
-                            onChange={handleInputChange} 
-                            required 
-                            className="pl-8"
-                            placeholder="e.g., 12"
-                        />
+                        <Input id="nplGracePeriodDays" name="nplGracePeriodDays" type="number" step="1" min="0" value={currentLoanType.nplGracePeriodDays || ''} onChange={handleInputChange} className="pl-8" placeholder="e.g., 30" />
                     </div>
                 </div>
                 <div>

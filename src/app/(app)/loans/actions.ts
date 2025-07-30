@@ -96,14 +96,14 @@ export type CollateralInput = {
     guarantorId?: string;
 };
 
-export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'loanTerm' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes'> & {
+export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod'> & {
     disbursementDate: string;
     notes?: string | null;
     collaterals: CollateralInput[];
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
-  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose } = data;
+  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm } = data;
   
   const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
   if (!loanType) throw new Error("Loan Type not found");
@@ -115,6 +115,13 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   if (!member) throw new Error("Member not found");
 
   // VALIDATION LOGIC
+  if (principalAmount < loanType.minLoanAmount || principalAmount > loanType.maxLoanAmount) {
+      throw new Error(`Loan amount must be between ${loanType.minLoanAmount.toLocaleString()} and ${loanType.maxLoanAmount.toLocaleString()} ETB for this loan type.`);
+  }
+  if (loanTerm < loanType.minRepaymentPeriod || loanTerm > loanType.maxRepaymentPeriod) {
+      throw new Error(`Repayment period must be between ${loanType.minRepaymentPeriod} and ${loanType.maxRepaymentPeriod} months for this loan type.`);
+  }
+
   if (loanType.name === 'Special Loan') {
       const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
       if (monthsSinceJoined < 3) throw new Error("Member must have at least 3 months of savings to be eligible for a Special Loan.");
@@ -122,10 +129,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       if (totalSavings < 5000 && !collaterals.some(c => c.type === 'GUARANTOR')) {
           throw new Error("Member must have at least one guarantor if savings are less than 5,000 ETB.");
       }
-      if(principalAmount > 5000 || principalAmount < 1000) throw new Error("Special Loan amount must be between 1,000 and 5,000 ETB.");
   } else if (loanType.name === 'Regular Loan') {
-      if(principalAmount < 1000 || principalAmount > 300000) throw new Error("Regular Loan amount must be between 1,000 and 300,000 ETB.");
-
       if (principalAmount <= 200000) {
           if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error("Loans up to 200,000 ETB require at least one guarantor.");
       } else { // > 200,000
@@ -145,10 +149,10 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       status,
       notes,
       purpose,
+      loanTerm,
       loanAccountNumber: loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
       disbursementDate: new Date(disbursementDate),
       interestRate: loanType.interestRate,
-      loanTerm: loanType.loanTerm,
       repaymentFrequency: loanType.repaymentFrequency,
       remainingBalance: principalAmount,
       insuranceFee,
