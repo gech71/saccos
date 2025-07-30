@@ -281,11 +281,13 @@ export default function SettingsPage() {
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={role.name === 'Admin'}>
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                {canEditSettings && <DropdownMenuItem onClick={() => openRoleModal(role)}><Edit className="mr-2 h-4 w-4" /> Edit Role</DropdownMenuItem>}
-                                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert(role)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>}
+                                                {canEditSettings && <DropdownMenuItem onClick={() => openRoleModal(role)} disabled={role.name === 'Admin'}><Edit className="mr-2 h-4 w-4" /> Edit Role</DropdownMenuItem>}
+                                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert(role)} className="text-destructive focus:text-destructive" disabled={role.name === 'Admin'}><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -308,7 +310,7 @@ export default function SettingsPage() {
           <div className="space-y-4 py-4">
             {roles.map(role => (
                 <div key={role.id} className="flex items-center space-x-3">
-                    <Checkbox id={`role-${role.id}`} checked={selectedRoleIds.has(role.id)} onCheckedChange={(checked) => handleUserRoleChange(role.id, !!checked)} />
+                    <Checkbox id={`role-${role.id}`} checked={selectedRoleIds.has(role.id)} onCheckedChange={(checked) => handleUserRoleChange(role.id, !!checked)} disabled={role.name === 'Admin'}/>
                     <Label htmlFor={`role-${role.id}`} className="font-medium">{role.name}</Label>
                 </div>
             ))}
