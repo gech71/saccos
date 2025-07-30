@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -32,23 +32,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
-import type { Loan, Member, LoanType, Collateral, Address, Organization } from '@prisma/client';
+import type { Loan, LoanType } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput } from './actions';
+import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput, type CollateralInput } from './actions';
+import { FileUpload } from '@/components/file-upload';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-const subcities = [
-  "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
-].sort();
+const specialLoanPurposes = ["Enkutatash", "Gena", "Fasika", "Eid Mubarak", "Mawlid", "Eid al-Adha (Arefa)"];
 
-const initialCollateralState: Omit<Collateral, 'id' | 'loanId' | 'organizationId' | 'addressId'> = {
-  fullName: '',
-  organization: null,
-  address: null,
+type MemberForSelect = { id: string; fullName: string; joinDate: Date; totalSavings: number; totalGuaranteed: number; };
+
+const initialCollateralState: CollateralInput = {
+  type: 'GUARANTOR',
 };
 
 const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
@@ -59,12 +59,12 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   status: 'pending',
   loanAccountNumber: '',
   collaterals: [],
+  purpose: '',
 };
-
 
 export default function LoansPage() {
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
-  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
+  const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -73,7 +73,7 @@ export default function LoansPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
 
-  const [currentLoan, setCurrentLoan] = useState<Partial<LoanInput & {id?: string, status?: string }>>(initialLoanFormState);
+  const [currentLoan, setCurrentLoan] = useState<Partial<LoanInput & { id?: string, status?: string }>>(initialLoanFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
@@ -102,18 +102,19 @@ export default function LoansPage() {
     fetchPageData();
   }, []);
 
+  const selectedMember = useMemo(() => members.find(m => m.id === currentLoan.memberId), [members, currentLoan.memberId]);
+  const selectedLoanType = useMemo(() => loanTypes.find(lt => lt.id === currentLoan.loanTypeId), [loanTypes, currentLoan.loanTypeId]);
+
   useEffect(() => {
-    if (currentLoan.loanTypeId && currentLoan.principalAmount && currentLoan.principalAmount > 0) {
-        const loanType = loanTypes.find(lt => lt.id === currentLoan.loanTypeId);
-        if (loanType && loanType.interestRate > 0 && loanType.loanTerm > 0) {
-            const monthlyRate = loanType.interestRate / 12;
-            const numberOfPayments = loanType.loanTerm;
+    if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0) {
+        if (selectedLoanType.interestRate > 0 && selectedLoanType.loanTerm > 0) {
+            const monthlyRate = selectedLoanType.interestRate / 12;
+            const numberOfPayments = selectedLoanType.loanTerm;
             const principal = currentLoan.principalAmount;
-            
             const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
             setMonthlyPayment(payment);
-        } else if (loanType && loanType.loanTerm > 0) { // Handle 0 interest rate
-             const payment = currentLoan.principalAmount / loanType.loanTerm;
+        } else if (selectedLoanType.loanTerm > 0) {
+             const payment = currentLoan.principalAmount / selectedLoanType.loanTerm;
              setMonthlyPayment(payment);
         } else {
             setMonthlyPayment(null);
@@ -121,7 +122,7 @@ export default function LoansPage() {
     } else {
         setMonthlyPayment(null);
     }
-  }, [currentLoan.principalAmount, currentLoan.loanTypeId, loanTypes]);
+  }, [currentLoan.principalAmount, selectedLoanType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -129,7 +130,7 @@ export default function LoansPage() {
   };
 
   const handleSelectChange = (name: keyof LoanInput, value: string) => {
-    setCurrentLoan(prev => ({ ...prev, [name]: value }));
+    setCurrentLoan(prev => ({ ...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
   };
 
   const addCollateral = () => {
@@ -148,45 +149,23 @@ export default function LoansPage() {
 
   const handleCollateralChange = (index: number, field: string, value: string) => {
     const updatedCollaterals = [...(currentLoan.collaterals || [])];
-    const fieldParts = field.split('.');
-
-    if (fieldParts.length > 1) {
-        const [parentKey, childKey] = fieldParts as ['organization' | 'address', string];
-        const currentParentValue = updatedCollaterals[index][parentKey] || {};
-        updatedCollaterals[index] = {
-            ...updatedCollaterals[index],
-            [parentKey]: {
-                ...(currentParentValue as object),
-                [childKey]: value
-            }
-        };
-    } else {
-        const key = field as keyof typeof initialCollateralState;
-        (updatedCollaterals[index] as any)[key] = value;
-    }
-    
+    (updatedCollaterals[index] as any)[field] = value;
     setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
+  };
+  
+  const handleCollateralTypeChange = (index: number, type: 'GUARANTOR' | 'TITLE_DEED') => {
+      const updatedCollaterals = [...(currentLoan.collaterals || [])];
+      updatedCollaterals[index] = { type }; // Reset the collateral object
+      setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentLoan.memberId || !currentLoan.loanTypeId || !currentLoan.principalAmount || currentLoan.principalAmount <= 0) {
+    if (!currentLoan.memberId || !selectedLoanType || !currentLoan.principalAmount || currentLoan.principalAmount <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Member, loan type, and a valid principal amount are required.' });
       return;
     }
     
-    const selectedLoanType = loanTypes.find(lt => lt.id === currentLoan.loanTypeId);
-    if (!selectedLoanType) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Invalid loan type selected.' });
-        return;
-    }
-
-    const memberActiveLoans = loans.filter(l => l.memberId === currentLoan.memberId && l.status === 'active');
-    if (!selectedLoanType.allowConcurrent && memberActiveLoans.length > 0 && !(isEditing && currentLoan.id && memberActiveLoans.some(l => l.id === currentLoan.id))) {
-        toast({ variant: 'destructive', title: 'Loan Policy Violation', description: `This member has an active loan, and the selected loan type (${selectedLoanType.name}) does not allow concurrent loans.` });
-        return;
-    }
-
     setIsSubmitting(true);
     try {
         if (isEditing && currentLoan.id) {
@@ -198,10 +177,8 @@ export default function LoansPage() {
         }
         await fetchPageData();
         setIsModalOpen(false);
-        setCurrentLoan(initialLoanFormState);
-        setIsEditing(false);
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+        toast({ variant: 'destructive', title: 'Error', description: `${error instanceof Error ? error.message : 'An unexpected error occurred.'}` });
     } finally {
         setIsSubmitting(false);
     }
@@ -216,11 +193,8 @@ export default function LoansPage() {
   const openEditModal = (loan: LoanWithDetails) => {
     setCurrentLoan({
       ...loan,
-      collaterals: loan.collaterals.map(c => ({
-        fullName: c.fullName,
-        organization: c.organization ? {...c.organization} : undefined,
-        address: c.address ? {...c.address} : undefined
-      }))
+      collaterals: loan.guarantors.map(g => ({ type: 'GUARANTOR', guarantorId: g.guarantor.id }))
+                    .concat(loan.collaterals.map(c => ({ type: 'TITLE_DEED', documentUrl: c.documentUrl, description: c.description })))
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -258,42 +232,8 @@ export default function LoansPage() {
     return filteredLoans.slice(startIndex, endIndex);
   }, [filteredLoans, currentPage, rowsPerPage]);
 
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredLoans.length / rowsPerPage);
-  }, [filteredLoans.length, rowsPerPage]);
+  const totalPages = useMemo(() => Math.ceil(filteredLoans.length / rowsPerPage), [filteredLoans.length, rowsPerPage]);
   
-  const getPaginationItems = () => {
-    if (totalPages <= 1) return [];
-    const delta = 1;
-    const left = currentPage - delta;
-    const right = currentPage + delta + 1;
-    const range: number[] = [];
-    const rangeWithDots: (number | string)[] = [];
-
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= left && i < right)) {
-            range.push(i);
-        }
-    }
-
-    let l: number | undefined;
-    for (const i of range) {
-        if (l) {
-            if (i - l === 2) {
-                rangeWithDots.push(l + 1);
-            } else if (i - l !== 1) {
-                rangeWithDots.push('...');
-            }
-        }
-        rangeWithDots.push(i);
-        l = i;
-    }
-
-    return rangeWithDots;
-  };
-  
-  const paginationItems = getPaginationItems();
-
   const getStatusBadgeVariant = (status: Loan['status']) => {
     switch (status) {
       case 'pending': return 'secondary';
@@ -305,26 +245,10 @@ export default function LoansPage() {
     }
   };
 
-  const handleExport = () => {
-    const dataToExport = filteredLoans.map(loan => ({
-        'Loan Acct. #': loan.loanAccountNumber,
-        'Member Name': loan.memberName || 'N/A',
-        'Loan Type': loan.loanTypeName || 'N/A',
-        'Status': loan.status,
-        'Principal Amount (Birr)': loan.principalAmount,
-        'Remaining Balance (Birr)': loan.remainingBalance,
-        'Interest Rate (%)': (loan.interestRate * 100).toFixed(2),
-        'Disbursement Date': new Date(loan.disbursementDate).toLocaleDateString(),
-        'Next Due Date': loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A',
-    }));
-    exportToExcel(dataToExport, 'loans_export');
-  };
-
   return (
     <div className="space-y-6">
       <PageTitle title="Loan Management" subtitle="Manage member loan applications and active loans.">
-        <Button onClick={handleExport} variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export</Button>
-        <Button onClick={openAddModal}><PlusCircle className="mr-2 h-5 w-5" /> New Loan Application</Button>
+        <Button onClick={() => openAddModal()}><PlusCircle className="mr-2 h-5 w-5" /> New Loan Application</Button>
       </PageTitle>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -350,243 +274,159 @@ export default function LoansPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Member</TableHead>
-              <TableHead>Acct. #</TableHead>
               <TableHead>Loan Type</TableHead>
+              <TableHead>Purpose</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Principal (Birr)</TableHead>
               <TableHead className="text-right">Balance (Birr)</TableHead>
               <TableHead>Disbursed</TableHead>
-              <TableHead>Next Due</TableHead>
-              <TableHead>Collateral</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
             ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => (
               <TableRow key={loan.id}>
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
-                <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
+                <TableCell>{loan.purpose || 'N/A'}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
-                <TableCell>{loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</TableCell>
-                <TableCell>
-                  {loan.collaterals && loan.collaterals.length > 0 ? (
-                    <Badge variant="secondary">{loan.collaterals.length} Guarantor(s)</Badge>
-                  ) : (
-                    <Badge variant="outline">None</Badge>
-                  )}
-                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><span className="sr-only">Menu</span><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit Application</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Application</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={10} className="h-24 text-center">No loans found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      {filteredLoans.length > 0 && (
-        <div className="flex flex-col items-center gap-4 pt-4">
-            <div className="flex items-center space-x-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                >
-                    Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                    {paginationItems.map((item, index) =>
-                        typeof item === 'number' ? (
-                            <Button
-                                key={index}
-                                variant={currentPage === item ? 'default' : 'outline'}
-                                size="sm"
-                                className="h-9 w-9 p-0"
-                                onClick={() => setCurrentPage(item)}
-                            >
-                                {item}
-                            </Button>
-                        ) : (
-                            <span key={index} className="px-2">
-                                {item}
-                            </span>
-                        )
-                    )}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader><DialogTitle className="font-headline">{isEditing ? 'Edit' : 'New'} Loan Application</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="loanMemberId">Member</Label>
+                    <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                        <PopoverTrigger asChild>
+                        <Button id="loanMemberId" variant="outline" role="combobox" className="w-full justify-between">
+                            {selectedMember ? selectedMember.fullName : "Select member..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                            <CommandInput placeholder="Search member..." />
+                            <CommandList><CommandEmpty>No member found.</CommandEmpty><CommandGroup>
+                                {members.map(member => (
+                                <CommandItem key={member.id} value={member.fullName} onSelect={() => { handleSelectChange('memberId', member.id); setOpenMemberCombobox(false); }}>
+                                    <Check className={cn("mr-2 h-4 w-4", currentLoan.memberId === member.id ? "opacity-100" : "opacity-0")} />
+                                    {member.fullName}
+                                </CommandItem>
+                                ))}
+                            </CommandGroup></CommandList>
+                        </Command>
+                        </PopoverContent>
+                    </Popover>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
-                >
-                    Next
-                </Button>
-            </div>
-            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                <div>Page {currentPage} of {totalPages || 1}</div>
-                <div>{filteredLoans.length} loan(s) found.</div>
-                <div className="flex items-center space-x-2">
-                    <p className="font-medium">Rows:</p>
-                    <Select
-                        value={`${rowsPerPage}`}
-                        onValueChange={(value) => {
-                            setRowsPerPage(Number(value));
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <SelectTrigger className="h-8 w-[70px]">
-                            <SelectValue placeholder={`${rowsPerPage}`} />
-                        </SelectTrigger>
-                        <SelectContent side="top">
-                            {[10, 15, 20, 25, 50].map((pageSize) => (
-                                <SelectItem key={pageSize} value={`${pageSize}`}>
-                                    {pageSize}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
+                <div>
+                    <Label htmlFor="loanTypeId">Loan Type</Label>
+                    <Select name="loanTypeId" value={currentLoan.loanTypeId} onValueChange={(val) => handleSelectChange('loanTypeId', val)} required>
+                        <SelectTrigger><SelectValue placeholder="Select a loan type" /></SelectTrigger>
+                        <SelectContent>{loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
             </div>
-        </div>
-      )}
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Loan Application' : 'New Loan Application'}</DialogTitle>
-            <DialogDescription>{isEditing ? 'Update the details for this loan application.' : 'Submit a new loan application for a member for approval.'}</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
-            <div>
-              <Label htmlFor="loanMemberId">Member <span className="text-destructive">*</span></Label>
-              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
-                <PopoverTrigger asChild>
-                  <Button id="loanMemberId" variant="outline" role="combobox" className="w-full justify-between">
-                    {currentLoan.memberId ? members.find(m => m.id === currentLoan.memberId)?.fullName : "Select member..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search member..." />
-                    <CommandList><CommandEmpty>No member found.</CommandEmpty><CommandGroup>
-                        {members.map(member => (
-                          <CommandItem key={member.id} value={member.fullName} onSelect={() => { handleSelectChange('memberId', member.id); setOpenMemberCombobox(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", currentLoan.memberId === member.id ? "opacity-100" : "opacity-0")} />
-                            {member.fullName}
-                          </CommandItem>
-                        ))}
-                    </CommandGroup></CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <Label htmlFor="loanTypeId">Loan Type <span className="text-destructive">*</span></Label>
-              <Select name="loanTypeId" value={currentLoan.loanTypeId} onValueChange={(val) => handleSelectChange('loanTypeId', val)} required>
-                <SelectTrigger><SelectValue placeholder="Select a loan type" /></SelectTrigger>
-                <SelectContent>{loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name} ({(lt.interestRate*100).toFixed(2)}% Interest, {lt.loanTerm} mos)</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="loanAccountNumber">Loan Account Number (Optional)</Label>
-              <Input id="loanAccountNumber" name="loanAccountNumber" value={currentLoan.loanAccountNumber || ''} onChange={handleInputChange} placeholder="Auto-generated if blank" />
-            </div>
+            {selectedLoanType?.name === 'Special Loan' && (
+                <div>
+                    <Label htmlFor="purpose">Purpose (for Special Loan)</Label>
+                    <Select name="purpose" value={currentLoan.purpose} onValueChange={(val) => handleSelectChange('purpose', val)}>
+                        <SelectTrigger><SelectValue placeholder="Select holiday purpose..." /></SelectTrigger>
+                        <SelectContent>{specialLoanPurposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="principalAmount">Principal Amount (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="principalAmount" name="principalAmount" type="number" step="0.01" value={currentLoan.principalAmount || ''} onChange={handleInputChange} required />
+                <Label htmlFor="principalAmount">Principal Amount (ETB)</Label>
+                <Input id="principalAmount" name="principalAmount" type="number" step="100" value={currentLoan.principalAmount || ''} onChange={handleInputChange} required />
               </div>
               <div>
-                <Label htmlFor="disbursementDate">Disbursement Date <span className="text-destructive">*</span></Label>
-                <Input id="disbursementDate" name="disbursementDate" type="date" value={currentLoan.disbursementDate} onChange={handleInputChange} required />
+                <Label htmlFor="loanTerm">Repayment Period (Months)</Label>
+                <Input id="loanTerm" name="loanTerm" type="number" step="1" value={selectedLoanType?.loanTerm || ''} onChange={(e) => {}} readOnly className="bg-muted"/>
               </div>
             </div>
-            {monthlyPayment !== null && (
-              <div className="p-3 border rounded-md bg-muted text-sm">
-                  <p className="text-muted-foreground">Estimated Monthly Repayment: <span className="font-bold text-primary">{monthlyPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></p>
-              </div>
+
+            {selectedMember && selectedLoanType && (
+              <Alert variant="default" className="space-y-2">
+                <AlertDescription className="text-xs grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" /><p>Member for {Math.floor((new Date().getTime() - new Date(selectedMember.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30))} months</p></div>
+                    <div className="flex items-center gap-2"><Coins className="h-4 w-4 text-muted-foreground" /><p>Savings: {selectedMember.totalSavings.toLocaleString(undefined, {minimumFractionDigits:2})} ETB</p></div>
+                    <div className="flex items-center gap-2"><UserCheck className="h-4 w-4 text-muted-foreground" /><p>Guaranteed loans: {selectedMember.totalGuaranteed}</p></div>
+                </AlertDescription>
+                {selectedLoanType.name === 'Special Loan' && (!selectedMember || (new Date().getTime() - new Date(selectedMember.joinDate).getTime()) / (1000*60*60*24*30) < 3) && <AlertDescription className="text-destructive font-semibold"><AlertTriangle className="inline h-4 w-4 mr-1"/>Not eligible: Member for less than 3 months.</AlertDescription>}
+              </Alert>
             )}
-            <div>
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea id="notes" name="notes" value={currentLoan.notes || ''} onChange={handleInputChange} placeholder="E.g., Purpose of the loan, special conditions." />
+
+            <div className="p-3 border rounded-md bg-muted text-sm space-y-1">
+                <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
+                {selectedLoanType?.name === 'Regular Loan' && <>
+                    <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">15.00 ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                </>}
+                {monthlyPayment && <div className="flex justify-between text-primary font-bold"><Separator className="my-1 col-span-2"/><span>Est. Monthly Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>}
             </div>
 
-            <Separator className="my-6" />
+            <Separator/>
+            <Label className="font-semibold text-base text-primary">Collateral</Label>
+            
+            {selectedLoanType?.name === 'Regular Loan' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
+                <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                  <Label className="font-semibold text-base text-primary">Collateral / Guarantor Information</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addCollateral}>
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Guarantor
-                  </Button>
-              </div>
-
-              {(currentLoan.collaterals || []).map((collateral, index) => (
+            {(currentLoan.collaterals || []).map((collateral, index) => (
                 <div key={index} className="space-y-4 p-4 border rounded-md relative">
-                   <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10">
-                      <MinusCircle className="h-5 w-5" />
-                      <span className="sr-only">Remove Guarantor</span>
-                  </Button>
-                  <h4 className="font-medium text-md">Guarantor {index + 1}</h4>
-                  <div>
-                    <Label htmlFor={`collateral-fullName-${index}`}>Guarantor Full Name <span className="text-destructive">*</span></Label>
-                    <Input id={`collateral-fullName-${index}`} name="fullName" value={collateral.fullName} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} required />
-                  </div>
-                  
-                  <Label className="font-semibold">Guarantor's Organization</Label>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor={`collateral-org-name-${index}`}>Organization Name</Label>
-                      <Input id={`collateral-org-name-${index}`} name="organization.name" value={collateral.organization?.name || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
-                    </div>
-                     <div>
-                      <Label htmlFor={`collateral-org-phone-${index}`}>Organization Phone</Label>
-                      <Input id={`collateral-org-phone-${index}`} name="organization.phone" value={collateral.organization?.phone || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
-                    </div>
-                  </div>
-                  <div>
-                      <Label htmlFor={`collateral-org-address-${index}`}>Organization Address</Label>
-                      <Input id={`collateral-org-address-${index}`} name="organization.address" value={collateral.organization?.address || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
-                  </div>
-                  
-                  <Label className="font-semibold pt-2 block">Guarantor's Address</Label>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div><Label htmlFor={`collateral-addr-city-${index}`}>City</Label><Input id={`collateral-addr-city-${index}`} name="address.city" value={collateral.address?.city || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
-                      <div>
-                        <Label htmlFor={`collateral-addr-subcity-${index}`}>Sub City</Label>
-                        <Select
-                          value={collateral.address?.subCity || undefined}
-                          onValueChange={(value) => handleCollateralChange(index, 'address.subCity', value)}
-                        >
-                          <SelectTrigger id={`collateral-addr-subcity-${index}`}>
-                              <SelectValue placeholder="Select a subcity" />
-                          </SelectTrigger>
-                          <SelectContent>
-                              {subcities.map(sc => (<SelectItem key={sc} value={sc}>{sc}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div><Label htmlFor={`collateral-addr-wereda-${index}`}>Wereda</Label><Input id={`collateral-addr-wereda-${index}`} name="address.wereda" value={collateral.address?.wereda || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} /></div>
-                  </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"><MinusCircle className="h-5 w-5" /></Button>
+                    <Select value={collateral.type} onValueChange={(val) => handleCollateralTypeChange(index, val as 'GUARANTOR' | 'TITLE_DEED')}>
+                        <SelectTrigger><SelectValue placeholder="Select collateral type..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="GUARANTOR">Member Guarantor</SelectItem>
+                            <SelectItem value="TITLE_DEED">House Title Deed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    
+                    {collateral.type === 'GUARANTOR' && (
+                        <div>
+                            <Label>Guarantor Member</Label>
+                            <Select name="guarantorId" onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
+                                <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
+                                <SelectContent>{members.filter(m => m.id !== selectedMember?.id && m.totalGuaranteed < 2).map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} (Guaranteed: {m.totalGuaranteed})</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    {collateral.type === 'TITLE_DEED' && (
+                        <div className="space-y-2">
+                           <Label>Title Deed Document</Label>
+                           <FileUpload id={`title-deed-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(index, 'documentUrl', val)} />
+                           <Input name="description" placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                        </div>
+                    )}
                 </div>
               ))}
-            </div>
+              <Button type="button" variant="outline" size="sm" onClick={addCollateral}><PlusCircle className="mr-2 h-4 w-4" /> Add Collateral</Button>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
@@ -603,16 +443,11 @@ export default function LoansPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the loan application.
-              This will fail if the loan has any repayments associated with it.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone. This will permanently delete the loan application.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
-              Yes, delete application
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">Yes, delete application</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
