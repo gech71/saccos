@@ -34,7 +34,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
 import * as XLSX from 'xlsx';
-import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData, type MemberWithSavingAccounts } from './actions';
+import { getGroupCollectionsPageData, recordBatchSavings, recordBatchLoanRepayments, type GroupCollectionsPageData, type MemberWithSavingAccounts, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import { exportToExcel } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -48,7 +48,7 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-type BatchSavingDetails = {
+type BatchDetails = {
   date: string;
   depositMode: 'Cash' | 'Bank' | 'Wallet';
   sourceName?: string;
@@ -56,7 +56,7 @@ type BatchSavingDetails = {
   evidenceUrl?: string;
 };
 
-const initialBatchTransactionState: BatchSavingDetails = {
+const initialBatchTransactionState: BatchDetails = {
   date: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
 };
@@ -86,9 +86,9 @@ export default function GroupCollectionsPage() {
   const [pageData, setPageData] = useState<GroupCollectionsPageData | null>(null);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
 
-  const [batchDetails, setBatchDetails] = useState<BatchSavingDetails>(initialBatchTransactionState);
+  const [batchDetails, setBatchDetails] = useState<BatchDetails>(initialBatchTransactionState);
   const [isPosting, setIsPosting] = useState(false);
-  const [postedTransactions, setPostedTransactions] = useState<Saving[] | null>(null);
+  const [postedTransactions, setPostedTransactions] = useState<any[] | null>(null);
   const [collectionMode, setCollectionMode] = useState<'filter' | 'excel'>('filter');
 
   // FILTER-BASED COLLECTION STATE
@@ -98,9 +98,11 @@ export default function GroupCollectionsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   const [eligibleAccounts, setEligibleAccounts] = useState<EligibleAccount[]>([]);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [eligibleLoans, setEligibleLoans] = useState<LoanWithMemberInfo[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [collectionAmounts, setCollectionAmounts] = useState<Record<string, number>>({});
+  const [collectionType, setCollectionType] = useState<'savings' | 'loans'>('savings');
   
   // EXCEL-BASED COLLECTION STATE
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -126,23 +128,25 @@ export default function GroupCollectionsPage() {
     }
     fetchData();
   }, [toast]);
-
-  // FILTER-BASED COLLECTION LOGIC
-  const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (value: string) => {
-    setter(value);
-    setEligibleAccounts([]); 
-    setSelectedAccountIds([]);
-  };
   
-  const paginatedEligibleAccounts = useMemo(() => {
+  useEffect(() => {
+      setSelectedAccountType('');
+      setEligibleAccounts([]);
+      setEligibleLoans([]);
+      setSelectedIds([]);
+  }, [collectionType, selectedSchool]);
+
+  const paginatedEligibleItems = useMemo(() => {
+    const items = collectionType === 'savings' ? eligibleAccounts : eligibleLoans;
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    return eligibleAccounts.slice(startIndex, endIndex);
-  }, [eligibleAccounts, currentPage, rowsPerPage]);
+    return items.slice(startIndex, endIndex);
+  }, [collectionType, eligibleAccounts, eligibleLoans, currentPage, rowsPerPage]);
 
   const totalPages = useMemo(() => {
-    return Math.ceil(eligibleAccounts.length / rowsPerPage);
-  }, [eligibleAccounts.length, rowsPerPage]);
+    const totalItems = collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length;
+    return Math.ceil(totalItems / rowsPerPage);
+  }, [collectionType, eligibleAccounts, eligibleLoans, rowsPerPage]);
 
   const getPaginationItems = () => {
     if (totalPages <= 1) return [];
@@ -177,14 +181,15 @@ export default function GroupCollectionsPage() {
   const paginationItems = getPaginationItems();
 
   const handleLoadMembers = () => {
-    if (!selectedSchool || !selectedAccountType || !selectedYear || !selectedMonth || !pageData) {
-      toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select school, account type, year, and month.' });
+    if ((collectionType === 'savings' && !selectedAccountType) || !selectedSchool || !selectedYear || !selectedMonth || !pageData) {
+      toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select school, collection type, year, and month.' });
       return;
     }
     setIsLoadingMembers(true);
     setPostedTransactions(null); 
     
     setTimeout(() => {
+      if (collectionType === 'savings') {
         const schoolName = pageData.schools.find(s => s.id === selectedSchool)?.name || 'N/A';
         const filteredAccounts: EligibleAccount[] = [];
         pageData.members.forEach(member => {
@@ -203,51 +208,63 @@ export default function GroupCollectionsPage() {
                 });
             }
         });
-
-      setEligibleAccounts(filteredAccounts);
-      setSelectedAccountIds(filteredAccounts.map(acc => acc.accountId)); 
-      
-      const initialAmounts: Record<string, number> = {};
-      filteredAccounts.forEach(acc => {
-          initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
-      });
-      setCollectionAmounts(initialAmounts);
+        setEligibleAccounts(filteredAccounts);
+        setSelectedIds(filteredAccounts.map(acc => acc.accountId)); 
+        const initialAmounts: Record<string, number> = {};
+        filteredAccounts.forEach(acc => {
+            initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
+        });
+        setCollectionAmounts(initialAmounts);
+        if (filteredAccounts.length === 0) {
+          toast({ title: 'No Eligible Savings Accounts', description: 'No member accounts match the selected criteria or have an expected monthly saving.' });
+        }
+      } else { // Loans
+        const loansInSchool = pageData.loans.filter(l => l.member.schoolId === selectedSchool);
+        setEligibleLoans(loansInSchool);
+        setSelectedIds(loansInSchool.map(l => l.id));
+        const initialAmounts: Record<string, number> = {};
+        loansInSchool.forEach(l => {
+            initialAmounts[l.id] = l.monthlyRepaymentAmount || 0;
+        });
+        setCollectionAmounts(initialAmounts);
+        if (loansInSchool.length === 0) {
+          toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
+        }
+      }
 
       setIsLoadingMembers(false);
-      if (filteredAccounts.length === 0) {
-        toast({ title: 'No Eligible Accounts Found', description: 'No member accounts match the selected criteria or have an expected monthly saving.' });
-      }
     }, 300);
   };
   
   const handleSelectAllChange = (checked: boolean) => {
-    setSelectedAccountIds(checked ? eligibleAccounts.map(acc => acc.accountId) : []);
+    const allIds = collectionType === 'savings' ? eligibleAccounts.map(acc => acc.accountId) : eligibleLoans.map(l => l.id);
+    setSelectedIds(checked ? allIds : []);
   };
 
-  const handleRowSelectChange = (accountId: string, checked: boolean) => {
-    setSelectedAccountIds(prev =>
-      checked ? [...prev, accountId] : prev.filter(id => id !== accountId)
+  const handleRowSelectChange = (id: string, checked: boolean) => {
+    setSelectedIds(prev =>
+      checked ? [...prev, id] : prev.filter(rowId => rowId !== id)
     );
   };
   
-  const handleCollectionAmountChange = (accountId: string, amount: string) => {
-    setCollectionAmounts(prev => ({ ...prev, [accountId]: parseFloat(amount) || 0 }));
+  const handleCollectionAmountChange = (id: string, amount: string) => {
+    setCollectionAmounts(prev => ({ ...prev, [id]: parseFloat(amount) || 0 }));
   };
 
-  const isAllSelected = eligibleAccounts.length > 0 && selectedAccountIds.length === eligibleAccounts.length;
+  const isAllSelected = (collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length) > 0 && selectedIds.length === (collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length);
 
   const summaryForSelection = useMemo(() => {
-    const membersInSelection = selectedAccountIds.length;
-    const totalAmountToCollect = selectedAccountIds.reduce((sum, accountId) => {
-        return sum + (collectionAmounts[accountId] || 0);
+    const totalAmountToCollect = selectedIds.reduce((sum, id) => {
+        return sum + (collectionAmounts[id] || 0);
     }, 0);
     return {
-      count: membersInSelection,
-      totalExpectedSaving: totalAmountToCollect,
+      count: selectedIds.length,
+      totalExpected: totalAmountToCollect,
     };
-  }, [selectedAccountIds, collectionAmounts]);
+  }, [selectedIds, collectionAmounts]);
 
   const handleExport = () => {
+    // This needs to be adapted for loans too if needed
     if (eligibleAccounts.length === 0) {
         toast({ variant: 'destructive', title: 'No Data', description: 'There is no data to export.' });
         return;
@@ -266,7 +283,7 @@ export default function GroupCollectionsPage() {
   };
 
 
-  // EXCEL-BASED COLLECTION LOGIC
+  // EXCEL-BASED COLLECTION LOGIC (Only for Savings for now)
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -347,76 +364,88 @@ export default function GroupCollectionsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    // Use last day of the month for batch transactions
     const transactionDateObj = new Date(parseInt(selectedYear), parseInt(selectedMonth) + 1, 0);
     const transactionMonthString = `${months.find(m => m.value.toString() === selectedMonth)?.label} ${selectedYear}`;
-    let newTransactions: Omit<Saving, 'id'>[] = [];
-
-    if (collectionMode === 'filter') {
-        const accountsToProcess = selectedAccountIds
-            .map(accountId => {
-                const account = eligibleAccounts.find(acc => acc.accountId === accountId);
-                return {
-                    account: account!,
-                    amount: collectionAmounts[accountId] || 0,
-                }
-            })
-            .filter(({ amount }) => amount > 0);
-
-        if (accountsToProcess.length === 0) {
-            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select accounts and ensure their collection amounts are greater than zero.' });
-            return;
-        }
-
-        newTransactions = accountsToProcess.map(({account, amount}) => ({
-            memberId: account.memberId,
-            memberSavingAccountId: account.accountId,
-            memberName: account.fullName,
-            amount: amount,
-            date: transactionDateObj,
-            month: transactionMonthString,
-            transactionType: 'deposit',
-            status: 'pending',
-            depositMode: batchDetails.depositMode,
-            sourceName: batchDetails.sourceName,
-            transactionReference: batchDetails.transactionReference,
-            evidenceUrl: batchDetails.evidenceUrl,
-        }));
-
-    } else { // Excel mode
-        const validRows = parsedData.filter(d => d.status === 'Valid');
-        if (validRows.length === 0) {
-            toast({ variant: 'destructive', title: 'No Valid Data', description: 'There are no valid transactions from the Excel file to submit.' });
-            return;
-        }
-         newTransactions = validRows.map(row => ({
-            memberId: row.memberId!,
-            memberSavingAccountId: row.accountId!,
-            memberName: row.memberName!,
-            amount: row.SavingCollected!,
-            date: transactionDateObj,
-            month: transactionMonthString,
-            transactionType: 'deposit',
-            status: 'pending',
-            depositMode: batchDetails.depositMode,
-            sourceName: batchDetails.sourceName,
-            transactionReference: batchDetails.transactionReference,
-            evidenceUrl: batchDetails.evidenceUrl,
-        }));
-    }
 
     if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${batchDetails.depositMode} Name.` });
         return;
     }
-
+    
     setIsPosting(true);
-    const result = await recordBatchSavings(newTransactions as Saving[]);
+    let result;
+
+    if (collectionType === 'savings') {
+        const newTransactions: any[] = [];
+        if (collectionMode === 'filter') {
+            const accountsToProcess = selectedIds
+                .map(accountId => {
+                    const account = eligibleAccounts.find(acc => acc.accountId === accountId);
+                    return {
+                        account: account!,
+                        amount: collectionAmounts[accountId] || 0,
+                    }
+                })
+                .filter(({ amount }) => amount > 0);
+
+            if (accountsToProcess.length === 0) {
+                toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select accounts and ensure their collection amounts are greater than zero.' });
+                setIsPosting(false);
+                return;
+            }
+            accountsToProcess.forEach(({account, amount}) => newTransactions.push({
+                memberId: account.memberId, memberSavingAccountId: account.accountId, memberName: account.fullName, amount: amount,
+                date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
+                depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
+                transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
+            }));
+        } else { // Excel
+             const validRows = parsedData.filter(d => d.status === 'Valid');
+             if (validRows.length === 0) {
+                toast({ variant: 'destructive', title: 'No Valid Data', description: 'There are no valid transactions from the Excel file to submit.' });
+                setIsPosting(false);
+                return;
+            }
+             validRows.forEach(row => newTransactions.push({
+                memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: row.SavingCollected!,
+                date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
+                depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
+                transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
+            }));
+        }
+        result = await recordBatchSavings(newTransactions);
+        setPostedTransactions(newTransactions);
+
+    } else { // Loans
+        const repaymentsToProcess: RepaymentBatchData = selectedIds
+            .map(loanId => {
+                const loan = eligibleLoans.find(l => l.id === loanId);
+                return {
+                    loanId,
+                    loanAccountNumber: loan?.loanAccountNumber || null,
+                    memberName: loan?.member.fullName || 'N/A',
+                    amountPaid: collectionAmounts[loanId] || 0,
+                    paymentDate: batchDetails.date,
+                    depositMode: batchDetails.depositMode,
+                    paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails,
+                }
+            })
+            .filter(({ amountPaid }) => amountPaid > 0);
+        
+        if (repaymentsToProcess.length === 0) {
+            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please enter repayment amounts > 0 for selected loans.' });
+            setIsPosting(false);
+            return;
+        }
+        result = await recordBatchLoanRepayments(repaymentsToProcess);
+        setPostedTransactions(repaymentsToProcess);
+    }
+    
     if (result.success) {
         toast({ title: 'Collection Submitted', description: result.message });
-        setPostedTransactions(newTransactions as Saving[]);
         setEligibleAccounts([]); 
-        setSelectedAccountIds([]);
+        setEligibleLoans([]);
+        setSelectedIds([]);
         setParsedData([]);
         setExcelFile(null);
     } else {
@@ -427,11 +456,10 @@ export default function GroupCollectionsPage() {
   
   const startNewGroupCollection = () => {
     setPostedTransactions(null);
-    setCollectionMode('filter');
     setSelectedSchool('');
     setSelectedAccountType('');
     setEligibleAccounts([]);
-    setSelectedAccountIds([]);
+    setSelectedIds([]);
     setExcelFile(null);
     setParsedData([]);
     setBatchDetails(initialBatchTransactionState);
@@ -454,6 +482,328 @@ export default function GroupCollectionsPage() {
       );
   }
 
+  const renderFilterContent = () => {
+      const isLoan = collectionType === 'loans';
+      const items = isLoan ? eligibleLoans : eligibleAccounts;
+      return (
+        <Card className="shadow-lg animate-in fade-in-50 duration-300">
+            <CardHeader>
+              <CardTitle className="font-headline text-primary">2. Load Members by Filter</CardTitle>
+              <CardDescription>Select school, collection type, year, and month to load eligible members.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+              <div>
+                <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
+                <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="schoolFilter"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openSchoolCombobox}
+                        className="w-full justify-between"
+                        >
+                        {selectedSchool
+                            ? pageData.schools.find((s) => s.id === selectedSchool)?.name
+                            : "Select school..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search school..." />
+                        <CommandList>
+                            <CommandEmpty>No school found.</CommandEmpty>
+                            <CommandGroup>
+                            {pageData.schools.map((s) => (
+                                <CommandItem
+                                key={s.id}
+                                value={s.name}
+                                onSelect={() => {
+                                    setSelectedSchool(s.id);
+                                    setOpenSchoolCombobox(false);
+                                }}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedSchool === s.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {s.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+              </div>
+              {!isLoan && (
+                <div>
+                  <Label htmlFor="accountTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
+                  <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+                    <SelectTrigger id="accountTypeFilter"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
+                    <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                  <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="monthFilter">Month <span className="text-destructive">*</span></Label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
+                  <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleLoadMembers} disabled={isLoadingMembers || !selectedSchool || (!isLoan && !selectedAccountType) || !selectedYear || !selectedMonth} className="w-full lg:w-auto">
+                {isLoadingMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Filter className="mr-2 h-4 w-4" />}
+                {isLoan ? 'Load Loans' : 'Load Members'}
+              </Button>
+            </CardContent>
+             {items.length > 0 && (
+                <CardContent>
+                  <div className="flex justify-end mb-4">
+                      <Button variant="outline" onClick={handleExport} disabled={items.length === 0}>
+                          <FileDown className="mr-2 h-4 w-4" /> Export Loaded Data
+                      </Button>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border shadow-sm">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[60px] px-2">
+                              <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAllChange} disabled={!canCreate} />
+                            </TableHead>
+                            <TableHead>Member Name</TableHead>
+                            <TableHead>{isLoan ? "Loan Acct #" : "Savings Acct #"}</TableHead>
+                            <TableHead className="text-right">{isLoan ? "Remaining Balance" : "Exp. Monthly Saving"}</TableHead>
+                            <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedEligibleItems.map((item: any) => {
+                            const id = isLoan ? item.id : item.accountId;
+                            const name = isLoan ? item.member.fullName : item.fullName;
+                            const accNum = isLoan ? item.loanAccountNumber : item.accountNumber;
+                            const amount = isLoan ? item.remainingBalance : item.expectedMonthlySaving;
+                            return (
+                                <TableRow key={id} data-state={selectedIds.includes(id) ? 'selected' : undefined}>
+                                <TableCell className="px-2">
+                                  <Checkbox checked={selectedIds.includes(id)} onCheckedChange={(checked) => handleRowSelectChange(id, !!checked)} disabled={!canCreate} />
+                                </TableCell>
+                                <TableCell className="font-medium">{name}</TableCell>
+                                <TableCell>{accNum || 'N/A'}</TableCell>
+                                <TableCell className="text-right">{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={collectionAmounts[id] || ''}
+                                    onChange={(e) => handleCollectionAmountChange(id, e.target.value)}
+                                    className="text-right"
+                                    disabled={!selectedIds.includes(id) || !canCreate}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                  </div>
+                   {items.length > 0 && (
+                    <div className="flex flex-col items-center gap-4 pt-4">
+                      <div className="flex items-center space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Previous</Button>
+                          <div className="flex items-center gap-1">
+                              {paginationItems.map((item, index) =>
+                                  typeof item === 'number' ? (<Button key={index} variant={currentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCurrentPage(item)}>{item}</Button>)
+                                  : (<span key={index} className="px-2">{item}</span>)
+                              )}
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage >= totalPages}>Next</Button>
+                      </div>
+                      <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                          <div>Page {currentPage} of {totalPages || 1}</div>
+                          <div>{items.length} eligible account(s) found.</div>
+                          <div className="flex items-center space-x-2">
+                              <p className="font-medium">Rows:</p>
+                              <Select value={`${rowsPerPage}`} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}>
+                                  <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${rowsPerPage}`} /></SelectTrigger>
+                                  <SelectContent side="top">
+                                      {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+             )}
+          </Card>
+      );
+  }
+
+  const renderExcelContent = () => {
+    return (
+        <Card className="shadow-lg animate-in fade-in-50 duration-300">
+            <CardHeader>
+                <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
+                <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID" and "SavingCollected".</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <Label htmlFor="accountTypeFilterExcel">Saving Account Type <span className="text-destructive">*</span></Label>
+                    <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+                        <SelectTrigger id="accountTypeFilterExcel"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
+                        <SelectContent>{pageData?.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                     <p className="text-xs text-muted-foreground mt-1">All imported savings will be assigned to this account type.</p>
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="excelYearFilter">Collection Period <span className="text-destructive">*</span></Label>
+                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                            <SelectTrigger id="excelYearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                            <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="excelMonthFilter">&nbsp;</Label>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                            <SelectTrigger id="excelMonthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
+                            <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                 <p className="text-xs text-muted-foreground mt-1">Savings will be recorded for the selected month.</p>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
+                        <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
+                        <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate || !selectedAccountType || !selectedYear || !selectedMonth} />
+                    </div>
+                    <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
+                        {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                        Process File
+                    </Button>
+                </div>
+            </CardContent>
+            {parsedData.length > 0 && (
+                <CardContent>
+                   <div className="overflow-x-auto rounded-lg border shadow-sm">
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Member Name</TableHead>
+                           <TableHead>MemberID</TableHead>
+                           <TableHead className="text-right">Amount</TableHead>
+                           <TableHead>Status</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                        {parsedData.map((row, index) => (
+                            <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid MemberID' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
+                                <TableCell>{row.memberName || 'N/A'}</TableCell>
+                                <TableCell>{row.MemberID}</TableCell>
+                                <TableCell className="text-right">{row.SavingCollected?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell>{getValidationBadge(row.status)}</TableCell>
+                            </TableRow>
+                        ))}
+                       </TableBody>
+                     </Table>
+                   </div>
+                </CardContent>
+            )}
+        </Card>
+    );
+  }
+
+  const renderSubmitCard = () => {
+    const totalItems = collectionType === 'savings' ? (collectionMode === 'filter' ? summaryForSelection.count : excelSummary.count) : summaryForSelection.count;
+    const totalAmount = collectionType === 'savings' ? (collectionMode === 'filter' ? summaryForSelection.totalExpected : excelSummary.totalAmount) : summaryForSelection.totalExpected;
+    if ((collectionMode === 'filter' && (eligibleAccounts.length > 0 || eligibleLoans.length > 0)) || (collectionMode === 'excel' && parsedData.length > 0)) {
+        return (
+             <Card className="shadow-lg animate-in fade-in duration-300">
+                <CardHeader>
+                    <CardTitle className="font-headline text-primary">3. Batch Transaction Details</CardTitle>
+                     <p className="text-sm text-muted-foreground">This information will be applied to all submitted transactions in this batch.</p>
+                      <Card className="bg-muted/50 p-4">
+                        <CardTitle className="text-base flex justify-between items-center">
+                            <span>Summary for Submission</span>
+                             <Badge>{totalItems} {collectionType === 'savings' ? 'Accounts' : 'Loans'}</Badge>
+                        </CardTitle>
+                        <CardContent className="p-0 pt-2">
+                            <div className="text-lg font-bold text-primary flex justify-between items-center">
+                                <span>Total Collection Amount:</span>
+                                <span>{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                            </div>
+                        </CardContent>
+                      </Card>
+                </CardHeader>
+                <CardContent>
+                   <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="batchDetails.date">Transaction Date <span className="text-destructive">*</span></Label>
+                            <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required />
+                        </div>
+                        <div>
+                            <Label htmlFor="depositModeBatch">Deposit Mode</Label>
+                            <RadioGroup id="depositModeBatch" value={batchDetails.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" /><Label htmlFor="cashBatch">Cash</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" /><Label htmlFor="bankBatch">Bank</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" /><Label htmlFor="walletBatch">Wallet</Label></div>
+                            </RadioGroup>
+                        </div>
+
+                        {(batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && (
+                            <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
+                                    <div>
+                                        <Label htmlFor="sourceName">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
+                                        <Input id="sourceName" name="sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.sourceName || ''} onChange={handleBatchDetailChange} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="transactionReference">Transaction Reference</Label>
+                                        <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.transactionReference || ''} onChange={handleBatchDetailChange} />
+                                    </div>
+                                </div>
+                                <div className="pl-3">
+                                    <FileUpload
+                                        id="evidenceUrl"
+                                        label="Evidence Attachment"
+                                        value={batchDetails.evidenceUrl || ''}
+                                        onValueChange={(newValue) => {
+                                            setBatchDetails(prev => ({...prev, evidenceUrl: newValue,}));
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+                <CardFooter>
+                   <Button 
+                    onClick={handleSubmitCollection} 
+                    disabled={isPosting || totalAmount <= 0} 
+                    className="w-full md:w-auto ml-auto"
+                   >
+                      {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                      Submit Collection
+                    </Button>
+                </CardFooter>
+            </Card>
+        );
+    }
+    return null;
+  }
+
   return (
     <div className="space-y-8">
       <PageTitle title="Group Monthly Collection" subtitle="Process expected monthly savings for a group of members." />
@@ -461,359 +811,41 @@ export default function GroupCollectionsPage() {
       {!postedTransactions && (
         <>
             <Card className="shadow-md">
-                <CardHeader><CardTitle className="font-headline text-primary">1. Select Collection Method</CardTitle></CardHeader>
-                <CardContent>
-                    <RadioGroup value={collectionMode} onValueChange={(val) => setCollectionMode(val as 'filter' | 'excel')} className="flex flex-wrap gap-x-6 gap-y-4">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="filter" id="mode-filter" />
-                            <Label htmlFor="mode-filter" className="font-medium">Filter Members</Label>
+                <CardHeader><CardTitle className="font-headline text-primary">1. Select Collection Details</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label className="font-medium">Collection Type</Label>
+                        <RadioGroup value={collectionType} onValueChange={(val) => setCollectionType(val as 'savings' | 'loans')} className="flex flex-wrap gap-x-6 gap-y-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="savings" id="type-savings" />
+                                <Label htmlFor="type-savings" className="font-medium">Savings</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="loans" id="type-loans" />
+                                <Label htmlFor="type-loans" className="font-medium">Loan Repayments</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                    {collectionType === 'savings' && (
+                        <div>
+                            <Label className="font-medium">Collection Method</Label>
+                            <RadioGroup value={collectionMode} onValueChange={(val) => setCollectionMode(val as 'filter' | 'excel')} className="flex flex-wrap gap-x-6 gap-y-4">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="filter" id="mode-filter" />
+                                    <Label htmlFor="mode-filter" className="font-medium">Filter Members</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="excel" id="mode-excel" />
+                                    <Label htmlFor="mode-excel" className="font-medium">Upload Excel File</Label>
+                                </div>
+                            </RadioGroup>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="excel" id="mode-excel" />
-                            <Label htmlFor="mode-excel" className="font-medium">Upload Excel File</Label>
-                        </div>
-                    </RadioGroup>
+                    )}
                 </CardContent>
             </Card>
 
-          {collectionMode === 'filter' ? (
-              <Card className="shadow-lg animate-in fade-in-50 duration-300">
-                <CardHeader>
-                  <CardTitle className="font-headline text-primary">2. Load Members by Filter</CardTitle>
-                  <CardDescription>Select school, account type, year, and month to load eligible members.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                  <div>
-                    <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
-                    <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
-                        <PopoverTrigger asChild>
-                            <Button
-                            id="schoolFilter"
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={openSchoolCombobox}
-                            className="w-full justify-between"
-                            >
-                            {selectedSchool
-                                ? pageData.schools.find((s) => s.id === selectedSchool)?.name
-                                : "Select school..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                            <CommandInput placeholder="Search school..." />
-                            <CommandList>
-                                <CommandEmpty>No school found.</CommandEmpty>
-                                <CommandGroup>
-                                {pageData.schools.map((s) => (
-                                    <CommandItem
-                                    key={s.id}
-                                    value={s.name}
-                                    onSelect={() => {
-                                        handleFilterChange(setSelectedSchool)(s.id);
-                                        setOpenSchoolCombobox(false);
-                                    }}
-                                    >
-                                    <Check
-                                        className={cn(
-                                        "mr-2 h-4 w-4",
-                                        selectedSchool === s.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {s.name}
-                                    </CommandItem>
-                                ))}
-                                </CommandGroup>
-                            </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <Label htmlFor="accountTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
-                    <Select value={selectedAccountType} onValueChange={handleFilterChange(setSelectedAccountType)}>
-                      <SelectTrigger id="accountTypeFilter"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
-                      <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>
-                    <Select value={selectedYear} onValueChange={handleFilterChange(setSelectedYear)}>
-                      <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
-                      <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="monthFilter">Month <span className="text-destructive">*</span></Label>
-                    <Select value={selectedMonth} onValueChange={handleFilterChange(setSelectedMonth)}>
-                      <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
-                      <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleLoadMembers} disabled={isLoadingMembers || !selectedSchool || !selectedAccountType || !selectedYear || !selectedMonth} className="w-full lg:w-auto">
-                    {isLoadingMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Filter className="mr-2 h-4 w-4" />}
-                    Load Members
-                  </Button>
-                </CardContent>
-                 {eligibleAccounts.length > 0 && (
-                    <CardContent>
-                      <div className="flex justify-end mb-4">
-                          <Button variant="outline" onClick={handleExport} disabled={eligibleAccounts.length === 0}>
-                              <FileDown className="mr-2 h-4 w-4" /> Export Loaded Members
-                          </Button>
-                      </div>
-                      <div className="overflow-x-auto rounded-lg border shadow-sm">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[60px] px-2">
-                                  <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAllChange} disabled={!canCreate} />
-                                </TableHead>
-                                <TableHead>Member Name</TableHead>
-                                <TableHead>Account Number</TableHead>
-                                <TableHead className="text-right">Exp. Monthly Saving (Birr)</TableHead>
-                                <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {paginatedEligibleAccounts.map(account => (
-                                <TableRow key={account.accountId} data-state={selectedAccountIds.includes(account.accountId) ? 'selected' : undefined}>
-                                  <TableCell className="px-2">
-                                    <Checkbox checked={selectedAccountIds.includes(account.accountId)} onCheckedChange={(checked) => handleRowSelectChange(account.accountId, !!checked)} disabled={!canCreate} />
-                                  </TableCell>
-                                  <TableCell className="font-medium">{account.fullName}</TableCell>
-                                  <TableCell>{account.accountNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">{account.expectedMonthlySaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                  <TableCell className="text-right">
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      placeholder="0.00"
-                                      value={collectionAmounts[account.accountId] || ''}
-                                      onChange={(e) => handleCollectionAmountChange(account.accountId, e.target.value)}
-                                      className="text-right"
-                                      disabled={!selectedAccountIds.includes(account.accountId) || !canCreate}
-                                    />
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                      </div>
-                       {eligibleAccounts.length > 0 && (
-                        <div className="flex flex-col items-center gap-4 pt-4">
-                          <div className="flex items-center space-x-2">
-                              <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setCurrentPage(currentPage - 1)}
-                                  disabled={currentPage === 1}
-                              >
-                                  Previous
-                              </Button>
-                              <div className="flex items-center gap-1">
-                                  {paginationItems.map((item, index) =>
-                                      typeof item === 'number' ? (
-                                          <Button
-                                              key={index}
-                                              variant={currentPage === item ? 'default' : 'outline'}
-                                              size="sm"
-                                              className="h-9 w-9 p-0"
-                                              onClick={() => setCurrentPage(item)}
-                                          >
-                                              {item}
-                                          </Button>
-                                      ) : (
-                                          <span key={index} className="px-2">
-                                              {item}
-                                          </span>
-                                      )
-                                  )}
-                              </div>
-                              <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setCurrentPage(currentPage + 1)}
-                                  disabled={currentPage >= totalPages}
-                              >
-                                  Next
-                              </Button>
-                          </div>
-                          <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                              <div>Page {currentPage} of {totalPages || 1}</div>
-                              <div>{eligibleAccounts.length} eligible account(s) found.</div>
-                              <div className="flex items-center space-x-2">
-                                  <p className="font-medium">Rows:</p>
-                                  <Select
-                                      value={`${rowsPerPage}`}
-                                      onValueChange={(value) => {
-                                          setRowsPerPage(Number(value));
-                                          setCurrentPage(1);
-                                      }}
-                                  >
-                                      <SelectTrigger className="h-8 w-[70px]">
-                                          <SelectValue placeholder={`${rowsPerPage}`} />
-                                      </SelectTrigger>
-                                      <SelectContent side="top">
-                                          {[10, 15, 20, 25, 50].map((pageSize) => (
-                                              <SelectItem key={pageSize} value={`${pageSize}`}>
-                                                  {pageSize}
-                                              </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                  </Select>
-                              </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                 )}
-              </Card>
-            ) : (
-                <Card className="shadow-lg animate-in fade-in-50 duration-300">
-                    <CardHeader>
-                        <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                        <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID" and "SavingCollected".</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <Label htmlFor="accountTypeFilterExcel">Saving Account Type <span className="text-destructive">*</span></Label>
-                            <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
-                                <SelectTrigger id="accountTypeFilterExcel"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
-                                <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                             <p className="text-xs text-muted-foreground mt-1">All imported savings will be assigned to this account type.</p>
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="excelYearFilter">Collection Period <span className="text-destructive">*</span></Label>
-                                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                    <SelectTrigger id="excelYearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
-                                    <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label htmlFor="excelMonthFilter">&nbsp;</Label>
-                                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                                    <SelectTrigger id="excelMonthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
-                                    <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                         <p className="text-xs text-muted-foreground mt-1">Savings will be recorded for the selected month.</p>
-                        <div className="flex flex-col sm:flex-row gap-4 items-start">
-                            <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
-                                <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
-                                <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate || !selectedAccountType || !selectedYear || !selectedMonth} />
-                            </div>
-                            <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
-                                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                                Process File
-                            </Button>
-                        </div>
-                    </CardContent>
-                    {parsedData.length > 0 && (
-                        <CardContent>
-                           <div className="overflow-x-auto rounded-lg border shadow-sm">
-                             <Table>
-                               <TableHeader>
-                                 <TableRow>
-                                   <TableHead>Member Name</TableHead>
-                                   <TableHead>MemberID</TableHead>
-                                   <TableHead className="text-right">Amount</TableHead>
-                                   <TableHead>Status</TableHead>
-                                 </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                {parsedData.map((row, index) => (
-                                    <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid MemberID' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
-                                        <TableCell>{row.memberName || 'N/A'}</TableCell>
-                                        <TableCell>{row.MemberID}</TableCell>
-                                        <TableCell className="text-right">{row.SavingCollected?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                        <TableCell>{getValidationBadge(row.status)}</TableCell>
-                                    </TableRow>
-                                ))}
-                               </TableBody>
-                             </Table>
-                           </div>
-                        </CardContent>
-                    )}
-                </Card>
-            )}
-
-            {((collectionMode === 'filter' && eligibleAccounts.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) && canCreate && (
-                <Card className="shadow-lg animate-in fade-in duration-300">
-                    <CardHeader>
-                        <CardTitle className="font-headline text-primary">3. Batch Transaction Details</CardTitle>
-                         <p className="text-sm text-muted-foreground">This information will be applied to all submitted savings transactions in this batch.</p>
-                          <Card className="bg-muted/50 p-4">
-                            <CardTitle className="text-base flex justify-between items-center">
-                                <span>Summary for Submission</span>
-                                {collectionMode === 'filter' && <Badge>{summaryForSelection.count} Accounts</Badge>}
-                                {collectionMode === 'excel' && <Badge>{excelSummary.count} Transactions</Badge>}
-                            </CardTitle>
-                            <CardContent className="p-0 pt-2">
-                                <div className="text-lg font-bold text-primary flex justify-between items-center">
-                                    <span>Total Collection Amount:</span>
-                                    <span>{(collectionMode === 'filter' ? summaryForSelection.totalExpectedSaving : excelSummary.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                                </div>
-                            </CardContent>
-                          </Card>
-                    </CardHeader>
-                    <CardContent>
-                       <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="batchDetails.date">Transaction Date <span className="text-destructive">*</span></Label>
-                                <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required />
-                            </div>
-                            <div>
-                                <Label htmlFor="depositModeBatch">Deposit Mode</Label>
-                                <RadioGroup id="depositModeBatch" value={batchDetails.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
-                                    <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" /><Label htmlFor="cashBatch">Cash</Label></div>
-                                    <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" /><Label htmlFor="bankBatch">Bank</Label></div>
-                                    <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" /><Label htmlFor="walletBatch">Wallet</Label></div>
-                                </RadioGroup>
-                            </div>
-
-                            {(batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && (
-                                <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
-                                        <div>
-                                            <Label htmlFor="sourceName">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
-                                            <Input id="sourceName" name="sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.sourceName || ''} onChange={handleBatchDetailChange} />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="transactionReference">Transaction Reference</Label>
-                                            <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.transactionReference || ''} onChange={handleBatchDetailChange} />
-                                        </div>
-                                    </div>
-                                    <div className="pl-3">
-                                        <FileUpload
-                                            id="evidenceUrl"
-                                            label="Evidence Attachment"
-                                            value={batchDetails.evidenceUrl || ''}
-                                            onValueChange={(newValue) => {
-                                                setBatchDetails(prev => ({...prev, evidenceUrl: newValue,}));
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                       <Button 
-                        onClick={handleSubmitCollection} 
-                        disabled={isPosting || (collectionMode === 'filter' && summaryForSelection.totalExpectedSaving <= 0) || (collectionMode === 'excel' && excelSummary.count === 0)} 
-                        className="w-full md:w-auto ml-auto"
-                       >
-                          {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                          Submit Savings Collection
-                        </Button>
-                    </CardFooter>
-                </Card>
-            )}
+            {collectionMode === 'filter' ? renderFilterContent() : renderExcelContent()}
+            {canCreate && renderSubmitCard()}
         </>
       )}
 
@@ -823,14 +855,14 @@ export default function GroupCollectionsPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <CardTitle className="font-headline text-primary">Collection Submitted for Approval</CardTitle>
-                        <CardDescription>The following SAVINGS transactions were submitted for approval. They will not reflect on member balances until approved.</CardDescription>
+                        <CardDescription>The following {collectionType} transactions were submitted. They will not reflect on member balances until approved.</CardDescription>
                     </div>
                     <Button onClick={startNewGroupCollection} variant="outline">
                         <RotateCcw className="mr-2 h-4 w-4" /> Start New Group Collection
                     </Button>
                 </div>
                  <p className="text-sm text-muted-foreground mt-2">
-                    Total Savings Transactions Submitted: {postedTransactions.length}
+                    Total Transactions Submitted: {postedTransactions.length}
                 </p>
             </CardHeader>
             <CardContent>
@@ -839,9 +871,10 @@ export default function GroupCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
+                                {collectionType === 'loans' && <TableHead>Loan Acct. #</TableHead>}
                                 <TableHead className="text-right">Amount (Birr)</TableHead>
                                 <TableHead>Date</TableHead>
-                                <TableHead>Month</TableHead>
+                                {collectionType === 'savings' && <TableHead>Month</TableHead>}
                                 <TableHead>Deposit Mode</TableHead>
                                 <TableHead>Source/Reference</TableHead>
                             </TableRow>
@@ -850,9 +883,10 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map((transaction, i) => (
                                 <TableRow key={`${transaction.memberId}-${i}`}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    <TableCell className="text-right">{transaction.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                    <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                    <TableCell>{transaction.month}</TableCell>
+                                    {collectionType === 'loans' && <TableCell>{transaction.loanAccountNumber || 'N/A'}</TableCell>}
+                                    <TableCell className="text-right">{(transaction.amount || transaction.amountPaid).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                    <TableCell>{new Date(transaction.date || transaction.paymentDate).toLocaleDateString()}</TableCell>
+                                    {collectionType === 'savings' && <TableCell>{transaction.month}</TableCell>}
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>
                                     <TableCell className="text-xs">
                                         {transaction.sourceName && <div><strong>Source:</strong> {transaction.sourceName}</div>}
@@ -877,5 +911,6 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
 
 
