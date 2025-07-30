@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import type { LoanRepayment, Loan, Member } from '@prisma/client';
+import type { LoanRepayment, Loan, Member, LoanType } from '@prisma/client';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -32,7 +32,7 @@ type RepaymentWithDetails = LoanRepayment & {
     loan?: { loanAccountNumber: string | null },
     member?: { fullName: string },
 };
-type ActiveLoanWithMember = Loan & { member: Member | null };
+type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
 const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
   loanId: '',
@@ -316,7 +316,7 @@ export default function LoanRepaymentsPage() {
                         {activeLoans.map(loan => (
                           <CommandItem key={loan.id} value={`${loan.member?.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { setCurrentRepayment(prev => ({ ...prev, loanId: loan.id })); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.member?.fullName} ({loan.loanTypeName}) - Acct: {loan.loanAccountNumber} - Bal: {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr
+                            {loan.member?.fullName} ({loan.loanType?.name}) - Acct: {loan.loanAccountNumber} - Bal: {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>

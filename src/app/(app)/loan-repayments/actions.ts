@@ -2,12 +2,12 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Loan, Member, LoanRepayment, Prisma } from '@prisma/client';
+import type { Loan, Member, LoanRepayment, Prisma, LoanType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface LoanRepaymentsPageData {
   repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }, member?: { fullName: string }})[];
-  activeLoans: (Loan & { member: Member | null})[];
+  activeLoans: (Loan & { member: Member | null} & { loanType: { name: string } | null })[];
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
@@ -42,7 +42,14 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
     where: {
       OR: [{ status: 'active' }, { status: 'overdue' }],
     },
-    include: { member: true },
+    include: { 
+        member: true,
+        loanType: {
+            select: {
+                name: true
+            }
+        }
+    },
     orderBy: [{ member: { fullName: 'asc' }}, {loanAccountNumber: 'asc'}]
   });
 
