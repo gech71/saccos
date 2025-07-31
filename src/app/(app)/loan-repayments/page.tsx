@@ -52,9 +52,10 @@ export default function LoanRepaymentsPage() {
   const { user } = useAuth();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>({});
+  const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>(initialRepaymentFormState);
   const [openLoanCombobox, setOpenLoanCombobox] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [minimumPayment, setMinimumPayment] = useState<number>(0);
 
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -84,7 +85,22 @@ export default function LoanRepaymentsPage() {
   
   useEffect(() => {
     setCurrentRepayment(initialRepaymentFormState);
+    setMinimumPayment(0);
   }, [isModalOpen])
+  
+  useEffect(() => {
+    if (currentRepayment.loanId) {
+      const loan = activeLoans.find(l => l.id === currentRepayment.loanId);
+      if (loan) {
+        const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+        const interestPortion = loan.remainingBalance * (loan.interestRate / 12);
+        const minPayment = principalPortion + interestPortion;
+        setMinimumPayment(minPayment);
+      }
+    } else {
+      setMinimumPayment(0);
+    }
+  }, [currentRepayment.loanId, activeLoans]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -99,6 +115,10 @@ export default function LoanRepaymentsPage() {
     e.preventDefault();
     if (!currentRepayment.loanId || !currentRepayment.amountPaid || currentRepayment.amountPaid <= 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
+      return;
+    }
+    if (currentRepayment.amountPaid < minimumPayment) {
+      toast({ variant: 'destructive', title: 'Error', description: `Payment amount must be at least ${minimumPayment.toFixed(2)} Birr.` });
       return;
     }
     if ((currentRepayment.depositMode === 'Bank' || currentRepayment.depositMode === 'Wallet') && !currentRepayment.sourceName) {
@@ -327,7 +347,12 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
+                <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} min={minimumPayment} required />
+                 {minimumPayment > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimum payment: {minimumPayment.toFixed(2)} Birr
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="paymentDate">Payment Date <span className="text-destructive">*</span></Label>

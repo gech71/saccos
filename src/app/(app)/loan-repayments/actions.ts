@@ -69,6 +69,15 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     if (data.amountPaid <= 0) {
         throw new Error('Payment amount must be positive.');
     }
+    
+    // Calculate minimum payment for validation
+    const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+    const interestPortion = loan.remainingBalance * (loan.interestRate / 12);
+    const minimumPayment = principalPortion + interestPortion;
+    
+    if (data.amountPaid < minimumPayment) {
+        throw new Error(`Payment amount cannot be less than the minimum required payment of ${minimumPayment.toFixed(2)} Birr.`);
+    }
 
     await prisma.$transaction(async (tx) => {
       // 1. Calculate interest for the current period
