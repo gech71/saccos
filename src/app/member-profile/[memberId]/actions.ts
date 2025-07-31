@@ -44,14 +44,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                     allocationDate: 'desc'
                 }
             },
-            loans: {
-                include: {
-                    loanType: true
-                },
-                orderBy: {
-                    disbursementDate: 'desc'
-                }
-            },
             loanRepayments: {
                 orderBy: {
                     paymentDate: 'desc'
@@ -82,6 +74,18 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     if (!member) {
         return null;
     }
+    
+    // Fetch loans separately
+    const loans = await prisma.loan.findMany({
+        where: { memberId: memberId },
+        include: {
+            loanType: true,
+        },
+        orderBy: {
+            disbursementDate: 'desc'
+        }
+    });
+
 
     // Calculate running balance for savings
     const totalInitialBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.initialBalance, 0);
@@ -140,7 +144,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         emergencyContact: member.emergencyContact,
         savingAccounts: member.memberSavingAccounts,
         shares: member.shares.map(s => ({ ...s, shareTypeName: s.shareType.name })),
-        loans: member.loans.map(l => ({ ...l, loanTypeName: l.loanType.name })),
+        loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name })),
         loanRepayments: member.loanRepayments,
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
         monthlySavings,
