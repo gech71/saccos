@@ -199,7 +199,7 @@ export default function MemberProfilePage() {
                 {/* Savings Tab */}
                 <TabsContent value="savings" className="mt-6 space-y-6">
                     <SectionCard title="Saving Accounts Summary">
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {savingAccounts.map(acc => (
                                <Card key={acc.id} className="p-4 flex flex-col justify-between shadow-sm bg-card hover:bg-muted/50 transition-colors">
                                   <div className="flex-1 mb-4">
@@ -256,26 +256,26 @@ export default function MemberProfilePage() {
                         <div className="overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead className="text-left w-[15%]">Date</TableHead>
-                                    <TableHead className="text-left w-[15%]">Description</TableHead>
-                                    <TableHead className="text-left w-[15%]">Debit</TableHead>
-                                    <TableHead className="text-left w-[15%]">Credit</TableHead>
-                                    <TableHead className="text-left w-[15%]">Reference</TableHead>
-                                    <TableHead className="text-left w-[15%]">Balance</TableHead>
+                                    <TableHead className="w-[15%]">Date</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right w-[15%]">Debit</TableHead>
+                                    <TableHead className="text-right w-[15%]">Credit</TableHead>
+                                    <TableHead className="w-[15%] truncate">Reference</TableHead>
+                                    <TableHead className="text-right w-[15%]">Balance</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
                                         <TableRow key={tx.id}>
                                             <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                                             <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
-                                            <TableCell className="font-medium text-destructive">
+                                            <TableCell className="font-medium text-destructive text-right">
                                                 {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
-                                            <TableCell className="font-medium text-green-600">
+                                            <TableCell className="font-medium text-green-600 text-right">
                                                 {tx.transactionType === 'deposit' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground truncate">{tx.transactionReference || 'N/A'}</TableCell>
-                                            <TableCell className="font-semibold">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="font-semibold text-right">{tx.balanceAfter.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow><TableCell colSpan={6} className="h-24 text-center">No transactions match the current filters.</TableCell></TableRow>
@@ -325,56 +325,44 @@ export default function MemberProfilePage() {
                 
                 {/* Loans Tab */}
                 <TabsContent value="loans" className="mt-6 space-y-6">
-                     <SectionCard title="Loan History">
-                       <div className="overflow-x-auto rounded-md border">
-                            <Table>
-                                <TableHeader><TableRow>
-                                    <TableHead>Disbursed</TableHead>
-                                    <TableHead>Loan Type</TableHead>
-                                    <TableHead className="text-right">Principal</TableHead>
-                                    <TableHead className="text-right">Balance</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Next Due Date</TableHead>
-                                </TableRow></TableHeader>
-                                <TableBody>
-                                     {loans.length > 0 ? loans.map(loan => (
-                                        <TableRow key={loan.id}>
-                                            <TableCell>{format(new Date(loan.disbursementDate), 'PPP')}</TableCell>
-                                            <TableCell>{loan.loanTypeName}</TableCell>
-                                            <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                            <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                            <TableCell>{getLoanStatusBadge(loan.status)}</TableCell>
-                                            <TableCell>{loan.nextDueDate ? format(new Date(loan.nextDueDate), 'PPP') : 'N/A'}</TableCell>
-                                        </TableRow>
-                                     )) : (
-                                         <TableRow><TableCell colSpan={6} className="h-24 text-center">No loans found.</TableCell></TableRow>
-                                     )}
-                                </TableBody>
-                            </Table>
-                       </div>
-                    </SectionCard>
-                     <SectionCard title="Loan Repayment History">
-                       <div className="overflow-x-auto rounded-md border">
-                            <Table>
-                                <TableHeader><TableRow>
-                                    <TableHead>Payment Date</TableHead>
-                                    <TableHead>Loan Acct. #</TableHead>
-                                    <TableHead className="text-right">Amount Paid</TableHead>
-                                </TableRow></TableHeader>
-                                <TableBody>
-                                     {loanRepayments.length > 0 ? loanRepayments.map(repayment => (
-                                        <TableRow key={repayment.id}>
-                                            <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
-                                            <TableCell>{loans.find(l => l.id === repayment.loanId)?.loanAccountNumber || 'N/A'}</TableCell>
-                                            <TableCell className="text-right font-semibold">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                        </TableRow>
-                                     )) : (
-                                         <TableRow><TableCell colSpan={3} className="h-24 text-center">No loan repayments found.</TableCell></TableRow>
-                                     )}
-                                </TableBody>
-                            </Table>
-                       </div>
-                    </SectionCard>
+                    {loans.length > 0 ? loans.map(loan => {
+                        const specificRepayments = loanRepayments.filter(r => r.loanId === loan.id);
+                        return (
+                             <SectionCard key={loan.id} title={`Loan Details: ${loan.loanTypeName} (${loan.loanAccountNumber})`}>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border-b pb-4">
+                                    <StatInfo icon={<></>} label="Principal Amount" value={`${loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
+                                    <StatInfo icon={<></>} label="Remaining Balance" value={`${loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
+                                    <StatInfo icon={<></>} label="Status" value={getLoanStatusBadge(loan.status)} />
+                                    <StatInfo icon={<></>} label="Disbursed" value={format(new Date(loan.disbursementDate), 'PPP')} />
+                                </div>
+                                <h4 className="font-medium mb-2">Repayment History for this Loan</h4>
+                                <div className="overflow-x-auto rounded-md border">
+                                    <Table>
+                                        <TableHeader><TableRow>
+                                            <TableHead>Payment Date</TableHead>
+                                            <TableHead className="text-right">Amount Paid</TableHead>
+                                            <TableHead>Deposit Mode</TableHead>
+                                        </TableRow></TableHeader>
+                                        <TableBody>
+                                            {specificRepayments.length > 0 ? specificRepayments.map(repayment => (
+                                                <TableRow key={repayment.id}>
+                                                    <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
+                                                    <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                                    <TableCell><Badge variant="secondary">{repayment.depositMode}</Badge></TableCell>
+                                                </TableRow>
+                                            )) : (
+                                                <TableRow><TableCell colSpan={3} className="h-24 text-center">No repayments for this loan yet.</TableCell></TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </SectionCard>
+                        )
+                    }) : (
+                        <SectionCard title="Loan History">
+                            <p className="text-muted-foreground text-center py-8">This member has not taken any loans.</p>
+                        </SectionCard>
+                    )}
                 </TabsContent>
                 
                 {/* Service Charges Tab */}
