@@ -427,6 +427,21 @@ export default function GroupCollectionsPage() {
         setPostedTransactions(newTransactions);
 
     } else { // Loans
+        // Validate minimum payments before submission
+        for (const loanId of selectedIds) {
+            const amountPaid = collectionAmounts[loanId] || 0;
+            const minPayment = minimumPayments[loanId] || 0;
+            if (amountPaid > 0 && amountPaid < minPayment) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Repayment Amount',
+                    description: `A payment for loan ${eligibleLoans.find(l => l.id === loanId)?.loanAccountNumber} is below the minimum required amount. Please correct it before submitting.`
+                });
+                setIsPosting(false);
+                return;
+            }
+        }
+
         const repaymentsToProcess: RepaymentBatchData = selectedIds
             .map(loanId => {
                 const loan = eligibleLoans.find(l => l.id === loanId);
@@ -933,6 +948,7 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
 
 
 
