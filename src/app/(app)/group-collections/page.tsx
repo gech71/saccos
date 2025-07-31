@@ -29,7 +29,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Saving, SavingAccountType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
@@ -102,6 +102,7 @@ export default function GroupCollectionsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [collectionAmounts, setCollectionAmounts] = useState<Record<string, number>>({});
+  const [minimumPayments, setMinimumPayments] = useState<Record<string, number>>({});
   const [collectionType, setCollectionType] = useState<'savings' | 'loans'>('savings');
   
   // EXCEL-BASED COLLECTION STATE
@@ -222,11 +223,20 @@ export default function GroupCollectionsPage() {
         const loansInSchool = pageData.loans.filter(l => l.member.schoolId === selectedSchool);
         setEligibleLoans(loansInSchool);
         setSelectedIds(loansInSchool.map(l => l.id));
+        
         const initialAmounts: Record<string, number> = {};
+        const minimums: Record<string, number> = {};
+        
         loansInSchool.forEach(l => {
             initialAmounts[l.id] = l.monthlyRepaymentAmount || 0;
+            const principalPortion = l.loanTerm > 0 ? l.principalAmount / l.loanTerm : 0;
+            const interestPortion = l.remainingBalance * (l.interestRate / 12);
+            minimums[l.id] = principalPortion + interestPortion;
         });
+
         setCollectionAmounts(initialAmounts);
+        setMinimumPayments(minimums);
+
         if (loansInSchool.length === 0) {
           toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
         }
@@ -593,6 +603,10 @@ export default function GroupCollectionsPage() {
                             const name = isLoan ? item.member.fullName : item.fullName;
                             const accNum = isLoan ? item.loanAccountNumber : item.accountNumber;
                             const amount = isLoan ? item.remainingBalance : item.expectedMonthlySaving;
+                            const minPayment = isLoan ? minimumPayments[id] || 0 : 0;
+                            const currentAmountPaid = collectionAmounts[id] || 0;
+                            const showError = isLoan && selectedIds.includes(id) && currentAmountPaid > 0 && currentAmountPaid < minPayment;
+
                             return (
                                 <TableRow key={id} data-state={selectedIds.includes(id) ? 'selected' : undefined}>
                                 <TableCell className="px-2">
@@ -602,15 +616,23 @@ export default function GroupCollectionsPage() {
                                 <TableCell>{accNum || 'N/A'}</TableCell>
                                 <TableCell className="text-right">{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 <TableCell className="text-right">
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    value={collectionAmounts[id] || ''}
-                                    onChange={(e) => handleCollectionAmountChange(id, e.target.value)}
-                                    className="text-right"
-                                    disabled={!selectedIds.includes(id) || !canCreate}
-                                  />
+                                  <div className='flex flex-col items-end'>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={collectionAmounts[id] || ''}
+                                        onChange={(e) => handleCollectionAmountChange(id, e.target.value)}
+                                        className={cn("text-right", showError && "border-destructive focus-visible:ring-destructive")}
+                                        disabled={!selectedIds.includes(id) || !canCreate}
+                                      />
+                                      {showError && (
+                                        <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                                          <AlertCircle className="h-3 w-3" />
+                                          Min payment is {minPayment.toFixed(2)} Birr
+                                        </p>
+                                      )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
@@ -911,6 +933,7 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
+
 
 
 
