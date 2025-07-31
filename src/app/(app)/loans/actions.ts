@@ -96,14 +96,15 @@ export type CollateralInput = {
     guarantorId?: string;
 };
 
-export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod'> & {
+export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod' | 'monthlyRepaymentAmount'> & {
     disbursementDate: string;
     notes?: string | null;
     collaterals: CollateralInput[];
+    monthlyRepaymentAmount: number;
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
-  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm } = data;
+  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm, monthlyRepaymentAmount } = data;
   
   const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
   if (!loanType) throw new Error("Loan Type not found");
@@ -157,6 +158,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       remainingBalance: principalAmount,
       insuranceFee,
       serviceFee,
+      monthlyRepaymentAmount,
       member: { connect: { id: memberId } },
       loanType: { connect: { id: loanTypeId } },
       collaterals: { 

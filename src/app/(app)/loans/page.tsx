@@ -60,6 +60,7 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   loanAccountNumber: '',
   collaterals: [],
   purpose: '',
+  monthlyRepaymentAmount: 0,
 };
 
 export default function LoansPage() {
@@ -107,18 +108,24 @@ export default function LoansPage() {
 
   useEffect(() => {
     if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0 && currentLoan.loanTerm && currentLoan.loanTerm > 0) {
-        if (selectedLoanType.interestRate > 0) {
-            const monthlyRate = selectedLoanType.interestRate / 12;
-            const numberOfPayments = currentLoan.loanTerm;
-            const principal = currentLoan.principalAmount;
-            const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
-            setMonthlyPayment(payment);
+        const principal = currentLoan.principalAmount;
+        const annualRate = selectedLoanType.interestRate;
+        const termInMonths = currentLoan.loanTerm;
+
+        let payment = 0;
+        if (annualRate > 0) {
+            const monthlyRate = annualRate / 12;
+            const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, termInMonths);
+            const denominator = Math.pow(1 + monthlyRate, termInMonths) - 1;
+            payment = numerator / denominator;
         } else {
-             const payment = currentLoan.principalAmount / currentLoan.loanTerm;
-             setMonthlyPayment(payment);
+             payment = principal / termInMonths;
         }
+        setMonthlyPayment(payment);
+        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: payment}));
     } else {
         setMonthlyPayment(null);
+        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0}));
     }
   }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType]);
 
@@ -452,4 +459,3 @@ export default function LoansPage() {
     </div>
   );
 }
-    
