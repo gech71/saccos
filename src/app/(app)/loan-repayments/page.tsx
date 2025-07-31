@@ -348,7 +348,7 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} min={minimumPayment} required />
+                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} min={minimumPayment} required />
                  {minimumPayment > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Minimum payment: {minimumPayment.toFixed(2)} Birr
@@ -406,3 +406,4 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
