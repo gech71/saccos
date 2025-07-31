@@ -59,25 +59,40 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   };
 }
 
-export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'memberId'>;
+export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'memberId' | 'interestPaid' | 'principalPaid'>;
 
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
   try {
     const loan = await prisma.loan.findUnique({ where: { id: data.loanId } });
     if (!loan) throw new Error('Loan not found');
 
+    if (data.amountPaid <= 0) {
+        throw new Error('Payment amount must be positive.');
+    }
+
     await prisma.$transaction(async (tx) => {
-      // 1. Create the repayment record
+      // 1. Calculate interest for the current period
+      const monthlyInterestRate = loan.interestRate / 12;
+      const interestForMonth = loan.remainingBalance * monthlyInterestRate;
+
+      // 2. Allocate payment
+      const interestPaid = Math.min(data.amountPaid, interestForMonth);
+      const principalPaid = data.amountPaid - interestPaid;
+      
+      const newBalance = loan.remainingBalance - principalPaid;
+
+      // 3. Create the repayment record with detailed allocation
       await tx.loanRepayment.create({ 
         data: {
             ...data,
             paymentDate: new Date(data.paymentDate),
             memberId: loan.memberId,
+            interestPaid: interestPaid,
+            principalPaid: principalPaid,
         }
       });
 
-      // 2. Update the loan's remaining balance
-      const newBalance = loan.remainingBalance - data.amountPaid;
+      // 4. Update the loan's remaining balance
       await tx.loan.update({
         where: { id: data.loanId },
         data: {
@@ -92,6 +107,7 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     return { success: true, message: 'Loan repayment recorded successfully.' };
   } catch (error) {
     console.error('Failed to record loan repayment:', error);
-    return { success: false, message: 'An error occurred while recording the repayment.' };
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred while recording the repayment.';
+    return { success: false, message: errorMessage };
   }
 }

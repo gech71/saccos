@@ -49,7 +49,7 @@ export async function getLoansBySchool(schoolId: string): Promise<LoanWithMember
 
 export type RepaymentBatchData = {
     loanId: string;
-    loanAccountNumber: string;
+    loanAccountNumber: string | null;
     amountPaid: number;
     paymentDate: string;
     depositMode: 'Cash' | 'Bank' | 'Wallet';
@@ -75,8 +75,20 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
         if (!loan) {
           throw new Error(`Loan with ID ${repayment.loanId} not found.`);
         }
+        
+        if (repayment.amountPaid <= 0) continue; // Skip zero or negative payments
 
-        // Create the repayment record
+        // 1. Calculate interest for the current period
+        const monthlyInterestRate = loan.interestRate / 12;
+        const interestForMonth = loan.remainingBalance * monthlyInterestRate;
+
+        // 2. Allocate payment
+        const interestPaid = Math.min(repayment.amountPaid, interestForMonth);
+        const principalPaid = repayment.amountPaid - interestPaid;
+      
+        const newBalance = loan.remainingBalance - principalPaid;
+
+        // 3. Create the repayment record with detailed allocation
         await tx.loanRepayment.create({
           data: {
             loanId: repayment.loanId,
@@ -87,11 +99,12 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
             sourceName: repayment.paymentDetails?.sourceName,
             transactionReference: repayment.paymentDetails?.transactionReference,
             evidenceUrl: repayment.paymentDetails?.evidenceUrl,
+            interestPaid,
+            principalPaid,
           },
         });
 
-        // Update the loan's remaining balance
-        const newBalance = loan.remainingBalance - repayment.amountPaid;
+        // 4. Update the loan's remaining balance
         await tx.loan.update({
           where: { id: repayment.loanId },
           data: {
@@ -99,6 +112,10 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
             status: newBalance <= 0 ? 'paid_off' : loan.status,
           },
         });
+        
+        // Update the in-memory map for subsequent calculations in the same batch
+        loan.remainingBalance = newBalance;
+        loanMap.set(loan.id, loan);
       }
     });
 
