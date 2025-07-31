@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -112,17 +113,13 @@ export default function LoansPage() {
         const annualRate = selectedLoanType.interestRate;
         const termInMonths = currentLoan.loanTerm;
 
-        let payment = 0;
-        if (annualRate > 0) {
-            const monthlyRate = annualRate / 12;
-            const numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, termInMonths);
-            const denominator = Math.pow(1 + monthlyRate, termInMonths) - 1;
-            payment = numerator / denominator;
-        } else {
-             payment = principal / termInMonths;
-        }
-        setMonthlyPayment(payment);
-        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: payment}));
+        // "Reducing Balance" first month payment calculation
+        const principalPortion = principal / termInMonths;
+        const interestPortion = principal * (annualRate / 12);
+        const firstMonthPayment = principalPortion + interestPortion;
+
+        setMonthlyPayment(firstMonthPayment);
+        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: firstMonthPayment}));
     } else {
         setMonthlyPayment(null);
         setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0}));
@@ -393,7 +390,7 @@ export default function LoansPage() {
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">15.00 ETB</span></div>
                     <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                 </>}
-                {monthlyPayment && <div className="flex justify-between text-primary font-bold"><Separator className="my-1 col-span-2"/><span>Est. Monthly Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>}
+                {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>}
             </div>
 
             <Separator/>
@@ -459,3 +456,4 @@ export default function LoansPage() {
     </div>
   );
 }
+
