@@ -277,10 +277,10 @@ export default function LoansPage() {
             <TableRow>
               <TableHead>Member</TableHead>
               <TableHead>Loan Type</TableHead>
-              <TableHead>Purpose</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Principal (Birr)</TableHead>
               <TableHead className="text-right">Balance (Birr)</TableHead>
+              <TableHead className="text-right">Next Payment (Est.)</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -288,14 +288,18 @@ export default function LoansPage() {
           <TableBody>
             {isLoading ? (
                 <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => (
+            ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => {
+              const nextPayment = (loan.status === 'active' || loan.status === 'overdue')
+                ? (loan.principalAmount / loan.loanTerm) + (loan.remainingBalance * loan.interestRate / 12)
+                : 0;
+              return (
               <TableRow key={loan.id}>
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
-                <TableCell>{loan.purpose || 'N/A'}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
                 <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-muted-foreground">{nextPayment > 0 ? nextPayment.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -307,7 +311,8 @@ export default function LoansPage() {
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            )) : (
+              )
+            }) : (
               <TableRow><TableCell colSpan={8} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
@@ -456,4 +461,5 @@ export default function LoansPage() {
     </div>
   );
 }
+
 
