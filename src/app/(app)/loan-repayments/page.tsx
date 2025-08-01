@@ -129,14 +129,18 @@ export default function LoanRepaymentsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
       return;
     }
+    
+    // Use a small tolerance for floating point comparisons
+    const tolerance = 0.01;
 
-    if (currentRepayment.amountPaid > finalSettlement + 0.01) {
-        toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement amount of ${finalSettlement.toFixed(2)}.` });
+    if (currentRepayment.amountPaid > finalSettlement + tolerance) {
+        toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement of ${finalSettlement.toFixed(2)}.` });
         return;
     }
 
-    if (currentRepayment.amountPaid < minimumPayment) {
-        toast({ title: 'Partial Payment Warning', description: `The amount entered is less than the expected minimum payment of ${minimumPayment.toFixed(2)}. This will be recorded as a partial payment.` });
+    if (currentRepayment.amountPaid < minimumPayment - tolerance && currentRepayment.amountPaid < finalSettlement - tolerance) {
+        toast({ variant: 'destructive', title: 'Payment Too Low', description: `Payment must be at least the minimum amount of ${minimumPayment.toFixed(2)}. To make a partial payment lower than the minimum, please contact an administrator. To clear the loan, pay the final settlement amount.` });
+        return;
     }
     
     if ((currentRepayment.depositMode === 'Bank' || currentRepayment.depositMode === 'Wallet') && !currentRepayment.sourceName) {
@@ -387,4 +391,5 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
 
