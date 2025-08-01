@@ -33,17 +33,23 @@ export type LoanWithMemberInfo = Loan & {
 
 export async function getLoansByCriteria(criteria: { schoolId: string, loanTypeId?: string }): Promise<LoanWithMemberInfo[]> {
   const { schoolId, loanTypeId } = criteria;
-  const loans = await prisma.loan.findMany({
-    where: {
-      member: {
-        schoolId: schoolId,
-      },
-      loanTypeId: loanTypeId ? loanTypeId : undefined,
+  
+  let whereClause: any = {
       OR: [
         { status: 'active' },
         { status: 'overdue' }
       ]
-    },
+  };
+
+  if (schoolId !== 'all') {
+      whereClause.member = { schoolId: schoolId };
+  }
+  if (loanTypeId && loanTypeId !== 'all') {
+      whereClause.loanTypeId = loanTypeId;
+  }
+
+  const loans = await prisma.loan.findMany({
+    where: whereClause,
     include: {
       member: {
         select: { fullName: true }
@@ -79,18 +85,19 @@ export type RepaymentBatchData = {
 
 export async function recordBatchRepayments(repaymentsData: RepaymentBatchData): Promise<{ success: boolean; message: string }> {
   try {
-    const loanIds = repaymentsData.map(r => r.loanId);
+    const loanAccountNumbers = repaymentsData.map(r => r.loanAccountNumber).filter(Boolean) as string[];
     const loansToUpdate = await prisma.loan.findMany({
-      where: { id: { in: loanIds } },
+      where: { loanAccountNumber: { in: loanAccountNumbers } },
     });
 
-    const loanMap = new Map(loansToUpdate.map(l => [l.id, l]));
+    const loanMap = new Map(loansToUpdate.map(l => [l.loanAccountNumber, l]));
 
     await prisma.$transaction(async (tx) => {
       for (const repayment of repaymentsData) {
-        const loan = loanMap.get(repayment.loanId);
+        if (!repayment.loanAccountNumber) continue;
+        const loan = loanMap.get(repayment.loanAccountNumber);
         if (!loan) {
-          throw new Error(`Loan with ID ${repayment.loanId} not found.`);
+          throw new Error(`Loan with account number ${repayment.loanAccountNumber} not found.`);
         }
         
         if (repayment.amountPaid <= 0) continue; // Skip zero or negative payments
@@ -108,7 +115,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
         // 3. Create the repayment record with detailed allocation
         await tx.loanRepayment.create({
           data: {
-            loanId: repayment.loanId,
+            loanId: loan.id, // Use the internal ID here
             memberId: loan.memberId,
             amountPaid: repayment.amountPaid,
             paymentDate: new Date(repayment.paymentDate),
@@ -123,7 +130,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
 
         // 4. Update the loan's remaining balance
         await tx.loan.update({
-          where: { id: repayment.loanId },
+          where: { id: loan.id }, // Update by internal ID
           data: {
             remainingBalance: newBalance,
             status: newBalance <= 0 ? 'paid_off' : loan.status,
@@ -132,7 +139,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
         
         // Update the in-memory map for subsequent calculations in the same batch
         loan.remainingBalance = newBalance;
-        loanMap.set(loan.id, loan);
+        loanMap.set(loan.loanAccountNumber as string, loan);
       }
     });
 

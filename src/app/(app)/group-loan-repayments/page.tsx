@@ -65,12 +65,12 @@ const months = [
 
 type ParsedLoanRepayment = {
   'MemberID'?: string;
-  'LoanID'?: string;
+  'LoanAccountNumber'?: string;
   'RepaymentAmount'?: number;
   loanId?: string;
   memberName?: string;
   loanAccountNumber?: string;
-  status: 'Valid' | 'Invalid MemberID' | 'Invalid LoanID' | 'Duplicate LoanID' | 'Invalid Data';
+  status: 'Valid' | 'Invalid MemberID' | 'Invalid Loan Acct. #' | 'Duplicate Loan Acct. #' | 'Invalid Data';
 };
 
 export default function GroupLoanRepaymentsPage() {
@@ -269,9 +269,9 @@ export default function GroupLoanRepaymentsPage() {
             .filter(({ amountPaid }) => amountPaid > 0);
     } else { // Excel mode
         repaymentsToProcess = parsedData
-            .filter(row => row.status === 'Valid' && row.loanId)
+            .filter(row => row.status === 'Valid' && row.loanAccountNumber)
             .map(row => ({
-                loanId: row.loanId!,
+                loanId: row.loanId!, // This is not actually used in the backend now
                 loanAccountNumber: row.loanAccountNumber || 'N/A',
                 amountPaid: row.RepaymentAmount || 0,
                 paymentDate: batchDetails.paymentDate,
@@ -281,7 +281,7 @@ export default function GroupLoanRepaymentsPage() {
     }
     
     if (repaymentsToProcess.length === 0) {
-      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan.' });
+      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan or provide a valid Excel file.' });
       return;
     }
     
@@ -332,43 +332,45 @@ export default function GroupLoanRepaymentsPage() {
                 const worksheet = workbook.Sheets[sheetName];
                 const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-                const seenLoanIDs = new Set<string>();
+                const seenLoanAccountNumbers = new Set<string>();
                 
                 // Fetch ALL active loans to validate against
                 const allActiveLoans = await getLoansByCriteria({ schoolId: 'all', loanTypeId: 'all' });
-                const loanMap = new Map(allActiveLoans.map(l => [l.id, l]));
+                const loanMap = new Map(allActiveLoans.map(l => [l.loanAccountNumber, l]));
+                const memberMap = new Map(allMembers.map(m => [m.id, m]));
+
 
                 const validatedData = dataRows.map((row): ParsedLoanRepayment => {
                     const memberId = row['MemberID']?.toString().trim();
-                    const loanId = row['LoanID']?.toString().trim();
+                    const loanAccountNumber = row['LoanAccountNumber']?.toString().trim();
                     const amount = parseFloat(row['RepaymentAmount']);
 
-                    if (!memberId || !loanId || isNaN(amount) || amount <= 0) {
-                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid Data' };
+                    if (!memberId || !loanAccountNumber || isNaN(amount) || amount <= 0) {
+                        return { 'MemberID': memberId, 'LoanAccountNumber': loanAccountNumber, 'RepaymentAmount': amount, status: 'Invalid Data' };
                     }
                     
-                    if (seenLoanIDs.has(loanId)) {
-                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Duplicate LoanID' };
+                    if (seenLoanAccountNumbers.has(loanAccountNumber)) {
+                        return { 'MemberID': memberId, 'LoanAccountNumber': loanAccountNumber, 'RepaymentAmount': amount, status: 'Duplicate Loan Acct. #' };
                     }
                     
-                    const member = allMembers.find(m => m.id === memberId);
+                    const member = memberMap.get(memberId);
                     if (!member) {
-                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid MemberID' };
+                        return { 'MemberID': memberId, 'LoanAccountNumber': loanAccountNumber, 'RepaymentAmount': amount, status: 'Invalid MemberID' };
                     }
 
-                    const loan = loanMap.get(loanId);
+                    const loan = loanMap.get(loanAccountNumber);
                     if (!loan || loan.memberId !== memberId) {
-                         return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid LoanID' };
+                         return { 'MemberID': memberId, 'LoanAccountNumber': loanAccountNumber, 'RepaymentAmount': amount, status: 'Invalid Loan Acct. #' };
                     }
                     
-                    seenLoanIDs.add(loanId);
-                    return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, loanId: loan.id, memberName: member.fullName, loanAccountNumber: loan.loanAccountNumber, status: 'Valid' };
+                    seenLoanAccountNumbers.add(loanAccountNumber);
+                    return { 'MemberID': memberId, 'LoanAccountNumber': loanAccountNumber, 'RepaymentAmount': amount, loanId: loan.id, memberName: member.fullName, loanAccountNumber: loan.loanAccountNumber, status: 'Valid' };
                 });
 
                 setParsedData(validatedData);
                 toast({ title: 'File Processed', description: `Found ${dataRows.length} records. See validation status.` });
             } catch (error) {
-                toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "LoanID", "RepaymentAmount".' });
+                toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "LoanAccountNumber", "RepaymentAmount".' });
             } finally {
                 setIsParsing(false);
             }
@@ -380,8 +382,8 @@ export default function GroupLoanRepaymentsPage() {
         switch (status) {
           case 'Valid': return <Badge variant="default">Valid</Badge>;
           case 'Invalid MemberID': return <Badge variant="destructive">Invalid Member</Badge>;
-          case 'Invalid LoanID': return <Badge variant="destructive">Invalid Loan</Badge>;
-          case 'Duplicate LoanID': return <Badge variant="destructive">Duplicate</Badge>;
+          case 'Invalid Loan Acct. #': return <Badge variant="destructive">Invalid Loan Acct. #</Badge>;
+          case 'Duplicate Loan Acct. #': return <Badge variant="destructive">Duplicate</Badge>;
           case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
         }
     };
@@ -389,7 +391,7 @@ export default function GroupLoanRepaymentsPage() {
     const handleDownloadTemplate = () => {
         const templateData = [{
             MemberID: 'member-id-123',
-            LoanID: 'loan-id-abc',
+            LoanAccountNumber: 'LN123456',
             RepaymentAmount: 1500.50
         }];
         exportToExcel(templateData, 'loan_repayment_template');
@@ -462,7 +464,7 @@ export default function GroupLoanRepaymentsPage() {
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground space-y-2">
                         <p>1. Download the sample template to see the required format.</p>
-                        <p>2. Fill the sheet with your repayment data. The required columns are: <strong>MemberID</strong>, <strong>LoanID</strong>, and <strong>RepaymentAmount</strong>.</p>
+                        <p>2. Fill the sheet with your repayment data. The required columns are: <strong>MemberID</strong>, <strong>LoanAccountNumber</strong>, and <strong>RepaymentAmount</strong>.</p>
                         <p>3. Upload the completed file below and click "Process File" to validate your data before submission.</p>
                     </CardContent>
                     <CardFooter>
@@ -490,7 +492,7 @@ export default function GroupLoanRepaymentsPage() {
                        <TableHeader>
                          <TableRow>
                            <TableHead>Member Name</TableHead>
-                           <TableHead>Loan ID</TableHead>
+                           <TableHead>Loan Acct. #</TableHead>
                            <TableHead className="text-right">Amount</TableHead>
                            <TableHead>Status</TableHead>
                          </TableRow>
@@ -499,7 +501,7 @@ export default function GroupLoanRepaymentsPage() {
                         {parsedData.map((row, index) => (
                             <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
                                 <TableCell>{row.memberName || 'N/A'}</TableCell>
-                                <TableCell>{row.LoanID}</TableCell>
+                                <TableCell>{row.LoanAccountNumber}</TableCell>
                                 <TableCell className="text-right">{row.RepaymentAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 <TableCell>{getValidationBadge(row.status)}</TableCell>
                             </TableRow>
@@ -774,8 +776,8 @@ export default function GroupLoanRepaymentsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {postedTransactions.map(transaction => (
-                                <TableRow key={transaction.loanId}>
+                            {postedTransactions.map((transaction, index) => (
+                                <TableRow key={`${transaction.loanId}-${index}`}>
                                     <TableCell className="font-mono text-xs">{transaction.loanAccountNumber}</TableCell>
                                     <TableCell className="text-right">{transaction.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                     <TableCell>{new Date(transaction.paymentDate).toLocaleDateString()}</TableCell>
