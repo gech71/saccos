@@ -164,7 +164,7 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 md:grid-cols-5 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
@@ -339,19 +339,19 @@ export default function MemberProfilePage() {
                                     <Table>
                                         <TableHeader><TableRow>
                                             <TableHead>Payment Date</TableHead>
+                                            <TableHead className="text-right">Total Paid</TableHead>
                                             <TableHead className="text-right">Principal Paid</TableHead>
                                             <TableHead className="text-right">Interest Paid</TableHead>
-                                            <TableHead className="text-right">Total Paid</TableHead>
-                                            <TableHead>Deposit Mode</TableHead>
+                                            <TableHead className="text-right">Remaining Balance</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {specificRepayments.length > 0 ? specificRepayments.map(repayment => (
                                                 <TableRow key={repayment.id}>
                                                     <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
+                                                    <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-green-600">{repayment.principalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-orange-600">{repayment.interestPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                                    <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                                    <TableCell><Badge variant="secondary">{repayment.depositMode}</Badge></TableCell>
+                                                    <TableCell className="text-right font-medium">{repayment.balanceAfter.toLocaleString(undefined, {minimumFractionDigits:2})}</TableCell>
                                                 </TableRow>
                                             )) : (
                                                 <TableRow><TableCell colSpan={5} className="h-24 text-center">No repayments for this loan yet.</TableCell></TableRow>

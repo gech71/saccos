@@ -15,7 +15,7 @@ export interface MemberDetails {
     shares: (Share & { shareTypeName: string })[];
     loans: (Loan & { loanTypeName: string })[];
     dividends: Dividend[];
-    loanRepayments: LoanRepayment[];
+    loanRepayments: (LoanRepayment & { balanceAfter: number })[];
     serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
     monthlyLoanRepayments: { month: string, totalRepaid: number }[];
@@ -49,11 +49,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 where: { status: 'approved' },
                 orderBy: { distributionDate: 'desc' }
             },
-            loanRepayments: {
-                orderBy: {
-                    paymentDate: 'desc'
-                }
-            },
             appliedServiceCharges: {
                 include: {
                     serviceChargeType: true
@@ -80,16 +75,33 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         return null;
     }
     
-    // Fetch loans separately
+    // Fetch loans separately and process their repayments
     const loans = await prisma.loan.findMany({
         where: { memberId: memberId },
         include: {
             loanType: true,
+            repayments: {
+                orderBy: {
+                    paymentDate: 'asc'
+                }
+            }
         },
         orderBy: {
             disbursementDate: 'desc'
         }
     });
+
+    const allLoanRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number })[] = [];
+    loans.forEach(loan => {
+        let runningBalance = loan.principalAmount;
+        loan.repayments.forEach(repayment => {
+            runningBalance -= repayment.principalPaid;
+            allLoanRepaymentsWithBalance.push({ ...repayment, balanceAfter: runningBalance });
+        });
+    });
+    
+    // Sort all repayments by date descending for final display
+    allLoanRepaymentsWithBalance.sort((a,b) => compareDesc(new Date(a.paymentDate), new Date(b.paymentDate)));
 
 
     // Calculate running balance for savings
@@ -129,8 +141,9 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
     // Process monthly loan repayments
+    const allRepaymentsFromAllLoans = loans.flatMap(l => l.repayments);
     const monthlyLoanRepaymentsMap = new Map<string, number>();
-    member.loanRepayments.forEach(repayment => {
+    allRepaymentsFromAllLoans.forEach(repayment => {
         const month = format(new Date(repayment.paymentDate), 'MMMM yyyy');
         const currentTotal = monthlyLoanRepaymentsMap.get(month) || 0;
         monthlyLoanRepaymentsMap.set(month, currentTotal + repayment.amountPaid);
@@ -149,9 +162,9 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         emergencyContact: member.emergencyContact,
         savingAccounts: member.memberSavingAccounts,
         shares: member.shares.map(s => ({ ...s, shareTypeName: s.shareType.name })),
-        loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name })),
+        loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name, repayments: [] })), // Clear repayments as they are handled separately
         dividends: member.dividends,
-        loanRepayments: member.loanRepayments,
+        loanRepayments: allLoanRepaymentsWithBalance,
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
         monthlySavings,
         monthlyLoanRepayments,
