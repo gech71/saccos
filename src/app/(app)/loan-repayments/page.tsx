@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2, Users, Filter } from 'lucide-react';
+import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2, Users, Filter, AlertTriangle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
@@ -50,7 +51,9 @@ export default function LoanRepaymentsPage() {
   const [currentRepayment, setCurrentRepayment] = useState<Partial<LoanRepaymentInput>>(initialRepaymentFormState);
   const [openLoanCombobox, setOpenLoanCombobox] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [minimumPayment, setMinimumPayment] = useState<number>(0);
+  const [finalSettlement, setFinalSettlement] = useState<number>(0);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLoanTypeFilter, setSelectedLoanTypeFilter] = useState('all');
@@ -78,21 +81,32 @@ export default function LoanRepaymentsPage() {
   }, [user, toast]);
   
   useEffect(() => {
-    setCurrentRepayment(initialRepaymentFormState);
-    setMinimumPayment(0);
-  }, [isModalOpen])
+    if (!isModalOpen) {
+      setCurrentRepayment(initialRepaymentFormState);
+      setMinimumPayment(0);
+      setFinalSettlement(0);
+    }
+  }, [isModalOpen]);
   
   useEffect(() => {
     if (currentRepayment.loanId) {
       const loan = activeLoans.find(l => l.id === currentRepayment.loanId);
       if (loan) {
+        const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
         const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-        const interestPortion = loan.remainingBalance * (loan.interestRate / 12);
-        const minPayment = principalPortion + interestPortion;
+        
+        const minPayment = principalPortion + interestForMonth;
+        const finalPayment = loan.remainingBalance + interestForMonth;
+
         setMinimumPayment(minPayment);
+        setFinalSettlement(finalPayment);
+        
+        // Pre-fill amount with expected payment, but not exceeding final settlement
+        setCurrentRepayment(prev => ({...prev, amountPaid: Math.min(minPayment, finalPayment)}));
       }
     } else {
       setMinimumPayment(0);
+      setFinalSettlement(0);
     }
   }, [currentRepayment.loanId, activeLoans]);
 
@@ -111,14 +125,10 @@ export default function LoanRepaymentsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
       return;
     }
-    const selectedLoan = activeLoans.find(l => l.id === currentRepayment.loanId);
-    if (selectedLoan) {
-      const interestForMonth = selectedLoan.remainingBalance * (selectedLoan.interestRate / 12);
-      const finalPaymentAmount = selectedLoan.remainingBalance + interestForMonth;
-      if (currentRepayment.amountPaid > finalPaymentAmount + 0.01) { // Add tolerance for float issues
-          toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement amount of ${finalPaymentAmount.toFixed(2)} Birr.` });
-          return;
-      }
+
+    if (currentRepayment.amountPaid > finalSettlement + 0.01) {
+        toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement amount of ${finalSettlement.toFixed(2)}.` });
+        return;
     }
     
     if ((currentRepayment.depositMode === 'Bank' || currentRepayment.depositMode === 'Wallet') && !currentRepayment.sourceName) {
@@ -133,7 +143,6 @@ export default function LoanRepaymentsPage() {
         toast({ title: 'Repayment Recorded', description: result.message });
         await fetchPageData(); // Refresh data
         setIsModalOpen(false);
-        setCurrentRepayment(initialRepaymentFormState);
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -147,14 +156,18 @@ export default function LoanRepaymentsPage() {
     
     return repaymentsByMember
       .map(group => {
+        // Filter repayments within the group first
         const filteredRepayments = group.repayments.filter(repayment => 
-          (selectedLoanTypeFilter === 'all' || repayment.loan?.loanTypeName === selectedLoanTypeFilter)
+          (selectedLoanTypeFilter === 'all' || repayment.loan?.loanTypeName === loanTypes.find(lt => lt.id === selectedLoanTypeFilter)?.name)
         );
         
+        // If after filtering, no repayments match, skip this member group
         if (filteredRepayments.length === 0) return null;
         
+        // Then check if the member name matches the search term
         if (!group.memberName.toLowerCase().includes(termLower)) return null;
 
+        // Return the group with only the filtered repayments
         return {
           ...group,
           repayments: filteredRepayments,
@@ -163,7 +176,7 @@ export default function LoanRepaymentsPage() {
         };
       })
       .filter((group): group is RepaymentsByMember => group !== null);
-  }, [repaymentsByMember, searchTerm, selectedLoanTypeFilter]);
+  }, [repaymentsByMember, searchTerm, selectedLoanTypeFilter, loanTypes]);
 
   const handleExport = () => {
     const dataToExport = filteredRepaymentsByMember.flatMap(group => 
@@ -203,7 +216,7 @@ export default function LoanRepaymentsPage() {
             <SelectContent>
                 <SelectItem value="all">All Loan Types</SelectItem>
                 {loanTypes.map(type => (
-                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+                    <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
                 ))}
             </SelectContent>
         </Select>
@@ -232,9 +245,9 @@ export default function LoanRepaymentsPage() {
                               <TableRow>
                                   <TableHead>Loan Acct. #</TableHead>
                                   <TableHead>Payment Date</TableHead>
-                                  <TableHead className="text-right">Total Paid (Birr)</TableHead>
-                                  <TableHead className="text-right">Principal Paid (Birr)</TableHead>
-                                  <TableHead className="text-right">Interest Paid (Birr)</TableHead>
+                                  <TableHead className="text-right">Total Paid</TableHead>
+                                  <TableHead className="text-right">Principal Paid</TableHead>
+                                  <TableHead className="text-right">Interest Paid</TableHead>
                                   <TableHead className="text-right">Remaining Balance</TableHead>
                                   <TableHead>Payment Mode</TableHead>
                               </TableRow>
@@ -285,7 +298,7 @@ export default function LoanRepaymentsPage() {
                         {activeLoans.map(loan => (
                           <CommandItem key={loan.id} value={`${loan.member?.fullName} ${loan.id} ${loan.loanAccountNumber}`} onSelect={() => { setCurrentRepayment(prev => ({ ...prev, loanId: loan.id })); setOpenLoanCombobox(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", currentRepayment.loanId === loan.id ? "opacity-100" : "opacity-0")} />
-                            {loan.member?.fullName} ({loan.loanType?.name}) - Acct: {loan.loanAccountNumber} - Bal: {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr
+                            {loan.member?.fullName} ({loan.loanType?.name}) - Acct: {loan.loanAccountNumber} - Bal: {loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </CommandItem>
                         ))}
                     </CommandGroup></CommandList>
@@ -293,15 +306,27 @@ export default function LoanRepaymentsPage() {
                 </PopoverContent>
               </Popover>
             </div>
+            
+             {currentRepayment.loanId && (
+                <Alert variant="default" className="text-sm">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                        <div className="flex justify-between">
+                            <span>Minimum Payment:</span>
+                            <span className="font-semibold">{minimumPayment.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Final Settlement:</span>
+                            <span className="font-semibold">{finalSettlement.toFixed(2)}</span>
+                        </div>
+                    </AlertDescription>
+                </Alert>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
                 <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
-                 {minimumPayment > 0 && currentRepayment.loanId && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Final settlement: {(activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance + activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance * (activeLoans.find(l => l.id === currentRepayment.loanId)!.interestRate / 12)).toFixed(2)}
-                  </p>
-                )}
               </div>
               <div>
                 <Label htmlFor="paymentDate">Payment Date <span className="text-destructive">*</span></Label>
