@@ -139,7 +139,10 @@ export default function GroupLoanRepaymentsPage() {
         
         const initialRepayments: Record<string, number> = {};
         loans.forEach(loan => {
-            initialRepayments[loan.id] = loan.monthlyRepaymentAmount || 0;
+            const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+            const standardPayment = loan.monthlyRepaymentAmount || 0;
+            const finalPayment = loan.remainingBalance + interestForMonth;
+            initialRepayments[loan.id] = Math.min(standardPayment, finalPayment);
         });
         setRepaymentAmounts(initialRepayments);
         setSelectedLoanIds(loans.map(l => l.id));
@@ -302,20 +305,26 @@ export default function GroupLoanRepaymentsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedLoans.map(loan => (
+                      {paginatedLoans.map(loan => {
+                        const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+                        const standardPayment = loan.monthlyRepaymentAmount || 0;
+                        const finalPayment = loan.remainingBalance + interestForMonth;
+                        const expectedPayment = Math.min(standardPayment, finalPayment);
+
+                        return (
                         <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>
                            <TableCell className="px-2">
                             <Checkbox
                               checked={selectedLoanIds.includes(loan.id)}
                               onCheckedChange={(checked) => handleRowSelectChange(loan.id, !!checked)}
-                              aria-label={`Select loan for ${loan.memberName}`}
+                              aria-label={`Select loan for ${loan.member.fullName}`}
                               disabled={!canCreate}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">{loan.memberName}</TableCell>
+                          <TableCell className="font-medium">{loan.member.fullName}</TableCell>
                           <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
                           <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                          <TableCell className="text-right">{loan.monthlyRepaymentAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                          <TableCell className="text-right">{expectedPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                           <TableCell>
                             <Input
                               type="number"
@@ -328,7 +337,8 @@ export default function GroupLoanRepaymentsPage() {
                             />
                           </TableCell>
                         </TableRow>
-                      ))}
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
