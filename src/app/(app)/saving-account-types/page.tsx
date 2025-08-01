@@ -97,7 +97,8 @@ export default function SavingAccountTypesPage() {
     const { name, value } = e.target;
     
     if (name === 'interestRate' || name === 'contributionValue') {
-      setCurrentAccountType(prev => ({...prev, [name]: value === '' ? 0 : parseFloat(value) }));
+      const parsedValue = parseFloat(value);
+      setCurrentAccountType(prev => ({...prev, [name]: isNaN(parsedValue) ? 0 : parsedValue }));
     } else {
        setCurrentAccountType(prev => ({ ...prev, [name]: value }));
     }
@@ -126,7 +127,7 @@ export default function SavingAccountTypesPage() {
         interestRate: (currentAccountType.interestRate || 0) / 100, // Convert percentage to decimal
         contributionType: currentAccountType.contributionType!,
         contributionValue: currentAccountType.contributionType === 'PERCENTAGE' 
-            ? (currentAccountType.contributionValue || 0) / 100 // Convert percentage to decimal
+            ? (currentAccountType.contributionValue || 0) / 100 // Convert percentage decimal to display
             : currentAccountType.contributionValue || 0,
     };
 
