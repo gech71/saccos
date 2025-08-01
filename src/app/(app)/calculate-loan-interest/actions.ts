@@ -6,7 +6,7 @@ import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma } fro
 import { revalidatePath } from 'next/cache';
 
 export interface CalculationPageData {
-    members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
+    members: Pick<Member, 'id' | 'fullName'>[];
     schools: Pick<School, 'id' | 'name'>[];
     loanTypes: Pick<LoanType, 'id' | 'name'>[];
 }
@@ -23,7 +23,7 @@ export interface InterestCalculationResult {
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
     const [members, schools, loanTypes] = await Promise.all([
-        prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true, savingsAccountNumber: true }, orderBy: { fullName: 'asc' } }),
+        prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
         prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     ]);
