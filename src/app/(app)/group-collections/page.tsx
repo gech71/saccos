@@ -29,7 +29,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Saving, SavingAccountType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
@@ -425,6 +425,14 @@ export default function GroupCollectionsPage() {
       case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
     }
   };
+
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      MemberID: 'member-id-goes-here',
+      SavingCollected: 100.50
+    }];
+    exportToExcel(templateData, 'savings_collection_template');
+  };
   
   if (isLoadingPage || !pageData) {
       return (
@@ -609,9 +617,26 @@ export default function GroupCollectionsPage() {
         <Card className="shadow-lg animate-in fade-in-50 duration-300">
             <CardHeader>
                 <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID" and "SavingCollected".</CardDescription>
+                <CardDescription>Upload an Excel file with the required columns. You can download a template to get started.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <Card className="bg-muted/50 border-dashed">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-base">How to Use Excel Upload</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                        <p>1. Download the sample template to see the required format.</p>
+                        <p>2. Fill the sheet with your collection data. The required columns are: <strong>MemberID</strong> and <strong>SavingCollected</strong>.</p>
+                        <p>3. Choose a Saving Account Type below to assign all imported savings to.</p>
+                        <p>4. Upload the completed file and click "Process File" to validate your data before submission.</p>
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Template
+                        </Button>
+                    </CardFooter>
+                </Card>
                 <div>
                     <Label htmlFor="accountTypeFilterExcel">Saving Account Type <span className="text-destructive">*</span></Label>
                     <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
