@@ -12,16 +12,17 @@ export interface RepaymentsByMember {
   memberName: string;
   totalRepaid: number;
   repaymentCount: number;
-  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }, balanceAfter: number })[];
+  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null, loanTypeName?: string }, balanceAfter: number })[];
 }
 
 export interface LoanRepaymentsPageData {
   repaymentsByMember: RepaymentsByMember[];
   activeLoans: (Loan & { member: Member | null} & { loanType: { name: string } | null })[];
+  loanTypes: Pick<LoanType, 'id' | 'name'>[];
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
-  const [allLoans, activeLoans] = await Promise.all([
+  const [allLoans, activeLoans, loanTypes] = await Promise.all([
     prisma.loan.findMany({
         include: {
             repayments: {
@@ -31,6 +32,9 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
             },
             member: {
                 select: { fullName: true }
+            },
+            loanType: {
+                select: { name: true }
             }
         }
     }),
@@ -47,11 +51,12 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
           }
       },
       orderBy: [{ member: { fullName: 'asc' }}, {loanAccountNumber: 'asc'}]
-    })
+    }),
+    prisma.loanType.findMany({ select: { id: true, name: true }})
   ]);
 
   // Process all repayments to add a running balance
-  const allRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number, loan?: { loanAccountNumber: string | null }, memberName: string })[] = [];
+  const allRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number, loan?: { loanAccountNumber: string | null, loanTypeName?: string }, memberName: string })[] = [];
   
   allLoans.forEach(loan => {
       let runningBalance = loan.principalAmount;
@@ -60,7 +65,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
           allRepaymentsWithBalance.push({
               ...repayment,
               balanceAfter: runningBalance,
-              loan: { loanAccountNumber: loan.loanAccountNumber },
+              loan: { loanAccountNumber: loan.loanAccountNumber, loanTypeName: loan.loanType.name },
               memberName: loan.member.fullName,
           });
       });
@@ -97,6 +102,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   return {
     repaymentsByMember: Object.values(repaymentsGrouped).sort((a, b) => a.memberName.localeCompare(b.memberName)),
     activeLoans: activeLoans.map(l => ({...l, disbursementDate: l.disbursementDate.toISOString(), nextDueDate: l.nextDueDate?.toISOString() ?? null })),
+    loanTypes,
   };
 }
 

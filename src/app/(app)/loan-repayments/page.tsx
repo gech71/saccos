@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2, Users } from 'lucide-react';
+import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2, Users, Filter } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
@@ -41,6 +41,7 @@ const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
 export default function LoanRepaymentsPage() {
   const [repaymentsByMember, setRepaymentsByMember] = useState<RepaymentsByMember[]>([]);
   const [activeLoans, setActiveLoans] = useState<ActiveLoanWithMember[]>([]);
+  const [loanTypes, setLoanTypes] = useState<Pick<LoanType, 'id' | 'name'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -52,6 +53,7 @@ export default function LoanRepaymentsPage() {
   const [minimumPayment, setMinimumPayment] = useState<number>(0);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLoanTypeFilter, setSelectedLoanTypeFilter] = useState('all');
 
   const canCreate = useMemo(() => user?.permissions.includes('loanRepayment:create'), [user]);
 
@@ -61,6 +63,7 @@ export default function LoanRepaymentsPage() {
         const data = await getLoanRepaymentsPageData();
         setRepaymentsByMember(data.repaymentsByMember);
         setActiveLoans(data.activeLoans);
+        setLoanTypes(data.loanTypes);
     } catch {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data.'})
     } finally {
@@ -138,18 +141,39 @@ export default function LoanRepaymentsPage() {
   };
 
   const filteredRepaymentsByMember = useMemo(() => {
-    if (!searchTerm) return repaymentsByMember;
-    return repaymentsByMember.filter(group => 
-      group.memberName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [repaymentsByMember, searchTerm]);
+    if (!repaymentsByMember) return [];
+    
+    const termLower = searchTerm.toLowerCase();
+    
+    return repaymentsByMember
+      .map(group => {
+        const filteredRepayments = group.repayments.filter(repayment => 
+          (selectedLoanTypeFilter === 'all' || repayment.loan?.loanTypeName === selectedLoanTypeFilter)
+        );
+        
+        if (filteredRepayments.length === 0) return null;
+        
+        if (!group.memberName.toLowerCase().includes(termLower)) return null;
+
+        return {
+          ...group,
+          repayments: filteredRepayments,
+          repaymentCount: filteredRepayments.length,
+          totalRepaid: filteredRepayments.reduce((sum, r) => sum + r.amountPaid, 0),
+        };
+      })
+      .filter((group): group is RepaymentsByMember => group !== null);
+  }, [repaymentsByMember, searchTerm, selectedLoanTypeFilter]);
 
   const handleExport = () => {
-    const dataToExport = repaymentsByMember.flatMap(group => 
+    const dataToExport = filteredRepaymentsByMember.flatMap(group => 
         group.repayments.map(r => ({
             'Member Name': group.memberName || 'N/A',
             'Loan Acct. #': r.loan?.loanAccountNumber || r.loanId,
+            'Loan Type': r.loan?.loanTypeName || 'N/A',
             'Amount Paid (Birr)': r.amountPaid,
+            'Principal Paid (Birr)': r.principalPaid,
+            'Interest Paid (Birr)': r.interestPaid,
             'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
             'Payment Mode': r.depositMode || 'N/A',
         }))
@@ -166,65 +190,77 @@ export default function LoanRepaymentsPage() {
           )}
       </PageTitle>
 
-      <div className="relative flex-grow">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
+        </div>
+        <Select value={selectedLoanTypeFilter} onValueChange={setSelectedLoanTypeFilter}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by loan type" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="all">All Loan Types</SelectItem>
+                {loanTypes.map(type => (
+                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Accordion type="multiple" className="w-full">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-            ) : filteredRepaymentsByMember.length > 0 ? filteredRepaymentsByMember.map(group => (
-                <AccordionItem value={group.memberId} key={group.memberId}>
-                    <AccordionTrigger className="px-6 py-4 text-lg hover:bg-muted/50 hover:no-underline">
-                      <div className="flex-1 text-left flex items-center gap-4">
-                        <Users className="h-5 w-5 text-primary" />
-                        <span className="font-semibold">{group.memberName}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm font-normal text-muted-foreground">
-                        <Badge variant="secondary">{group.repaymentCount} Repayment(s)</Badge>
-                        <span className="font-semibold">{group.totalRepaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-0">
-                       <div className="overflow-x-auto border-t">
-                            <Table>
-                                <TableHeader>
-                                <TableRow>
-                                    <TableHead>Loan Acct. #</TableHead>
-                                    <TableHead>Payment Date</TableHead>
-                                    <TableHead className="text-right">Total Paid (Birr)</TableHead>
-                                    <TableHead className="text-right">Principal Paid (Birr)</TableHead>
-                                    <TableHead className="text-right">Interest Paid (Birr)</TableHead>
-                                    <TableHead className="text-right">Remaining Balance</TableHead>
-                                    <TableHead>Payment Mode</TableHead>
-                                </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {group.repayments.map(repayment => (
-                                        <TableRow key={repayment.id}>
-                                            <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
-                                            <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
-                                            <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                            <TableCell className="text-right text-green-600">{(repayment as any).principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
-                                            <TableCell className="text-right text-orange-600">{(repayment as any).interestPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
-                                            <TableCell className="text-right font-medium">{(repayment as any).balanceAfter?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
-                                            <TableCell><Badge variant="outline">{repayment.depositMode || 'N/A'}</Badge></TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                       </div>
-                    </AccordionContent>
-                </AccordionItem>
-            )) : (
-              <div className="p-12 text-center text-muted-foreground">No repayments found.</div>
-            )}
-          </Accordion>
-        </CardContent>
-      </Card>
+      <div>
+        <Accordion type="multiple" className="w-full">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
+          ) : filteredRepaymentsByMember.length > 0 ? filteredRepaymentsByMember.map(group => (
+              <AccordionItem value={group.memberId} key={group.memberId}>
+                  <AccordionTrigger className="px-6 py-4 text-lg hover:bg-muted/50 hover:no-underline rounded-lg border">
+                    <div className="flex-1 text-left flex items-center gap-4">
+                      <Users className="h-5 w-5 text-primary" />
+                      <span className="font-semibold">{group.memberName}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm font-normal text-muted-foreground">
+                      <Badge variant="secondary">{group.repaymentCount} Repayment(s)</Badge>
+                      <span className="font-semibold">{group.totalRepaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-0">
+                     <div className="overflow-x-auto border-t">
+                          <Table>
+                              <TableHeader>
+                              <TableRow>
+                                  <TableHead>Loan Acct. #</TableHead>
+                                  <TableHead>Payment Date</TableHead>
+                                  <TableHead className="text-right">Total Paid (Birr)</TableHead>
+                                  <TableHead className="text-right">Principal Paid (Birr)</TableHead>
+                                  <TableHead className="text-right">Interest Paid (Birr)</TableHead>
+                                  <TableHead className="text-right">Remaining Balance</TableHead>
+                                  <TableHead>Payment Mode</TableHead>
+                              </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {group.repayments.map(repayment => (
+                                      <TableRow key={repayment.id}>
+                                          <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
+                                          <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
+                                          <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                          <TableCell className="text-right text-green-600">{repayment.principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
+                                          <TableCell className="text-right text-orange-600">{repayment.interestPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
+                                          <TableCell className="text-right font-medium">{repayment.balanceAfter?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
+                                          <TableCell><Badge variant="outline">{repayment.depositMode || 'N/A'}</Badge></TableCell>
+                                      </TableRow>
+                                  ))}
+                              </TableBody>
+                          </Table>
+                     </div>
+                  </AccordionContent>
+              </AccordionItem>
+          )) : (
+            <div className="p-12 text-center text-muted-foreground">No repayments found.</div>
+          )}
+        </Accordion>
+      </div>
       
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
