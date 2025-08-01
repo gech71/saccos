@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow } from 'date-fns';
-import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History } from 'lucide-react';
+import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -144,7 +144,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, serviceCharges, schoolHistory, address } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -164,13 +164,12 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
-                    <TabsTrigger value="charges">Service Charges</TabsTrigger>
-                    <TabsTrigger value="history">School History</TabsTrigger>
+                    <TabsTrigger value="dividends">Dividends</TabsTrigger>
                 </TabsList>
                 
                 {/* Overview Tab */}
@@ -340,18 +339,22 @@ export default function MemberProfilePage() {
                                     <Table>
                                         <TableHeader><TableRow>
                                             <TableHead>Payment Date</TableHead>
-                                            <TableHead className="text-right">Amount Paid</TableHead>
+                                            <TableHead className="text-right">Principal Paid</TableHead>
+                                            <TableHead className="text-right">Interest Paid</TableHead>
+                                            <TableHead className="text-right">Total Paid</TableHead>
                                             <TableHead>Deposit Mode</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {specificRepayments.length > 0 ? specificRepayments.map(repayment => (
                                                 <TableRow key={repayment.id}>
                                                     <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
-                                                    <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                                    <TableCell className="text-right text-green-600">{repayment.principalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                                    <TableCell className="text-right text-orange-600">{repayment.interestPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                                    <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell><Badge variant="secondary">{repayment.depositMode}</Badge></TableCell>
                                                 </TableRow>
                                             )) : (
-                                                <TableRow><TableCell colSpan={3} className="h-24 text-center">No repayments for this loan yet.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No repayments for this loan yet.</TableCell></TableRow>
                                             )}
                                         </TableBody>
                                     </Table>
@@ -365,59 +368,31 @@ export default function MemberProfilePage() {
                     )}
                 </TabsContent>
                 
-                {/* Service Charges Tab */}
-                <TabsContent value="charges" className="mt-6">
-                    <SectionCard title="Applied Service Charges">
+                 {/* Dividends Tab */}
+                <TabsContent value="dividends" className="mt-6">
+                    <SectionCard title="Dividend History">
                        <div className="overflow-x-auto rounded-md border">
-                             <Table>
+                            <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead>Date Applied</TableHead>
-                                    <TableHead>Charge Type</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead>Distribution Date</TableHead>
+                                    <TableHead className="text-right">Shares at Distribution</TableHead>
+                                    <TableHead className="text-right">Dividend Amount</TableHead>
+                                    <TableHead>Notes</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
-                                     {serviceCharges.length > 0 ? serviceCharges.map(charge => (
-                                        <TableRow key={charge.id}>
-                                            <TableCell>{format(new Date(charge.dateApplied), 'PPP')}</TableCell>
-                                            <TableCell>{charge.serviceChargeTypeName}</TableCell>
-                                            <TableCell className="text-right">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                            <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
+                                     {dividends.length > 0 ? dividends.map(dividend => (
+                                        <TableRow key={dividend.id}>
+                                            <TableCell>{format(new Date(dividend.distributionDate), 'PPP')}</TableCell>
+                                            <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
+                                            <TableCell className="text-right font-semibold text-primary">{dividend.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell>{dividend.notes || 'N/A'}</TableCell>
                                         </TableRow>
                                      )) : (
-                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No service charges found.</TableCell></TableRow>
+                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No dividend history found.</TableCell></TableRow>
                                      )}
                                 </TableBody>
                             </Table>
                        </div>
-                    </SectionCard>
-                </TabsContent>
-                
-                 {/* School History Tab */}
-                <TabsContent value="history" className="mt-6">
-                    <SectionCard title="School Association History">
-                        <div className="overflow-x-auto rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>School Name</TableHead>
-                                        <TableHead>Start Date</TableHead>
-                                        <TableHead>End Date</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {schoolHistory.length > 0 ? schoolHistory.map(history => (
-                                        <TableRow key={history.id}>
-                                            <TableCell className="font-medium">{history.schoolName}</TableCell>
-                                            <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
-                                            <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : <Badge>Current</Badge>}</TableCell>
-                                        </TableRow>
-                                    )) : (
-                                        <TableRow><TableCell colSpan={3} className="h-24 text-center">No school history found.</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
                     </SectionCard>
                 </TabsContent>
 

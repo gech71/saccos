@@ -4,7 +4,7 @@
 
 import prisma from '@/lib/prisma';
 import { format, compareDesc } from 'date-fns';
-import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory } from '@prisma/client';
+import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend } from '@prisma/client';
 
 export interface MemberDetails {
     member: Member;
@@ -14,6 +14,7 @@ export interface MemberDetails {
     savingAccounts: MemberSavingAccount[];
     shares: (Share & { shareTypeName: string })[];
     loans: (Loan & { loanTypeName: string })[];
+    dividends: Dividend[];
     loanRepayments: LoanRepayment[];
     serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
@@ -43,6 +44,10 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 orderBy: {
                     allocationDate: 'desc'
                 }
+            },
+            dividends: {
+                where: { status: 'approved' },
+                orderBy: { distributionDate: 'desc' }
             },
             loanRepayments: {
                 orderBy: {
@@ -145,6 +150,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         savingAccounts: member.memberSavingAccounts,
         shares: member.shares.map(s => ({ ...s, shareTypeName: s.shareType.name })),
         loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name })),
+        dividends: member.dividends,
         loanRepayments: member.loanRepayments,
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
         monthlySavings,
