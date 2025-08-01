@@ -23,15 +23,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import type { LoanType, School } from '@prisma/client';
+import type { LoanType, School, Member } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw } from 'lucide-react';
+import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, UploadCloud, FileCheck2, FileDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
 import { Badge } from '@/components/ui/badge';
 import { getGroupLoanRepaymentsPageData, getLoansByCriteria, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import * as XLSX from 'xlsx';
 
 const initialBatchTransactionState: {
   paymentDate: string;
@@ -60,28 +61,49 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', 'label': 'December' }
 ];
 
+type ParsedLoanRepayment = {
+  'MemberID'?: string;
+  'LoanID'?: string;
+  'RepaymentAmount'?: number;
+  loanId?: string;
+  memberName?: string;
+  loanAccountNumber?: string;
+  status: 'Valid' | 'Invalid MemberID' | 'Invalid LoanID' | 'Duplicate LoanID' | 'Invalid Data';
+};
+
 export default function GroupLoanRepaymentsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   
   const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
   const [loanTypes, setLoanTypes] = useState<Pick<LoanType, 'id', 'name'>[]>([]);
-  const [selectedSchool, setSelectedSchool] = useState<string>('');
-  const [selectedLoanType, setSelectedLoanType] = useState<string>('all');
-  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+  const [allMembers, setAllMembers] = useState<Pick<Member, 'id', 'fullName'>[]>([]);
 
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
+  const [collectionMode, setCollectionMode] = useState<'filter' | 'excel'>('filter');
+
+  // Filter-based state
+  const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [selectedLoanType, setSelectedLoanType] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   const [eligibleLoans, setEligibleLoans] = useState<LoanWithMemberInfo[]>([]);
   const [selectedLoanIds, setSelectedLoanIds] = useState<string[]>([]);
   const [repaymentAmounts, setRepaymentAmounts] = useState<Record<string, number>>({});
   
+  // Excel-based state
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedData, setParsedData] = useState<ParsedLoanRepayment[]>([]);
+  
+  // Shared state
   const [batchDetails, setBatchDetails] = useState(initialBatchTransactionState);
   const [isPosting, setIsPosting] = useState(false);
   const [postedTransactions, setPostedTransactions] = useState<RepaymentBatchData | null>(null);
 
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -93,6 +115,7 @@ export default function GroupLoanRepaymentsPage() {
         const data = await getGroupLoanRepaymentsPageData();
         setAllSchools(data.schools);
         setLoanTypes(data.loanTypes);
+        setAllMembers(data.allMembersForValidation);
         setIsPageLoading(false);
     }
     fetchInitialData();
@@ -159,7 +182,8 @@ export default function GroupLoanRepaymentsPage() {
         const initialRepayments: Record<string, number> = {};
         loans.forEach(loan => {
             const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-            const standardPayment = loan.monthlyRepaymentAmount || 0;
+            const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+            const standardPayment = principalPortion + interestForMonth;
             const finalPayment = loan.remainingBalance + interestForMonth;
             initialRepayments[loan.id] = Math.min(standardPayment, finalPayment);
         });
@@ -211,7 +235,7 @@ export default function GroupLoanRepaymentsPage() {
             }
         }));
     } else {
-       setBatchDetails(prev => ({ ...prev, [name]: value }));
+       setBatchDetails(prev => ({ ...prev, [name]: value as string }));
     }
   };
   
@@ -220,29 +244,45 @@ export default function GroupLoanRepaymentsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    const repaymentsToProcess: RepaymentBatchData = selectedLoanIds
-        .map(loanId => {
-            const loan = eligibleLoans.find(l => l.id === loanId);
-            return {
-                loanId,
-                loanAccountNumber: loan?.loanAccountNumber || 'N/A',
-                amountPaid: repaymentAmounts[loanId] || 0,
-                paymentDate: batchDetails.paymentDate,
-                depositMode: batchDetails.depositMode,
-                paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
-            }
-        })
-        .filter(({ amountPaid }) => amountPaid > 0);
-
-    if (repaymentsToProcess.length === 0) {
-      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan.' });
-      return;
-    }
     if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.paymentDetails.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${batchDetails.depositMode} Name.` });
         return;
     }
 
+    let repaymentsToProcess: RepaymentBatchData = [];
+
+    if (collectionMode === 'filter') {
+        repaymentsToProcess = selectedLoanIds
+            .map(loanId => {
+                const loan = eligibleLoans.find(l => l.id === loanId);
+                return {
+                    loanId,
+                    loanAccountNumber: loan?.loanAccountNumber || 'N/A',
+                    amountPaid: repaymentAmounts[loanId] || 0,
+                    paymentDate: batchDetails.paymentDate,
+                    depositMode: batchDetails.depositMode,
+                    paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
+                }
+            })
+            .filter(({ amountPaid }) => amountPaid > 0);
+    } else { // Excel mode
+        repaymentsToProcess = parsedData
+            .filter(row => row.status === 'Valid' && row.loanId)
+            .map(row => ({
+                loanId: row.loanId!,
+                loanAccountNumber: row.loanAccountNumber || 'N/A',
+                amountPaid: row.RepaymentAmount || 0,
+                paymentDate: batchDetails.paymentDate,
+                depositMode: batchDetails.depositMode,
+                paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
+            }));
+    }
+    
+    if (repaymentsToProcess.length === 0) {
+      toast({ variant: 'destructive', title: 'No Payments Entered', description: 'Please enter repayment amounts for at least one selected loan.' });
+      return;
+    }
+    
     setIsPosting(true);
     const result = await recordBatchRepayments(repaymentsToProcess);
     if (result.success) {
@@ -250,6 +290,8 @@ export default function GroupLoanRepaymentsPage() {
         setPostedTransactions(repaymentsToProcess);
         setEligibleLoans([]);
         setRepaymentAmounts({});
+        setParsedData([]);
+        setExcelFile(null);
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -265,19 +307,95 @@ export default function GroupLoanRepaymentsPage() {
     setBatchDetails(initialBatchTransactionState);
   };
   
-  if (isPageLoading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  }
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setExcelFile(file);
+            setParsedData([]);
+        }
+    };
+    
+    const handleProcessFile = async () => {
+        if (!excelFile) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
+            return;
+        }
+        setIsParsing(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-  return (
-    <div className="space-y-8">
-      <PageTitle title="Group Loan Repayments" subtitle="Process loan repayments for a group of members." />
+                const seenLoanIDs = new Set<string>();
+                
+                // Fetch ALL active loans to validate against
+                const allActiveLoans = await prisma.loan.findMany({
+                    where: { OR: [{ status: 'active' }, { status: 'overdue' }]},
+                    select: { id: true, memberId: true, loanAccountNumber: true }
+                });
+                const loanMap = new Map(allActiveLoans.map(l => [l.id, l]));
 
-      {!postedTransactions && (
-        <>
-          <Card className="shadow-lg">
+                const validatedData = dataRows.map((row): ParsedLoanRepayment => {
+                    const memberId = row['MemberID']?.toString().trim();
+                    const loanId = row['LoanID']?.toString().trim();
+                    const amount = parseFloat(row['RepaymentAmount']);
+
+                    if (!memberId || !loanId || isNaN(amount) || amount <= 0) {
+                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid Data' };
+                    }
+                    
+                    if (seenLoanIDs.has(loanId)) {
+                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Duplicate LoanID' };
+                    }
+                    
+                    const member = allMembers.find(m => m.id === memberId);
+                    if (!member) {
+                        return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid MemberID' };
+                    }
+
+                    const loan = loanMap.get(loanId);
+                    if (!loan || loan.memberId !== memberId) {
+                         return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, status: 'Invalid LoanID' };
+                    }
+                    
+                    seenLoanIDs.add(loanId);
+                    return { 'MemberID': memberId, 'LoanID': loanId, 'RepaymentAmount': amount, loanId: loan.id, memberName: member.fullName, loanAccountNumber: loan.loanAccountNumber, status: 'Valid' };
+                });
+
+                setParsedData(validatedData);
+                toast({ title: 'File Processed', description: `Found ${dataRows.length} records. See validation status.` });
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "LoanID", "RepaymentAmount".' });
+            } finally {
+                setIsParsing(false);
+            }
+        };
+        reader.readAsBinaryString(excelFile);
+    };
+
+    const getValidationBadge = (status: ParsedLoanRepayment['status']) => {
+        switch (status) {
+          case 'Valid': return <Badge variant="default">Valid</Badge>;
+          case 'Invalid MemberID': return <Badge variant="destructive">Invalid Member</Badge>;
+          case 'Invalid LoanID': return <Badge variant="destructive">Invalid Loan</Badge>;
+          case 'Duplicate LoanID': return <Badge variant="destructive">Duplicate</Badge>;
+          case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
+        }
+    };
+
+
+    if (isPageLoading) {
+        return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+
+    const renderFilterContent = () => (
+        <Card className="shadow-lg animate-in fade-in-50 duration-300">
             <CardHeader>
-              <CardTitle className="font-headline text-primary">Selection Criteria</CardTitle>
+              <CardTitle className="font-headline text-primary">2. Load Members by Filter</CardTitle>
               <CardDescription>Select filters to load all active loans for its members.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -319,200 +437,291 @@ export default function GroupLoanRepaymentsPage() {
                 </Button>
               </div>
             </CardContent>
-          </Card>
+            {eligibleLoans.length > 0 && renderLoadedLoansTable()}
+        </Card>
+    );
 
-          {eligibleLoans.length > 0 && (
+    const renderExcelContent = () => (
+        <Card className="shadow-lg animate-in fade-in-50 duration-300">
+            <CardHeader>
+                <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
+                <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID", "LoanID", "RepaymentAmount".</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
+                        <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
+                        <Input id="excel-upload" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" disabled={!canCreate} />
+                    </div>
+                    <Button onClick={handleProcessFile} disabled={isParsing || !excelFile || !canCreate} className="w-full sm:w-auto mt-4 sm:mt-6">
+                        {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                        Process File
+                    </Button>
+                </div>
+            </CardContent>
+            {parsedData.length > 0 && (
+                 <CardContent>
+                   <div className="overflow-x-auto rounded-lg border shadow-sm">
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Member Name</TableHead>
+                           <TableHead>Loan ID</TableHead>
+                           <TableHead className="text-right">Amount</TableHead>
+                           <TableHead>Status</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                        {parsedData.map((row, index) => (
+                            <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
+                                <TableCell>{row.memberName || 'N/A'}</TableCell>
+                                <TableCell>{row.LoanID}</TableCell>
+                                <TableCell className="text-right">{row.RepaymentAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell>{getValidationBadge(row.status)}</TableCell>
+                            </TableRow>
+                        ))}
+                       </TableBody>
+                     </Table>
+                   </div>
+                </CardContent>
+            )}
+        </Card>
+    );
+    
+    const renderSubmitCard = () => {
+        const validRepayments = collectionMode === 'filter' ? selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0) : parsedData.filter(d => d.status === 'Valid');
+        const totalAmount = collectionMode === 'filter' ? totalToCollect : parsedData.filter(d => d.status === 'Valid').reduce((sum, row) => sum + (row.RepaymentAmount || 0), 0);
+        
+        if (validRepayments.length === 0) return null;
+
+        return (
             <Card className="shadow-lg animate-in fade-in duration-300">
-              <CardHeader>
-                <CardTitle className="font-headline text-primary">Active Loans for {allSchools.find(s => s.id === selectedSchool)?.name}</CardTitle>
-                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm text-muted-foreground gap-2">
-                    <span>{eligibleLoans.length} active/overdue loans found. {selectedLoanIds.length} selected.</span>
-                    <span className="font-bold text-primary">Total Amount to be Collected: {totalToCollect.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto rounded-lg border shadow-sm mb-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px] px-2">
-                          <Checkbox
-                            checked={isAllSelected}
-                            onCheckedChange={handleSelectAllChange}
-                            aria-label="Select all loans"
-                            disabled={!canCreate}
-                          />
-                        </TableHead>
-                        <TableHead>Member Name</TableHead>
-                        <TableHead>Loan Acct. #</TableHead>
-                        <TableHead>Remaining Balance</TableHead>
-                        <TableHead>Exp. Monthly Repayment</TableHead>
-                        <TableHead className="w-[200px]">Amount to be Paid (Birr)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedLoans.map(loan => {
-                        const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                        const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-                        const standardPayment = principalPortion + interestForMonth;
-                        const finalPayment = loan.remainingBalance + interestForMonth;
-                        const expectedPayment = Math.min(standardPayment, finalPayment);
-
-                        return (
-                        <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>
-                           <TableCell className="px-2">
-                            <Checkbox
-                              checked={selectedLoanIds.includes(loan.id)}
-                              onCheckedChange={(checked) => handleRowSelectChange(loan.id, !!checked)}
-                              aria-label={`Select loan for ${loan.member.fullName}`}
-                              disabled={!canCreate}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{loan.member.fullName}</TableCell>
-                          <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
-                          <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                          <TableCell className="text-right">{expectedPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={repaymentAmounts[loan.id] || ''}
-                              onChange={(e) => handleRepaymentAmountChange(loan.id, e.target.value)}
-                              className="text-right"
-                              disabled={!selectedLoanIds.includes(loan.id) || !canCreate}
-                            />
-                          </TableCell>
-                        </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                {eligibleLoans.length > 0 && (
-                  <div className="flex flex-col items-center gap-4 pt-4">
-                      <div className="flex items-center space-x-2">
-                          <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(currentPage - 1)}
-                              disabled={currentPage === 1}
-                          >
-                              Previous
-                          </Button>
-                          <div className="flex items-center gap-1">
-                              {paginationItems.map((item, index) =>
-                                  typeof item === 'number' ? (
-                                      <Button
-                                          key={index}
-                                          variant={currentPage === item ? 'default' : 'outline'}
-                                          size="sm"
-                                          className="h-9 w-9 p-0"
-                                          onClick={() => setCurrentPage(item)}
-                                      >
-                                          {item}
-                                      </Button>
-                                  ) : (
-                                      <span key={index} className="px-2">{item}</span>
-                                  )
-                              )}
-                          </div>
-                          <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setCurrentPage(currentPage + 1)}
-                              disabled={currentPage >= totalPages}
-                          >
-                              Next
-                          </Button>
-                      </div>
-                      <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                          <div>Page {currentPage} of {totalPages || 1}</div>
-                          <div>{eligibleLoans.length} loan(s) found.</div>
-                          <div className="flex items-center space-x-2">
-                              <p className="font-medium">Rows:</p>
-                              <Select
-                                  value={`${rowsPerPage}`}
-                                  onValueChange={(value) => {
-                                      setRowsPerPage(Number(value));
-                                      setCurrentPage(1);
-                                  }}
-                              >
-                                  <SelectTrigger className="h-8 w-[70px]">
-                                      <SelectValue placeholder={`${rowsPerPage}`} />
-                                  </SelectTrigger>
-                                  <SelectContent side="top">
-                                      {[10, 15, 20, 25, 50].map((pageSize) => (
-                                          <SelectItem key={pageSize} value={`${pageSize}`}>
-                                              {pageSize}
-                                          </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                              </Select>
-                          </div>
-                      </div>
-                  </div>
-                )}
-
-                <Separator className="my-6" />
-                
-                <Label className="text-lg font-semibold text-primary mb-2 block">Batch Payment Details</Label>
-                <div className="space-y-4">
-                    <div>
-                        <Label htmlFor="batchDetails.date">Payment Date <span className="text-destructive">*</span></Label>
-                        <Input id="batchDetails.date" name="date" type="date" value={batchDetails.date || ''} onChange={handleBatchDetailChange} required disabled={!canCreate} />
-                    </div>
-                    <div>
-                        <Label htmlFor="depositModeBatch">Payment Mode</Label>
-                        <RadioGroup id="depositModeBatch" value={batchDetails.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" disabled={!canCreate} /><Label htmlFor="cashBatch">Cash</Label></div>
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" disabled={!canCreate} /><Label htmlFor="bankBatch">Bank</Label></div>
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" disabled={!canCreate} /><Label htmlFor="walletBatch">Wallet</Label></div>
-                        </RadioGroup>
-                    </div>
-
-                    {(batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && (
-                        <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
-                                <div>
-                                    <Label htmlFor="paymentDetails.sourceNameBatch">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
-                                    <Input id="paymentDetails.sourceNameBatch" name="paymentDetails.sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.paymentDetails?.sourceName || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
-                                </div>
-                                <div>
-                                    <Label htmlFor="paymentDetails.transactionReferenceBatch">Transaction Reference</Label>
-                                    <Input id="paymentDetails.transactionReferenceBatch" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.paymentDetails?.transactionReference || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
-                                </div>
+                <CardHeader>
+                    <CardTitle className="font-headline text-primary">3. Batch Payment Details</CardTitle>
+                     <p className="text-sm text-muted-foreground">This information will be applied to all submitted repayments in this batch.</p>
+                      <Card className="bg-muted/50 p-4">
+                        <CardTitle className="text-base flex justify-between items-center">
+                            <span>Summary for Submission</span>
+                             <Badge>{validRepayments.length} Repayment(s)</Badge>
+                        </CardTitle>
+                        <CardContent className="p-0 pt-2">
+                            <div className="text-lg font-bold text-primary flex justify-between items-center">
+                                <span>Total Collection Amount:</span>
+                                <span>{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                             </div>
-                             <div className="pl-3">
-                                <FileUpload
-                                    id="groupLoanRepaymentEvidence"
-                                    label="Evidence Attachment"
-                                    value={batchDetails.paymentDetails?.evidenceUrl || ''}
-                                    onValueChange={(newValue) => {
-                                        setBatchDetails(prev => ({
-                                            ...prev,
-                                            paymentDetails: {
-                                                ...(prev.paymentDetails),
-                                                evidenceUrl: newValue,
-                                            }
-                                        }));
-                                    }}
-                                />
-                            </div>
+                        </CardContent>
+                      </Card>
+                </CardHeader>
+                <CardContent>
+                   <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="batchDetails.paymentDate">Payment Date <span className="text-destructive">*</span></Label>
+                            <Input id="batchDetails.paymentDate" name="paymentDate" type="date" value={batchDetails.paymentDate || ''} onChange={handleBatchDetailChange} required disabled={!canCreate} />
                         </div>
-                    )}
-                </div>
-              </CardContent>
-              {canCreate && (
+                        <div>
+                            <Label htmlFor="depositModeBatch">Payment Mode</Label>
+                            <RadioGroup id="depositModeBatch" value={batchDetails.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashBatch" disabled={!canCreate} /><Label htmlFor="cashBatch">Cash</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankBatch" disabled={!canCreate} /><Label htmlFor="bankBatch">Bank</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletBatch" disabled={!canCreate} /><Label htmlFor="walletBatch">Wallet</Label></div>
+                            </RadioGroup>
+                        </div>
+
+                        {(batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && (
+                            <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
+                                    <div>
+                                        <Label htmlFor="paymentDetails.sourceNameBatch">{batchDetails.depositMode} Name <span className="text-destructive">*</span></Label>
+                                        <Input id="paymentDetails.sourceNameBatch" name="paymentDetails.sourceName" placeholder={`Enter ${batchDetails.depositMode} Name`} value={batchDetails.paymentDetails?.sourceName || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="paymentDetails.transactionReferenceBatch">Transaction Reference</Label>
+                                        <Input id="paymentDetails.transactionReferenceBatch" name="paymentDetails.transactionReference" placeholder="e.g., TRN123XYZ" value={batchDetails.paymentDetails?.transactionReference || ''} onChange={handleBatchDetailChange} disabled={!canCreate} />
+                                    </div>
+                                </div>
+                                 <div className="pl-3">
+                                    <FileUpload
+                                        id="groupLoanRepaymentEvidence"
+                                        label="Evidence Attachment"
+                                        value={batchDetails.paymentDetails?.evidenceUrl || ''}
+                                        onValueChange={(newValue) => {
+                                            setBatchDetails(prev => ({
+                                                ...prev,
+                                                paymentDetails: {
+                                                    ...(prev.paymentDetails),
+                                                    evidenceUrl: newValue,
+                                                }
+                                            }));
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
                 <CardFooter>
-                  <Button onClick={handleSubmitCollection} disabled={isPosting || totalToCollect <= 0} className="w-full md:w-auto ml-auto">
+                  <Button onClick={handleSubmitCollection} disabled={isPosting || totalAmount <= 0} className="w-full md:w-auto ml-auto">
                     {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                    Record Repayments for {selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length} Loans
+                    Record {validRepayments.length} Repayments
                   </Button>
                 </CardFooter>
-              )}
             </Card>
-          )}
+        )
+    };
+
+    const renderLoadedLoansTable = () => (
+        <CardContent>
+            <div className="overflow-x-auto rounded-lg border shadow-sm mb-6">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead className="w-[50px] px-2">
+                        <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={handleSelectAllChange}
+                        aria-label="Select all loans"
+                        disabled={!canCreate}
+                        />
+                    </TableHead>
+                    <TableHead>Member Name</TableHead>
+                    <TableHead>Loan Acct. #</TableHead>
+                    <TableHead>Remaining Balance</TableHead>
+                    <TableHead>Exp. Monthly Repayment</TableHead>
+                    <TableHead className="w-[200px]">Amount to be Paid (Birr)</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {paginatedLoans.map(loan => {
+                    const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+                    const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+                    const standardPayment = principalPortion + interestForMonth;
+                    const finalPayment = loan.remainingBalance + interestForMonth;
+                    const expectedPayment = Math.min(standardPayment, finalPayment);
+
+                    return (
+                    <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>
+                        <TableCell className="px-2">
+                        <Checkbox
+                            checked={selectedLoanIds.includes(loan.id)}
+                            onCheckedChange={(checked) => handleRowSelectChange(loan.id, !!checked)}
+                            aria-label={`Select loan for ${loan.member.fullName}`}
+                            disabled={!canCreate}
+                        />
+                        </TableCell>
+                        <TableCell className="font-medium">{loan.member.fullName}</TableCell>
+                        <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
+                        <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                        <TableCell className="text-right">{expectedPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                        <TableCell>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={repaymentAmounts[loan.id] || ''}
+                            onChange={(e) => handleRepaymentAmountChange(loan.id, e.target.value)}
+                            className="text-right"
+                            disabled={!selectedLoanIds.includes(loan.id) || !canCreate}
+                        />
+                        </TableCell>
+                    </TableRow>
+                    )
+                    })}
+                </TableBody>
+                </Table>
+            </div>
+            {eligibleLoans.length > 0 && (
+                <div className="flex flex-col items-center gap-4 pt-4">
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <div className="flex items-center gap-1">
+                            {paginationItems.map((item, index) =>
+                                typeof item === 'number' ? (
+                                    <Button
+                                        key={index}
+                                        variant={currentPage === item ? 'default' : 'outline'}
+                                        size="sm"
+                                        className="h-9 w-9 p-0"
+                                        onClick={() => setCurrentPage(item)}
+                                    >
+                                        {item}
+                                    </Button>
+                                ) : (
+                                    <span key={index} className="px-2">{item}</span>
+                                )
+                            )}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            disabled={currentPage >= totalPages}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                    <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                        <div>Page {currentPage} of {totalPages || 1}</div>
+                        <div>{eligibleLoans.length} loan(s) found.</div>
+                        <div className="flex items-center space-x-2">
+                            <p className="font-medium">Rows:</p>
+                            <Select
+                                value={`${rowsPerPage}`}
+                                onValueChange={(value) => {
+                                    setRowsPerPage(Number(value));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectValue placeholder={`${rowsPerPage}`} />
+                                </SelectTrigger>
+                                <SelectContent side="top">
+                                    {[10, 15, 20, 25, 50].map((pageSize) => (
+                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                            {pageSize}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </CardContent>
+    );
+
+  return (
+    <div className="space-y-8">
+      <PageTitle title="Group Loan Repayments" subtitle="Process loan repayments for a group of members." />
+
+      {!postedTransactions && (
+        <>
+          <Card className="shadow-md">
+                <CardHeader><CardTitle className="font-headline text-primary">1. Select Collection Method</CardTitle></CardHeader>
+                <CardContent>
+                    <div>
+                        <RadioGroup value={collectionMode} onValueChange={(val) => setCollectionMode(val as 'filter' | 'excel')} className="flex flex-wrap gap-x-6 gap-y-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="filter" id="mode-filter" />
+                                <Label htmlFor="mode-filter" className="font-medium">Filter Members</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="excel" id="mode-excel" />
+                                <Label htmlFor="mode-excel" className="font-medium">Upload Excel File</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {collectionMode === 'filter' ? renderFilterContent() : renderExcelContent()}
+            {canCreate && renderSubmitCard()}
         </>
       )}
 

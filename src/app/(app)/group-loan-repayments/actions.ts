@@ -8,8 +8,9 @@ import { revalidatePath } from 'next/cache';
 export async function getGroupLoanRepaymentsPageData(): Promise<{
     schools: Pick<School, 'id', 'name'>[],
     loanTypes: Pick<LoanType, 'id', 'name'>[],
+    allMembersForValidation: Pick<Member, 'id' | 'fullName'>[]
 }> {
-  const [schools, loanTypes] = await Promise.all([
+  const [schools, loanTypes, allMembersForValidation] = await Promise.all([
     prisma.school.findMany({
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
@@ -18,8 +19,12 @@ export async function getGroupLoanRepaymentsPageData(): Promise<{
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.member.findMany({
+        where: { status: 'active' },
+        select: { id: true, fullName: true }
+    })
   ]);
-  return { schools, loanTypes };
+  return { schools, loanTypes, allMembersForValidation };
 }
 
 export type LoanWithMemberInfo = Loan & {
