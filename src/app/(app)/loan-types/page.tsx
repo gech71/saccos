@@ -111,10 +111,15 @@ export default function LoanTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentLoanType(prev => ({
-      ...prev,
-      [name]: (name.includes('Amount') || name.includes('Rate') || name.includes('Period')) ? parseFloat(value) : value
-    }));
+    if (name.includes('Amount') || name.includes('Rate') || name.includes('Period')) {
+        const parsedValue = parseFloat(value);
+        setCurrentLoanType(prev => ({
+            ...prev,
+            [name]: isNaN(parsedValue) ? 0 : parsedValue
+        }));
+    } else {
+        setCurrentLoanType(prev => ({ ...prev, [name]: value }));
+    }
   };
   
    const handleSelectChange = (name: keyof LoanType, value: string) => {
