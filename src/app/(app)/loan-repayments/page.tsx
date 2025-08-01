@@ -99,14 +99,15 @@ export default function LoanRepaymentsPage() {
         const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
         const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
         
-        const minPayment = roundToTwo(principalPortion + interestForMonth);
+        const standardPayment = roundToTwo(principalPortion + interestForMonth);
         const finalPayment = roundToTwo(loan.remainingBalance + interestForMonth);
+
+        const minPayment = roundToTwo(Math.min(standardPayment, finalPayment));
 
         setMinimumPayment(minPayment);
         setFinalSettlement(finalPayment);
         
-        // Pre-fill amount with expected payment, but not exceeding final settlement
-        setCurrentRepayment(prev => ({...prev, amountPaid: roundToTwo(Math.min(minPayment, finalPayment))}));
+        setCurrentRepayment(prev => ({...prev, amountPaid: minPayment}));
       }
     } else {
       setMinimumPayment(0);
@@ -125,7 +126,7 @@ export default function LoanRepaymentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentRepayment.loanId || !currentRepayment.amountPaid || currentRepayment.amountPaid <= 0) {
+    if (!currentRepayment.loanId || currentRepayment.amountPaid === undefined) {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
       return;
     }
@@ -133,13 +134,13 @@ export default function LoanRepaymentsPage() {
     // Use a small tolerance for floating point comparisons
     const tolerance = 0.01;
 
-    if (currentRepayment.amountPaid > finalSettlement + tolerance) {
-        toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement of ${finalSettlement.toFixed(2)}.` });
+    if (currentRepayment.amountPaid < minimumPayment - tolerance && currentRepayment.amountPaid < finalSettlement - tolerance) {
+        toast({ variant: 'destructive', title: 'Payment Too Low', description: `Payment must be at least the minimum amount of ${minimumPayment.toFixed(2)}. To make a partial payment lower than the minimum, please contact an administrator. To clear the loan, pay the final settlement amount.` });
         return;
     }
 
-    if (currentRepayment.amountPaid < minimumPayment - tolerance && currentRepayment.amountPaid < finalSettlement - tolerance) {
-        toast({ variant: 'destructive', title: 'Payment Too Low', description: `Payment must be at least the minimum amount of ${minimumPayment.toFixed(2)}. To make a partial payment lower than the minimum, please contact an administrator. To clear the loan, pay the final settlement amount.` });
+    if (currentRepayment.amountPaid > finalSettlement + tolerance) {
+        toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement of ${finalSettlement.toFixed(2)}.` });
         return;
     }
     
@@ -391,5 +392,6 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
 
 
