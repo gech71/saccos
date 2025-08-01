@@ -263,11 +263,25 @@ export default function GroupLoanRepaymentsPage() {
             const amountPaid = repaymentAmounts[loanId] || 0;
 
             if (amountPaid > 0 && loan) {
-                // Final settlement check
                 const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+                const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+                const standardPayment = principalPortion + interestForMonth;
                 const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
+                const minimumPayment = roundToTwo(Math.min(standardPayment, finalSettlement));
                 
-                if (amountPaid > finalSettlement + 0.01) { // Add tolerance for floating point
+                // Add tolerance for floating point comparisons
+                const tolerance = 0.01;
+
+                if (amountPaid < minimumPayment - tolerance && amountPaid < finalSettlement - tolerance) {
+                    toast({
+                        variant: 'destructive',
+                        title: `Payment for ${loan.member.fullName} is too low`,
+                        description: `Payment of ${amountPaid.toFixed(2)} is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
+                    });
+                    return; // Stop submission
+                }
+                
+                if (amountPaid > finalSettlement + tolerance) { 
                     toast({ 
                         variant: 'destructive', 
                         title: `Overpayment for ${loan!.member.fullName}`, 
@@ -287,18 +301,37 @@ export default function GroupLoanRepaymentsPage() {
             }
         }
     } else { // Excel mode
-        // Validation for excel mode can be added here if needed, similar to above.
-        // For now, assuming excel data is pre-validated or less strict.
-        repaymentsToProcess = parsedData
-            .filter(row => row.status === 'Valid' && row.loanAccountNumber)
-            .map(row => ({
-                loanId: row.loanId!, // This is not actually used in the backend now
-                loanAccountNumber: row.loanAccountNumber || 'N/A',
-                amountPaid: row.RepaymentAmount || 0,
+         const allActiveLoans = await getLoansByCriteria({ schoolId: 'all', loanTypeId: 'all' });
+         const loanMap = new Map(allActiveLoans.map(l => [l.loanAccountNumber, l]));
+
+         for (const row of parsedData) {
+            if (row.status !== 'Valid' || !row.loanAccountNumber || !row.RepaymentAmount) continue;
+
+            const loan = loanMap.get(row.loanAccountNumber);
+            if (!loan) continue; // Should not happen if validation is correct
+
+            const amountPaid = row.RepaymentAmount;
+            const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+            const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
+            
+            if (amountPaid > finalSettlement + 0.01) {
+                toast({ 
+                    variant: 'destructive', 
+                    title: `Overpayment in Excel for ${loan.member.fullName}`, 
+                    description: `Payment of ${amountPaid.toFixed(2)} for Acct# ${loan.loanAccountNumber} exceeds settlement of ${finalSettlement.toFixed(2)}.`
+                });
+                return;
+            }
+
+            repaymentsToProcess.push({
+                loanId: loan.id!,
+                loanAccountNumber: loan.loanAccountNumber || 'N/A',
+                amountPaid: amountPaid,
                 paymentDate: batchDetails.paymentDate,
                 depositMode: batchDetails.depositMode,
                 paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
-            }));
+            });
+         }
     }
     
     if (repaymentsToProcess.length === 0) {
@@ -816,4 +849,3 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
-
