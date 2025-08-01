@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -25,7 +26,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LoanType, School, Member } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, UploadCloud, FileCheck2, FileDown } from 'lucide-react';
+import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, UploadCloud, FileCheck2, FileDown, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
@@ -33,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { getGroupLoanRepaymentsPageData, getLoansByCriteria, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
+import { exportToExcel } from '@/lib/utils';
 
 const initialBatchTransactionState: {
   paymentDate: string;
@@ -58,7 +60,7 @@ const months = [
   { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
   { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
   { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
-  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', 'label': 'December' }
+  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
 type ParsedLoanRepayment = {
@@ -333,10 +335,7 @@ export default function GroupLoanRepaymentsPage() {
                 const seenLoanIDs = new Set<string>();
                 
                 // Fetch ALL active loans to validate against
-                const allActiveLoans = await prisma.loan.findMany({
-                    where: { OR: [{ status: 'active' }, { status: 'overdue' }]},
-                    select: { id: true, memberId: true, loanAccountNumber: true }
-                });
+                const allActiveLoans = await getLoansByCriteria({ schoolId: 'all', loanTypeId: 'all' });
                 const loanMap = new Map(allActiveLoans.map(l => [l.id, l]));
 
                 const validatedData = dataRows.map((row): ParsedLoanRepayment => {
@@ -385,6 +384,15 @@ export default function GroupLoanRepaymentsPage() {
           case 'Duplicate LoanID': return <Badge variant="destructive">Duplicate</Badge>;
           case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
         }
+    };
+    
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            MemberID: 'member-id-123',
+            LoanID: 'loan-id-abc',
+            RepaymentAmount: 1500.50
+        }];
+        exportToExcel(templateData, 'loan_repayment_template');
     };
 
 
@@ -445,9 +453,25 @@ export default function GroupLoanRepaymentsPage() {
         <Card className="shadow-lg animate-in fade-in-50 duration-300">
             <CardHeader>
                 <CardTitle className="font-headline text-primary">2. Upload Collection File</CardTitle>
-                <CardDescription>Upload an Excel file (.xlsx, .xls, .csv). Format: "MemberID", "LoanID", "RepaymentAmount".</CardDescription>
+                <CardDescription>Upload an Excel file with the required columns. You can download a template to get started.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <Card className="bg-muted/50 border-dashed">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-base">How to Use Excel Upload</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground space-y-2">
+                        <p>1. Download the sample template to see the required format.</p>
+                        <p>2. Fill the sheet with your repayment data. The required columns are: <strong>MemberID</strong>, <strong>LoanID</strong>, and <strong>RepaymentAmount</strong>.</p>
+                        <p>3. Upload the completed file below and click "Process File" to validate your data before submission.</p>
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                            <Download className="mr-2 h-4 w-4" />
+                            Download Template
+                        </Button>
+                    </CardFooter>
+                </Card>
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
                     <div className="grid w-full max-w-sm items-center gap-1.5 flex-grow">
                         <Label htmlFor="excel-upload">Excel File <span className="text-destructive">*</span></Label>
