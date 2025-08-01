@@ -6,56 +6,79 @@ import prisma from '@/lib/prisma';
 import type { Loan, Member, LoanRepayment, Prisma, LoanType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+export interface RepaymentsByMember {
+  memberId: string;
+  memberName: string;
+  totalRepaid: number;
+  repaymentCount: number;
+  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null } })[];
+}
+
 export interface LoanRepaymentsPageData {
-  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }, member?: { fullName: string }})[];
+  repaymentsByMember: RepaymentsByMember[];
   activeLoans: (Loan & { member: Member | null} & { loanType: { name: string } | null })[];
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
-  const repaymentsData = await prisma.loanRepayment.findMany({
-    include: {
-      loan: {
-        select: {
-          loanAccountNumber: true,
-          member: {
-            select: {
-              fullName: true,
-            },
+  const [repaymentsData, activeLoans] = await Promise.all([
+    prisma.loanRepayment.findMany({
+      include: {
+        loan: {
+          select: {
+            loanAccountNumber: true,
           },
         },
-      },
-    },
-    orderBy: { paymentDate: 'desc' },
-  });
-
-  // Reshape the data to include member info at the top level for the UI
-  const repayments = repaymentsData.map(r => {
-    const { loan, ...rest } = r;
-    return {
-      ...rest,
-      paymentDate: r.paymentDate.toISOString(),
-      loan: loan ? { loanAccountNumber: loan.loanAccountNumber } : undefined,
-      member: loan?.member,
-    };
-  });
-
-  const activeLoans = await prisma.loan.findMany({
-    where: {
-      OR: [{ status: 'active' }, { status: 'overdue' }],
-    },
-    include: { 
-        member: true,
-        loanType: {
-            select: {
-                name: true
-            }
+        member: { // Directly include member from repayment
+          select: {
+            fullName: true,
+          }
         }
-    },
-    orderBy: [{ member: { fullName: 'asc' }}, {loanAccountNumber: 'asc'}]
+      },
+      orderBy: { paymentDate: 'desc' },
+    }),
+    prisma.loan.findMany({
+      where: {
+        OR: [{ status: 'active' }, { status: 'overdue' }],
+      },
+      include: { 
+          member: true,
+          loanType: {
+              select: {
+                  name: true
+              }
+          }
+      },
+      orderBy: [{ member: { fullName: 'asc' }}, {loanAccountNumber: 'asc'}]
+    })
+  ]);
+
+  // Group repayments by member
+  const repaymentsGrouped: Record<string, RepaymentsByMember> = {};
+  repaymentsData.forEach(r => {
+    if (!r.member) return; // Skip if member is deleted
+
+    if (!repaymentsGrouped[r.memberId]) {
+      repaymentsGrouped[r.memberId] = {
+        memberId: r.memberId,
+        memberName: r.member.fullName,
+        totalRepaid: 0,
+        repaymentCount: 0,
+        repayments: [],
+      };
+    }
+    
+    const group = repaymentsGrouped[r.memberId];
+    group.totalRepaid += r.amountPaid;
+    group.repaymentCount += 1;
+    group.repayments.push({
+      ...r,
+      paymentDate: r.paymentDate.toISOString(),
+      loan: r.loan ? { loanAccountNumber: r.loan.loanAccountNumber } : undefined,
+    });
   });
 
   return {
-    repayments,
+    repaymentsByMember: Object.values(repaymentsGrouped).sort((a, b) => a.memberName.localeCompare(b.memberName)),
     activeLoans: activeLoans.map(l => ({...l, disbursementDate: l.disbursementDate.toISOString(), nextDueDate: l.nextDueDate?.toISOString() ?? null })),
   };
 }
@@ -77,7 +100,7 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     const minimumPayment = principalPortion + interestPortion;
     
     if (data.amountPaid < minimumPayment) {
-        throw new Error(`Payment amount cannot be less than the minimum required payment of ${minimumPayment.toFixed(2)} Birr.`);
+        throw new Error(`Payment amount must be at least ${minimumPayment.toFixed(2)} Birr.`);
     }
 
     await prisma.$transaction(async (tx) => {

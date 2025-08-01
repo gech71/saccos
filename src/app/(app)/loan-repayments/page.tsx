@@ -5,34 +5,26 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2 } from 'lucide-react';
+import { PlusCircle, Search, Check, ChevronsUpDown, FileDown, DollarSign, Banknote, Wallet, Loader2, Users } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import type { LoanRepayment, Loan, Member, LoanType } from '@prisma/client';
+import type { Loan, Member, LoanType, LoanRepayment } from '@prisma/client';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { FileUpload } from '@/components/file-upload';
-import { getLoanRepaymentsPageData, addLoanRepayment, type LoanRepaymentsPageData, type LoanRepaymentInput } from './actions';
+import { getLoanRepaymentsPageData, addLoanRepayment, type LoanRepaymentsPageData, type LoanRepaymentInput, type RepaymentsByMember } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { format, parseISO } from 'date-fns';
 
-type RepaymentWithDetails = LoanRepayment & { 
-    loan?: { loanAccountNumber: string | null },
-    member?: { fullName: string },
-};
 type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
 const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
@@ -46,7 +38,7 @@ const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
 };
 
 export default function LoanRepaymentsPage() {
-  const [repayments, setRepayments] = useState<RepaymentWithDetails[]>([]);
+  const [repaymentsByMember, setRepaymentsByMember] = useState<RepaymentsByMember[]>([]);
   const [activeLoans, setActiveLoans] = useState<ActiveLoanWithMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -59,9 +51,6 @@ export default function LoanRepaymentsPage() {
   const [minimumPayment, setMinimumPayment] = useState<number>(0);
 
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const canCreate = useMemo(() => user?.permissions.includes('loanRepayment:create'), [user]);
 
@@ -69,7 +58,7 @@ export default function LoanRepaymentsPage() {
     setIsLoading(true);
     try {
         const data = await getLoanRepaymentsPageData();
-        setRepayments(data.repayments);
+        setRepaymentsByMember(data.repaymentsByMember);
         setActiveLoans(data.activeLoans);
     } catch {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load data.'})
@@ -141,64 +130,23 @@ export default function LoanRepaymentsPage() {
     setIsSubmitting(false);
   };
 
-  const filteredRepayments = useMemo(() => {
-    return repayments.filter(repayment => {
-      return repayment.member?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
-    });
-  }, [repayments, searchTerm]);
-  
-  const paginatedRepayments = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    return filteredRepayments.slice(startIndex, endIndex);
-  }, [filteredRepayments, currentPage, rowsPerPage]);
-
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredRepayments.length / rowsPerPage);
-  }, [filteredRepayments.length, rowsPerPage]);
-
-  const getPaginationItems = () => {
-    if (totalPages <= 1) return [];
-    const delta = 1;
-    const left = currentPage - delta;
-    const right = currentPage + delta + 1;
-    const range: number[] = [];
-    const rangeWithDots: (number | string)[] = [];
-
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= left && i < right)) {
-            range.push(i);
-        }
-    }
-
-    let l: number | undefined;
-    for (const i of range) {
-        if (l) {
-            if (i - l === 2) {
-                rangeWithDots.push(l + 1);
-            } else if (i - l !== 1) {
-                rangeWithDots.push('...');
-            }
-        }
-        rangeWithDots.push(i);
-        l = i;
-    }
-
-    return rangeWithDots;
-  };
-  
-  const paginationItems = getPaginationItems();
+  const filteredRepaymentsByMember = useMemo(() => {
+    if (!searchTerm) return repaymentsByMember;
+    return repaymentsByMember.filter(group => 
+      group.memberName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [repaymentsByMember, searchTerm]);
 
   const handleExport = () => {
-    const dataToExport = filteredRepayments.map(r => {
-      return {
-        'Member Name': r.member?.fullName || 'N/A',
-        'Loan Acct. #': r.loan?.loanAccountNumber || r.loanId,
-        'Amount Paid (Birr)': r.amountPaid,
-        'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
-        'Payment Mode': r.depositMode || 'N/A',
-      }
-    });
+    const dataToExport = repaymentsByMember.flatMap(group => 
+        group.repayments.map(r => ({
+            'Member Name': group.memberName || 'N/A',
+            'Loan Acct. #': r.loan?.loanAccountNumber || r.loanId,
+            'Amount Paid (Birr)': r.amountPaid,
+            'Payment Date': new Date(r.paymentDate).toLocaleDateString(),
+            'Payment Mode': r.depositMode || 'N/A',
+        }))
+    );
     exportToExcel(dataToExport, 'loan_repayments_export');
   };
 
@@ -216,104 +164,55 @@ export default function LoanRepaymentsPage() {
         <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Loan Acct. #</TableHead>
-              <TableHead className="text-right">Amount Paid (Birr)</TableHead>
-              <TableHead>Payment Date</TableHead>
-              <TableHead>Payment Mode</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      <Card>
+        <CardContent className="p-0">
+          <Accordion type="multiple" className="w-full">
             {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : paginatedRepayments.length > 0 ? paginatedRepayments.map(repayment => {
-                return (
-                    <TableRow key={repayment.id}>
-                        <TableCell className="font-medium">{repayment.member?.fullName}</TableCell>
-                        <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                        <TableCell>{new Date(repayment.paymentDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{repayment.depositMode || 'N/A'}</TableCell>
-                    </TableRow>
-                )
-            }) : (
-              <TableRow><TableCell colSpan={5} className="h-24 text-center">No repayments found.</TableCell></TableRow>
+              <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
+            ) : filteredRepaymentsByMember.length > 0 ? filteredRepaymentsByMember.map(group => (
+                <AccordionItem value={group.memberId} key={group.memberId}>
+                    <AccordionTrigger className="px-6 py-4 text-lg hover:bg-muted/50 hover:no-underline">
+                      <div className="flex-1 text-left flex items-center gap-4">
+                        <Users className="h-5 w-5 text-primary" />
+                        <span className="font-semibold">{group.memberName}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm font-normal text-muted-foreground">
+                        <Badge variant="secondary">{group.repaymentCount} Repayment(s)</Badge>
+                        <span className="font-semibold">{group.totalRepaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0">
+                       <div className="overflow-x-auto border-t">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>Loan Acct. #</TableHead>
+                                    <TableHead className="text-right">Amount Paid (Birr)</TableHead>
+                                    <TableHead>Payment Date</TableHead>
+                                    <TableHead>Payment Mode</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {group.repayments.map(repayment => (
+                                        <TableRow key={repayment.id}>
+                                            <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
+                                            <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                            <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
+                                            <TableCell><Badge variant="outline">{repayment.depositMode || 'N/A'}</Badge></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </AccordionContent>
+                </AccordionItem>
+            )) : (
+              <div className="p-12 text-center text-muted-foreground">No repayments found.</div>
             )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {filteredRepayments.length > 0 && (
-        <div className="flex flex-col items-center gap-4 pt-4">
-            <div className="flex items-center space-x-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                >
-                    Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                    {paginationItems.map((item, index) =>
-                        typeof item === 'number' ? (
-                            <Button
-                                key={index}
-                                variant={currentPage === item ? 'default' : 'outline'}
-                                size="sm"
-                                className="h-9 w-9 p-0"
-                                onClick={() => setCurrentPage(item)}
-                            >
-                                {item}
-                            </Button>
-                        ) : (
-                            <span key={index} className="px-2">
-                                {item}
-                            </span>
-                        )
-                    )}
-                </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
-                >
-                    Next
-                </Button>
-            </div>
-            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                <div>Page {currentPage} of {totalPages || 1}</div>
-                <div>{filteredRepayments.length} repayment(s) found.</div>
-                <div className="flex items-center space-x-2">
-                    <p className="font-medium">Rows:</p>
-                    <Select
-                        value={`${rowsPerPage}`}
-                        onValueChange={(value) => {
-                            setRowsPerPage(Number(value));
-                            setCurrentPage(1);
-                        }}
-                    >
-                        <SelectTrigger className="h-8 w-[70px]">
-                            <SelectValue placeholder={`${rowsPerPage}`} />
-                        </SelectTrigger>
-                        <SelectContent side="top">
-                            {[10, 15, 20, 25, 50].map((pageSize) => (
-                                <SelectItem key={pageSize} value={`${pageSize}`}>
-                                    {pageSize}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-        </div>
-      )}
-
+          </Accordion>
+        </CardContent>
+      </Card>
+      
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -348,7 +247,7 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} min={minimumPayment} required />
+                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
                  {minimumPayment > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Minimum payment: {minimumPayment.toFixed(2)} Birr
@@ -406,5 +305,3 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
-
-
