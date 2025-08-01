@@ -83,6 +83,7 @@ export default function LoansPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+  const [selectedLoanTypeFilter, setSelectedLoanTypeFilter] = useState<string>('all');
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -224,9 +225,10 @@ export default function LoansPage() {
     return loans.filter(loan => {
       const matchesSearchTerm = loan.memberName ? loan.memberName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
       const matchesStatus = selectedStatusFilter === 'all' || loan.status === selectedStatusFilter;
-      return matchesSearchTerm && matchesStatus;
+      const matchesLoanType = selectedLoanTypeFilter === 'all' || loan.loanTypeId === selectedLoanTypeFilter;
+      return matchesSearchTerm && matchesStatus && matchesLoanType;
     });
-  }, [loans, searchTerm, selectedStatusFilter]);
+  }, [loans, searchTerm, selectedStatusFilter, selectedLoanTypeFilter]);
 
   const paginatedLoans = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -258,6 +260,15 @@ export default function LoansPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
           </div>
+          <Select value={selectedLoanTypeFilter} onValueChange={setSelectedLoanTypeFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Filter by type" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Loan Types</SelectItem>
+              {loanTypes.map(type => (
+                <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
             <SelectTrigger className="w-full sm:w-[180px]"><Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Filter by status" /></SelectTrigger>
             <SelectContent>
@@ -280,22 +291,33 @@ export default function LoansPage() {
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Principal (Birr)</TableHead>
               <TableHead className="text-right">Balance (Birr)</TableHead>
-              <TableHead className="text-right">Next Payment (Est.)</TableHead>
+              <TableHead className="text-right">Interest (Next)</TableHead>
+              <TableHead className="text-right">Principal (Next)</TableHead>
+              <TableHead className="text-right">Total Payment (Next)</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
             ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => {
-                let nextPayment = 0;
+                let interestNext = 0;
+                let principalNext = 0;
+                let totalNext = 0;
+                
                 if ((loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0) {
-                    const principalPortion = loan.principalAmount / loan.loanTerm;
-                    const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                    const standardPayment = principalPortion + interestForMonth;
-                    const finalPayment = loan.remainingBalance + interestForMonth;
-                    nextPayment = Math.min(standardPayment, finalPayment);
+                    interestNext = loan.remainingBalance * (loan.interestRate / 12);
+                    principalNext = loan.principalAmount / loan.loanTerm;
+                    
+                    const standardPayment = principalNext + interestNext;
+                    const finalPayment = loan.remainingBalance + interestNext;
+                    
+                    totalNext = Math.min(standardPayment, finalPayment);
+
+                    if (totalNext === finalPayment) {
+                        principalNext = loan.remainingBalance;
+                    }
                 }
               return (
               <TableRow key={loan.id}>
@@ -304,7 +326,9 @@ export default function LoansPage() {
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
                 <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                 <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-muted-foreground">{nextPayment > 0 ? nextPayment.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -318,7 +342,7 @@ export default function LoansPage() {
               </TableRow>
               )
             }) : (
-              <TableRow><TableCell colSpan={8} className="h-24 text-center">No loans found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="h-24 text-center">No loans found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -466,4 +490,3 @@ export default function LoansPage() {
     </div>
   );
 }
-
