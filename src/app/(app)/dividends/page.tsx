@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -112,7 +113,7 @@ export default function DividendsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCurrentDividend(prev => ({ ...prev, [name]: name === 'amount' || name === 'shareCountAtDistribution' ? parseFloat(value) : value }));
+    setCurrentDividend(prev => ({ ...prev, [name]: name === 'amount' || name === 'shareCountAtDistribution' ? parseFloat(value) || 0 : value }));
   };
 
   const handleSelectChange = (name: string, value: string) => {

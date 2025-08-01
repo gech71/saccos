@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -101,7 +102,7 @@ export default function ServiceChargeTypesPage() {
     const { name, value } = e.target;
     setCurrentChargeType(prev => ({
       ...prev,
-      [name]: name === 'amount' ? parseFloat(value) : value
+      [name]: name === 'amount' ? parseFloat(value) || 0 : value
     }));
   };
 

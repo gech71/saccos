@@ -166,7 +166,7 @@ export default function MembersPage() {
             };
         });
     } else {
-        const val = name === 'salary' ? parseFloat(value) : value;
+        const val = name === 'salary' ? parseFloat(value) || 0 : value;
         setCurrentMember(prev => ({ ...prev, [name]: val }));
     }
   };

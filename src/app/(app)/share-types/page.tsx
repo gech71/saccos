@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -93,7 +94,7 @@ export default function ShareTypesPage() {
     const { name, value } = e.target;
     setCurrentShareType(prev => ({ 
         ...prev, 
-        [name]: (name === 'valuePerShare' || name === 'expectedMonthlyContribution') ? parseFloat(value) : value 
+        [name]: (name === 'valuePerShare' || name === 'expectedMonthlyContribution') ? parseFloat(value) || 0 : value 
     }));
   };
 
