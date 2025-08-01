@@ -29,6 +29,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
   loanId: '',
   amountPaid: 0,
@@ -42,7 +46,7 @@ const initialRepaymentFormState: Partial<LoanRepaymentInput> = {
 export default function LoanRepaymentsPage() {
   const [repaymentsByMember, setRepaymentsByMember] = useState<RepaymentsByMember[]>([]);
   const [activeLoans, setActiveLoans] = useState<ActiveLoanWithMember[]>([]);
-  const [loanTypes, setLoanTypes] = useState<Pick<LoanType, 'id' | 'name'>[]>([]);
+  const [loanTypes, setLoanTypes] = useState<Pick<LoanType, 'id', 'name'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -92,17 +96,17 @@ export default function LoanRepaymentsPage() {
     if (currentRepayment.loanId) {
       const loan = activeLoans.find(l => l.id === currentRepayment.loanId);
       if (loan) {
-        const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-        const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+        const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+        const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
         
-        const minPayment = principalPortion + interestForMonth;
-        const finalPayment = loan.remainingBalance + interestForMonth;
+        const minPayment = roundToTwo(principalPortion + interestForMonth);
+        const finalPayment = roundToTwo(loan.remainingBalance + interestForMonth);
 
         setMinimumPayment(minPayment);
         setFinalSettlement(finalPayment);
         
         // Pre-fill amount with expected payment, but not exceeding final settlement
-        setCurrentRepayment(prev => ({...prev, amountPaid: Math.min(minPayment, finalPayment)}));
+        setCurrentRepayment(prev => ({...prev, amountPaid: roundToTwo(Math.min(minPayment, finalPayment))}));
       }
     } else {
       setMinimumPayment(0);
@@ -326,7 +330,7 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
+                <Input id="amountPaid" name="amountPaid" type="number" step="0.01" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
               </div>
               <div>
                 <Label htmlFor="paymentDate">Payment Date <span className="text-destructive">*</span></Label>
