@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -288,9 +289,14 @@ export default function LoansPage() {
             {isLoading ? (
                 <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
             ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => {
-              const nextPayment = (loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0
-                ? (loan.principalAmount / loan.loanTerm) + (loan.remainingBalance * loan.interestRate / 12)
-                : 0;
+                let nextPayment = 0;
+                if ((loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0) {
+                    const principalPortion = loan.principalAmount / loan.loanTerm;
+                    const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+                    const standardPayment = principalPortion + interestForMonth;
+                    const finalPayment = loan.remainingBalance + interestForMonth;
+                    nextPayment = Math.min(standardPayment, finalPayment);
+                }
               return (
               <TableRow key={loan.id}>
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
@@ -460,3 +466,4 @@ export default function LoansPage() {
     </div>
   );
 }
+
