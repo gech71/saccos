@@ -289,11 +289,11 @@ export default function LoansPage() {
               <TableHead>Member</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Principal (Birr)</TableHead>
-              <TableHead className="text-right">Balance (Birr)</TableHead>
-              <TableHead className="text-right">Interest (Next)</TableHead>
-              <TableHead className="text-right">Principal (Next)</TableHead>
-              <TableHead className="text-right">Total Payment (Next)</TableHead>
+              <TableHead className="text-right">Principal</TableHead>
+              <TableHead className="text-right">Balance</TableHead>
+              <TableHead className="text-right">Next Interest</TableHead>
+              <TableHead className="text-right">Next Principal</TableHead>
+              <TableHead className="text-right">Next Payment</TableHead>
               <TableHead>Disbursed</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
