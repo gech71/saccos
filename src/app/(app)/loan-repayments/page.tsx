@@ -188,8 +188,10 @@ export default function LoanRepaymentsPage() {
                                 <TableHeader>
                                 <TableRow>
                                     <TableHead>Loan Acct. #</TableHead>
-                                    <TableHead className="text-right">Amount Paid (Birr)</TableHead>
                                     <TableHead>Payment Date</TableHead>
+                                    <TableHead className="text-right">Total Paid (Birr)</TableHead>
+                                    <TableHead className="text-right">Principal Paid (Birr)</TableHead>
+                                    <TableHead className="text-right">Interest Paid (Birr)</TableHead>
                                     <TableHead>Payment Mode</TableHead>
                                 </TableRow>
                                 </TableHeader>
@@ -197,8 +199,10 @@ export default function LoanRepaymentsPage() {
                                     {group.repayments.map(repayment => (
                                         <TableRow key={repayment.id}>
                                             <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
-                                            <TableCell className="text-right font-semibold text-green-600">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                             <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
+                                            <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                            <TableCell className="text-right text-green-600">{(repayment as any).principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
+                                            <TableCell className="text-right text-orange-600">{(repayment as any).interestPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
                                             <TableCell><Badge variant="outline">{repayment.depositMode || 'N/A'}</Badge></TableCell>
                                         </TableRow>
                                     ))}
