@@ -212,7 +212,7 @@ export default function GroupLoanRepaymentsPage() {
 
   const handleRowSelectChange = (loanId: string, checked: boolean) => {
     setSelectedLoanIds(prev =>
-      checked ? [...prev, id] : prev.filter(id => id !== loanId)
+      checked ? [...prev, loanId] : prev.filter(id => id !== loanId)
     );
   };
   
@@ -271,12 +271,13 @@ export default function GroupLoanRepaymentsPage() {
                 
                 const tolerance = 0.01;
 
-                if (amountPaid < minimumPayment - tolerance && amountPaid < finalSettlement - tolerance) {
+                if (amountPaid < minimumPayment - tolerance) {
                     toast({
                         variant: 'destructive',
                         title: `Payment for ${loan.member.fullName} is too low`,
                         description: `Payment of ${amountPaid.toFixed(2)} is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
                     });
+                    setIsPosting(false); // Make sure to stop submission
                     return;
                 }
                 
@@ -318,7 +319,7 @@ export default function GroupLoanRepaymentsPage() {
 
             const tolerance = 0.01;
             
-            if (amountPaid < minimumPayment - tolerance && amountPaid < finalSettlement - tolerance) {
+            if (amountPaid < minimumPayment - tolerance) {
                 toast({
                     variant: 'destructive',
                     title: `Payment for ${loan.member.fullName} is too low`,
@@ -862,4 +863,5 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
+
 
