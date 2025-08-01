@@ -258,39 +258,37 @@ export default function GroupLoanRepaymentsPage() {
     let repaymentsToProcess: RepaymentBatchData = [];
 
     if (collectionMode === 'filter') {
-        repaymentsToProcess = selectedLoanIds
-            .map(loanId => {
-                const loan = eligibleLoans.find(l => l.id === loanId);
-                const amountPaid = repaymentAmounts[loanId] || 0;
-                
-                // Final settlement check
-                const interestForMonth = loan!.remainingBalance * (loan!.interestRate / 12);
-                const finalSettlement = roundToTwo(loan!.remainingBalance + interestForMonth);
-                
-                if (amountPaid > finalSettlement + 0.01) { // Add tolerance
-                    toast({ variant: 'destructive', title: `Overpayment for ${loan!.member.fullName}`, description: `Payment of ${amountPaid.toFixed(2)} exceeds settlement amount of ${finalSettlement.toFixed(2)}.`});
-                    return null; // Exclude this from processing
-                }
+        for (const loanId of selectedLoanIds) {
+            const loan = eligibleLoans.find(l => l.id === loanId);
+            const amountPaid = repaymentAmounts[loanId] || 0;
 
-                return {
+            if (amountPaid > 0 && loan) {
+                // Final settlement check
+                const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+                const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
+                
+                if (amountPaid > finalSettlement + 0.01) { // Add tolerance for floating point
+                    toast({ 
+                        variant: 'destructive', 
+                        title: `Overpayment for ${loan!.member.fullName}`, 
+                        description: `Payment of ${amountPaid.toFixed(2)} exceeds settlement amount of ${finalSettlement.toFixed(2)}. Please correct the amount.`
+                    });
+                    return; // Stop the entire submission
+                }
+                
+                repaymentsToProcess.push({
                     loanId,
-                    loanAccountNumber: loan?.loanAccountNumber || 'N/A',
+                    loanAccountNumber: loan.loanAccountNumber || 'N/A',
                     amountPaid: amountPaid,
                     paymentDate: batchDetails.paymentDate,
                     depositMode: batchDetails.depositMode,
                     paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
-                }
-            })
-            .filter((item): item is NonNullable<typeof item> => item !== null)
-            .filter(({ amountPaid }) => amountPaid > 0);
-
-        if (repaymentsToProcess.length !== selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length) {
-            // This means some validations failed
-            setIsPosting(false);
-            return;
+                });
+            }
         }
-
     } else { // Excel mode
+        // Validation for excel mode can be added here if needed, similar to above.
+        // For now, assuming excel data is pre-validated or less strict.
         repaymentsToProcess = parsedData
             .filter(row => row.status === 'Valid' && row.loanAccountNumber)
             .map(row => ({
@@ -702,7 +700,9 @@ export default function GroupLoanRepaymentsPage() {
                                         {item}
                                     </Button>
                                 ) : (
-                                    <span key={index} className="px-2">{item}</span>
+                                    <span key={index} className="px-2">
+                                        {item}
+                                    </span>
                                 )
                             )}
                         </div>
@@ -816,3 +816,4 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
+
