@@ -29,9 +29,9 @@ const StatInfo = ({ icon, label, value, subValue }: { icon: React.ReactNode, lab
     <div className="flex items-start gap-4">
         <div className="text-primary mt-1 flex-shrink-0">{icon}</div>
         <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="font-semibold">{value || 'N/A'}</p>
-            {subValue && <p className="text-xs text-muted-foreground">{subValue}</p>}
+            <div className="text-sm text-muted-foreground">{label}</div>
+            <div className="font-semibold">{value || 'N/A'}</div>
+            {subValue && <div className="text-xs text-muted-foreground">{subValue}</div>}
         </div>
     </div>
 );
@@ -157,7 +157,7 @@ export default function MemberProfilePage() {
                     </Avatar>
                     <div className="flex-1 text-center md:text-left">
                         <h2 className="text-3xl font-bold text-primary">{member.fullName}</h2>
-                        <p className="text-lg text-muted-foreground">{member.email}</p>
+                        <div className="text-lg text-muted-foreground">{member.email}</div>
                         <Badge variant={member.status === 'active' ? 'default' : 'destructive'} className="mt-2 text-foreground font-bold">{member.status}</Badge>
                     </div>
                 </div>
@@ -176,10 +176,10 @@ export default function MemberProfilePage() {
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="mt-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Value</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</p><p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</p></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Value</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</div><div className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</div></CardContent></Card>
                     </div>
                      <SectionCard title="Member Information">
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
@@ -203,17 +203,17 @@ export default function MemberProfilePage() {
                             {savingAccounts.map(acc => (
                                <Card key={acc.id} className="p-4 flex flex-col justify-between shadow-sm bg-card hover:bg-muted/50 transition-colors">
                                   <div className="flex-1 mb-4">
-                                      <p className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</p>
-                                      <p className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</p>
+                                      <div className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</div>
+                                      <div className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</div>
                                   </div>
                                   <div className="flex justify-between items-baseline">
                                     <div>
-                                      <p className="text-xs text-muted-foreground">Initial Balance</p>
-                                      <p className="font-medium">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                      <div className="text-xs text-muted-foreground">Initial Balance</div>
+                                      <div className="font-medium">{acc.initialBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div>
                                     </div>
                                     <div className="text-right">
-                                     <p className="text-xs text-muted-foreground">Current Balance</p>
-                                     <p className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                     <div className="text-xs text-muted-foreground">Current Balance</div>
+                                     <div className="text-lg font-bold text-green-600">{acc.balance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div>
                                   </div>
                                   </div>
                                </Card>
@@ -360,7 +360,7 @@ export default function MemberProfilePage() {
                         )
                     }) : (
                         <SectionCard title="Loan History">
-                            <p className="text-muted-foreground text-center py-8">This member has not taken any loans.</p>
+                            <div className="text-muted-foreground text-center py-8">This member has not taken any loans.</div>
                         </SectionCard>
                     )}
                 </TabsContent>

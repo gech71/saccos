@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
+import { Card, CardContent } from '@/components/ui/card';
 
 type ActiveLoanWithMember = Loan & { member: Member | null } & { loanType: { name: string } | null };
 
@@ -247,7 +248,7 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
+                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required min={minimumPayment} />
                  {minimumPayment > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Minimum payment: {minimumPayment.toFixed(2)} Birr
