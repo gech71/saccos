@@ -324,20 +324,22 @@ export default function LoansPage() {
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    {loan.status !== 'paid_off' && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </TableCell>
               </TableRow>
               )
@@ -398,8 +400,8 @@ export default function LoansPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="principalAmount">Principal Amount (ETB)</Label>
-                <Input id="principalAmount" name="principalAmount" type="number" step="100" value={currentLoan.principalAmount || ''} onChange={handleInputChange} placeholder={selectedLoanType ? `${selectedLoanType.minLoanAmount.toLocaleString()} - ${selectedLoanType.maxLoanAmount.toLocaleString()}` : 'Select type first'} required />
+                <Label htmlFor="principalAmount">Principal Amount</Label>
+                <Input id="principalAmount" name="principalAmount" type="number" step="0.01" value={currentLoan.principalAmount || ''} onChange={handleInputChange} placeholder={selectedLoanType ? `${selectedLoanType.minLoanAmount.toLocaleString()} - ${selectedLoanType.maxLoanAmount.toLocaleString()}` : 'Select type first'} required />
               </div>
               <div>
                 <Label htmlFor="loanTerm">Repayment Period (Months)</Label>
@@ -422,9 +424,9 @@ export default function LoansPage() {
                 <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
                 {selectedLoanType?.name === 'Regular Loan' && <>
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">15.00 ETB</span></div>
-                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                 </>}
-                {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ETB</span></div>}
+                {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>}
             </div>
 
             <Separator/>
