@@ -212,7 +212,7 @@ export default function GroupLoanRepaymentsPage() {
 
   const handleRowSelectChange = (loanId: string, checked: boolean) => {
     setSelectedLoanIds(prev =>
-      checked ? [...prev, loanId] : prev.filter(id => id !== loanId)
+      checked ? [...prev, id] : prev.filter(id => id !== loanId)
     );
   };
   
@@ -269,7 +269,6 @@ export default function GroupLoanRepaymentsPage() {
                 const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
                 const minimumPayment = roundToTwo(Math.min(standardPayment, finalSettlement));
                 
-                // Add tolerance for floating point comparisons
                 const tolerance = 0.01;
 
                 if (amountPaid < minimumPayment - tolerance && amountPaid < finalSettlement - tolerance) {
@@ -278,16 +277,16 @@ export default function GroupLoanRepaymentsPage() {
                         title: `Payment for ${loan.member.fullName} is too low`,
                         description: `Payment of ${amountPaid.toFixed(2)} is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
                     });
-                    return; // Stop submission
+                    return;
                 }
                 
                 if (amountPaid > finalSettlement + tolerance) { 
                     toast({ 
                         variant: 'destructive', 
-                        title: `Overpayment for ${loan!.member.fullName}`, 
+                        title: `Overpayment for ${loan.member.fullName}`, 
                         description: `Payment of ${amountPaid.toFixed(2)} exceeds settlement amount of ${finalSettlement.toFixed(2)}. Please correct the amount.`
                     });
-                    return; // Stop the entire submission
+                    return;
                 }
                 
                 repaymentsToProcess.push({
@@ -308,13 +307,27 @@ export default function GroupLoanRepaymentsPage() {
             if (row.status !== 'Valid' || !row.loanAccountNumber || !row.RepaymentAmount) continue;
 
             const loan = loanMap.get(row.loanAccountNumber);
-            if (!loan) continue; // Should not happen if validation is correct
+            if (!loan) continue; 
 
             const amountPaid = row.RepaymentAmount;
             const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
+            const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+            const standardPayment = principalPortion + interestForMonth;
             const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
+            const minimumPayment = roundToTwo(Math.min(standardPayment, finalSettlement));
+
+            const tolerance = 0.01;
             
-            if (amountPaid > finalSettlement + 0.01) {
+            if (amountPaid < minimumPayment - tolerance && amountPaid < finalSettlement - tolerance) {
+                toast({
+                    variant: 'destructive',
+                    title: `Payment for ${loan.member.fullName} is too low`,
+                    description: `Payment of ${amountPaid.toFixed(2)} from Excel is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
+                });
+                return;
+            }
+
+            if (amountPaid > finalSettlement + tolerance) { 
                 toast({ 
                     variant: 'destructive', 
                     title: `Overpayment in Excel for ${loan.member.fullName}`, 
@@ -849,3 +862,4 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
+
