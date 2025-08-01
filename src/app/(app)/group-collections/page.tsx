@@ -34,7 +34,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
 import * as XLSX from 'xlsx';
-import { getGroupCollectionsPageData, recordBatchSavings, recordBatchLoanRepayments, type GroupCollectionsPageData, type MemberWithSavingAccounts, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
+import { getGroupCollectionsPageData, recordBatchSavings, type GroupCollectionsPageData, type MemberWithSavingAccounts } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import { exportToExcel } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -98,12 +98,9 @@ export default function GroupCollectionsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   const [eligibleAccounts, setEligibleAccounts] = useState<EligibleAccount[]>([]);
-  const [eligibleLoans, setEligibleLoans] = useState<LoanWithMemberInfo[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [collectionAmounts, setCollectionAmounts] = useState<Record<string, number>>({});
-  const [minimumPayments, setMinimumPayments] = useState<Record<string, number>>({});
-  const [collectionType, setCollectionType] = useState<'savings' | 'loans'>('savings');
   
   // EXCEL-BASED COLLECTION STATE
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -133,21 +130,18 @@ export default function GroupCollectionsPage() {
   useEffect(() => {
       setSelectedAccountType('');
       setEligibleAccounts([]);
-      setEligibleLoans([]);
       setSelectedIds([]);
-  }, [collectionType, selectedSchool]);
+  }, [selectedSchool]);
 
   const paginatedEligibleItems = useMemo(() => {
-    const items = collectionType === 'savings' ? eligibleAccounts : eligibleLoans;
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    return items.slice(startIndex, endIndex);
-  }, [collectionType, eligibleAccounts, eligibleLoans, currentPage, rowsPerPage]);
+    return eligibleAccounts.slice(startIndex, endIndex);
+  }, [eligibleAccounts, currentPage, rowsPerPage]);
 
   const totalPages = useMemo(() => {
-    const totalItems = collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length;
-    return Math.ceil(totalItems / rowsPerPage);
-  }, [collectionType, eligibleAccounts, eligibleLoans, rowsPerPage]);
+    return Math.ceil(eligibleAccounts.length / rowsPerPage);
+  }, [eligibleAccounts, rowsPerPage]);
 
   const getPaginationItems = () => {
     if (totalPages <= 1) return [];
@@ -182,15 +176,14 @@ export default function GroupCollectionsPage() {
   const paginationItems = getPaginationItems();
 
   const handleLoadMembers = () => {
-    if ((collectionType === 'savings' && !selectedAccountType) || !selectedSchool || !selectedYear || !selectedMonth || !pageData) {
-      toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select school, collection type, year, and month.' });
+    if (!selectedAccountType || !selectedSchool || !selectedYear || !selectedMonth || !pageData) {
+      toast({ variant: 'destructive', title: 'Missing Filters', description: 'Please select school, saving account type, year, and month.' });
       return;
     }
     setIsLoadingMembers(true);
     setPostedTransactions(null); 
     
     setTimeout(() => {
-      if (collectionType === 'savings') {
         const schoolName = pageData.schools.find(s => s.id === selectedSchool)?.name || 'N/A';
         const filteredAccounts: EligibleAccount[] = [];
         pageData.members.forEach(member => {
@@ -219,35 +212,13 @@ export default function GroupCollectionsPage() {
         if (filteredAccounts.length === 0) {
           toast({ title: 'No Eligible Savings Accounts', description: 'No member accounts match the selected criteria or have an expected monthly saving.' });
         }
-      } else { // Loans
-        const loansInSchool = pageData.loans.filter(l => l.member.schoolId === selectedSchool);
-        setEligibleLoans(loansInSchool);
-        setSelectedIds(loansInSchool.map(l => l.id));
-        
-        const initialAmounts: Record<string, number> = {};
-        const minimums: Record<string, number> = {};
-        
-        loansInSchool.forEach(l => {
-            initialAmounts[l.id] = l.monthlyRepaymentAmount || 0;
-            const principalPortion = l.loanTerm > 0 ? l.principalAmount / l.loanTerm : 0;
-            const interestPortion = l.remainingBalance * (l.interestRate / 12);
-            minimums[l.id] = principalPortion + interestPortion;
-        });
-
-        setCollectionAmounts(initialAmounts);
-        setMinimumPayments(minimums);
-
-        if (loansInSchool.length === 0) {
-          toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
-        }
-      }
 
       setIsLoadingMembers(false);
     }, 300);
   };
   
   const handleSelectAllChange = (checked: boolean) => {
-    const allIds = collectionType === 'savings' ? eligibleAccounts.map(acc => acc.accountId) : eligibleLoans.map(l => l.id);
+    const allIds = eligibleAccounts.map(acc => acc.accountId);
     setSelectedIds(checked ? allIds : []);
   };
 
@@ -261,7 +232,7 @@ export default function GroupCollectionsPage() {
     setCollectionAmounts(prev => ({ ...prev, [id]: parseFloat(amount) || 0 }));
   };
 
-  const isAllSelected = (collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length) > 0 && selectedIds.length === (collectionType === 'savings' ? eligibleAccounts.length : eligibleLoans.length);
+  const isAllSelected = eligibleAccounts.length > 0 && selectedIds.length === eligibleAccounts.length;
 
   const summaryForSelection = useMemo(() => {
     const totalAmountToCollect = selectedIds.reduce((sum, id) => {
@@ -274,7 +245,6 @@ export default function GroupCollectionsPage() {
   }, [selectedIds, collectionAmounts]);
 
   const handleExport = () => {
-    // This needs to be adapted for loans too if needed
     if (eligibleAccounts.length === 0) {
         toast({ variant: 'destructive', title: 'No Data', description: 'There is no data to export.' });
         return;
@@ -292,8 +262,6 @@ export default function GroupCollectionsPage() {
     exportToExcel(dataToExport, `group_collection_${schoolName.replace(/\s/g, '_')}_${accountTypeName.replace(/\s/g, '_')}`);
   };
 
-
-  // EXCEL-BASED COLLECTION LOGIC (Only for Savings for now)
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -385,91 +353,50 @@ export default function GroupCollectionsPage() {
     setIsPosting(true);
     let result;
 
-    if (collectionType === 'savings') {
-        const newTransactions: any[] = [];
-        if (collectionMode === 'filter') {
-            const accountsToProcess = selectedIds
-                .map(accountId => {
-                    const account = eligibleAccounts.find(acc => acc.accountId === accountId);
-                    return {
-                        account: account!,
-                        amount: collectionAmounts[accountId] || 0,
-                    }
-                })
-                .filter(({ amount }) => amount > 0);
-
-            if (accountsToProcess.length === 0) {
-                toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select accounts and ensure their collection amounts are greater than zero.' });
-                setIsPosting(false);
-                return;
-            }
-            accountsToProcess.forEach(({account, amount}) => newTransactions.push({
-                memberId: account.memberId, memberSavingAccountId: account.accountId, memberName: account.fullName, amount: amount,
-                date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
-                depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
-                transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
-            }));
-        } else { // Excel
-             const validRows = parsedData.filter(d => d.status === 'Valid');
-             if (validRows.length === 0) {
-                toast({ variant: 'destructive', title: 'No Valid Data', description: 'There are no valid transactions from the Excel file to submit.' });
-                setIsPosting(false);
-                return;
-            }
-             validRows.forEach(row => newTransactions.push({
-                memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: row.SavingCollected!,
-                date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
-                depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
-                transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
-            }));
-        }
-        result = await recordBatchSavings(newTransactions);
-        setPostedTransactions(newTransactions);
-
-    } else { // Loans
-        // Validate minimum payments before submission
-        for (const loanId of selectedIds) {
-            const amountPaid = collectionAmounts[loanId] || 0;
-            const minPayment = minimumPayments[loanId] || 0;
-            if (amountPaid > 0 && amountPaid < minPayment) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Invalid Repayment Amount',
-                    description: `A payment for loan ${eligibleLoans.find(l => l.id === loanId)?.loanAccountNumber} is below the minimum required amount. Please correct it before submitting.`
-                });
-                setIsPosting(false);
-                return;
-            }
-        }
-
-        const repaymentsToProcess: RepaymentBatchData = selectedIds
-            .map(loanId => {
-                const loan = eligibleLoans.find(l => l.id === loanId);
+    const newTransactions: any[] = [];
+    if (collectionMode === 'filter') {
+        const accountsToProcess = selectedIds
+            .map(accountId => {
+                const account = eligibleAccounts.find(acc => acc.accountId === accountId);
                 return {
-                    loanId,
-                    loanAccountNumber: loan?.loanAccountNumber || null,
-                    memberName: loan?.member.fullName || 'N/A',
-                    amountPaid: collectionAmounts[loanId] || 0,
-                    paymentDate: batchDetails.date,
-                    depositMode: batchDetails.depositMode,
-                    paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails,
+                    account: account!,
+                    amount: collectionAmounts[accountId] || 0,
                 }
             })
-            .filter(({ amountPaid }) => amountPaid > 0);
-        
-        if (repaymentsToProcess.length === 0) {
-            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please enter repayment amounts > 0 for selected loans.' });
+            .filter(({ amount }) => amount > 0);
+
+        if (accountsToProcess.length === 0) {
+            toast({ variant: 'destructive', title: 'No Valid Amounts', description: 'Please select accounts and ensure their collection amounts are greater than zero.' });
             setIsPosting(false);
             return;
         }
-        result = await recordBatchLoanRepayments(repaymentsToProcess);
-        setPostedTransactions(repaymentsToProcess);
+        accountsToProcess.forEach(({account, amount}) => newTransactions.push({
+            memberId: account.memberId, memberSavingAccountId: account.accountId, memberName: account.fullName, amount: amount,
+            date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
+            depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
+            transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
+        }));
+    } else { // Excel
+         const validRows = parsedData.filter(d => d.status === 'Valid');
+         if (validRows.length === 0) {
+            toast({ variant: 'destructive', title: 'No Valid Data', description: 'There are no valid transactions from the Excel file to submit.' });
+            setIsPosting(false);
+            return;
+        }
+         validRows.forEach(row => newTransactions.push({
+            memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: row.SavingCollected!,
+            date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
+            depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
+            transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
+        }));
     }
+    result = await recordBatchSavings(newTransactions);
+    setPostedTransactions(newTransactions);
+
     
     if (result.success) {
         toast({ title: 'Collection Submitted', description: result.message });
         setEligibleAccounts([]); 
-        setEligibleLoans([]);
         setSelectedIds([]);
         setParsedData([]);
         setExcelFile(null);
@@ -508,13 +435,12 @@ export default function GroupCollectionsPage() {
   }
 
   const renderFilterContent = () => {
-      const isLoan = collectionType === 'loans';
-      const items = isLoan ? eligibleLoans : eligibleAccounts;
+      const items = eligibleAccounts;
       return (
         <Card className="shadow-lg animate-in fade-in-50 duration-300">
             <CardHeader>
               <CardTitle className="font-headline text-primary">2. Load Members by Filter</CardTitle>
-              <CardDescription>Select school, collection type, year, and month to load eligible members.</CardDescription>
+              <CardDescription>Select school, saving account type, year, and month to load eligible members.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
               <div>
@@ -564,15 +490,13 @@ export default function GroupCollectionsPage() {
                     </PopoverContent>
                 </Popover>
               </div>
-              {!isLoan && (
-                <div>
-                  <Label htmlFor="accountTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
-                  <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
-                    <SelectTrigger id="accountTypeFilter"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
-                    <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div>
+                <Label htmlFor="accountTypeFilter">Saving Account Type <span className="text-destructive">*</span></Label>
+                <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+                  <SelectTrigger id="accountTypeFilter"><SelectValue placeholder="Select Account Type" /></SelectTrigger>
+                  <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -587,9 +511,9 @@ export default function GroupCollectionsPage() {
                   <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleLoadMembers} disabled={isLoadingMembers || !selectedSchool || (!isLoan && !selectedAccountType) || !selectedYear || !selectedMonth} className="w-full lg:w-auto">
+              <Button onClick={handleLoadMembers} disabled={isLoadingMembers || !selectedSchool || !selectedAccountType || !selectedYear || !selectedMonth} className="w-full lg:w-auto">
                 {isLoadingMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Filter className="mr-2 h-4 w-4" />}
-                {isLoan ? 'Load Loans' : 'Load Members'}
+                Load Members
               </Button>
             </CardContent>
              {items.length > 0 && (
@@ -607,20 +531,18 @@ export default function GroupCollectionsPage() {
                               <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAllChange} disabled={!canCreate} />
                             </TableHead>
                             <TableHead>Member Name</TableHead>
-                            <TableHead>{isLoan ? "Loan Acct #" : "Savings Acct #"}</TableHead>
-                            <TableHead className="text-right">{isLoan ? "Remaining Balance" : "Exp. Monthly Saving"}</TableHead>
+                            <TableHead>Savings Acct #</TableHead>
+                            <TableHead className="text-right">Exp. Monthly Saving</TableHead>
                             <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedEligibleItems.map((item: any) => {
-                            const id = isLoan ? item.id : item.accountId;
-                            const name = isLoan ? item.member.fullName : item.fullName;
-                            const accNum = isLoan ? item.loanAccountNumber : item.accountNumber;
-                            const amount = isLoan ? item.remainingBalance : item.expectedMonthlySaving;
-                            const minPayment = isLoan ? minimumPayments[id] || 0 : 0;
+                            const id = item.accountId;
+                            const name = item.fullName;
+                            const accNum = item.accountNumber;
+                            const amount = item.expectedMonthlySaving;
                             const currentAmountPaid = collectionAmounts[id] || 0;
-                            const showError = isLoan && selectedIds.includes(id) && currentAmountPaid > 0 && currentAmountPaid < minPayment;
 
                             return (
                                 <TableRow key={id} data-state={selectedIds.includes(id) ? 'selected' : undefined}>
@@ -638,15 +560,9 @@ export default function GroupCollectionsPage() {
                                         placeholder="0.00"
                                         value={collectionAmounts[id] || ''}
                                         onChange={(e) => handleCollectionAmountChange(id, e.target.value)}
-                                        className={cn("text-right", showError && "border-destructive focus-visible:ring-destructive")}
+                                        className="text-right"
                                         disabled={!selectedIds.includes(id) || !canCreate}
                                       />
-                                      {showError && (
-                                        <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                                          <AlertCircle className="h-3 w-3" />
-                                          Min payment is {minPayment.toFixed(2)} Birr
-                                        </p>
-                                      )}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -763,9 +679,9 @@ export default function GroupCollectionsPage() {
   }
 
   const renderSubmitCard = () => {
-    const totalItems = collectionType === 'savings' ? (collectionMode === 'filter' ? summaryForSelection.count : excelSummary.count) : summaryForSelection.count;
-    const totalAmount = collectionType === 'savings' ? (collectionMode === 'filter' ? summaryForSelection.totalExpected : excelSummary.totalAmount) : summaryForSelection.totalExpected;
-    if ((collectionMode === 'filter' && (eligibleAccounts.length > 0 || eligibleLoans.length > 0)) || (collectionMode === 'excel' && parsedData.length > 0)) {
+    const totalItems = collectionMode === 'filter' ? summaryForSelection.count : excelSummary.count;
+    const totalAmount = collectionMode === 'filter' ? summaryForSelection.totalExpected : excelSummary.totalAmount;
+    if ((collectionMode === 'filter' && eligibleAccounts.length > 0) || (collectionMode === 'excel' && parsedData.length > 0)) {
         return (
              <Card className="shadow-lg animate-in fade-in duration-300">
                 <CardHeader>
@@ -774,7 +690,7 @@ export default function GroupCollectionsPage() {
                       <Card className="bg-muted/50 p-4">
                         <CardTitle className="text-base flex justify-between items-center">
                             <span>Summary for Submission</span>
-                             <Badge>{totalItems} {collectionType === 'savings' ? 'Accounts' : 'Loans'}</Badge>
+                             <Badge>{totalItems} Accounts</Badge>
                         </CardTitle>
                         <CardContent className="p-0 pt-2">
                             <div className="text-lg font-bold text-primary flex justify-between items-center">
@@ -843,41 +759,25 @@ export default function GroupCollectionsPage() {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Group Monthly Collection" subtitle="Process expected monthly savings for a group of members." />
+      <PageTitle title="Group Monthly Savings" subtitle="Process expected monthly savings for a group of members." />
 
       {!postedTransactions && (
         <>
             <Card className="shadow-md">
-                <CardHeader><CardTitle className="font-headline text-primary">1. Select Collection Details</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
+                <CardHeader><CardTitle className="font-headline text-primary">1. Select Collection Method</CardTitle></CardHeader>
+                <CardContent>
                     <div>
-                        <Label className="font-medium">Collection Type</Label>
-                        <RadioGroup value={collectionType} onValueChange={(val) => setCollectionType(val as 'savings' | 'loans')} className="flex flex-wrap gap-x-6 gap-y-4">
+                        <RadioGroup value={collectionMode} onValueChange={(val) => setCollectionMode(val as 'filter' | 'excel')} className="flex flex-wrap gap-x-6 gap-y-4">
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="savings" id="type-savings" />
-                                <Label htmlFor="type-savings" className="font-medium">Savings</Label>
+                                <RadioGroupItem value="filter" id="mode-filter" />
+                                <Label htmlFor="mode-filter" className="font-medium">Filter Members</Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="loans" id="type-loans" />
-                                <Label htmlFor="type-loans" className="font-medium">Loan Repayments</Label>
+                                <RadioGroupItem value="excel" id="mode-excel" />
+                                <Label htmlFor="mode-excel" className="font-medium">Upload Excel File</Label>
                             </div>
                         </RadioGroup>
                     </div>
-                    {collectionType === 'savings' && (
-                        <div>
-                            <Label className="font-medium">Collection Method</Label>
-                            <RadioGroup value={collectionMode} onValueChange={(val) => setCollectionMode(val as 'filter' | 'excel')} className="flex flex-wrap gap-x-6 gap-y-4">
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="filter" id="mode-filter" />
-                                    <Label htmlFor="mode-filter" className="font-medium">Filter Members</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="excel" id="mode-excel" />
-                                    <Label htmlFor="mode-excel" className="font-medium">Upload Excel File</Label>
-                                </div>
-                            </RadioGroup>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 
@@ -892,7 +792,7 @@ export default function GroupCollectionsPage() {
                 <div className="flex justify-between items-center">
                     <div>
                         <CardTitle className="font-headline text-primary">Collection Submitted for Approval</CardTitle>
-                        <CardDescription>The following {collectionType} transactions were submitted. They will not reflect on member balances until approved.</CardDescription>
+                        <CardDescription>The following savings transactions were submitted. They will not reflect on member balances until approved.</CardDescription>
                     </div>
                     <Button onClick={startNewGroupCollection} variant="outline">
                         <RotateCcw className="mr-2 h-4 w-4" /> Start New Group Collection
@@ -908,10 +808,9 @@ export default function GroupCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
-                                {collectionType === 'loans' && <TableHead>Loan Acct. #</TableHead>}
                                 <TableHead className="text-right">Amount (Birr)</TableHead>
                                 <TableHead>Date</TableHead>
-                                {collectionType === 'savings' && <TableHead>Month</TableHead>}
+                                <TableHead>Month</TableHead>
                                 <TableHead>Deposit Mode</TableHead>
                                 <TableHead>Source/Reference</TableHead>
                             </TableRow>
@@ -920,10 +819,9 @@ export default function GroupCollectionsPage() {
                             {postedTransactions.length > 0 ? postedTransactions.map((transaction, i) => (
                                 <TableRow key={`${transaction.memberId}-${i}`}>
                                     <TableCell className="font-medium">{transaction.memberName}</TableCell>
-                                    {collectionType === 'loans' && <TableCell>{transaction.loanAccountNumber || 'N/A'}</TableCell>}
                                     <TableCell className="text-right">{(transaction.amount || transaction.amountPaid).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                     <TableCell>{new Date(transaction.date || transaction.paymentDate).toLocaleDateString()}</TableCell>
-                                    {collectionType === 'savings' && <TableCell>{transaction.month}</TableCell>}
+                                    <TableCell>{transaction.month}</TableCell>
                                     <TableCell><Badge variant={transaction.depositMode === 'Cash' ? 'secondary' : 'outline'}>{transaction.depositMode}</Badge></TableCell>
                                     <TableCell className="text-xs">
                                         {transaction.sourceName && <div><strong>Source:</strong> {transaction.sourceName}</div>}
@@ -948,8 +846,3 @@ export default function GroupCollectionsPage() {
     </div>
   );
 }
-
-
-
-
-
