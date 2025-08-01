@@ -36,6 +36,10 @@ import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import { exportToExcel } from '@/lib/utils';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 const initialBatchTransactionState: {
   paymentDate: string;
   depositMode: 'Cash' | 'Bank' | 'Wallet';
@@ -187,7 +191,7 @@ export default function GroupLoanRepaymentsPage() {
             const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
             const standardPayment = principalPortion + interestForMonth;
             const finalPayment = loan.remainingBalance + interestForMonth;
-            initialRepayments[loan.id] = Math.min(standardPayment, finalPayment);
+            initialRepayments[loan.id] = roundToTwo(Math.min(standardPayment, finalPayment));
         });
         setRepaymentAmounts(initialRepayments);
         setSelectedLoanIds(loans.map(l => l.id));
@@ -257,16 +261,35 @@ export default function GroupLoanRepaymentsPage() {
         repaymentsToProcess = selectedLoanIds
             .map(loanId => {
                 const loan = eligibleLoans.find(l => l.id === loanId);
+                const amountPaid = repaymentAmounts[loanId] || 0;
+                
+                // Final settlement check
+                const interestForMonth = loan!.remainingBalance * (loan!.interestRate / 12);
+                const finalSettlement = roundToTwo(loan!.remainingBalance + interestForMonth);
+                
+                if (amountPaid > finalSettlement + 0.01) { // Add tolerance
+                    toast({ variant: 'destructive', title: `Overpayment for ${loan!.member.fullName}`, description: `Payment of ${amountPaid.toFixed(2)} exceeds settlement amount of ${finalSettlement.toFixed(2)}.`});
+                    return null; // Exclude this from processing
+                }
+
                 return {
                     loanId,
                     loanAccountNumber: loan?.loanAccountNumber || 'N/A',
-                    amountPaid: repaymentAmounts[loanId] || 0,
+                    amountPaid: amountPaid,
                     paymentDate: batchDetails.paymentDate,
                     depositMode: batchDetails.depositMode,
                     paymentDetails: batchDetails.depositMode === 'Cash' ? undefined : batchDetails.paymentDetails,
                 }
             })
+            .filter((item): item is NonNullable<typeof item> => item !== null)
             .filter(({ amountPaid }) => amountPaid > 0);
+
+        if (repaymentsToProcess.length !== selectedLoanIds.filter(id => (repaymentAmounts[id] || 0) > 0).length) {
+            // This means some validations failed
+            setIsPosting(false);
+            return;
+        }
+
     } else { // Excel mode
         repaymentsToProcess = parsedData
             .filter(row => row.status === 'Valid' && row.loanAccountNumber)
@@ -622,7 +645,7 @@ export default function GroupLoanRepaymentsPage() {
                     const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
                     const standardPayment = principalPortion + interestForMonth;
                     const finalPayment = loan.remainingBalance + interestForMonth;
-                    const expectedPayment = Math.min(standardPayment, finalPayment);
+                    const expectedPayment = roundToTwo(Math.min(standardPayment, finalPayment));
 
                     return (
                     <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>
