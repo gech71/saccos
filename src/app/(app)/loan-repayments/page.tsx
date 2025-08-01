@@ -108,10 +108,16 @@ export default function LoanRepaymentsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'A loan and a valid payment amount are required.' });
       return;
     }
-    if (currentRepayment.amountPaid < minimumPayment) {
-      toast({ variant: 'destructive', title: 'Error', description: `Payment amount must be at least ${minimumPayment.toFixed(2)} Birr.` });
-      return;
+    const selectedLoan = activeLoans.find(l => l.id === currentRepayment.loanId);
+    if (selectedLoan) {
+      const interestForMonth = selectedLoan.remainingBalance * (selectedLoan.interestRate / 12);
+      const finalPaymentAmount = selectedLoan.remainingBalance + interestForMonth;
+      if (currentRepayment.amountPaid > finalPaymentAmount + 0.01) { // Add tolerance for float issues
+          toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement amount of ${finalPaymentAmount.toFixed(2)} Birr.` });
+          return;
+      }
     }
+    
     if ((currentRepayment.depositMode === 'Bank' || currentRepayment.depositMode === 'Wallet') && !currentRepayment.sourceName) {
       toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${currentRepayment.depositMode} Name.` });
       return;
@@ -192,6 +198,7 @@ export default function LoanRepaymentsPage() {
                                     <TableHead className="text-right">Total Paid (Birr)</TableHead>
                                     <TableHead className="text-right">Principal Paid (Birr)</TableHead>
                                     <TableHead className="text-right">Interest Paid (Birr)</TableHead>
+                                    <TableHead className="text-right">Remaining Balance</TableHead>
                                     <TableHead>Payment Mode</TableHead>
                                 </TableRow>
                                 </TableHeader>
@@ -203,6 +210,7 @@ export default function LoanRepaymentsPage() {
                                             <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                             <TableCell className="text-right text-green-600">{(repayment as any).principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
                                             <TableCell className="text-right text-orange-600">{(repayment as any).interestPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
+                                            <TableCell className="text-right font-medium">{(repayment as any).balanceAfter?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
                                             <TableCell><Badge variant="outline">{repayment.depositMode || 'N/A'}</Badge></TableCell>
                                         </TableRow>
                                     ))}
@@ -252,10 +260,10 @@ export default function LoanRepaymentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="amountPaid">Amount Paid (Birr) <span className="text-destructive">*</span></Label>
-                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required min={minimumPayment} />
-                 {minimumPayment > 0 && (
+                <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
+                 {minimumPayment > 0 && currentRepayment.loanId && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Minimum payment: {minimumPayment.toFixed(2)} Birr
+                    Min payment: {minimumPayment.toFixed(2)}. Final settlement: {(activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance + activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance * (activeLoans.find(l => l.id === currentRepayment.loanId)!.interestRate / 12)).toFixed(2)}
                   </p>
                 )}
               </div>

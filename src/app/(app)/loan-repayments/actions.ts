@@ -5,13 +5,14 @@
 import prisma from '@/lib/prisma';
 import type { Loan, Member, LoanRepayment, Prisma, LoanType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { compareDesc } from 'date-fns';
 
 export interface RepaymentsByMember {
   memberId: string;
   memberName: string;
   totalRepaid: number;
   repaymentCount: number;
-  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null } })[];
+  repayments: (LoanRepayment & { loan?: { loanAccountNumber: string | null }, balanceAfter: number })[];
 }
 
 export interface LoanRepaymentsPageData {
@@ -20,21 +21,18 @@ export interface LoanRepaymentsPageData {
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
-  const [repaymentsData, activeLoans] = await Promise.all([
-    prisma.loanRepayment.findMany({
-      include: {
-        loan: {
-          select: {
-            loanAccountNumber: true,
-          },
-        },
-        member: { // Directly include member from repayment
-          select: {
-            fullName: true,
-          }
+  const [allLoans, activeLoans] = await Promise.all([
+    prisma.loan.findMany({
+        include: {
+            repayments: {
+                orderBy: {
+                    paymentDate: 'asc' // Fetch in chronological order to calculate running balance
+                }
+            },
+            member: {
+                select: { fullName: true }
+            }
         }
-      },
-      orderBy: { paymentDate: 'desc' },
     }),
     prisma.loan.findMany({
       where: {
@@ -52,15 +50,35 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
     })
   ]);
 
+  // Process all repayments to add a running balance
+  const allRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number, loan?: { loanAccountNumber: string | null }, memberName: string })[] = [];
+  
+  allLoans.forEach(loan => {
+      let runningBalance = loan.principalAmount;
+      loan.repayments.forEach(repayment => {
+          runningBalance -= repayment.principalPaid;
+          allRepaymentsWithBalance.push({
+              ...repayment,
+              balanceAfter: runningBalance,
+              loan: { loanAccountNumber: loan.loanAccountNumber },
+              memberName: loan.member.fullName,
+          });
+      });
+  });
+
   // Group repayments by member
   const repaymentsGrouped: Record<string, RepaymentsByMember> = {};
-  repaymentsData.forEach(r => {
-    if (!r.member) return; // Skip if member is deleted
+  
+  // Sort all processed repayments by date descending for final display
+  allRepaymentsWithBalance.sort((a,b) => compareDesc(new Date(a.paymentDate), new Date(b.paymentDate)));
+
+  allRepaymentsWithBalance.forEach(r => {
+    if (!r.memberId) return;
 
     if (!repaymentsGrouped[r.memberId]) {
       repaymentsGrouped[r.memberId] = {
         memberId: r.memberId,
-        memberName: r.member.fullName,
+        memberName: r.memberName,
         totalRepaid: 0,
         repaymentCount: 0,
         repayments: [],
@@ -73,7 +91,6 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
     group.repayments.push({
       ...r,
       paymentDate: r.paymentDate.toISOString(),
-      loan: r.loan ? { loanAccountNumber: r.loan.loanAccountNumber } : undefined,
     });
   });
 
@@ -100,7 +117,10 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     const minimumPayment = principalPortion + interestPortion;
     
     if (data.amountPaid < minimumPayment) {
-        throw new Error(`Payment amount must be at least ${minimumPayment.toFixed(2)} Birr.`);
+        const finalPayment = loan.remainingBalance + interestPortion;
+        if (Math.abs(data.amountPaid - finalPayment) > 0.01) { // Check if it's not a final payment with a small tolerance
+            throw new Error(`Payment amount must be at least ${minimumPayment.toFixed(2)} Birr, or the final settlement amount of ${finalPayment.toFixed(2)} Birr.`);
+        }
     }
 
     await prisma.$transaction(async (tx) => {
