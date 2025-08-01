@@ -5,6 +5,10 @@ import prisma from '@/lib/prisma';
 import type { Loan, Prisma, Member, LoanType, Collateral, Address, Organization } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export type LoanWithDetails = Loan & { 
   guarantors: { guarantor: { id: string, fullName: string } }[],
   collaterals: Collateral[],
@@ -139,14 +143,14 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   }
 
   // Fee calculation
-  const insuranceFee = loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0;
+  const insuranceFee = roundToTwo(loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0);
   const serviceFee = loanType.name === 'Regular Loan' ? 15 : 0;
 
   const guarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
 
   return await prisma.loan.create({
     data: {
-      principalAmount,
+      principalAmount: roundToTwo(principalAmount),
       status,
       notes,
       purpose,
@@ -155,10 +159,10 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       disbursementDate: new Date(disbursementDate),
       interestRate: loanType.interestRate,
       repaymentFrequency: loanType.repaymentFrequency,
-      remainingBalance: principalAmount,
+      remainingBalance: roundToTwo(principalAmount),
       insuranceFee,
       serviceFee,
-      monthlyRepaymentAmount,
+      monthlyRepaymentAmount: roundToTwo(monthlyRepaymentAmount),
       member: { connect: { id: memberId } },
       loanType: { connect: { id: loanTypeId } },
       collaterals: { 

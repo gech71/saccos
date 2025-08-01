@@ -7,6 +7,10 @@ import type { Loan, Member, LoanRepayment, Prisma, LoanType } from '@prisma/clie
 import { revalidatePath } from 'next/cache';
 import { compareDesc } from 'date-fns';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export interface RepaymentsByMember {
   memberId: string;
   memberName: string;
@@ -64,7 +68,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
           runningBalance -= repayment.principalPaid;
           allRepaymentsWithBalance.push({
               ...repayment,
-              balanceAfter: runningBalance,
+              balanceAfter: roundToTwo(runningBalance),
               loan: { loanAccountNumber: loan.loanAccountNumber, loanTypeName: loan.loanType.name },
               memberName: loan.member.fullName,
           });
@@ -120,25 +124,23 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     // Calculate minimum payment for validation
     const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
     const interestPortion = loan.remainingBalance * (loan.interestRate / 12);
-    const minimumPayment = principalPortion + interestPortion;
+    const minimumPayment = roundToTwo(principalPortion + interestPortion);
     
-    if (data.amountPaid < minimumPayment) {
-        const finalPayment = loan.remainingBalance + interestPortion;
-        if (Math.abs(data.amountPaid - finalPayment) > 0.01) { // Check if it's not a final payment with a small tolerance
-            throw new Error(`Payment amount must be at least ${minimumPayment.toFixed(2)} Birr, or the final settlement amount of ${finalPayment.toFixed(2)} Birr.`);
-        }
+    const finalPayment = roundToTwo(loan.remainingBalance + interestPortion);
+    if (data.amountPaid > finalPayment + 0.01) { // Check if it's not a final payment with a small tolerance
+        throw new Error(`Payment amount cannot exceed the final settlement amount of ${finalPayment.toFixed(2)} Birr.`);
     }
 
     await prisma.$transaction(async (tx) => {
       // 1. Calculate interest for the current period
       const monthlyInterestRate = loan.interestRate / 12;
-      const interestForMonth = loan.remainingBalance * monthlyInterestRate;
+      const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
 
       // 2. Allocate payment
-      const interestPaid = Math.min(data.amountPaid, interestForMonth);
-      const principalPaid = data.amountPaid - interestPaid;
+      const interestPaid = roundToTwo(Math.min(data.amountPaid, interestForMonth));
+      const principalPaid = roundToTwo(data.amountPaid - interestPaid);
       
-      const newBalance = loan.remainingBalance - principalPaid;
+      const newBalance = roundToTwo(loan.remainingBalance - principalPaid);
 
       // 3. Create the repayment record with detailed allocation
       await tx.loanRepayment.create({ 

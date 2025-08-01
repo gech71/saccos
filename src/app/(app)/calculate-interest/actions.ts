@@ -5,6 +5,10 @@ import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
     schools: Pick<School, 'id' | 'name'>[];
@@ -67,7 +71,7 @@ export async function calculateInterest(criteria: {
     if (!account.savingAccountType) return null;
 
     const monthlyRate = account.savingAccountType.interestRate / 12;
-    const calculatedInterest = account.balance * monthlyRate;
+    const calculatedInterest = roundToTwo(account.balance * monthlyRate);
 
     return {
       memberId: account.memberId,
@@ -105,7 +109,7 @@ export async function postInterestTransactions(
         const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
           memberId: result.memberId,
           memberSavingAccountId: result.memberSavingAccountId,
-          amount: result.calculatedInterest,
+          amount: result.calculatedInterest, // Already rounded
           date: new Date(year, monthIndex + 1, 0), // Last day of the selected month
           month: `${monthName} ${period.year}`,
           transactionType: 'deposit',

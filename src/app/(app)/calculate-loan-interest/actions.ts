@@ -5,6 +5,10 @@ import prisma from '@/lib/prisma';
 import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
     schools: Pick<School, 'id' | 'name'>[];
@@ -62,7 +66,7 @@ export async function calculateInterest(criteria: {
 
   const results: InterestCalculationResult[] = loansToProcess.map(loan => {
     const monthlyRate = loan.interestRate / 12;
-    const calculatedInterest = loan.remainingBalance * monthlyRate;
+    const calculatedInterest = roundToTwo(loan.remainingBalance * monthlyRate);
 
     return {
       loanId: loan.id,
@@ -104,7 +108,7 @@ export async function postInterestCharges(charges: InterestCalculationResult[], 
       data: charges.map(result => ({
         memberId: result.memberId,
         serviceChargeTypeId: loanInterestChargeType.id,
-        amountCharged: result.calculatedInterest,
+        amountCharged: result.calculatedInterest, // Already rounded
         dateApplied: dateApplied,
         status: 'pending',
         notes: `Monthly loan interest for ${monthName} ${period.year} on Loan ${result.loanAccountNumber}`,

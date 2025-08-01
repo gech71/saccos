@@ -4,6 +4,10 @@
 import prisma from '@/lib/prisma';
 import type { Saving, Member, MemberSavingAccount } from '@prisma/client';
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export type ActiveMemberForClosure = Pick<Member, 'id' | 'fullName'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'accountNumber' | 'balance'>[]
 };
@@ -47,11 +51,14 @@ export async function calculateFinalPayout(memberId: string): Promise<{
         totalBalance += account.balance;
         totalAccruedInterest += accruedInterest;
     }
+    
+    totalBalance = roundToTwo(totalBalance);
+    totalAccruedInterest = roundToTwo(totalAccruedInterest);
 
     return {
         currentBalance: totalBalance,
         accruedInterest: totalAccruedInterest,
-        totalPayout: totalBalance + totalAccruedInterest,
+        totalPayout: roundToTwo(totalBalance + totalAccruedInterest),
     };
 }
 
@@ -75,7 +82,8 @@ export async function confirmAccountClosure(
 
     const interestTransaction: Omit<Saving, 'id'> = {
         memberId: member.id,
-        amount: accruedInterest,
+        memberSavingAccountId: null, // This is a general interest posting
+        amount: accruedInterest, // Already rounded
         date: now,
         month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
         transactionType: 'deposit',
@@ -89,7 +97,8 @@ export async function confirmAccountClosure(
     
     const finalWithdrawal: Omit<Saving, 'id'> = {
         memberId: member.id,
-        amount: totalPayout,
+        memberSavingAccountId: null, // This is a general payout
+        amount: totalPayout, // Already rounded
         date: now,
         month: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
         transactionType: 'withdrawal',

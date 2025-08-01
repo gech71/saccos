@@ -324,11 +324,11 @@ export default function LoansPage() {
                 <TableCell className="font-medium">{loan.memberName}</TableCell>
                 <TableCell>{loan.loanTypeName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
+                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}</TableCell>
                 <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -422,9 +422,9 @@ export default function LoansPage() {
                 <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
                 {selectedLoanType?.name === 'Regular Loan' && <>
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">15.00 ETB</span></div>
-                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ETB</span></div>
                 </>}
-                {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>}
+                {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ETB</span></div>}
             </div>
 
             <Separator/>

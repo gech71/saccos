@@ -299,7 +299,7 @@ export default function LoanRepaymentsPage() {
                 <Input id="amountPaid" name="amountPaid" type="number" step="any" value={currentRepayment.amountPaid || ''} onChange={handleInputChange} required />
                  {minimumPayment > 0 && currentRepayment.loanId && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Min payment: {minimumPayment.toFixed(2)}. Final settlement: {(activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance + activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance * (activeLoans.find(l => l.id === currentRepayment.loanId)!.interestRate / 12)).toFixed(2)}
+                    Final settlement: {(activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance + activeLoans.find(l => l.id === currentRepayment.loanId)!.remainingBalance * (activeLoans.find(l => l.id === currentRepayment.loanId)!.interestRate / 12)).toFixed(2)}
                   </p>
                 )}
               </div>

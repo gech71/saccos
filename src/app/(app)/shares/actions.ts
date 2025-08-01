@@ -1,9 +1,14 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Share, Member, ShareType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
 
 export interface SharesPageData {
   shares: (Share & { memberName: string, shareTypeName: string })[];
@@ -52,8 +57,9 @@ export async function addShare(data: ShareInput): Promise<Share> {
   const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
   if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
   
-  const count = Math.floor((data.contributionAmount || 0) / shareType.valuePerShare);
-  const totalValueForAllocation = count * shareType.valuePerShare;
+  const contributionAmount = roundToTwo(data.contributionAmount || 0);
+  const count = Math.floor(contributionAmount / shareType.valuePerShare);
+  const totalValueForAllocation = roundToTwo(count * shareType.valuePerShare);
 
   if (count <= 0) throw new Error("Contribution amount is insufficient to allocate any shares.");
 
@@ -65,7 +71,7 @@ export async function addShare(data: ShareInput): Promise<Share> {
       allocationDate: new Date(data.allocationDate),
       valuePerShare: shareType.valuePerShare,
       status: 'pending',
-      contributionAmount: data.contributionAmount,
+      contributionAmount: contributionAmount,
       totalValueForAllocation,
       depositMode: data.depositMode,
       sourceName: data.sourceName,
@@ -86,8 +92,9 @@ export async function updateShare(id: string, data: ShareInput): Promise<Share> 
     const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
     if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
 
-    const count = Math.floor((data.contributionAmount || 0) / shareType.valuePerShare);
-    const totalValueForAllocation = count * shareType.valuePerShare;
+    const contributionAmount = roundToTwo(data.contributionAmount || 0);
+    const count = Math.floor(contributionAmount / shareType.valuePerShare);
+    const totalValueForAllocation = roundToTwo(count * shareType.valuePerShare);
 
     if (count <= 0) throw new Error("Contribution amount is insufficient to allocate any shares.");
 
@@ -100,7 +107,7 @@ export async function updateShare(id: string, data: ShareInput): Promise<Share> 
             allocationDate: new Date(data.allocationDate),
             valuePerShare: shareType.valuePerShare,
             status: 'pending', // Always require re-approval on edit
-            contributionAmount: data.contributionAmount,
+            contributionAmount: contributionAmount,
             totalValueForAllocation,
             depositMode: data.depositMode,
             sourceName: data.sourceName,
