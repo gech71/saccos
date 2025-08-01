@@ -134,6 +134,10 @@ export default function LoanRepaymentsPage() {
         toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement amount of ${finalSettlement.toFixed(2)}.` });
         return;
     }
+
+    if (currentRepayment.amountPaid < minimumPayment) {
+        toast({ title: 'Partial Payment Warning', description: `The amount entered is less than the expected minimum payment of ${minimumPayment.toFixed(2)}. This will be recorded as a partial payment.` });
+    }
     
     if ((currentRepayment.depositMode === 'Bank' || currentRepayment.depositMode === 'Wallet') && !currentRepayment.sourceName) {
       toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${currentRepayment.depositMode} Name.` });
@@ -383,3 +387,4 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
