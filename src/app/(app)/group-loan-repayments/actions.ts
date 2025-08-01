@@ -2,26 +2,38 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, Loan, LoanRepayment, Member } from '@prisma/client';
+import type { School, Loan, LoanRepayment, Member, LoanType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export async function getSchoolsForFilter(): Promise<Pick<School, 'id', 'name'>[]> {
-  return prisma.school.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  });
+export async function getGroupLoanRepaymentsPageData(): Promise<{
+    schools: Pick<School, 'id', 'name'>[],
+    loanTypes: Pick<LoanType, 'id', 'name'>[],
+}> {
+  const [schools, loanTypes] = await Promise.all([
+    prisma.school.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.loanType.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+  ]);
+  return { schools, loanTypes };
 }
 
 export type LoanWithMemberInfo = Loan & {
   member: Pick<Member, 'fullName'>;
 }
 
-export async function getLoansBySchool(schoolId: string): Promise<LoanWithMemberInfo[]> {
+export async function getLoansByCriteria(criteria: { schoolId: string, loanTypeId?: string }): Promise<LoanWithMemberInfo[]> {
+  const { schoolId, loanTypeId } = criteria;
   const loans = await prisma.loan.findMany({
     where: {
       member: {
         schoolId: schoolId,
       },
+      loanTypeId: loanTypeId ? loanTypeId : undefined,
       OR: [
         { status: 'active' },
         { status: 'overdue' }

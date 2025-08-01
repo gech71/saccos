@@ -23,14 +23,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import type { School } from '@prisma/client';
+import type { LoanType, School } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
 import { Badge } from '@/components/ui/badge';
-import { getSchoolsForFilter, getLoansBySchool, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
+import { getGroupLoanRepaymentsPageData, getLoansByCriteria, recordBatchRepayments, type LoanWithMemberInfo, type RepaymentBatchData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 
 const initialBatchTransactionState: {
@@ -51,12 +51,26 @@ const initialBatchTransactionState: {
   },
 };
 
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+const months = [
+  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
+  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
+  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
+  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', 'label': 'December' }
+];
+
 export default function GroupLoanRepaymentsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   
   const [allSchools, setAllSchools] = useState<Pick<School, 'id', 'name'>[]>([]);
+  const [loanTypes, setLoanTypes] = useState<Pick<LoanType, 'id', 'name'>[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [selectedLoanType, setSelectedLoanType] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
@@ -74,13 +88,14 @@ export default function GroupLoanRepaymentsPage() {
   const canCreate = useMemo(() => user?.permissions.includes('groupLoanRepayment:create'), [user]);
 
   useEffect(() => {
-    async function fetchSchools() {
+    async function fetchInitialData() {
         setIsPageLoading(true);
-        const schools = await getSchoolsForFilter();
-        setAllSchools(schools);
+        const data = await getGroupLoanRepaymentsPageData();
+        setAllSchools(data.schools);
+        setLoanTypes(data.loanTypes);
         setIsPageLoading(false);
     }
-    fetchSchools();
+    fetchInitialData();
   }, []);
 
   const paginatedLoans = useMemo(() => {
@@ -134,7 +149,11 @@ export default function GroupLoanRepaymentsPage() {
     setPostedTransactions(null);
     setRepaymentAmounts({});
     try {
-        const loans = await getLoansBySchool(selectedSchool);
+        const criteria = {
+            schoolId: selectedSchool,
+            loanTypeId: selectedLoanType === 'all' ? undefined : selectedLoanType,
+        }
+        const loans = await getLoansByCriteria(criteria);
         setEligibleLoans(loans);
         
         const initialRepayments: Record<string, number> = {};
@@ -148,7 +167,7 @@ export default function GroupLoanRepaymentsPage() {
         setSelectedLoanIds(loans.map(l => l.id));
         
         if (loans.length === 0) {
-            toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for members in the selected school.' });
+            toast({ title: 'No Active Loans Found', description: 'No active or overdue loans for the selected criteria.' });
         }
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load loans.' });
@@ -240,6 +259,7 @@ export default function GroupLoanRepaymentsPage() {
   const startNewBatch = () => {
     setPostedTransactions(null);
     setSelectedSchool('');
+    setSelectedLoanType('all');
     setEligibleLoans([]);
     setRepaymentAmounts({});
     setBatchDetails(initialBatchTransactionState);
@@ -258,9 +278,9 @@ export default function GroupLoanRepaymentsPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="font-headline text-primary">Selection Criteria</CardTitle>
-              <CardDescription>Select a school to load all active loans for its members.</CardDescription>
+              <CardDescription>Select filters to load all active loans for its members.</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div>
                 <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
                 <Select value={selectedSchool} onValueChange={setSelectedSchool}>
@@ -268,10 +288,36 @@ export default function GroupLoanRepaymentsPage() {
                   <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleLoadLoans} disabled={isLoadingLoans || !selectedSchool} className="w-full md:w-auto">
-                {isLoadingLoans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Filter className="mr-2 h-4 w-4" />}
-                Load Loans
-              </Button>
+              <div>
+                <Label htmlFor="loanTypeFilter">Loan Type</Label>
+                <Select value={selectedLoanType} onValueChange={setSelectedLoanType}>
+                  <SelectTrigger id="loanTypeFilter"><SelectValue placeholder="Select Loan Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Loan Types</SelectItem>
+                    {loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="yearFilter">Repayment for Year</Label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                  <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="monthFilter">Repayment for Month</Label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
+                  <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="lg:col-span-4 flex justify-end">
+                <Button onClick={handleLoadLoans} disabled={isLoadingLoans || !selectedSchool} className="w-full md:w-auto">
+                    {isLoadingLoans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Filter className="mr-2 h-4 w-4" />}
+                    Load Loans
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -307,7 +353,8 @@ export default function GroupLoanRepaymentsPage() {
                     <TableBody>
                       {paginatedLoans.map(loan => {
                         const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                        const standardPayment = loan.monthlyRepaymentAmount || 0;
+                        const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
+                        const standardPayment = principalPortion + interestForMonth;
                         const finalPayment = loan.remainingBalance + interestForMonth;
                         const expectedPayment = Math.min(standardPayment, finalPayment);
 
@@ -366,9 +413,7 @@ export default function GroupLoanRepaymentsPage() {
                                           {item}
                                       </Button>
                                   ) : (
-                                      <span key={index} className="px-2">
-                                          {item}
-                                      </span>
+                                      <span key={index} className="px-2">{item}</span>
                                   )
                               )}
                           </div>
