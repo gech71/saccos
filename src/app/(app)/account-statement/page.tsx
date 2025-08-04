@@ -9,11 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown, DollarSign } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, FileDown, Check, ChevronsUpDown, DollarSign, AlertCircle } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -35,10 +36,16 @@ function AccountStatementContent() {
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    to: new Date(),
-  });
+  
+  const defaultStartDate = startOfMonth(new Date());
+  const defaultEndDate = endOfMonth(new Date());
+
+  const [startDate, setStartDate] = useState<Date | undefined>(defaultStartDate);
+  const [endDate, setEndDate] = useState<Date | undefined>(defaultEndDate);
+  const [startYearInput, setStartYearInput] = useState<string>(format(defaultStartDate, 'yyyy'));
+  const [endYearInput, setEndYearInput] = useState<string>(format(defaultEndDate, 'yyyy'));
+  const [dateError, setDateError] = useState<string>('');
+
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -68,12 +75,39 @@ function AccountStatementContent() {
       setStatementData(null);
   }, [selectedMemberId]);
 
+  // Date validation
+  useEffect(() => {
+    if (startDate && endDate && startDate > endDate) {
+      setDateError('End date cannot be earlier than the start date.');
+    } else {
+      setDateError('');
+    }
+  }, [startDate, endDate]);
+
+  const handleYearChange = (e: React.KeyboardEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<Date | undefined>>, yearSetter: React.Dispatch<React.SetStateAction<string>>) => {
+    if (e.key === 'Enter') {
+      const year = parseInt((e.target as HTMLInputElement).value, 10);
+      if (!isNaN(year) && year > 1900 && year < 2100) {
+        setter(new Date(year, 0, 1));
+        yearSetter(year.toString());
+      } else {
+        toast({ variant: 'destructive', title: 'Invalid Year', description: 'Please enter a valid year.' });
+      }
+    }
+  };
+
   const handleGenerateStatement = async () => {
-    if (!selectedMemberId || !selectedAccountId || !dateRange?.from || !dateRange?.to) {
+    if (dateError) {
+      toast({ variant: 'destructive', title: 'Invalid Date Range', description: dateError });
+      return;
+    }
+    if (!selectedMemberId || !selectedAccountId || !startDate || !endDate) {
       toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a member, an account, and a valid date range.' });
       return;
     }
     setIsLoading(true);
+    
+    const dateRange: DateRange = { from: startDate, to: endDate };
 
     try {
         const data = await generateStatement(selectedMemberId, selectedAccountId, dateRange);
@@ -163,109 +197,145 @@ function AccountStatementContent() {
                 <CardTitle>Selection Criteria</CardTitle>
                 <CardDescription>Select a member, account, and date range to generate their statement.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                    <Label htmlFor="member-select">Member</Label>
-                    <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
-                    <PopoverTrigger asChild>
-                        <Button
-                        id="member-select"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openMemberCombobox}
-                        className="w-full justify-between"
-                        >
-                        {selectedMemberId
-                            ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
-                            : "Select member..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                        <CommandInput placeholder="Search by name or ID..." />
-                        <CommandList>
-                            <CommandEmpty>No member found.</CommandEmpty>
-                            <CommandGroup>
-                            {allMembers.map((member) => (
-                                <CommandItem
-                                key={member.id}
-                                value={`${member.fullName} ${member.id}`}
-                                onSelect={() => {
-                                    setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
-                                    setOpenMemberCombobox(false)
-                                }}
-                                >
-                                <Check
-                                    className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedMemberId === member.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                />
-                                {member.fullName}
-                                {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
-                                </CommandItem>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="md:col-span-2 lg:col-span-1">
+                      <Label htmlFor="member-select">Member</Label>
+                      <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+                      <PopoverTrigger asChild>
+                          <Button
+                          id="member-select"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openMemberCombobox}
+                          className="w-full justify-between"
+                          >
+                          {selectedMemberId
+                              ? allMembers.find((member) => member.id === selectedMemberId)?.fullName
+                              : "Select member..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                          <CommandInput placeholder="Search by name or ID..." />
+                          <CommandList>
+                              <CommandEmpty>No member found.</CommandEmpty>
+                              <CommandGroup>
+                              {allMembers.map((member) => (
+                                  <CommandItem
+                                  key={member.id}
+                                  value={`${member.fullName} ${member.id}`}
+                                  onSelect={() => {
+                                      setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
+                                      setOpenMemberCombobox(false)
+                                  }}
+                                  >
+                                  <Check
+                                      className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                  />
+                                  {member.fullName}
+                                  {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
+                                  </CommandItem>
+                              ))}
+                              </CommandGroup>
+                          </CommandList>
+                          </Command>
+                      </PopoverContent>
+                      </Popover>
+                  </div>
+                  <div className="md:col-span-2 lg:col-span-1">
+                    <Label htmlFor="account-select">Savings Account</Label>
+                    <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={!selectedMember}>
+                        <SelectTrigger id="account-select">
+                            <SelectValue placeholder="Select an account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {selectedMember?.memberSavingAccounts.map(account => (
+                                <SelectItem key={account.id} value={account.id}>
+                                    {account.savingAccountType?.name} ({account.accountNumber})
+                                </SelectItem>
                             ))}
-                            </CommandGroup>
-                        </CommandList>
-                        </Command>
-                    </PopoverContent>
-                    </Popover>
-                </div>
-                <div>
-                  <Label htmlFor="account-select">Savings Account</Label>
-                  <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={!selectedMember}>
-                      <SelectTrigger id="account-select">
-                          <SelectValue placeholder="Select an account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {selectedMember?.memberSavingAccounts.map(account => (
-                              <SelectItem key={account.id} value={account.id}>
-                                  {account.savingAccountType?.name} ({account.accountNumber})
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                    <Label htmlFor="date-range-picker">Statement Period</Label>
-                    <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                        id="date-range-picker"
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        disabled={selectedMember?.status === 'inactive'}
-                        >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (
-                            dateRange.to ? (
-                            <>
-                                {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
-                            </>
-                            ) : (
-                            format(dateRange.from, 'LLL dd, y')
-                            )
-                        ) : (
-                            <span>Pick a date range</span>
-                        )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                        />
-                    </PopoverContent>
-                    </Popover>
-                </div>
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6'>
+                    <div>
+                        <Label htmlFor="start-date-picker">Start Date</Label>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                            id="start-date-picker"
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {startDate ? format(startDate, 'PPP') : <span>Pick a start date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <div className='p-2 border-b'>
+                               <Input 
+                                type="number" 
+                                placeholder="Year"
+                                defaultValue={startYearInput}
+                                onKeyDown={(e) => handleYearChange(e, setStartDate, setStartYearInput)}
+                                className="text-center"
+                               />
+                            </div>
+                            <Calendar
+                            mode="single"
+                            selected={startDate}
+                            onSelect={setStartDate}
+                            month={startDate}
+                            onMonthChange={setStartDate}
+                            initialFocus
+                            />
+                        </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div>
+                        <Label htmlFor="end-date-picker">End Date</Label>
+                         <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                            id="end-date-picker"
+                            variant="outline"
+                            className={cn("w-full justify-start text-left font-normal", dateError && "border-destructive")}
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {endDate ? format(endDate, 'PPP') : <span>Pick an end date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                             <div className='p-2 border-b'>
+                               <Input 
+                                type="number" 
+                                placeholder="Year"
+                                defaultValue={endYearInput}
+                                onKeyDown={(e) => handleYearChange(e, setEndDate, setEndYearInput)}
+                                className="text-center"
+                               />
+                            </div>
+                            <Calendar
+                            mode="single"
+                            selected={endDate}
+                            onSelect={setEndDate}
+                            month={endDate}
+                            onMonthChange={setEndDate}
+                            initialFocus
+                            disabled={{ before: startDate }}
+                            />
+                        </PopoverContent>
+                        </Popover>
+                    </div>
+                  </div>
+                  {dateError && <p className="col-span-full text-sm text-destructive flex items-center gap-2"><AlertCircle className='h-4 w-4'/>{dateError}</p>}
                 </CardContent>
                 <CardFooter>
-                <Button onClick={handleGenerateStatement} disabled={isLoading || !selectedAccountId}>
+                <Button onClick={handleGenerateStatement} disabled={isLoading || !selectedAccountId || !!dateError}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Generate Statement
                 </Button>
@@ -411,5 +481,3 @@ export default function AccountStatementPage() {
         </Suspense>
     )
 }
-
-    
