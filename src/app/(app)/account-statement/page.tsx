@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +24,7 @@ import { generateStatement, getMembersForStatement, type StatementData, type Mem
 import { useAuth } from '@/contexts/auth-context';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Calendar } from '@/components/ui/calendar';
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
@@ -42,8 +42,6 @@ function AccountStatementContent() {
 
   const [startDate, setStartDate] = useState<Date | undefined>(defaultStartDate);
   const [endDate, setEndDate] = useState<Date | undefined>(defaultEndDate);
-  const [startYearInput, setStartYearInput] = useState<string>(format(defaultStartDate, 'yyyy'));
-  const [endYearInput, setEndYearInput] = useState<string>(format(defaultEndDate, 'yyyy'));
   const [dateError, setDateError] = useState<string>('');
 
   const [statementData, setStatementData] = useState<StatementData | null>(null);
@@ -83,18 +81,6 @@ function AccountStatementContent() {
       setDateError('');
     }
   }, [startDate, endDate]);
-
-  const handleYearChange = (e: React.KeyboardEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<Date | undefined>>, yearSetter: React.Dispatch<React.SetStateAction<string>>) => {
-    if (e.key === 'Enter') {
-      const year = parseInt((e.target as HTMLInputElement).value, 10);
-      if (!isNaN(year) && year > 1900 && year < 2100) {
-        setter(new Date(year, 0, 1));
-        yearSetter(year.toString());
-      } else {
-        toast({ variant: 'destructive', title: 'Invalid Year', description: 'Please enter a valid year.' });
-      }
-    }
-  };
 
   const handleGenerateStatement = async () => {
     if (dateError) {
@@ -276,21 +262,13 @@ function AccountStatementContent() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                            <div className='p-2 border-b'>
-                               <Input 
-                                type="number" 
-                                placeholder="Year"
-                                defaultValue={startYearInput}
-                                onKeyDown={(e) => handleYearChange(e, setStartDate, setStartYearInput)}
-                                className="text-center"
-                               />
-                            </div>
                             <Calendar
                             mode="single"
+                            captionLayout="dropdown-buttons"
+                            fromYear={1990}
+                            toYear={new Date().getFullYear()}
                             selected={startDate}
                             onSelect={setStartDate}
-                            month={startDate}
-                            onMonthChange={setStartDate}
                             initialFocus
                             />
                         </PopoverContent>
@@ -310,21 +288,13 @@ function AccountStatementContent() {
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                             <div className='p-2 border-b'>
-                               <Input 
-                                type="number" 
-                                placeholder="Year"
-                                defaultValue={endYearInput}
-                                onKeyDown={(e) => handleYearChange(e, setEndDate, setEndYearInput)}
-                                className="text-center"
-                               />
-                            </div>
                             <Calendar
                             mode="single"
+                            captionLayout="dropdown-buttons"
+                            fromYear={1990}
+                            toYear={new Date().getFullYear()}
                             selected={endDate}
                             onSelect={setEndDate}
-                            month={endDate}
-                            onMonthChange={setEndDate}
                             initialFocus
                             disabled={{ before: startDate }}
                             />
@@ -481,3 +451,5 @@ export default function AccountStatementPage() {
         </Suspense>
     )
 }
+
+    
