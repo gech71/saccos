@@ -4,6 +4,8 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays } from 'date-fns';
+
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -43,8 +45,18 @@ export async function calculateInterest(criteria: {
   schoolId?: string;
   memberId?: string;
   accountTypeId?: string;
-}): Promise<InterestCalculationResult[]> {
+}, period: { month: string, year: string }): Promise<InterestCalculationResult[]> {
   const { scope, schoolId, memberId, accountTypeId } = criteria;
+  const monthIndex = parseInt(period.month, 10);
+  const year = parseInt(period.year, 10);
+  
+  if (isNaN(monthIndex) || isNaN(year)) {
+      throw new Error("Invalid month or year provided.");
+  }
+
+  const periodStart = startOfMonth(new Date(year, monthIndex));
+  const periodEnd = endOfMonth(new Date(year, monthIndex));
+  const daysInMonth = differenceInDays(periodEnd, periodStart) + 1;
   
   let whereClause: Prisma.MemberSavingAccountWhereInput = {
     balance: { gt: 0 },
@@ -64,21 +76,52 @@ export async function calculateInterest(criteria: {
 
   const accountsToProcess = await prisma.memberSavingAccount.findMany({
     where: whereClause,
-    include: { member: { select: { fullName: true } }, savingAccountType: true },
+    include: { 
+        member: { select: { fullName: true } }, 
+        savingAccountType: true,
+        savings: {
+            where: { status: 'approved' },
+            orderBy: { date: 'asc' }
+        }
+    },
   });
 
   const results: InterestCalculationResult[] = accountsToProcess.map(account => {
     if (!account.savingAccountType) return null;
 
+    // 1. Calculate balance at the beginning of the period
+    let balanceAtPeriodStart = account.initialBalance;
+    const transactionsBeforePeriod = account.savings.filter(tx => new Date(tx.date) < periodStart);
+    transactionsBeforePeriod.forEach(tx => {
+        balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+    });
+
+    // 2. Calculate sum of daily balances for the period
+    let totalDailyBalance = 0;
+    let currentBalance = balanceAtPeriodStart;
+    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
+
+    intervalDays.forEach(day => {
+        const transactionsOnThisDay = account.savings.filter(
+            tx => format(new Date(tx.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
+        );
+        transactionsOnThisDay.forEach(tx => {
+            currentBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+        });
+        totalDailyBalance += currentBalance;
+    });
+
+    // 3. Calculate Average Daily Balance and Interest
+    const averageDailyBalance = totalDailyBalance / daysInMonth;
     const monthlyRate = account.savingAccountType.interestRate / 12;
-    const calculatedInterest = roundToTwo(account.balance * monthlyRate);
+    const calculatedInterest = roundToTwo(averageDailyBalance * monthlyRate);
 
     return {
       memberId: account.memberId,
       memberSavingAccountId: account.id,
       fullName: account.member.fullName,
       savingsAccountNumber: account.accountNumber,
-      savingsBalance: account.balance,
+      savingsBalance: account.balance, // Current balance for display
       interestRate: account.savingAccountType.interestRate,
       calculatedInterest,
     };

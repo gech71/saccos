@@ -101,7 +101,7 @@ export default function CalculateInterestPage() {
             schoolId: selectedSchoolId,
             memberId: selectedMemberId,
             accountTypeId: selectedAccountTypeId,
-        });
+        }, { month: selectedMonth, year: selectedYear });
 
         setCalculationResults(results);
         if (results.length > 0) {
@@ -291,7 +291,7 @@ export default function CalculateInterestPage() {
                             <TableRow>
                                 <TableHead>Member Name</TableHead>
                                 <TableHead>Account Number</TableHead>
-                                <TableHead className="text-right">Balance Before Interest (Birr)</TableHead>
+                                <TableHead className="text-right">Current Balance (Birr)</TableHead>
                                 <TableHead className="text-center">Interest Rate (Annual)</TableHead>
                                 <TableHead className="text-right">Calculated Interest (Birr)</TableHead>
                             </TableRow>
