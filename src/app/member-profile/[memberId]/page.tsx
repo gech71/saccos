@@ -97,7 +97,7 @@ export default function MemberProfilePage() {
                 (!transactionDateRange.to || txDate <= transactionDateRange.to)
             );
             return matchesType && matchesDate;
-        });
+        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [details, transactionFilter, transactionDateRange]);
 
     const paginatedTransactions = useMemo(() => {
@@ -144,7 +144,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address, schoolHistory } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -164,12 +164,13 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 md:grid-cols-5 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 md:grid-cols-6 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
+                    <TabsTrigger value="history">History</TabsTrigger>
                 </TabsList>
                 
                 {/* Overview Tab */}
@@ -389,6 +390,34 @@ export default function MemberProfilePage() {
                                         </TableRow>
                                      )) : (
                                          <TableRow><TableCell colSpan={4} className="h-24 text-center">No dividend history found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+                
+                {/* School History Tab */}
+                <TabsContent value="history" className="mt-6">
+                    <SectionCard title="School Transfer History">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>School Name</TableHead>
+                                    <TableHead>Start Date</TableHead>
+                                    <TableHead>End Date</TableHead>
+                                    <TableHead>Reason</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {schoolHistory.length > 0 ? schoolHistory.map(history => (
+                                        <TableRow key={history.id}>
+                                            <TableCell className="font-medium">{history.schoolName}</TableCell>
+                                            <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
+                                            <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : 'Current'}</TableCell>
+                                            <TableCell>{history.reason || 'N/A'}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No school history found.</TableCell></TableRow>
                                      )}
                                 </TableBody>
                             </Table>
