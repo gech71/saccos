@@ -43,6 +43,7 @@ const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'dividend-distributions', label: 'Dividend Distributions' },
   { value: 'saving-interest', label: 'Saving Interest Report' },
   { value: 'loans', label: 'Loan Report' },
+  { value: 'loan-repayment', label: 'Loan Repayment Report' },
   { value: 'loan-interest', label: 'Loan Interest Report' },
 ];
 
@@ -96,7 +97,7 @@ export default function ReportsPage() {
             setSelectedSavingAccountTypeId(savingAccountTypes[0].id);
         }
     }
-    if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest') {
+    if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest' && selectedReportType !== 'loan-repayment') {
       setSelectedLoanTypeId('all');
     }
   }, [selectedReportType, savingAccountTypes, selectedSavingAccountTypeId]);
@@ -204,7 +205,7 @@ export default function ReportsPage() {
                  </div>
             )}
             
-            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest') && (
+            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest' || selectedReportType === 'loan-repayment') && (
                  <div>
                     <Label htmlFor="loanTypeId">Loan Type</Label>
                     <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId} disabled={isFetchingData}>

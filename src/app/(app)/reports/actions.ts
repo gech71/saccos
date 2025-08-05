@@ -41,7 +41,7 @@ export async function getReportPageData() {
     return { schools, savingAccountTypes, loanTypes };
 }
 
-export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest';
+export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest' | 'loan-repayment';
 
 export interface ReportData {
     title: string;
@@ -329,7 +329,7 @@ export async function generateSimpleReport(
                 ...(loanTypeId && { loanTypeId: loanTypeId })
             },
             include: {
-                member: { select: { fullName: true } },
+                member: { select: { id: true, fullName: true } },
                 loanType: { select: { name: true } }
             },
             orderBy: { disbursementDate: 'desc' }
@@ -347,15 +347,66 @@ export async function generateSimpleReport(
                 { label: 'Total Principal', value: `${totalPrincipal.toFixed(2)} Birr` },
                 { label: 'Total Remaining Balance', value: `${totalRemaining.toFixed(2)} Birr` },
             ],
-            columns: ['Disbursement Date', 'Member', 'Loan Type', 'Principal', 'Remaining Balance', 'Status'],
+            columns: ['Disbursement Date', 'Member ID', 'Name', 'Loan Type', 'Principal', 'Remaining Balance', 'Status'],
             rows: loans.map(l => [
                 new Date(l.disbursementDate).toLocaleDateString(),
+                l.member.id,
                 l.member.fullName,
                 l.loanType.name,
                 l.principalAmount,
                 l.remainingBalance,
                 l.status
             ]),
+            chartType: 'none',
+        };
+    }
+
+    if (reportType === 'loan-repayment') {
+        const loans = await prisma.loan.findMany({
+            where: {
+                memberId: { in: memberIdsInSchool },
+                ...(loanTypeId && { loanTypeId: loanTypeId })
+            },
+            include: {
+                member: { select: { id: true, fullName: true } },
+                loanType: { select: { name: true } },
+                repayments: {
+                    where: {
+                        paymentDate: {
+                            gte: startDate,
+                            lte: endDate
+                        }
+                    }
+                }
+            },
+        });
+        
+        const reportRows = loans.map(loan => {
+            const totalPrincipalPaid = loan.repayments.reduce((sum, r) => sum + r.principalPaid, 0);
+            if (totalPrincipalPaid === 0) return null;
+
+            return [
+                loan.member.id,
+                loan.member.fullName,
+                loan.loanType.name,
+                totalPrincipalPaid,
+                loan.remainingBalance,
+                loan.status
+            ]
+        }).filter((row): row is (string|number)[] => row !== null);
+
+        const totalPrincipalRepaid = reportRows.reduce((sum, row) => sum + (row[3] as number), 0);
+        
+        return {
+            title: `Loan Repayment Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Loans with Repayments', value: reportRows.length.toString() },
+                { label: 'Total Principal Repaid', value: `${totalPrincipalRepaid.toFixed(2)} Birr` },
+            ],
+            columns: ['Member ID', 'Name', 'Loan Type', 'Principal Repaid', 'Remaining Balance', 'Status'],
+            rows: reportRows,
             chartType: 'none',
         };
     }
