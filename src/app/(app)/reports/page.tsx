@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -55,7 +56,7 @@ export default function ReportsPage() {
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
   const [selectedSavingAccountTypeId, setSelectedSavingAccountTypeId] = useState<string>('');
-  const [selectedLoanTypeId, setSelectedLoanTypeId] = useState<string>('');
+  const [selectedLoanTypeId, setSelectedLoanTypeId] = useState<string>('all');
 
   const defaultDateRange: DateRange = {
     from: startOfYear(new Date()),
@@ -76,6 +77,9 @@ export default function ReportsPage() {
             setSchools(data.schools);
             setSavingAccountTypes(data.savingAccountTypes);
             setLoanTypes(data.loanTypes);
+            if (data.savingAccountTypes.length > 0) {
+              setSelectedSavingAccountTypeId(data.savingAccountTypes[0].id);
+            }
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
         }
@@ -87,11 +91,15 @@ export default function ReportsPage() {
   useEffect(() => {
     if (selectedReportType !== 'savings' && selectedReportType !== 'saving-interest') {
       setSelectedSavingAccountTypeId('');
+    } else {
+        if (savingAccountTypes.length > 0 && !selectedSavingAccountTypeId) {
+            setSelectedSavingAccountTypeId(savingAccountTypes[0].id);
+        }
     }
     if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest') {
-      setSelectedLoanTypeId('');
+      setSelectedLoanTypeId('all');
     }
-  }, [selectedReportType]);
+  }, [selectedReportType, savingAccountTypes, selectedSavingAccountTypeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +116,7 @@ export default function ReportsPage() {
     setReportOutput(null);
 
     try {
-      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId, selectedLoanTypeId);
+      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId, selectedLoanTypeId === 'all' ? undefined : selectedLoanTypeId);
       if (output) {
         setReportOutput(output);
         toast({ title: 'Report Generated', description: 'Your report is ready.' });
@@ -204,7 +212,7 @@ export default function ReportsPage() {
                         <SelectValue placeholder={isFetchingData ? "Loading..." : "All Loan Types"} />
                         </SelectTrigger>
                         <SelectContent>
-                           <SelectItem value="">All Loan Types</SelectItem>
+                           <SelectItem value="all">All Loan Types</SelectItem>
                            {loanTypes.map(lt => (
                                <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>
                            ))}
