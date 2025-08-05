@@ -33,18 +33,30 @@ type SchoolForSelect = {
 }
 
 const reportTypes: { value: ReportType, label: string }[] = [
-  { value: 'savings', label: 'Savings Transactions' },
+  { value: 'savings', label: 'Saving Report' },
   { value: 'share-allocations', label: 'Share Allocations' },
   { value: 'dividend-distributions', label: 'Dividend Distributions' },
 ];
 
 const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];
 
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+const months = [
+  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
+  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
+  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
+  { value: '9', 'label': 'October' }, { value: '10', 'label': 'November' }, { value: '11', 'label': 'December' }
+];
 
 export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
+  
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>(''); // Empty string for 'all'
+
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingSchools, setIsFetchingSchools] = useState(true);
   const [reportOutput, setReportOutput] = useState<ReportData | null>(null);
@@ -66,15 +78,18 @@ export default function ReportsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSchoolId || !selectedReportType) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a school and report type.' });
+    if (!selectedSchoolId || !selectedReportType || !selectedYear) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and year.' });
       return;
     }
     setIsLoading(true);
     setReportOutput(null);
 
+    const yearNum = parseInt(selectedYear, 10);
+    const monthNum = selectedMonth ? parseInt(selectedMonth, 10) : undefined;
+
     try {
-      const output = await generateSimpleReport(selectedSchoolId, selectedReportType);
+      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, yearNum, monthNum);
       if (output) {
         setReportOutput(output);
         toast({ title: 'Report Generated', description: 'Your report is ready.' });
@@ -118,7 +133,7 @@ export default function ReportsPage() {
           <CardDescription>Select parameters to generate your financial report.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
               <Label htmlFor="schoolId">School Name</Label>
               <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId} required disabled={isFetchingSchools}>
@@ -145,9 +160,26 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
+             <div>
+              <Label htmlFor="year">Year <span className="text-destructive">*</span></Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear} required>
+                <SelectTrigger id="year"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="month">Month (Optional)</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="month"><SelectValue placeholder="All Months" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Months</SelectItem>
+                  {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isLoading || isFetchingSchools} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
+            <Button type="submit" disabled={isLoading || isFetchingSchools || !selectedYear} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
@@ -188,7 +220,7 @@ export default function ReportsPage() {
                 ))}
             </div>
 
-            {reportOutput.chartData && reportOutput.chartData.length > 0 && (
+            {reportOutput.chartData && reportOutput.chartData.length > 0 && reportOutput.chartType !== 'none' && (
                 <Card>
                     <CardHeader>
                     <CardTitle>Chart Visualization</CardTitle>

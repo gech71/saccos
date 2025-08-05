@@ -3,7 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import type { Saving, Share, Dividend } from '@prisma/client';
-import { format } from 'date-fns';
+import { format, startOfYear, endOfYear, startOfMonth, endOfMonth } from 'date-fns';
 
 export async function getSchoolsForReport() {
     return prisma.school.findMany({
@@ -30,68 +30,116 @@ export interface ReportData {
     chartType?: 'bar' | 'pie' | 'line' | 'none';
 }
 
-export async function generateSimpleReport(schoolId: string, reportType: ReportType): Promise<ReportData | null> {
+export async function generateSimpleReport(schoolId: string, reportType: ReportType, year: number, month?: number): Promise<ReportData | null> {
     const school = await prisma.school.findUnique({ where: { id: schoolId } });
     if (!school) return null;
 
+    const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    // Define the date range for the report
+    let startDate: Date;
+    let endDate: Date;
+    let periodName: string;
+
+    if (month !== undefined && month >= 0 && month <= 11) {
+        // Monthly report
+        const reportMonthDate = new Date(year, month);
+        startDate = startOfMonth(reportMonthDate);
+        endDate = endOfMonth(reportMonthDate);
+        periodName = format(reportMonthDate, 'MMMM yyyy');
+    } else {
+        // Yearly report
+        const reportYearDate = new Date(year, 0);
+        startDate = startOfYear(reportYearDate);
+        endDate = endOfYear(reportYearDate);
+        periodName = year.toString();
+    }
+
+
+    if (reportType === 'savings') {
+        const membersInSchool = await prisma.member.findMany({
+            where: { schoolId },
+            include: {
+                memberSavingAccounts: {
+                    include: {
+                        savings: {
+                            where: { status: 'approved' }
+                        }
+                    }
+                }
+            }
+        });
+
+        const reportRows: (string | number)[][] = [];
+        let totalNetSavings = 0;
+        let totalDepositsOverall = 0;
+        let totalWithdrawalsOverall = 0;
+
+        for (const member of membersInSchool) {
+            for (const account of member.memberSavingAccounts) {
+                // Calculate initial balance at the START of the period
+                const transactionsBefore = account.savings.filter(s => new Date(s.date) < startDate);
+                let initialBalance = account.initialBalance;
+                transactionsBefore.forEach(tx => {
+                    initialBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+                });
+
+                // Calculate deposits and withdrawals WITHIN the period
+                const transactionsDuring = account.savings.filter(s => {
+                    const txDate = new Date(s.date);
+                    return txDate >= startDate && txDate <= endDate;
+                });
+                
+                const totalDeposit = transactionsDuring.filter(s => s.transactionType === 'deposit').reduce((sum, s) => sum + s.amount, 0);
+                const totalWithdrawal = transactionsDuring.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
+                
+                // Only include members with activity or a balance
+                if (initialBalance === 0 && totalDeposit === 0 && totalWithdrawal === 0) {
+                    continue;
+                }
+
+                const netSaving = totalDeposit - totalWithdrawal;
+                const totalAmount = initialBalance + netSaving; // Simplified total, as interest is posted as a transaction
+
+                totalNetSavings += netSaving;
+                totalDepositsOverall += totalDeposit;
+                totalWithdrawalsOverall += totalWithdrawal;
+                
+                reportRows.push([
+                    member.id,
+                    member.fullName,
+                    totalDeposit,
+                    totalWithdrawal,
+                    initialBalance,
+                    netSaving,
+                    totalAmount
+                ]);
+            }
+        }
+        
+        return {
+            title: `Saving Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Deposits', value: `${totalDepositsOverall.toFixed(2)} Birr` },
+                { label: 'Total Withdrawals', value: `${totalWithdrawalsOverall.toFixed(2)} Birr` },
+                { label: 'Net Savings', value: `${totalNetSavings.toFixed(2)} Birr` },
+                { label: 'Total Members in Report', value: reportRows.length.toString() },
+            ],
+            columns: ['Member ID', 'Name', 'Total Deposit', 'Total Withdrawal', 'Initial Saving Balance', 'Net Saving', 'Total Amount'],
+            rows: reportRows,
+            chartData: [], // Chart data would need to be re-thought for this summary view
+            chartType: 'none',
+        };
+    }
+    
+    // Fallback for other report types
     const memberIds = (await prisma.member.findMany({
         where: { schoolId },
         select: { id: true }
     })).map(m => m.id);
-    
-    const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    if (reportType === 'savings') {
-        const savings = await prisma.saving.findMany({
-            where: { memberId: { in: memberIds }, status: 'approved' },
-            include: { member: { select: { fullName: true }}},
-            orderBy: { date: 'desc' }
-        });
-        
-        const totalDeposits = savings.filter(s => s.transactionType === 'deposit').reduce((sum, s) => sum + s.amount, 0);
-        const totalWithdrawals = savings.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
-
-        const monthlyData: { [key: string]: { Deposits: number, Withdrawals: number } } = {};
-        savings.forEach(s => {
-            const monthKey = format(new Date(s.date), 'yyyy-MM');
-            if (!monthlyData[monthKey]) {
-                monthlyData[monthKey] = { Deposits: 0, Withdrawals: 0 };
-            }
-            if (s.transactionType === 'deposit') {
-                monthlyData[monthKey].Deposits += s.amount;
-            } else {
-                monthlyData[monthKey].Withdrawals += s.amount;
-            }
-        });
-
-        const chartData = Object.keys(monthlyData).map(key => ({
-            month: format(new Date(key), 'MMM yy'),
-            ...monthlyData[key]
-        })).sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
-
-        return {
-            title: 'Savings Transaction Report',
-            schoolName: school.name,
-            reportDate,
-            summary: [
-                { label: 'Total Deposits', value: `${totalDeposits.toFixed(2)} Birr` },
-                { label: 'Total Withdrawals', value: `${totalWithdrawals.toFixed(2)} Birr` },
-                { label: 'Net Savings', value: `${(totalDeposits - totalWithdrawals).toFixed(2)} Birr` },
-                { label: 'Total Transactions', value: savings.length.toString() },
-            ],
-            columns: ['Date', 'Member', 'Type', 'Amount', 'Status'],
-            rows: savings.map(s => [
-                new Date(s.date).toLocaleDateString(),
-                s.member.fullName,
-                s.transactionType,
-                s.amount,
-                s.status
-            ]),
-            chartData,
-            chartType: 'bar',
-        };
-    }
-    
     if (reportType === 'share-allocations') {
         const shares = await prisma.share.findMany({
             where: { memberId: { in: memberIds }, status: 'approved' },
