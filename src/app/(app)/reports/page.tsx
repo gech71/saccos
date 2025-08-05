@@ -26,10 +26,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import type { SavingAccountType } from '@prisma/client';
+import type { SavingAccountType, LoanType } from '@prisma/client';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfYear, endOfYear } from 'date-fns';
 
 type SchoolForSelect = {
     id: string;
@@ -50,13 +50,16 @@ const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B',
 export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
   const [savingAccountTypes, setSavingAccountTypes] = useState<SavingAccountType[]>([]);
+  const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
+  
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
   const [selectedSavingAccountTypeId, setSelectedSavingAccountTypeId] = useState<string>('');
+  const [selectedLoanTypeId, setSelectedLoanTypeId] = useState<string>('');
 
   const defaultDateRange: DateRange = {
-    from: startOfMonth(new Date()),
-    to: endOfMonth(new Date()),
+    from: startOfYear(new Date()),
+    to: endOfYear(new Date()),
   }
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
 
@@ -72,6 +75,7 @@ export default function ReportsPage() {
             const data = await getReportPageData();
             setSchools(data.schools);
             setSavingAccountTypes(data.savingAccountTypes);
+            setLoanTypes(data.loanTypes);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
         }
@@ -80,10 +84,12 @@ export default function ReportsPage() {
     fetchData();
   }, [toast]);
   
-  // Reset saving account type filter when report type changes
   useEffect(() => {
-    if (selectedReportType !== 'savings') {
+    if (selectedReportType !== 'savings' && selectedReportType !== 'saving-interest') {
       setSelectedSavingAccountTypeId('');
+    }
+    if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest') {
+      setSelectedLoanTypeId('');
     }
   }, [selectedReportType]);
 
@@ -93,8 +99,8 @@ export default function ReportsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and a valid date range.' });
       return;
     }
-    if (selectedReportType === 'savings' && !selectedSavingAccountTypeId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type for the Savings Report.' });
+    if ((selectedReportType === 'savings' || selectedReportType === 'saving-interest') && !selectedSavingAccountTypeId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type for this report.' });
         return;
     }
 
@@ -102,7 +108,7 @@ export default function ReportsPage() {
     setReportOutput(null);
 
     try {
-      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId);
+      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId, selectedLoanTypeId);
       if (output) {
         setReportOutput(output);
         toast({ title: 'Report Generated', description: 'Your report is ready.' });
@@ -146,7 +152,7 @@ export default function ReportsPage() {
           <CardDescription>Select parameters to generate your financial report.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
             <div>
               <Label htmlFor="schoolId">School Name</Label>
               <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId} required disabled={isFetchingData}>
@@ -174,7 +180,7 @@ export default function ReportsPage() {
               </Select>
             </div>
 
-            {selectedReportType === 'savings' && (
+            {(selectedReportType === 'savings' || selectedReportType === 'saving-interest') && (
                  <div>
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
                     <Select value={selectedSavingAccountTypeId} onValueChange={setSelectedSavingAccountTypeId} required disabled={isFetchingData}>
@@ -190,7 +196,24 @@ export default function ReportsPage() {
                  </div>
             )}
             
-            <div className="lg:col-span-2">
+            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest') && (
+                 <div>
+                    <Label htmlFor="loanTypeId">Loan Type</Label>
+                    <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId} disabled={isFetchingData}>
+                        <SelectTrigger id="loanTypeId" aria-label="Select Loan Type">
+                        <SelectValue placeholder={isFetchingData ? "Loading..." : "All Loan Types"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="">All Loan Types</SelectItem>
+                           {loanTypes.map(lt => (
+                               <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>
+                           ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+            )}
+            
+            <div className="lg:col-span-full">
                 <Label htmlFor="dateRange">Date Range</Label>
                 <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
             </div>
@@ -248,12 +271,9 @@ export default function ReportsPage() {
                             <BarChart data={reportOutput.chartData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
-                                {Object.keys(reportOutput.chartData[0]).includes('month') && <XAxis dataKey="month" />}
                                 <YAxis />
                                 <Tooltip />
                                 <Legend />
-                                {Object.keys(reportOutput.chartData[0]).includes('Deposits') && <Bar dataKey="Deposits" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />}
-                                {Object.keys(reportOutput.chartData[0]).includes('Withdrawals') && <Bar dataKey="Withdrawals" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />}
                                 {Object.keys(reportOutput.chartData[0]).includes('Amount') && <Bar dataKey="Amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />}
                             </BarChart>
                         ) : reportOutput.chartType === 'pie' ? (
