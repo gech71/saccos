@@ -55,7 +55,7 @@ export default function ReportsPage() {
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
   
   const [selectedYear, setSelectedYear] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>(''); // Empty string for 'all'
+  const [selectedMonth, setSelectedMonth] = useState<string>('all'); // Empty string for 'all'
 
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingSchools, setIsFetchingSchools] = useState(true);
@@ -86,7 +86,7 @@ export default function ReportsPage() {
     setReportOutput(null);
 
     const yearNum = parseInt(selectedYear, 10);
-    const monthNum = selectedMonth ? parseInt(selectedMonth, 10) : undefined;
+    const monthNum = selectedMonth !== 'all' ? parseInt(selectedMonth, 10) : undefined;
 
     try {
       const output = await generateSimpleReport(selectedSchoolId, selectedReportType, yearNum, monthNum);
@@ -172,7 +172,7 @@ export default function ReportsPage() {
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger id="month"><SelectValue placeholder="All Months" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Months</SelectItem>
+                  <SelectItem value="all">All Months</SelectItem>
                   {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                 </SelectContent>
               </Select>
