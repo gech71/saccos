@@ -278,7 +278,7 @@ export async function generateSimpleReport(
         const interestTransactions = await prisma.saving.findMany({
             where: {
                 memberId: { in: memberIdsInSchool },
-                status: 'approved',
+                status: { in: ['approved', 'pending'] }, // Corrected: Include pending transactions
                 notes: { contains: 'Monthly interest posting' },
                 date: {
                     gte: startDate,
