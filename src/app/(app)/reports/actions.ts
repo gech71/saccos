@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, Share, Dividend, SavingAccountType } from '@prisma/client';
+import type { Saving, Share, Dividend, SavingAccountType, Loan, LoanRepayment } from '@prisma/client';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -31,7 +31,7 @@ export async function getReportPageData() {
     return { schools, savingAccountTypes };
 }
 
-export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions';
+export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest';
 
 export interface ReportData {
     title: string;
@@ -154,12 +154,12 @@ export async function generateSimpleReport(
             ],
             columns: ['Member ID', 'Name', 'Total Deposit', 'Total Withdrawal', 'Initial Saving Balance', 'Net Saving', 'Total Amount'],
             rows: reportRows,
-            chartData: [], // Chart data would need to be re-thought for this summary view
+            chartData: [],
             chartType: 'none',
         };
     }
     
-    // Fallback for other report types
+    // Get all member IDs for the selected school
     const memberIds = (await prisma.member.findMany({
         where: { schoolId },
         select: { id: true }
@@ -270,5 +270,119 @@ export async function generateSimpleReport(
         };
     }
     
+    if (reportType === 'saving-interest') {
+        const interestTransactions = await prisma.saving.findMany({
+            where: {
+                memberId: { in: memberIds },
+                status: 'approved',
+                notes: { contains: 'Monthly interest posting' },
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                }
+            },
+            include: { member: { select: { fullName: true } } },
+            orderBy: { date: 'desc' }
+        });
+
+        const totalInterest = interestTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+        return {
+            title: `Saving Interest Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Interest Posted', value: `${totalInterest.toFixed(2)} Birr` },
+                { label: 'Total Transactions', value: interestTransactions.length.toString() },
+            ],
+            columns: ['Date', 'Member', 'Interest Amount'],
+            rows: interestTransactions.map(tx => [
+                new Date(tx.date).toLocaleDateString(),
+                tx.member.fullName,
+                tx.amount
+            ]),
+            chartType: 'none',
+        };
+    }
+
+    if (reportType === 'loans') {
+        const loans = await prisma.loan.findMany({
+            where: {
+                memberId: { in: memberIds },
+                disbursementDate: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            },
+            include: {
+                member: { select: { fullName: true } },
+                loanType: { select: { name: true } }
+            },
+            orderBy: { disbursementDate: 'desc' }
+        });
+
+        const totalPrincipal = loans.reduce((sum, l) => sum + l.principalAmount, 0);
+        const totalRemaining = loans.reduce((sum, l) => sum + l.remainingBalance, 0);
+
+        return {
+            title: `Loan Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Loans Disbursed', value: loans.length.toString() },
+                { label: 'Total Principal', value: `${totalPrincipal.toFixed(2)} Birr` },
+                { label: 'Total Remaining Balance', value: `${totalRemaining.toFixed(2)} Birr` },
+            ],
+            columns: ['Disbursement Date', 'Member', 'Loan Type', 'Principal', 'Remaining Balance', 'Status'],
+            rows: loans.map(l => [
+                new Date(l.disbursementDate).toLocaleDateString(),
+                l.member.fullName,
+                l.loanType.name,
+                l.principalAmount,
+                l.remainingBalance,
+                l.status
+            ]),
+            chartType: 'none',
+        };
+    }
+
+    if (reportType === 'loan-interest') {
+        const repayments = await prisma.loanRepayment.findMany({
+            where: {
+                memberId: { in: memberIds },
+                interestPaid: { gt: 0 },
+                paymentDate: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            },
+            include: { 
+                member: { select: { fullName: true } },
+                loan: { select: { loanType: { select: { name: true } } } }
+            },
+            orderBy: { paymentDate: 'desc' }
+        });
+
+        const totalInterestPaid = repayments.reduce((sum, r) => sum + r.interestPaid, 0);
+
+        return {
+            title: `Loan Interest Paid Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Interest Paid', value: `${totalInterestPaid.toFixed(2)} Birr` },
+                { label: 'Total Repayments with Interest', value: repayments.length.toString() }
+            ],
+            columns: ['Payment Date', 'Member', 'Loan Type', 'Interest Paid'],
+            rows: repayments.map(r => [
+                new Date(r.paymentDate).toLocaleDateString(),
+                r.member.fullName,
+                r.loan?.loanType.name || 'N/A',
+                r.interestPaid
+            ]),
+            chartType: 'none',
+        };
+    }
+
     return null;
 }

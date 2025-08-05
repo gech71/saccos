@@ -40,6 +40,9 @@ const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'savings', label: 'Saving Report' },
   { value: 'share-allocations', label: 'Share Allocations' },
   { value: 'dividend-distributions', label: 'Dividend Distributions' },
+  { value: 'saving-interest', label: 'Saving Interest Report' },
+  { value: 'loans', label: 'Loan Report' },
+  { value: 'loan-interest', label: 'Loan Interest Report' },
 ];
 
 const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];
@@ -76,6 +79,13 @@ export default function ReportsPage() {
     }
     fetchData();
   }, [toast]);
+  
+  // Reset saving account type filter when report type changes
+  useEffect(() => {
+    if (selectedReportType !== 'savings') {
+      setSelectedSavingAccountTypeId('');
+    }
+  }, [selectedReportType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
