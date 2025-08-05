@@ -170,7 +170,7 @@ export default function MemberProfilePage() {
                     <TabsTrigger value="shares">Shares</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
+                    <TabsTrigger value="history">School History</TabsTrigger>
                 </TabsList>
                 
                 {/* Overview Tab */}
@@ -413,7 +413,13 @@ export default function MemberProfilePage() {
                                         <TableRow key={history.id}>
                                             <TableCell className="font-medium">{history.schoolName}</TableCell>
                                             <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
-                                            <TableCell>{history.endDate ? format(new Date(history.endDate), 'PPP') : 'Current'}</TableCell>
+                                            <TableCell>
+                                                {history.endDate ? (
+                                                    format(new Date(history.endDate), 'PPP')
+                                                ) : (
+                                                    <span className="font-semibold text-green-600">Current</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell>{history.reason || 'N/A'}</TableCell>
                                         </TableRow>
                                      )) : (
