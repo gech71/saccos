@@ -115,8 +115,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 runningBalance -= tx.amount;
             }
             return { ...tx, balanceAfter: runningBalance };
-        })
-        .sort((a,b) => compareDesc(new Date(a.date), new Date(b.date))); // Sort back to DESC for display
+        }); // Keep the ASC order for correct display
 
 
     // Process monthly savings
