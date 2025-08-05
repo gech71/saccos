@@ -107,6 +107,8 @@ export default function LoansPage() {
 
   const selectedMember = useMemo(() => members.find(m => m.id === currentLoan.memberId), [members, currentLoan.memberId]);
   const selectedLoanType = useMemo(() => loanTypes.find(lt => lt.id === currentLoan.loanTypeId), [loanTypes, currentLoan.loanTypeId]);
+  const eligibleGuarantors = useMemo(() => members.filter(m => m.id !== selectedMember?.id && m.totalGuaranteed < 2), [members, selectedMember]);
+
 
   useEffect(() => {
     if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0 && currentLoan.loanTerm && currentLoan.loanTerm > 0) {
@@ -451,7 +453,7 @@ export default function LoansPage() {
                             <Label>Guarantor Member</Label>
                             <Select name="guarantorId" onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
                                 <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
-                                <SelectContent>{members.filter(m => m.id !== selectedMember?.id && m.totalGuaranteed < 2).map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} (Guaranteed: {m.totalGuaranteed})</SelectItem>)}</SelectContent>
+                                <SelectContent>{eligibleGuarantors.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} (Guaranteed: {m.totalGuaranteed})</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                     )}
@@ -492,3 +494,4 @@ export default function LoansPage() {
     </div>
   );
 }
+

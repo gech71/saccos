@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -63,7 +64,13 @@ export async function getLoansPageData(): Promise<LoansPageData> {
         },
         _count: {
             select: {
-                guaranteedLoans: true
+                guaranteedLoans: {
+                    where: {
+                        loan: {
+                            status: { in: ['active', 'overdue'] }
+                        }
+                    }
+                }
             }
         }
        },
@@ -127,6 +134,22 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       throw new Error(`Repayment period must be between ${loanType.minRepaymentPeriod} and ${loanType.maxRepaymentPeriod} months for this loan type.`);
   }
 
+  // Guarantor validation
+  const guarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
+  if (guarantorIds.length > 0) {
+      const guarantorChecks = await prisma.member.findMany({
+          where: { id: { in: guarantorIds } },
+          include: { _count: { select: { guaranteedLoans: { where: { loan: { status: { in: ['active', 'overdue'] } } } } } } }
+      });
+
+      for (const guarantor of guarantorChecks) {
+          if (guarantor._count.guaranteedLoans >= 2) {
+              throw new Error(`Member ${guarantor.fullName} is already guaranteeing two active loans and cannot be added as a guarantor.`);
+          }
+      }
+  }
+
+
   if (loanType.name === 'Special Loan') {
       const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
       if (monthsSinceJoined < 3) throw new Error("Member must have at least 3 months of savings to be eligible for a Special Loan.");
@@ -145,8 +168,6 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   // Fee calculation
   const insuranceFee = roundToTwo(loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0);
   const serviceFee = loanType.name === 'Regular Loan' ? 15 : 0;
-
-  const guarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
 
   return await prisma.loan.create({
     data: {
@@ -207,3 +228,4 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
+
