@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileDown, FileText } from 'lucide-react';
-import { getSchoolsForReport, generateSimpleReport, type ReportData, type ReportType } from './actions';
+import { getReportPageData, generateSimpleReport, type ReportData, type ReportType } from './actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/stat-card';
 import { exportToExcel } from '@/lib/utils';
@@ -26,6 +26,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import type { SavingAccountType } from '@prisma/client';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { DateRange } from 'react-day-picker';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 type SchoolForSelect = {
     id: string;
@@ -40,56 +44,55 @@ const reportTypes: { value: ReportType, label: string }[] = [
 
 const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];
 
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
-const months = [
-  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
-  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
-  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
-  { value: '9', 'label': 'October' }, { value: '10', 'label': 'November' }, { value: '11', 'label': 'December' }
-];
-
 export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
+  const [savingAccountTypes, setSavingAccountTypes] = useState<SavingAccountType[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
-  
-  const [selectedYear, setSelectedYear] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all'); // Empty string for 'all'
+  const [selectedSavingAccountTypeId, setSelectedSavingAccountTypeId] = useState<string>('');
+
+  const defaultDateRange: DateRange = {
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  }
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingSchools, setIsFetchingSchools] = useState(true);
+  const [isFetchingData, setIsFetchingData] = useState(true);
   const [reportOutput, setReportOutput] = useState<ReportData | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
-    async function fetchSchools() {
-        setIsFetchingSchools(true);
+    async function fetchData() {
+        setIsFetchingData(true);
         try {
-            const schoolsData = await getSchoolsForReport();
-            setSchools(schoolsData);
+            const data = await getReportPageData();
+            setSchools(data.schools);
+            setSavingAccountTypes(data.savingAccountTypes);
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load schools.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
         }
-        setIsFetchingSchools(false);
+        setIsFetchingData(false);
     }
-    fetchSchools();
+    fetchData();
   }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSchoolId || !selectedReportType || !selectedYear) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and year.' });
+    if (!selectedSchoolId || !selectedReportType || !dateRange?.from || !dateRange?.to) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and a valid date range.' });
       return;
     }
+    if (selectedReportType === 'savings' && !selectedSavingAccountTypeId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type for the Savings Report.' });
+        return;
+    }
+
     setIsLoading(true);
     setReportOutput(null);
 
-    const yearNum = parseInt(selectedYear, 10);
-    const monthNum = selectedMonth !== 'all' ? parseInt(selectedMonth, 10) : undefined;
-
     try {
-      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, yearNum, monthNum);
+      const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId);
       if (output) {
         setReportOutput(output);
         toast({ title: 'Report Generated', description: 'Your report is ready.' });
@@ -133,12 +136,12 @@ export default function ReportsPage() {
           <CardDescription>Select parameters to generate your financial report.</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
             <div>
               <Label htmlFor="schoolId">School Name</Label>
-              <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId} required disabled={isFetchingSchools}>
+              <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId} required disabled={isFetchingData}>
                 <SelectTrigger id="schoolId" aria-label="Select school">
-                  <SelectValue placeholder={isFetchingSchools ? "Loading schools..." : "Select a school"} />
+                  <SelectValue placeholder={isFetchingData ? "Loading schools..." : "Select a school"} />
                 </SelectTrigger>
                 <SelectContent>
                   {schools.map(school => (
@@ -160,26 +163,30 @@ export default function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-             <div>
-              <Label htmlFor="year">Year <span className="text-destructive">*</span></Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear} required>
-                <SelectTrigger id="year"><SelectValue placeholder="Select Year" /></SelectTrigger>
-                <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="month">Month (Optional)</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="month"><SelectValue placeholder="All Months" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
-                  {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+
+            {selectedReportType === 'savings' && (
+                 <div>
+                    <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
+                    <Select value={selectedSavingAccountTypeId} onValueChange={setSelectedSavingAccountTypeId} required disabled={isFetchingData}>
+                        <SelectTrigger id="savingAccountTypeId" aria-label="Select Saving Account Type">
+                        <SelectValue placeholder={isFetchingData ? "Loading..." : "Select an account type"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {savingAccountTypes.map(sat => (
+                            <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+            )}
+            
+            <div className="lg:col-span-2">
+                <Label htmlFor="dateRange">Date Range</Label>
+                <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isLoading || isFetchingSchools || !selectedYear} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
+            <Button type="submit" disabled={isLoading || isFetchingData || !dateRange?.from || !dateRange?.to} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
