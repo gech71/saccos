@@ -342,8 +342,8 @@ export default function GroupCollectionsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    const transactionDateObj = new Date(parseInt(selectedYear), parseInt(selectedMonth) + 1, 0);
-    const transactionMonthString = `${months.find(m => m.value.toString() === selectedMonth)?.label} ${selectedYear}`;
+    const transactionDateObj = new Date(); // Use current date
+    const transactionMonthString = `${months[transactionDateObj.getMonth()]?.label} ${transactionDateObj.getFullYear()}`;
 
     if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${batchDetails.depositMode} Name.` });
