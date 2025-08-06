@@ -39,8 +39,10 @@ type SchoolForSelect = {
 
 const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'savings', label: 'Saving Report' },
+  { value: 'savings-no-interest', label: 'Saving Report (w/o Interest)' },
   { value: 'saving-interest', label: 'Saving Interest Report' },
   { value: 'loans', label: 'Loan Report' },
+  { value: 'loans-no-interest', label: 'Loan Report (w/o Interest)' },
   { value: 'loan-repayment', label: 'Loan Repayment Report' },
   { value: 'loan-interest', label: 'Loan Interest Report' },
   { value: 'share-allocations', label: 'Share Allocations' },
@@ -90,14 +92,14 @@ export default function ReportsPage() {
   }, [toast]);
   
   useEffect(() => {
-    if (selectedReportType !== 'savings' && selectedReportType !== 'saving-interest') {
+    if (selectedReportType !== 'savings' && selectedReportType !== 'saving-interest' && selectedReportType !== 'savings-no-interest') {
       setSelectedSavingAccountTypeId('');
     } else {
         if (savingAccountTypes.length > 0 && !selectedSavingAccountTypeId) {
             setSelectedSavingAccountTypeId(savingAccountTypes[0].id);
         }
     }
-    if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest' && selectedReportType !== 'loan-repayment') {
+    if (selectedReportType !== 'loans' && selectedReportType !== 'loan-interest' && selectedReportType !== 'loan-repayment' && selectedReportType !== 'loans-no-interest') {
       setSelectedLoanTypeId('all');
     }
   }, [selectedReportType, savingAccountTypes, selectedSavingAccountTypeId]);
@@ -108,7 +110,7 @@ export default function ReportsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and a valid date range.' });
       return;
     }
-    if ((selectedReportType === 'savings' || selectedReportType === 'saving-interest') && !selectedSavingAccountTypeId) {
+    if ((selectedReportType === 'savings' || selectedReportType === 'saving-interest' || selectedReportType === 'savings-no-interest') && !selectedSavingAccountTypeId) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please select a Saving Account Type for this report.' });
         return;
     }
@@ -189,7 +191,7 @@ export default function ReportsPage() {
               </Select>
             </div>
 
-            {(selectedReportType === 'savings' || selectedReportType === 'saving-interest') && (
+            {(selectedReportType === 'savings' || selectedReportType === 'saving-interest' || selectedReportType === 'savings-no-interest') && (
                  <div>
                     <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
                     <Select value={selectedSavingAccountTypeId} onValueChange={setSelectedSavingAccountTypeId} required disabled={isFetchingData}>
@@ -205,7 +207,7 @@ export default function ReportsPage() {
                  </div>
             )}
             
-            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest' || selectedReportType === 'loan-repayment') && (
+            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest' || selectedReportType === 'loan-repayment' || selectedReportType === 'loans-no-interest') && (
                  <div>
                     <Label htmlFor="loanTypeId">Loan Type</Label>
                     <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId} disabled={isFetchingData}>

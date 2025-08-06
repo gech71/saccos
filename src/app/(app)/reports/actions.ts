@@ -41,7 +41,7 @@ export async function getReportPageData() {
     return { schools, savingAccountTypes, loanTypes };
 }
 
-export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest' | 'loan-repayment';
+export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest' | 'loan-repayment' | 'savings-no-interest' | 'loans-no-interest';
 
 export interface ReportData {
     title: string;
@@ -78,7 +78,7 @@ export async function generateSimpleReport(
         select: { id: true }
     })).map(m => m.id);
 
-    if (reportType === 'savings') {
+    if (reportType === 'savings' || reportType === 'savings-no-interest') {
         if (!savingAccountTypeId) {
             throw new Error("Saving Account Type is required for this report.");
         }
@@ -128,7 +128,7 @@ export async function generateSimpleReport(
             });
             
             const totalDeposit = transactionsDuring
-                .filter(s => s.transactionType === 'deposit' && !s.notes?.toLowerCase().includes('interest'))
+                .filter(s => s.transactionType === 'deposit' && (reportType === 'savings-no-interest' ? !s.notes?.toLowerCase().includes('interest') : true))
                 .reduce((sum, s) => sum + s.amount, 0);
 
             const totalWithdrawal = transactionsDuring.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
@@ -155,8 +155,12 @@ export async function generateSimpleReport(
             ]);
         }
         
+        const reportTitle = reportType === 'savings-no-interest' 
+            ? `Saving Report (w/o Interest) for ${savingAccountType.name} (${periodName})`
+            : `Saving Report for ${savingAccountType.name} (${periodName})`;
+
         return {
-            title: `Saving Report for ${savingAccountType.name} (${periodName})`,
+            title: reportTitle,
             schoolName: school.name,
             reportDate,
             summary: [
@@ -321,7 +325,7 @@ export async function generateSimpleReport(
         };
     }
 
-    if (reportType === 'loans') {
+    if (reportType === 'loans' || reportType === 'loans-no-interest') {
         const loans = await prisma.loan.findMany({
             where: {
                 memberId: { in: memberIdsInSchool },
@@ -340,9 +344,13 @@ export async function generateSimpleReport(
 
         const totalPrincipal = loans.reduce((sum, l) => sum + l.principalAmount, 0);
         const totalRemaining = loans.reduce((sum, l) => sum + l.remainingBalance, 0);
+        
+        const reportTitle = reportType === 'loans-no-interest'
+          ? `Loan Report (w/o Interest) (${periodName})`
+          : `Loan Report (${periodName})`;
 
         return {
-            title: `Loan Report (${periodName})`,
+            title: reportTitle,
             schoolName: school.name,
             reportDate,
             summary: [
