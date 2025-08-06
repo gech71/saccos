@@ -127,7 +127,10 @@ export async function generateSimpleReport(
                 return txDate >= startDate && txDate <= endDate;
             });
             
-            const totalDeposit = transactionsDuring.filter(s => s.transactionType === 'deposit').reduce((sum, s) => sum + s.amount, 0);
+            const totalDeposit = transactionsDuring
+                .filter(s => s.transactionType === 'deposit' && !s.notes?.toLowerCase().includes('interest'))
+                .reduce((sum, s) => sum + s.amount, 0);
+
             const totalWithdrawal = transactionsDuring.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
             
             if (initialBalance === 0 && totalDeposit === 0 && totalWithdrawal === 0) {
