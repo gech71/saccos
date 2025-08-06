@@ -10,6 +10,7 @@ export interface StatementData {
   member: Member;
   account: MemberSavingAccount & { savingAccountType: SavingAccountType | null };
   dateRange: DateRange;
+  initialBalance: number;
   balanceBroughtForward: number;
   transactions: (Saving & { debit: number; credit: number; balance: number })[];
   totalDeposits: number;
@@ -131,6 +132,7 @@ export async function generateStatement(
     account: account,
     schoolName: member.school?.name ?? null,
     dateRange,
+    initialBalance: account.initialBalance,
     balanceBroughtForward,
     transactions: transactionsInPeriod,
     totalDeposits,

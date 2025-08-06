@@ -365,6 +365,10 @@ function AccountStatementContent() {
                             <Badge variant={statementData.member.status === 'inactive' ? 'destructive' : 'default'}>{statementData.member.status || 'Active'}</Badge>
                         </div>
                     </div>
+                    <div>
+                        <Label className="font-semibold text-gray-700">Initial Balance:</Label>
+                        <div>{statementData.initialBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
+                    </div>
                 </div>
 
                 {/* Summary Section */}
@@ -374,7 +378,7 @@ function AccountStatementContent() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div className="space-y-1">
-                            <p className="text-muted-foreground">Opening Balance</p>
+                            <p className="text-muted-foreground">Balance Brought Forward</p>
                             <p className="font-semibold">{statementData.balanceBroughtForward.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                         </div>
                         <div className="space-y-1">
