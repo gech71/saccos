@@ -84,9 +84,23 @@ export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
 };
 
+function validateMemberData(data: MemberInput) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (data.email && !emailRegex.test(data.email)) {
+        throw new Error('Invalid email format.');
+    }
+
+    const phoneRegex = /^(09|\+2519)\d{8}$/;
+    if (data.phoneNumber && !phoneRegex.test(data.phoneNumber)) {
+        throw new Error('Invalid phone number format. Use 09xxxxxxxx or +2519xxxxxxxx.');
+    }
+}
+
 
 export async function addMember(data: MemberInput): Promise<Member> {
     const { id, address, emergencyContact, shareCommitments, ...memberData } = data;
+
+    validateMemberData(data);
 
     // Check for uniqueness of member ID
     const existingMemberById = await prisma.member.findUnique({
@@ -160,6 +174,8 @@ export async function addMember(data: MemberInput): Promise<Member> {
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
     const { address, emergencyContact, shareCommitments, salary, ...memberData } = data;
+
+    validateMemberData(data);
 
     // Uniqueness checks for email
     if (memberData.email) {

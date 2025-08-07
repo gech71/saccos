@@ -842,7 +842,7 @@ export default function MembersPage() {
                 <Input id="joinDate" name="joinDate" type="date" value={currentMember.joinDate || ''} onChange={handleMemberInputChange} required readOnly={isViewingOnly} />
               </div>
                <div>
-                <Label htmlFor="salary">Salary (Birr)</Label>
+                <Label htmlFor="salary">Salary (Optional)</Label>
                 <Input id="salary" name="salary" type="number" step="0.01" value={currentMember.salary || ''} onChange={handleMemberInputChange} readOnly={isViewingOnly} />
               </div>
             </div>
