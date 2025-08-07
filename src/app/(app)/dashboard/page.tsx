@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/page-title';
 import { StatCard } from '@/components/stat-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, School, TrendingUp, ArrowRight, Loader2 } from 'lucide-react';
+import { DollarSign, Users, School, TrendingUp, ArrowRight, Loader2, Banknote, Percent, ReceiptText } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -55,7 +55,7 @@ export default function DashboardPage() {
       <div className="space-y-8">
         <PageTitle title="Admin Dashboard" subtitle="Welcome to AcademInvest. Here's an overview of your association." />
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <StatCard
             title="Total Members"
             value={dashboardData.totalMembers.toLocaleString()}
@@ -71,10 +71,25 @@ export default function DashboardPage() {
             value={dashboardData.totalSchools.toLocaleString()}
             icon={<School className="h-6 w-6 text-accent" />}
           />
-          <StatCard
+           <StatCard
             title="Dividends Paid (YTD)"
             value={`${dashboardData.totalDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
             icon={<TrendingUp className="h-6 w-6 text-accent" />}
+          />
+          <StatCard
+            title="Total Loan Principal"
+            value={`${dashboardData.totalLoanPrincipal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
+            icon={<Banknote className="h-6 w-6 text-accent" />}
+          />
+           <StatCard
+            title="Total Loan Interest"
+            value={`${dashboardData.totalLoanInterestCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
+            icon={<Percent className="h-6 w-6 text-accent" />}
+          />
+           <StatCard
+            title="Service Charges Collected"
+            value={`${dashboardData.totalServiceChargesCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`}
+            icon={<ReceiptText className="h-6 w-6 text-accent" />}
           />
         </div>
 

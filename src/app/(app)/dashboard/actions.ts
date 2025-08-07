@@ -9,6 +9,9 @@ export interface AdminDashboardData {
   totalSavings: number;
   totalSchools: number;
   totalDividendsYTD: number;
+  totalLoanPrincipal: number;
+  totalLoanInterestCollected: number;
+  totalServiceChargesCollected: number;
   savingsTrend: { month: string; savings: number; }[];
   schoolPerformance: { name: string; members: number; savings: number; }[];
 }
@@ -21,6 +24,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     totalDividendsResult,
     savingsLast6Months,
     schools,
+    totalLoanResult,
+    totalLoanInterestResult,
+    totalServiceChargeResult
   ] = await Promise.all([
     prisma.member.count({ where: { status: 'active' } }),
     prisma.memberSavingAccount.aggregate({ _sum: { balance: true } }),
@@ -56,10 +62,24 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         }
       },
     }),
+    prisma.loan.aggregate({
+      _sum: { principalAmount: true },
+       where: { status: { in: ['active', 'overdue', 'paid_off'] } },
+    }),
+    prisma.loanRepayment.aggregate({
+      _sum: { interestPaid: true }
+    }),
+    prisma.appliedServiceCharge.aggregate({
+      where: { status: 'paid' },
+      _sum: { amountCharged: true }
+    })
   ]);
 
   const totalSavings = totalSavingsResult._sum.balance || 0;
   const totalDividendsYTD = totalDividendsResult._sum.amount || 0;
+  const totalLoanPrincipal = totalLoanResult._sum.principalAmount || 0;
+  const totalLoanInterestCollected = totalLoanInterestResult._sum.interestPaid || 0;
+  const totalServiceChargesCollected = totalServiceChargeResult._sum.amountCharged || 0;
 
   const monthlySavings: { [key: string]: number } = {};
   for (let i = 5; i >= 0; i--) {
@@ -97,6 +117,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     totalSavings,
     totalSchools,
     totalDividendsYTD,
+    totalLoanPrincipal,
+    totalLoanInterestCollected,
+    totalServiceChargesCollected,
     savingsTrend,
     schoolPerformance,
   };
