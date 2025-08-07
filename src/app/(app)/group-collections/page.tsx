@@ -27,9 +27,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Saving, SavingAccountType } from '@prisma/client';
+import type { Saving, SavingAccountType, ServiceChargeType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle, Download } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle, Download, ReceiptText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
@@ -67,6 +67,7 @@ type EligibleAccount = {
     accountId: string;
     accountNumber: string;
     expectedMonthlySaving: number;
+    monthlyServiceCharges: number;
     schoolName: string;
 }
 
@@ -185,6 +186,8 @@ export default function GroupCollectionsPage() {
     
     setTimeout(() => {
         const schoolName = pageData.schools.find(s => s.id === selectedSchool)?.name || 'N/A';
+        const totalMonthlyCharges = pageData.monthlyServiceCharges.reduce((sum, charge) => sum + charge.amount, 0);
+        
         const filteredAccounts: EligibleAccount[] = [];
         pageData.members.forEach(member => {
             if (member.schoolId === selectedSchool) {
@@ -196,6 +199,7 @@ export default function GroupCollectionsPage() {
                             accountId: account.id,
                             accountNumber: account.accountNumber,
                             expectedMonthlySaving: account.expectedMonthlySaving,
+                            monthlyServiceCharges: totalMonthlyCharges,
                             schoolName: schoolName
                         });
                     }
@@ -245,7 +249,7 @@ export default function GroupCollectionsPage() {
   }, [selectedIds, collectionAmounts]);
 
   const handleExport = () => {
-    if (eligibleAccounts.length === 0) {
+    if (eligibleAccounts.length === 0 || !pageData) {
         toast({ variant: 'destructive', title: 'No Data', description: 'There is no data to export.' });
         return;
     }
@@ -254,6 +258,7 @@ export default function GroupCollectionsPage() {
       'Account Number': item.accountNumber,
       'School': item.schoolName,
       'Expected Contribution (Birr)': item.expectedMonthlySaving,
+      'Monthly Service Charges (Birr)': item.monthlyServiceCharges,
     }));
     
     const schoolName = pageData?.schools.find(s => s.id === selectedSchool)?.name || 'school';
@@ -541,6 +546,7 @@ export default function GroupCollectionsPage() {
                             <TableHead>Member Name</TableHead>
                             <TableHead>Savings Acct #</TableHead>
                             <TableHead className="text-right">Exp. Monthly Saving</TableHead>
+                             <TableHead className="text-right">Monthly Service Charges</TableHead>
                             <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -550,6 +556,7 @@ export default function GroupCollectionsPage() {
                             const name = item.fullName;
                             const accNum = item.accountNumber;
                             const amount = item.expectedMonthlySaving;
+                            const serviceCharges = item.monthlyServiceCharges;
                             const currentAmountPaid = collectionAmounts[id] || 0;
 
                             return (
@@ -560,6 +567,7 @@ export default function GroupCollectionsPage() {
                                 <TableCell className="font-medium">{name}</TableCell>
                                 <TableCell>{accNum || 'N/A'}</TableCell>
                                 <TableCell className="text-right">{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell className="text-right text-muted-foreground">{serviceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 <TableCell className="text-right">
                                   <div className='flex flex-col items-end'>
                                       <Input

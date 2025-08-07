@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, Member, Saving, MemberSavingAccount, ShareType } from '@prisma/client';
+import type { School, SavingAccountType, Member, Saving, MemberSavingAccount, ShareType, ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export type MemberWithSavingAccounts = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
@@ -14,11 +14,12 @@ export type MemberWithSavingAccounts = Pick<Member, 'id' | 'fullName' | 'schoolI
 export interface GroupCollectionsPageData {
   schools: Pick<School, 'id', 'name'>[];
   savingAccountTypes: Pick<SavingAccountType, 'id', 'name'>[];
+  monthlyServiceCharges: ServiceChargeType[];
   members: MemberWithSavingAccounts[];
 }
 
 export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPageData> {
-  const [schools, savingAccountTypes, members] = await Promise.all([
+  const [schools, savingAccountTypes, members, monthlyServiceCharges] = await Promise.all([
     prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.member.findMany({ 
@@ -43,9 +44,12 @@ export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPag
         },
         orderBy: { fullName: 'asc' }
     }),
+    prisma.serviceChargeType.findMany({
+        where: { frequency: 'monthly' }
+    }),
   ]);
   
-  return { schools, savingAccountTypes, members };
+  return { schools, savingAccountTypes, members, monthlyServiceCharges };
 }
 
 export type BatchSavingData = Omit<Saving, 'id'> & { memberName?: string };
