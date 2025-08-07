@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { Member, MemberShareCommitment, ShareType, SavingAccountType } from '@/types';
+import type { Member, MemberShareCommitment, ShareType, SavingAccountType, ServiceChargeType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -64,7 +64,7 @@ const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
 ].sort();
 
-const initialMemberFormState: Partial<MemberWithDetails> = {
+const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: string[] }> = {
   id: '',
   fullName: '',
   email: '',
@@ -76,6 +76,7 @@ const initialMemberFormState: Partial<MemberWithDetails> = {
   joinDate: new Date().toISOString().split('T')[0],
   salary: 0,
   shareCommitments: [],
+  serviceChargeIds: [],
 };
 
 type ParsedMember = {
@@ -95,12 +96,13 @@ export default function MembersPage() {
   const [schools, setSchools] = useState<MembersPageData['schools']>([]);
   const [shareTypes, setShareTypes] = useState<MembersPageData['shareTypes']>([]);
   const [savingAccountTypes, setSavingAccountTypes] = useState<MembersPageData['savingAccountTypes']>([]);
+  const [serviceChargeTypes, setServiceChargeTypes] = useState<MembersPageData['serviceChargeTypes']>([]);
   
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[] }>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [isViewingOnly, setIsViewingOnly] = useState(false);
   
@@ -138,6 +140,7 @@ export default function MembersPage() {
       setSchools(data.schools);
       setShareTypes(data.shareTypes);
       setSavingAccountTypes(data.savingAccountTypes);
+      setServiceChargeTypes(data.serviceChargeTypes);
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch member data.' });
     } finally {
@@ -223,6 +226,18 @@ export default function MembersPage() {
     }));
   };
 
+  const handleServiceChargeChange = (chargeId: string, checked: boolean) => {
+      setCurrentMember(prev => {
+        const newSet = new Set(prev.serviceChargeIds || []);
+        if (checked) {
+            newSet.add(chargeId);
+        } else {
+            newSet.delete(chargeId);
+        }
+        return { ...prev, serviceChargeIds: Array.from(newSet) };
+      })
+  }
+
   const handleMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isViewingOnly) return;
@@ -248,6 +263,7 @@ export default function MembersPage() {
             shareCommitments: (currentMember.shareCommitments || [])
               .filter(sc => sc.shareTypeId && sc.monthlyCommittedAmount > 0)
               .map(sc => ({ shareTypeId: sc.shareTypeId, monthlyCommittedAmount: sc.monthlyCommittedAmount})),
+            serviceChargeIds: currentMember.serviceChargeIds || [],
         };
 
         if (isEditingMember && currentMember.id) {
@@ -273,6 +289,7 @@ export default function MembersPage() {
       ...member,
       joinDate: member.joinDate ? new Date(member.joinDate).toISOString().split('T')[0] : '',
       shareCommitments: member.shareCommitments ? [...member.shareCommitments] : [],
+      serviceChargeIds: [], // Don't pre-select charges on edit for now
     });
     setIsMemberModalOpen(true);
   };
@@ -897,6 +914,28 @@ export default function MembersPage() {
                      )}
                 </div>
             ))}
+            
+            {!isEditingMember && (
+                <>
+                    <Separator className="my-4" />
+                    <Label className="font-semibold text-base text-primary">Service Charges on Registration</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {serviceChargeTypes.filter(sc => sc.frequency === 'once').map(charge => (
+                            <div key={charge.id} className="flex items-center space-x-3">
+                                <Checkbox 
+                                    id={`service-charge-${charge.id}`}
+                                    onCheckedChange={(checked) => handleServiceChargeChange(charge.id, !!checked)}
+                                    checked={(currentMember.serviceChargeIds || []).includes(charge.id)}
+                                />
+                                <Label htmlFor={`service-charge-${charge.id}`} className="font-normal flex justify-between w-full">
+                                    <span>{charge.name}</span>
+                                    <span className="font-semibold">{charge.amount.toLocaleString(undefined, {minimumFractionDigits:2})} Birr</span>
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
 
 
             <DialogFooter className="pt-4">

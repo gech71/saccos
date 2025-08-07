@@ -3,7 +3,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Member, Prisma, SavingAccountType } from '@prisma/client';
+import type { Prisma, SavingAccountType, ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 // This is the shape of the data the client page will receive
@@ -29,6 +29,7 @@ export interface MembersPageData {
   schools: { id: string; name: string }[];
   shareTypes: { id: string; name: string; valuePerShare: number }[];
   savingAccountTypes: SavingAccountType[];
+  serviceChargeTypes: ServiceChargeType[];
 }
 
 export async function getMembersPageData(): Promise<MembersPageData> {
@@ -54,6 +55,8 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     const schools = await prisma.school.findMany({ select: { id: true, name: true }, orderBy: {name: 'asc'} });
     const shareTypes = await prisma.shareType.findMany({ select: { id: true, name: true, valuePerShare: true }, orderBy: {name: 'asc'} });
     const savingAccountTypes = await prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true, interestRate: true }, orderBy: {name: 'asc'} });
+    const serviceChargeTypes = await prisma.serviceChargeType.findMany({ orderBy: {name: 'asc'} });
+
 
     // Map members to a more usable format for the client
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
@@ -72,6 +75,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
         schools,
         shareTypes,
         savingAccountTypes,
+        serviceChargeTypes,
     };
 }
 
@@ -80,6 +84,7 @@ export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 
     joinDate: string;
     salary?: number | null;
     shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
+    serviceChargeIds?: string[];
     address?: Prisma.AddressCreateWithoutMemberInput;
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
 };
@@ -98,7 +103,7 @@ function validateMemberData(data: MemberInput) {
 
 
 export async function addMember(data: MemberInput): Promise<Member> {
-    const { id, address, emergencyContact, shareCommitments, ...memberData } = data;
+    const { id, address, emergencyContact, shareCommitments, serviceChargeIds, ...memberData } = data;
 
     validateMemberData(data);
 
@@ -134,6 +139,12 @@ export async function addMember(data: MemberInput): Promise<Member> {
         cleanEmergencyContactPayload = restOfContact;
     }
 
+    const serviceChargesToApply = await prisma.serviceChargeType.findMany({
+        where: {
+            id: { in: serviceChargeIds }
+        }
+    });
+
 
     const newMember = await prisma.member.create({
         data: {
@@ -151,6 +162,15 @@ export async function addMember(data: MemberInput): Promise<Member> {
                     }
                 }))
             } : undefined,
+            appliedServiceCharges: {
+                create: serviceChargesToApply.map(sc => ({
+                    serviceChargeTypeId: sc.id,
+                    amountCharged: sc.amount,
+                    dateApplied: new Date(),
+                    status: 'pending',
+                    notes: 'Registration Charge'
+                }))
+            }
         },
     });
     
@@ -169,11 +189,12 @@ export async function addMember(data: MemberInput): Promise<Member> {
     }
 
     revalidatePath('/members');
+    revalidatePath('/applied-service-charges');
     return newMember;
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
-    const { address, emergencyContact, shareCommitments, salary, ...memberData } = data;
+    const { address, emergencyContact, shareCommitments, serviceChargeIds, salary, ...memberData } = data;
 
     validateMemberData(data);
 
