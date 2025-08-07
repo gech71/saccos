@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, ShareType, Member } from '@prisma/client';
+import type { School, SavingAccountType, ShareType, Member, ServiceChargeType } from '@prisma/client';
 
 export interface ForecastResult {
     memberId: string;
@@ -33,21 +33,28 @@ export async function getCollectionForecast(criteria: {
 }): Promise<ForecastResult[]> {
     const { schoolId, collectionType, typeId } = criteria;
     
-    const members = await prisma.member.findMany({
-        where: {
-            schoolId,
-            status: 'active',
-        },
-        include: {
-            school: { select: { name: true } },
-            shareCommitments: {
-                where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
+    const [members, monthlyServiceCharges] = await Promise.all([
+        prisma.member.findMany({
+            where: {
+                schoolId,
+                status: 'active',
             },
-            memberSavingAccounts: {
-                where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
+            include: {
+                school: { select: { name: true } },
+                shareCommitments: {
+                    where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
+                },
+                memberSavingAccounts: {
+                    where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
+                }
             }
-        }
-    });
+        }),
+        prisma.serviceChargeType.findMany({
+            where: { frequency: 'monthly' }
+        })
+    ]);
+
+    const totalMonthlyCharges = monthlyServiceCharges.reduce((sum, charge) => sum + charge.amount, 0);
 
     let results: ForecastResult[] = [];
 
@@ -55,12 +62,15 @@ export async function getCollectionForecast(criteria: {
         results = members
             .map(m => {
                 const relevantAccount = m.memberSavingAccounts.find(acc => acc.savingAccountTypeId === typeId);
-                if (relevantAccount && (relevantAccount.expectedMonthlySaving ?? 0) > 0) {
+                const expectedSaving = relevantAccount?.expectedMonthlySaving ?? 0;
+                const totalExpected = expectedSaving + totalMonthlyCharges;
+
+                if (totalExpected > 0) {
                     return {
                         memberId: m.id,
                         fullName: m.fullName,
                         schoolName: m.school?.name ?? 'N/A',
-                        expectedContribution: relevantAccount.expectedMonthlySaving ?? 0,
+                        expectedContribution: totalExpected,
                     };
                 }
                 return null;
@@ -70,12 +80,15 @@ export async function getCollectionForecast(criteria: {
         results = members
             .map(m => {
                 const commitment = m.shareCommitments.find(sc => sc.shareTypeId === typeId);
-                if (commitment && commitment.monthlyCommittedAmount > 0) {
+                const expectedShare = commitment?.monthlyCommittedAmount ?? 0;
+                const totalExpected = expectedShare + totalMonthlyCharges;
+                
+                if (totalExpected > 0) {
                     return {
                         memberId: m.id,
                         fullName: m.fullName,
                         schoolName: m.school?.name ?? 'N/A',
-                        expectedContribution: commitment.monthlyCommittedAmount,
+                        expectedContribution: totalExpected,
                     };
                 }
                 return null;
