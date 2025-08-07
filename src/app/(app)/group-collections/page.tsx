@@ -210,7 +210,7 @@ export default function GroupCollectionsPage() {
         setSelectedIds(filteredAccounts.map(acc => acc.accountId)); 
         const initialAmounts: Record<string, number> = {};
         filteredAccounts.forEach(acc => {
-            initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
+            initialAmounts[acc.accountId] = acc.expectedMonthlySaving + acc.monthlyServiceCharges;
         });
         setCollectionAmounts(initialAmounts);
         if (filteredAccounts.length === 0) {
@@ -258,7 +258,7 @@ export default function GroupCollectionsPage() {
       'Account Number': item.accountNumber,
       'School': item.schoolName,
       'Expected Contribution (Birr)': item.expectedMonthlySaving,
-      'Monthly Service Charges (Birr)': item.monthlyServiceCharges,
+      'Service Charges (Birr)': item.monthlyServiceCharges,
     }));
     
     const schoolName = pageData?.schools.find(s => s.id === selectedSchool)?.name || 'school';
@@ -546,7 +546,7 @@ export default function GroupCollectionsPage() {
                             <TableHead>Member Name</TableHead>
                             <TableHead>Savings Acct #</TableHead>
                             <TableHead className="text-right">Exp. Monthly Saving</TableHead>
-                             <TableHead className="text-right">Monthly Service Charges</TableHead>
+                             <TableHead className="text-right">Service Charges</TableHead>
                             <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
                           </TableRow>
                         </TableHeader>
