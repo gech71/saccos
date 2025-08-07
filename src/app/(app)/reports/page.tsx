@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -47,6 +46,7 @@ const reportTypes: { value: ReportType, label: string }[] = [
   { value: 'loan-interest', label: 'Loan Interest Report' },
   { value: 'share-allocations', label: 'Share Allocations' },
   { value: 'dividend-distributions', label: 'Dividend Distributions' },
+  { value: 'service-charges', label: 'Paid Service Charges' },
 ];
 
 const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];

@@ -22,7 +22,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import type { School, SavingAccountType, ShareType } from '@prisma/client';
+import type { School, SavingAccountType, ShareType, LoanType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import { Filter, Loader2, DollarSign, Users, FileDown } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
@@ -47,7 +47,7 @@ export default function CollectionForecastPage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   
-  const [collectionType, setCollectionType] = useState<'savings' | 'shares'>('savings');
+  const [collectionType, setCollectionType] = useState<'savings' | 'shares' | 'loans'>('savings');
   const [selectedTypeId, setSelectedTypeId] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -169,9 +169,14 @@ export default function CollectionForecastPage() {
       'Expected Contribution (Birr)': item.expectedContribution,
     }));
     
-    const collectionTypeName = collectionType === 'savings' 
-        ? pageData.savingAccountTypes.find(s => s.id === selectedTypeId)?.name 
-        : pageData.shareTypes.find(s => s.id === selectedTypeId)?.name;
+    let collectionTypeName = '';
+    if (collectionType === 'savings') {
+        collectionTypeName = pageData.savingAccountTypes.find(s => s.id === selectedTypeId)?.name || 'savings';
+    } else if (collectionType === 'shares') {
+        collectionTypeName = pageData.shareTypes.find(s => s.id === selectedTypeId)?.name || 'shares';
+    } else {
+        collectionTypeName = pageData.loanTypes.find(l => l.id === selectedTypeId)?.name || 'loans';
+    }
 
     exportToExcel(dataToExport, `collection_forecast_${collectionTypeName?.replace(/\s/g, '_') || ''}`);
   };
@@ -215,9 +220,10 @@ export default function CollectionForecastPage() {
             </div>
              <div>
               <Label className="font-medium">Collection Type</Label>
-              <RadioGroup value={collectionType} onValueChange={(val) => setCollectionType(val as 'savings' | 'shares')} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
+              <RadioGroup value={collectionType} onValueChange={(val) => setCollectionType(val as 'savings' | 'shares' | 'loans')} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
                 <div className="flex items-center space-x-2"><RadioGroupItem value="savings" id="type-savings" /><Label htmlFor="type-savings">Savings</Label></div>
                 <div className="flex items-center space-x-2"><RadioGroupItem value="shares" id="type-shares" /><Label htmlFor="type-shares">Shares</Label></div>
+                <div className="flex items-center space-x-2"><RadioGroupItem value="loans" id="type-loans" /><Label htmlFor="type-loans">Loan Repayments</Label></div>
               </RadioGroup>
             </div>
             
@@ -230,12 +236,20 @@ export default function CollectionForecastPage() {
                             <SelectContent>{pageData.savingAccountTypes.map(sat => <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
-                ) : (
+                ) : collectionType === 'shares' ? (
                     <div>
                         <Label htmlFor="shareTypeFilter">Share Type <span className="text-destructive">*</span></Label>
                         <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
                             <SelectTrigger id="shareTypeFilter"><SelectValue placeholder="Select Share Type" /></SelectTrigger>
                             <SelectContent>{pageData.shareTypes.map(st => <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                ) : (
+                    <div>
+                        <Label htmlFor="loanTypeFilter">Loan Type <span className="text-destructive">*</span></Label>
+                        <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
+                            <SelectTrigger id="loanTypeFilter"><SelectValue placeholder="Select Loan Type" /></SelectTrigger>
+                            <SelectContent>{pageData.loanTypes.map(lt => <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                 )}

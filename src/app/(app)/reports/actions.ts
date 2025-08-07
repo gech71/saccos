@@ -1,9 +1,8 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, Share, Dividend, SavingAccountType, Loan, LoanRepayment, LoanType } from '@prisma/client';
+import type { Saving, Share, Dividend, SavingAccountType, Loan, LoanRepayment, LoanType, AppliedServiceCharge } from '@prisma/client';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -41,7 +40,7 @@ export async function getReportPageData() {
     return { schools, savingAccountTypes, loanTypes };
 }
 
-export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest' | 'loan-repayment' | 'savings-no-interest' | 'loans-no-interest';
+export type ReportType = 'savings' | 'share-allocations' | 'dividend-distributions' | 'saving-interest' | 'loans' | 'loan-interest' | 'loan-repayment' | 'savings-no-interest' | 'loans-no-interest' | 'service-charges';
 
 export interface ReportData {
     title: string;
@@ -462,6 +461,50 @@ export async function generateSimpleReport(
                 id,
                 data.name,
                 data.totalInterest
+            ]),
+            chartType: 'none',
+        };
+    }
+    
+    if (reportType === 'service-charges') {
+        const paidCharges = await prisma.appliedServiceCharge.findMany({
+            where: {
+                memberId: { in: memberIdsInSchool },
+                status: 'paid',
+                dateApplied: { // Note: We might need to filter on a 'paymentDate' if that existed. Filtering on dateApplied for now.
+                    gte: startDate,
+                    lte: endDate,
+                }
+            },
+            include: {
+                member: { select: { id: true, fullName: true } },
+                serviceChargeType: { select: { name: true } }
+            }
+        });
+
+        const chargesByMember: { [key: string]: { name: string, totalPaid: number } } = {};
+        paidCharges.forEach(charge => {
+            if (!chargesByMember[charge.memberId]) {
+                chargesByMember[charge.memberId] = { name: charge.member.fullName, totalPaid: 0 };
+            }
+            chargesByMember[charge.memberId].totalPaid += charge.amountCharged;
+        });
+        
+        const totalPaid = Object.values(chargesByMember).reduce((sum, member) => sum + member.totalPaid, 0);
+        
+        return {
+            title: `Paid Service Charges Report (${periodName})`,
+            schoolName: school.name,
+            reportDate,
+            summary: [
+                { label: 'Total Service Charges Paid', value: `${totalPaid.toFixed(2)} Birr` },
+                { label: 'Total Members', value: Object.keys(chargesByMember).length.toString() },
+            ],
+            columns: ['Member ID', 'Name', 'Total Paid'],
+            rows: Object.entries(chargesByMember).map(([id, data]) => [
+                id,
+                data.name,
+                data.totalPaid
             ]),
             chartType: 'none',
         };

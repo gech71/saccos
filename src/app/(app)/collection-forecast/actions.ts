@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, ShareType, Member, ServiceChargeType } from '@prisma/client';
+import type { School, SavingAccountType, ShareType, Member, ServiceChargeType, LoanType } from '@prisma/client';
 
 export interface ForecastResult {
     memberId: string;
@@ -15,20 +15,22 @@ export interface ForecastPageData {
     schools: Pick<School, 'id', 'name'>[];
     savingAccountTypes: Pick<SavingAccountType, 'id', 'name'>[];
     shareTypes: Pick<ShareType, 'id', 'name'>[];
+    loanTypes: Pick<LoanType, 'id', 'name'>[];
 }
 
 export async function getForecastPageData(): Promise<ForecastPageData> {
-    const [schools, savingAccountTypes, shareTypes] = await Promise.all([
+    const [schools, savingAccountTypes, shareTypes, loanTypes] = await Promise.all([
         prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.shareType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+        prisma.loanType.findMany({ select: { id: true, name: true}, orderBy: { name: 'asc' }}),
     ]);
-    return { schools, savingAccountTypes, shareTypes };
+    return { schools, savingAccountTypes, shareTypes, loanTypes };
 }
 
 export async function getCollectionForecast(criteria: {
     schoolId: string;
-    collectionType: 'savings' | 'shares';
+    collectionType: 'savings' | 'shares' | 'loans';
     typeId: string;
 }): Promise<ForecastResult[]> {
     const { schoolId, collectionType, typeId } = criteria;
@@ -46,6 +48,12 @@ export async function getCollectionForecast(criteria: {
                 },
                 memberSavingAccounts: {
                     where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
+                },
+                loans: {
+                    where: {
+                        loanTypeId: collectionType === 'loans' ? typeId : undefined,
+                        status: { in: ['active', 'overdue'] }
+                    }
                 }
             }
         }),
@@ -76,7 +84,7 @@ export async function getCollectionForecast(criteria: {
                 return null;
             })
             .filter((r): r is ForecastResult => r !== null);
-    } else { // 'shares'
+    } else if (collectionType === 'shares') {
         results = members
             .map(m => {
                 const commitment = m.shareCommitments.find(sc => sc.shareTypeId === typeId);
@@ -89,6 +97,22 @@ export async function getCollectionForecast(criteria: {
                         fullName: m.fullName,
                         schoolName: m.school?.name ?? 'N/A',
                         expectedContribution: totalExpected,
+                    };
+                }
+                return null;
+            })
+            .filter((r): r is ForecastResult => r !== null);
+    } else { // loans
+        results = members
+            .flatMap(m => m.loans.map(loan => ({ member: m, loan })))
+            .map(({member, loan}) => {
+                const expectedRepayment = loan.monthlyRepaymentAmount ?? 0;
+                if (expectedRepayment > 0) {
+                    return {
+                        memberId: member.id,
+                        fullName: member.fullName,
+                        schoolName: member.school?.name ?? 'N/A',
+                        expectedContribution: expectedRepayment + totalMonthlyCharges,
                     };
                 }
                 return null;
