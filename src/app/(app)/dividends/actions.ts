@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -7,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 
 export interface DividendsPageData {
   dividends: (Dividend & { memberName: string })[];
-  members: Pick<Member, 'id' | 'fullName' | 'sharesCount'>[];
+  members: Pick<Member, 'id' | 'fullName'>[];
 }
 
 export async function getDividendsPageData(): Promise<DividendsPageData> {
@@ -18,7 +19,7 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
     }),
     prisma.member.findMany({
         where: { status: 'active' },
-        select: { id: true, fullName: true, sharesCount: true },
+        select: { id: true, fullName: true },
         orderBy: { fullName: 'asc' }
     }),
   ]);

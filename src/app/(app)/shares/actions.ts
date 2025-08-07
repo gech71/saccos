@@ -12,7 +12,7 @@ function roundToTwo(num: number) {
 
 export interface SharesPageData {
   shares: (Share & { memberName: string, shareTypeName: string })[];
-  members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
+  members: Pick<Member, 'id' | 'fullName'>[];
   shareTypes: ShareType[];
 }
 
@@ -27,7 +27,7 @@ export async function getSharesPageData(): Promise<SharesPageData> {
     }),
     prisma.member.findMany({
         where: { status: 'active' },
-        select: { id: true, fullName: true, savingsAccountNumber: true },
+        select: { id: true, fullName: true },
         orderBy: { fullName: 'asc' },
     }),
     prisma.shareType.findMany({ orderBy: { name: 'asc' } }),

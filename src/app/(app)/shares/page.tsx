@@ -75,7 +75,7 @@ const initialShareFormState: Partial<ShareInput & {id?: string}> = {
 
 export default function SharesPage() {
   const [shares, setShares] = useState<Share[]>([]);
-  const [members, setMembersState] = useState<Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[]>([]);
+  const [members, setMembersState] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
   const [shareTypes, setShareTypesState] = useState<ShareType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -217,7 +217,7 @@ export default function SharesPage() {
       const member = members.find(m => m.id === share.memberId);
       if (!member) return false;
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower) || (member.savingsAccountNumber && member.savingsAccountNumber.toLowerCase().includes(searchTermLower)));
+      const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower));
       const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
       return matchesSearchTerm && matchesMemberFilter;
     });
@@ -289,7 +289,7 @@ export default function SharesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by member name or account #..."
+              placeholder="Search by member name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full"
@@ -344,7 +344,7 @@ export default function SharesPage() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <span className="sr-only">Open menu</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -410,7 +410,7 @@ export default function SharesPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.savingsAccountNumber}`}
+                            value={`${member.fullName}`}
                             onSelect={() => {
                               handleSelectChange('memberId' as any, member.id);
                               setOpenMemberCombobox(false);
@@ -422,7 +422,7 @@ export default function SharesPage() {
                                 currentShare.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} ({member.savingsAccountNumber || 'No Acct #'})
+                            {member.fullName}
                           </CommandItem>
                         ))}
                       </CommandGroup>

@@ -69,7 +69,7 @@ const initialDividendFormState: Partial<DividendInput> = {
 
 export default function DividendsPage() {
   const [dividends, setDividends] = useState<Dividend[]>([]);
-  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName' | 'sharesCount'>[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -118,10 +118,6 @@ export default function DividendsPage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setCurrentDividend(prev => ({ ...prev, [name]: value }));
-    if (name === 'memberId') {
-      const memberShares = members.find(m => m.id === value)?.sharesCount || 0;
-      setCurrentDividend(prev => ({ ...prev, shareCountAtDistribution: memberShares }));
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -489,7 +485,7 @@ export default function DividendsPage() {
                                 currentDividend.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} (Shares: {member.sharesCount})
+                            {member.fullName}
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -500,7 +496,7 @@ export default function DividendsPage() {
             </div>
             <div>
               <Label htmlFor="shareCountAtDistribution">Shares Held at Distribution</Label>
-              <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required readOnly className="bg-muted/50" />
+              <Input id="shareCountAtDistribution" name="shareCountAtDistribution" type="number" step="1" placeholder="0" value={currentDividend.shareCountAtDistribution || ''} onChange={handleInputChange} required />
             </div>
             <div>
               <Label htmlFor="amount">Dividend Amount (Birr) <span className="text-destructive">*</span></Label>
