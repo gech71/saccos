@@ -22,7 +22,7 @@ export interface RepaymentsByMember {
 export interface LoanRepaymentsPageData {
   repaymentsByMember: RepaymentsByMember[];
   activeLoans: (Loan & { member: Member | null} & { loanType: { name: string } | null })[];
-  loanTypes: Pick<LoanType, 'id' | 'name'>[];
+  loanTypes: Pick<LoanType, 'id', 'name'>[];
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
