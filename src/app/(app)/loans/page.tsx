@@ -62,6 +62,8 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   collaterals: [],
   purpose: '',
   monthlyRepaymentAmount: 0,
+  insuranceFee: 0,
+  serviceFee: 0,
 };
 
 export default function LoansPage() {
@@ -120,12 +122,20 @@ export default function LoansPage() {
         const principalPortion = principal / termInMonths;
         const interestPortion = principal * (annualRate / 12);
         const firstMonthPayment = principalPortion + interestPortion;
+        
+        const insuranceFee = selectedLoanType.name === 'Regular Loan' ? principal * 0.01 : 0;
+        const serviceFee = selectedLoanType.name === 'Regular Loan' ? 15 : 0;
 
         setMonthlyPayment(firstMonthPayment);
-        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: firstMonthPayment}));
+        setCurrentLoan(prev => ({
+            ...prev, 
+            monthlyRepaymentAmount: firstMonthPayment,
+            insuranceFee,
+            serviceFee
+        }));
     } else {
         setMonthlyPayment(null);
-        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0}));
+        setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0, insuranceFee: 0, serviceFee: 0}));
     }
   }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType]);
 
@@ -425,8 +435,8 @@ export default function LoansPage() {
             <div className="p-3 border rounded-md bg-muted text-sm space-y-1">
                 <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
                 {selectedLoanType?.name === 'Regular Loan' && <>
-                    <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">15.00 ETB</span></div>
-                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{((currentLoan.principalAmount || 0) * 0.01).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">{(currentLoan.serviceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                 </>}
                 {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>}
             </div>
@@ -494,5 +504,6 @@ export default function LoansPage() {
     </div>
   );
 }
+
 
 

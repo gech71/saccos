@@ -144,7 +144,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address, schoolHistory } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address, schoolHistory, serviceCharges } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -164,12 +164,13 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 md:grid-cols-6 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 md:grid-cols-7 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
+                    <TabsTrigger value="service-charges">Service Charges</TabsTrigger>
                     <TabsTrigger value="history">School History</TabsTrigger>
                 </TabsList>
                 
@@ -397,6 +398,34 @@ export default function MemberProfilePage() {
                     </SectionCard>
                 </TabsContent>
                 
+                 {/* Service Charges Tab */}
+                <TabsContent value="service-charges" className="mt-6">
+                    <SectionCard title="Applied Service Charges">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Date Applied</TableHead>
+                                    <TableHead>Charge Type</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {serviceCharges.length > 0 ? serviceCharges.map(charge => (
+                                        <TableRow key={charge.id}>
+                                            <TableCell>{format(new Date(charge.dateApplied), 'PPP')}</TableCell>
+                                            <TableCell>{charge.serviceChargeTypeName}</TableCell>
+                                            <TableCell className="text-right font-semibold">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No service charges found for this member.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+
                 {/* School History Tab */}
                 <TabsContent value="history" className="mt-6">
                     <SectionCard title="School Transfer History">

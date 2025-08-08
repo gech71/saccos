@@ -107,11 +107,13 @@ export type CollateralInput = {
     guarantorId?: string;
 };
 
-export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod' | 'monthlyRepaymentAmount'> & {
+export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod' | 'monthlyRepaymentAmount' | 'serviceFee' | 'insuranceFee'> & {
     disbursementDate: string;
     notes?: string | null;
     collaterals: CollateralInput[];
     monthlyRepaymentAmount: number;
+    serviceFee: number;
+    insuranceFee: number;
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
@@ -219,6 +221,7 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     
     // Need to delete related guarantors first due to the relation
     await prisma.loanGuarantor.deleteMany({ where: { loanId: id } });
+    await prisma.collateral.deleteMany({ where: { loanId: id }});
 
     await prisma.loan.delete({ where: { id } });
     revalidatePath('/loans');
@@ -228,4 +231,3 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
-
