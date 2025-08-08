@@ -451,7 +451,7 @@ export default function LoansPage() {
                     {collateral.type === 'GUARANTOR' && (
                         <div>
                             <Label>Guarantor Member</Label>
-                            <Select name="guarantorId" onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
+                            <Select onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
                                 <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
                                 <SelectContent>{eligibleGuarantors.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} (Guaranteed: {m.totalGuaranteed})</SelectItem>)}</SelectContent>
                             </Select>
@@ -494,4 +494,5 @@ export default function LoansPage() {
     </div>
   );
 }
+
 
