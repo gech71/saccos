@@ -137,11 +137,13 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   }
 
   // Guarantor validation
-  const guarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
+  const rawGuarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
+  const guarantorIds = [...new Set(rawGuarantorIds)]; // Remove duplicates
+  
   if (guarantorIds.length > 0) {
       const guarantorChecks = await prisma.member.findMany({
           where: { id: { in: guarantorIds } },
-          include: { _count: { select: { guaranteedLoans: { where: { loan: { status: { in: ['active', 'overdue'] } } } } } } }
+          include: { _count: { select: { guaranteedLoans: { where: { loan: { status: { in: ['active', 'overdue'] } } } } } }
       });
 
       for (const guarantor of guarantorChecks) {
