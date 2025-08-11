@@ -434,10 +434,12 @@ export default function LoansPage() {
 
             <div className="p-3 border rounded-md bg-muted text-sm space-y-1">
                 <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
-                {selectedLoanType?.name === 'Regular Loan' && <>
+                {selectedLoanType?.name === 'Regular Loan' && (
+                  <>
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">{(currentLoan.serviceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                     <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
-                </>}
+                  </>
+                )}
                 {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>}
             </div>
 
@@ -504,6 +506,7 @@ export default function LoansPage() {
     </div>
   );
 }
+
 
 
 
