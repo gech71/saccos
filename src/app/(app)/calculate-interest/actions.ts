@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -119,7 +120,6 @@ export async function calculateInterest(criteria: {
     
     // 2. Calculate sum of daily balances for the period
     let totalDailyBalance = 0;
-    let currentBalance = balanceAtPeriodStart;
     const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
     
     // Create a map of transactions by date for efficient lookup
@@ -139,7 +139,7 @@ export async function calculateInterest(criteria: {
         const dayString = format(day, 'yyyy-MM-dd');
         const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         
-        // Apply transactions at the end of the day. The balance for *this* day is the balance *before* these transactions.
+        // Add the balance *before* today's transactions to the total
         totalDailyBalance += runningDayBalance;
 
         // Now, update the running balance for the *next* day.
