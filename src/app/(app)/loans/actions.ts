@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -61,16 +62,12 @@ export async function getLoansPageData(): Promise<LoansPageData> {
                 balance: true
             }
         },
-        _count: {
-            select: {
-                guaranteedLoans: {
-                    where: {
-                        loan: {
-                            status: { in: ['active', 'overdue'] }
-                        }
-                    }
-                }
+        guaranteedLoans: {
+          where: {
+            loan: {
+              status: { in: ['active', 'overdue'] }
             }
+          }
         }
        },
       orderBy: { fullName: 'asc' },
@@ -82,7 +79,7 @@ export async function getLoansPageData(): Promise<LoansPageData> {
       id: m.id,
       fullName: m.fullName,
       joinDate: m.joinDate,
-      totalGuaranteed: m._count.guaranteedLoans,
+      totalGuaranteed: m.guaranteedLoans.length,
       totalSavings: m.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
   }));
 
