@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins, UserX } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -81,6 +81,8 @@ export default function LoansPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);
+  
+  const [guarantorToAdd, setGuarantorToAdd] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -144,21 +146,7 @@ export default function LoansPage() {
   const handleSelectChange = (name: keyof LoanInput, value: string) => {
     setCurrentLoan(prev => ({ ...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
   };
-
-  const addCollateral = () => {
-    setCurrentLoan(prev => ({
-        ...prev,
-        collaterals: [...(prev.collaterals || []), initialCollateralState]
-    }));
-  };
-
-  const removeCollateral = (index: number) => {
-      setCurrentLoan(prev => ({
-          ...prev,
-          collaterals: (prev.collaterals || []).filter((_, i) => i !== index)
-      }));
-  };
-
+  
   const handleCollateralChange = (index: number, field: string, value: string) => {
     const updatedCollaterals = [...(currentLoan.collaterals || [])];
     (updatedCollaterals[index] as any)[field] = value;
@@ -169,6 +157,36 @@ export default function LoansPage() {
       const updatedCollaterals = [...(currentLoan.collaterals || [])];
       updatedCollaterals[index] = { type }; // Reset the collateral object
       setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
+  };
+
+  const addTitleDeedCollateral = () => {
+    setCurrentLoan(prev => ({
+        ...prev,
+        collaterals: [...(prev.collaterals || []), { type: 'TITLE_DEED', description: '', documentUrl: '' }]
+    }));
+  };
+
+  const addGuarantor = () => {
+      if (!guarantorToAdd) {
+          toast({ variant: 'destructive', title: 'No Guarantor Selected', description: 'Please select a member to add as a guarantor.' });
+          return;
+      }
+      const newGuarantor: CollateralInput = {
+          type: 'GUARANTOR',
+          guarantorId: guarantorToAdd,
+      };
+      setCurrentLoan(prev => ({
+          ...prev,
+          collaterals: [...(prev.collaterals || []), newGuarantor]
+      }));
+      setGuarantorToAdd(''); // Reset the selector
+  };
+
+  const removeCollateral = (index: number) => {
+      setCurrentLoan(prev => ({
+          ...prev,
+          collaterals: (prev.collaterals || []).filter((_, i) => i !== index)
+      }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -257,6 +275,17 @@ export default function LoansPage() {
       default: return 'outline';
     }
   };
+
+  const currentGuarantorIds = useMemo(() =>
+    new Set((currentLoan.collaterals || []).filter(c => c.type === 'GUARANTOR').map(c => c.guarantorId))
+  , [currentLoan.collaterals]);
+
+  const availableGuarantors = useMemo(() => members.filter(m => 
+        m.id !== selectedMember?.id && 
+        m.totalGuaranteed < 2 &&
+        !currentGuarantorIds.has(m.id)
+    ), [members, selectedMember, currentGuarantorIds]);
+
 
   return (
     <div className="space-y-6">
@@ -445,55 +474,61 @@ export default function LoansPage() {
             
             {selectedLoanType?.name === 'Regular Loan' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
                 <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
-            
-            {(currentLoan.collaterals || []).map((collateral, index) => {
-                const currentlySelectedGuarantorIds = (currentLoan.collaterals || [])
-                    .map(c => c.guarantorId)
-                    .filter(id => !!id); 
-                
-                const availableGuarantors = members.filter(m => 
-                    m.id !== selectedMember?.id && 
-                    m.totalGuaranteed < 2 &&
-                    (!currentlySelectedGuarantorIds.includes(m.id) || m.id === collateral.guarantorId) // Allow the currently selected one
-                );
 
-                return (
-                    <div key={index} className="space-y-4 p-4 border rounded-md relative">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"><MinusCircle className="h-5 w-5" /></Button>
-                        <Select value={collateral.type} onValueChange={(val) => handleCollateralTypeChange(index, val as 'GUARANTOR' | 'TITLE_DEED')}>
-                            <SelectTrigger><SelectValue placeholder="Select collateral type..." /></SelectTrigger>
+            {/* Guarantor Section */}
+            <div className="space-y-2 p-3 border rounded-md">
+                <Label>Member Guarantors</Label>
+                <div className="flex items-end gap-2">
+                    <div className="flex-grow">
+                        <Select value={guarantorToAdd} onValueChange={setGuarantorToAdd}>
+                            <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="GUARANTOR">Member Guarantor</SelectItem>
-                                <SelectItem value="TITLE_DEED">House Title Deed</SelectItem>
+                              {availableGuarantors.map(m => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.fullName} (Guaranteed: {m.totalGuaranteed})
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                         </Select>
-                        
-                        {collateral.type === 'GUARANTOR' && (
-                            <div>
-                                <Label>Guarantor Member</Label>
-                                <Select onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
-                                    <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
-                                    <SelectContent>
-                                      {availableGuarantors.map(m => (
-                                        <SelectItem key={m.id} value={m.id}>
-                                          {m.fullName} (Guaranteed: {m.totalGuaranteed})
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-                        {collateral.type === 'TITLE_DEED' && (
-                            <div className="space-y-2">
-                               <Label>Title Deed Document</Label>
-                               <FileUpload id={`title-deed-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(index, 'documentUrl', val)} />
-                               <Input placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, 'description', e.target.value)} />
-                            </div>
-                        )}
                     </div>
-                )
-              })}
-              <Button type="button" variant="outline" size="sm" onClick={addCollateral}><PlusCircle className="mr-2 h-4 w-4" /> Add Collateral</Button>
+                    <Button type="button" onClick={addGuarantor} disabled={!guarantorToAdd}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Guarantor
+                    </Button>
+                </div>
+                {(currentLoan.collaterals || []).filter(c => c.type === 'GUARANTOR').length > 0 && (
+                    <div className="space-y-2 pt-2">
+                        {(currentLoan.collaterals || []).filter(c => c.type === 'GUARANTOR').map((g, index) => {
+                            const guarantorMember = members.find(m => m.id === g.guarantorId);
+                            return (
+                                <div key={`guarantor-${index}`} className="flex justify-between items-center p-2 bg-muted/50 rounded-md text-sm">
+                                    <span className="font-medium">{guarantorMember?.fullName || g.guarantorId}</span>
+                                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeCollateral((currentLoan.collaterals || []).findIndex(c => c.guarantorId === g.guarantorId))}>
+                                        <UserX className="h-4 w-4"/>
+                                    </Button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+            
+            {/* Title Deed Section */}
+             <div className="space-y-2 p-3 border rounded-md">
+                <Label>Title Deeds</Label>
+                {(currentLoan.collaterals || []).filter(c => c.type === 'TITLE_DEED').map((collateral, index) => {
+                    // Find the original index in the main collaterals array
+                    const originalIndex = (currentLoan.collaterals || []).findIndex(c => c === collateral);
+                    return (
+                        <div key={`title-deed-${index}`} className="space-y-3 p-3 border rounded-md relative bg-muted/50">
+                             <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(originalIndex)} className="absolute top-1 right-1 text-destructive hover:bg-destructive/10 h-7 w-7"><MinusCircle className="h-5 w-5" /></Button>
+                             <FileUpload id={`title-deed-url-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(originalIndex, 'documentUrl', val)} />
+                             <Input placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(originalIndex, 'description', e.target.value)} />
+                        </div>
+                    )
+                })}
+                 <Button type="button" variant="outline" size="sm" onClick={addTitleDeedCollateral}><PlusCircle className="mr-2 h-4 w-4" /> Add Title Deed</Button>
+             </div>
+
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
