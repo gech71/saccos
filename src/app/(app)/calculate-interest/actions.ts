@@ -139,13 +139,13 @@ export async function calculateInterest(criteria: {
         const dayString = format(day, 'yyyy-MM-dd');
         const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         
-        // Add the balance *before* today's transactions to the total
-        totalDailyBalance += runningDayBalance;
-
-        // Now, update the running balance for the *next* day.
+        // Apply transactions at the start of the day to get the closing balance
         transactionsOnThisDay.forEach(tx => {
             runningDayBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
         });
+
+        // Add the closing balance for this day to the total
+        totalDailyBalance += runningDayBalance;
     });
 
     // 3. Calculate Average Daily Balance and Interest
