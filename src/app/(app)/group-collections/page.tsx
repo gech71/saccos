@@ -349,9 +349,6 @@ export default function GroupCollectionsPage() {
   };
 
   const handleSubmitCollection = async () => {
-    const transactionDateObj = new Date(); // Use current date
-    const transactionMonthString = `${months[transactionDateObj.getMonth()]?.label} ${transactionDateObj.getFullYear()}`;
-
     if ((batchDetails.depositMode === 'Bank' || batchDetails.depositMode === 'Wallet') && !batchDetails.sourceName) {
         toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${batchDetails.depositMode} Name.` });
         return;
@@ -362,6 +359,8 @@ export default function GroupCollectionsPage() {
 
     const newTransactions: any[] = [];
     if (collectionMode === 'filter') {
+        const transactionDateObj = new Date(batchDetails.date);
+        const transactionMonthString = `${months[transactionDateObj.getMonth()]?.label} ${transactionDateObj.getFullYear()}`;
         const accountsToProcess = selectedIds
             .map(accountId => {
                 const account = eligibleAccounts.find(acc => acc.accountId === accountId);
@@ -384,7 +383,11 @@ export default function GroupCollectionsPage() {
             transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
         }));
     } else { // Excel
-         const validRows = parsedData.filter(d => d.status === 'Valid');
+        const year = parseInt(selectedYear);
+        const month = parseInt(selectedMonth);
+        const lastDay = new Date(year, month + 1, 0); // Day 0 of next month is last day of current
+        const transactionMonthString = `${months[month]?.label} ${year}`;
+        const validRows = parsedData.filter(d => d.status === 'Valid');
          if (validRows.length === 0) {
             toast({ variant: 'destructive', title: 'No Valid Data', description: 'There are no valid transactions from the Excel file to submit.' });
             setIsPosting(false);
@@ -392,7 +395,7 @@ export default function GroupCollectionsPage() {
         }
          validRows.forEach(row => newTransactions.push({
             memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: (row.SavingCollected || 0) + (row.ServiceCharges || 0),
-            date: transactionDateObj, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
+            date: lastDay, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
             depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
             transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
         }));
