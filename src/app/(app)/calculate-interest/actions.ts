@@ -94,7 +94,7 @@ export async function calculateInterest(criteria: {
   const existingInterestNote = `Monthly interest posting for ${monthName} ${year}`;
   const existingInterestTransactions = await prisma.saving.findMany({
       where: {
-          memberId: { in: accountsToProcess.map(acc => acc.memberId) },
+          memberSavingAccountId: { in: accountsToProcess.map(acc => acc.id) },
           notes: existingInterestNote,
           status: { in: ['pending', 'approved'] }
       },
@@ -134,17 +134,18 @@ export async function calculateInterest(criteria: {
         }
     });
 
+    let runningDayBalance = balanceAtPeriodStart;
     intervalDays.forEach(day => {
         const dayString = format(day, 'yyyy-MM-dd');
         const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         
-        // Apply transactions for the day
-        transactionsOnThisDay.forEach(tx => {
-            currentBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
-        });
+        // Apply transactions at the end of the day. The balance for *this* day is the balance *before* these transactions.
+        totalDailyBalance += runningDayBalance;
 
-        // Add the closing balance for this day to the total
-        totalDailyBalance += currentBalance;
+        // Now, update the running balance for the *next* day.
+        transactionsOnThisDay.forEach(tx => {
+            runningDayBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+        });
     });
 
     // 3. Calculate Average Daily Balance and Interest
@@ -177,18 +178,19 @@ export async function postInterestTransactions(
 
     const monthIndex = parseInt(period.month, 10);
     const year = parseInt(period.year, 10);
-    const monthName = monthNames[monthIndex];
-
-    if (isNaN(monthIndex) || isNaN(year) || !monthName) {
+    
+    if (isNaN(monthIndex) || isNaN(year)) {
         return { success: false, message: 'Invalid period provided. Could not parse month or year.' };
     }
+    
+    const monthName = monthNames[monthIndex];
 
     try {
         const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
           memberId: result.memberId,
           memberSavingAccountId: result.memberSavingAccountId,
           amount: result.calculatedInterest, // Already rounded
-          date: new Date(year, monthIndex + 1, 0), // Last day of the selected month
+          date: new Date(year, monthIndex + 1, 0), // Day 0 of next month is the last day of the selected month
           month: `${monthName} ${period.year}`,
           transactionType: 'deposit',
           status: 'pending',
