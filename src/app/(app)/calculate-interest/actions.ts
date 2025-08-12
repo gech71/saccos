@@ -40,6 +40,9 @@ export async function getCalculationPageData(): Promise<CalculationPageData> {
     return { members, schools, savingAccountTypes };
 }
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+
 export async function calculateInterest(criteria: {
   scope: 'all' | 'school' | 'member' | 'accountType';
   schoolId?: string;
@@ -57,6 +60,7 @@ export async function calculateInterest(criteria: {
   const periodStart = startOfMonth(new Date(year, monthIndex));
   const periodEnd = endOfMonth(new Date(year, monthIndex));
   const daysInMonth = differenceInDays(periodEnd, periodStart) + 1;
+  const monthName = monthNames[monthIndex];
   
   let whereClause: Prisma.MemberSavingAccountWhereInput = {
     balance: { gt: 0 },
@@ -77,7 +81,7 @@ export async function calculateInterest(criteria: {
   const accountsToProcess = await prisma.memberSavingAccount.findMany({
     where: whereClause,
     include: { 
-        member: { select: { fullName: true } }, 
+        member: { select: { fullName: true, id: true } }, 
         savingAccountType: true,
         savings: {
             where: { status: 'approved' },
@@ -86,7 +90,24 @@ export async function calculateInterest(criteria: {
     },
   });
 
-  const results: InterestCalculationResult[] = accountsToProcess.map(account => {
+  // Fetch existing interest transactions for the period to avoid duplicates
+  const existingInterestNote = `Monthly interest posting for ${monthName} ${year}`;
+  const existingInterestTransactions = await prisma.saving.findMany({
+      where: {
+          memberId: { in: accountsToProcess.map(acc => acc.memberId) },
+          notes: existingInterestNote,
+          status: { in: ['pending', 'approved'] }
+      },
+      select: {
+          memberSavingAccountId: true,
+      }
+  });
+  const processedAccountIds = new Set(existingInterestTransactions.map(tx => tx.memberSavingAccountId));
+
+
+  const results: InterestCalculationResult[] = accountsToProcess
+    .filter(account => !processedAccountIds.has(account.id)) // Exclude accounts that already have interest posted for the month
+    .map(account => {
     if (!account.savingAccountType) return null;
 
     // 1. Calculate balance at the beginning of the period
@@ -145,7 +166,6 @@ export async function calculateInterest(criteria: {
   return results;
 }
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export async function postInterestTransactions(
     transactions: InterestCalculationResult[],
@@ -172,7 +192,7 @@ export async function postInterestTransactions(
           month: `${monthName} ${period.year}`,
           transactionType: 'deposit',
           status: 'pending',
-          notes: `Monthly interest posting for ${monthName} ${period.year}`,
+          notes: `Monthly interest posting for ${monthName} ${year}`,
           depositMode: 'Bank', // System-generated
           sourceName: 'Internal System Posting',
           transactionReference: `INT-${period.year}${(monthIndex + 1).toString().padStart(2, '0')}-${result.memberId.slice(-8)}`,
@@ -181,7 +201,7 @@ export async function postInterestTransactions(
 
         await prisma.saving.createMany({
             data: newInterestTransactionsData,
-            skipDuplicates: true,
+            skipDuplicates: true, // This is a safeguard, but our logic above should prevent duplicates
         });
 
         revalidatePath('/savings');
