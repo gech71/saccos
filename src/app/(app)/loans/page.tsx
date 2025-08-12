@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -444,16 +445,16 @@ export default function LoansPage() {
             
             {selectedLoanType?.name === 'Regular Loan' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
                 <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
-
+            
             {(currentLoan.collaterals || []).map((collateral, index) => {
-                const selectedGuarantorIds = (currentLoan.collaterals || [])
+                const currentlySelectedGuarantorIds = (currentLoan.collaterals || [])
                     .map(c => c.guarantorId)
-                    .filter(id => id && id !== collateral.guarantorId);
-
+                    .filter(id => !!id); 
+                
                 const availableGuarantors = members.filter(m => 
                     m.id !== selectedMember?.id && 
                     m.totalGuaranteed < 2 &&
-                    !selectedGuarantorIds.includes(m.id)
+                    (!currentlySelectedGuarantorIds.includes(m.id) || m.id === collateral.guarantorId) // Allow the currently selected one
                 );
 
                 return (
@@ -486,7 +487,7 @@ export default function LoansPage() {
                             <div className="space-y-2">
                                <Label>Title Deed Document</Label>
                                <FileUpload id={`title-deed-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(index, 'documentUrl', val)} />
-                               <Input name="description" placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                               <Input placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, 'description', e.target.value)} />
                             </div>
                         )}
                     </div>
@@ -520,3 +521,4 @@ export default function LoansPage() {
     </div>
   );
 }
+
