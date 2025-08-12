@@ -95,19 +95,34 @@ export async function calculateInterest(criteria: {
     transactionsBeforePeriod.forEach(tx => {
         balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
     });
-
+    
     // 2. Calculate sum of daily balances for the period
     let totalDailyBalance = 0;
     let currentBalance = balanceAtPeriodStart;
     const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
+    
+    // Create a map of transactions by date for efficient lookup
+    const transactionsByDate = new Map<string, Saving[]>();
+    account.savings.forEach(tx => {
+        const txDate = format(new Date(tx.date), 'yyyy-MM-dd');
+        if (txDate >= format(periodStart, 'yyyy-MM-dd') && txDate <= format(periodEnd, 'yyyy-MM-dd')) {
+            if (!transactionsByDate.has(txDate)) {
+                transactionsByDate.set(txDate, []);
+            }
+            transactionsByDate.get(txDate)!.push(tx);
+        }
+    });
 
     intervalDays.forEach(day => {
-        const transactionsOnThisDay = account.savings.filter(
-            tx => format(new Date(tx.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
-        );
+        const dayString = format(day, 'yyyy-MM-dd');
+        const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
+        
+        // Apply transactions for the day
         transactionsOnThisDay.forEach(tx => {
             currentBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
         });
+
+        // Add the closing balance for this day to the total
         totalDailyBalance += currentBalance;
     });
 
