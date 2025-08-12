@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -108,9 +107,7 @@ export default function LoansPage() {
 
   const selectedMember = useMemo(() => members.find(m => m.id === currentLoan.memberId), [members, currentLoan.memberId]);
   const selectedLoanType = useMemo(() => loanTypes.find(lt => lt.id === currentLoan.loanTypeId), [loanTypes, currentLoan.loanTypeId]);
-  const eligibleGuarantors = useMemo(() => members.filter(m => m.id !== selectedMember?.id && m.totalGuaranteed < 2), [members, selectedMember]);
-
-
+  
   useEffect(() => {
     if (selectedLoanType && currentLoan.principalAmount && currentLoan.principalAmount > 0 && currentLoan.loanTerm && currentLoan.loanTerm > 0) {
         const principal = currentLoan.principalAmount;
@@ -448,35 +445,53 @@ export default function LoansPage() {
             {selectedLoanType?.name === 'Regular Loan' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
                 <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
 
-            {(currentLoan.collaterals || []).map((collateral, index) => (
-                <div key={index} className="space-y-4 p-4 border rounded-md relative">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"><MinusCircle className="h-5 w-5" /></Button>
-                    <Select value={collateral.type} onValueChange={(val) => handleCollateralTypeChange(index, val as 'GUARANTOR' | 'TITLE_DEED')}>
-                        <SelectTrigger><SelectValue placeholder="Select collateral type..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="GUARANTOR">Member Guarantor</SelectItem>
-                            <SelectItem value="TITLE_DEED">House Title Deed</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    
-                    {collateral.type === 'GUARANTOR' && (
-                        <div>
-                            <Label>Guarantor Member</Label>
-                            <Select onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
-                                <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
-                                <SelectContent>{eligibleGuarantors.map(m => <SelectItem key={m.id} value={m.id}>{m.fullName} (Guaranteed: {m.totalGuaranteed})</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    {collateral.type === 'TITLE_DEED' && (
-                        <div className="space-y-2">
-                           <Label>Title Deed Document</Label>
-                           <FileUpload id={`title-deed-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(index, 'documentUrl', val)} />
-                           <Input name="description" placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
-                        </div>
-                    )}
-                </div>
-              ))}
+            {(currentLoan.collaterals || []).map((collateral, index) => {
+                const selectedGuarantorIds = (currentLoan.collaterals || [])
+                    .map(c => c.guarantorId)
+                    .filter(id => id && id !== collateral.guarantorId);
+
+                const availableGuarantors = members.filter(m => 
+                    m.id !== selectedMember?.id && 
+                    m.totalGuaranteed < 2 &&
+                    !selectedGuarantorIds.includes(m.id)
+                );
+
+                return (
+                    <div key={index} className="space-y-4 p-4 border rounded-md relative">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeCollateral(index)} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"><MinusCircle className="h-5 w-5" /></Button>
+                        <Select value={collateral.type} onValueChange={(val) => handleCollateralTypeChange(index, val as 'GUARANTOR' | 'TITLE_DEED')}>
+                            <SelectTrigger><SelectValue placeholder="Select collateral type..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="GUARANTOR">Member Guarantor</SelectItem>
+                                <SelectItem value="TITLE_DEED">House Title Deed</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        
+                        {collateral.type === 'GUARANTOR' && (
+                            <div>
+                                <Label>Guarantor Member</Label>
+                                <Select onValueChange={(val) => handleCollateralChange(index, 'guarantorId', val)} value={collateral.guarantorId}>
+                                    <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
+                                    <SelectContent>
+                                      {availableGuarantors.map(m => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.fullName} (Guaranteed: {m.totalGuaranteed})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                        {collateral.type === 'TITLE_DEED' && (
+                            <div className="space-y-2">
+                               <Label>Title Deed Document</Label>
+                               <FileUpload id={`title-deed-${index}`} label="Upload Title Deed" value={collateral.documentUrl || ''} onValueChange={(val) => handleCollateralChange(index, 'documentUrl', val)} />
+                               <Input name="description" placeholder="Brief description of the property" value={collateral.description || ''} onChange={(e) => handleCollateralChange(index, e.target.name, e.target.value)} />
+                            </div>
+                        )}
+                    </div>
+                )
+              })}
               <Button type="button" variant="outline" size="sm" onClick={addCollateral}><PlusCircle className="mr-2 h-4 w-4" /> Add Collateral</Button>
 
             <DialogFooter className="pt-4">
