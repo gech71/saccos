@@ -62,10 +62,14 @@ export async function getLoansPageData(): Promise<LoansPageData> {
                 balance: true
             }
         },
-        guaranteedLoans: {
-          where: {
-            loan: {
-              status: { in: ['active', 'overdue'] }
+        _count: {
+          select: {
+            guaranteedLoans: {
+              where: {
+                loan: {
+                  status: { in: ['active', 'overdue'] }
+                }
+              }
             }
           }
         }
@@ -79,7 +83,7 @@ export async function getLoansPageData(): Promise<LoansPageData> {
       id: m.id,
       fullName: m.fullName,
       joinDate: m.joinDate,
-      totalGuaranteed: m.guaranteedLoans.length,
+      totalGuaranteed: m._count.guaranteedLoans,
       totalSavings: m.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
   }));
 
@@ -229,4 +233,3 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
-
