@@ -161,13 +161,12 @@ export async function postInterestTransactions(
         return { success: false, message: 'No interest transactions to post.' };
     }
 
-    if (!period.from) {
-        return { success: false, message: 'A start date is required to post interest.' };
+    if (!period.from || !period.to) {
+        return { success: false, message: 'A start and end date are required to post interest.' };
     }
     
     // Use the end date of the selected period for the posting.
-    const periodEndDate = period.to || period.from;
-    const postingDate = endOfDay(periodEndDate);
+    const postingDate = endOfDay(period.to);
     const monthName = format(postingDate, 'MMMM yyyy');
 
     const existingTransactions = await prisma.saving.findMany({
@@ -221,3 +220,4 @@ export async function postInterestTransactions(
 
     return { success: true, message };
 }
+
