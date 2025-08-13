@@ -109,11 +109,11 @@ export async function calculateInterest(criteria: {
             return txDate >= periodStart && txDate <= periodEnd;
         })
         .forEach(tx => {
-            const txDate = format(new Date(tx.date), 'yyyy-MM-dd');
-            if (!transactionsByDate.has(txDate)) {
-                transactionsByDate.set(txDate, []);
+            const txDateString = format(new Date(tx.date), 'yyyy-MM-dd');
+            if (!transactionsByDate.has(txDateString)) {
+                transactionsByDate.set(txDateString, []);
             }
-            transactionsByDate.get(txDate)!.push(tx);
+            transactionsByDate.get(txDateString)!.push(tx);
         });
 
     // 2. Calculate sum of daily balances for the period
@@ -139,7 +139,7 @@ export async function calculateInterest(criteria: {
     const averageDailyBalance = totalDailyBalance / daysInPeriod;
     const annualRate = account.savingAccountType.interestRate;
     // Correct interest calculation for the period
-    const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
+    const calculatedInterest = roundToTwo((averageDailyBalance * annualRate / 365) * daysInPeriod);
 
     return {
       memberId: account.memberId,
