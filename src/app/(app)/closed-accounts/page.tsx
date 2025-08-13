@@ -20,13 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, SchoolIcon, FileText, FileDown, Archive, Loader2, DollarSign, Percent, PieChart } from 'lucide-react';
+import { Search, Filter, SchoolIcon, FileDown, Archive, Loader2, DollarSign, Percent, PieChart, ChevronDown, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { exportToExcel } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { getClosedAccounts, type ClosedAccountWithDetails } from './actions';
 import type { School } from '@/types';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function ClosedAccountsPage() {
@@ -38,6 +37,8 @@ export default function ClosedAccountsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  const [openAccordionId, setOpenAccordionId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -121,6 +122,11 @@ export default function ClosedAccountsPage() {
     }));
     exportToExcel(dataToExport, 'closed_accounts_export');
   };
+  
+  const toggleAccordion = (id: string) => {
+    setOpenAccordionId(prevId => (prevId === id ? null : id));
+  };
+
 
   return (
     <div className="space-y-6">
@@ -161,39 +167,40 @@ export default function ClosedAccountsPage() {
         <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : paginatedAccounts.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border shadow-sm">
-          <Accordion type="single" collapsible className="w-full">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Member Name</TableHead>
-                  <TableHead>School</TableHead>
-                  <TableHead>Account Number</TableHead>
-                  <TableHead>Closure Date</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedAccounts.map(member => (
-                  <AccordionItem value={member.id} key={member.id} asChild>
-                    <>
-                      <TableRow>
-                        <TableCell>
-                          <AccordionTrigger className="[&[data-state=open]>svg]:text-primary" />
-                        </TableCell>
-                        <TableCell className="font-medium">{member.fullName}</TableCell>
-                        <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
-                        <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                        <TableCell>
-                          {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="destructive">Closed</Badge>
-                        </TableCell>
-                      </TableRow>
-                      <AccordionContent asChild>
-                        <tr>
-                          <td colSpan={6} className="p-0 bg-muted/50">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Member Name</TableHead>
+                <TableHead>School</TableHead>
+                <TableHead>Account Number</TableHead>
+                <TableHead>Closure Date</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center w-[180px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedAccounts.map(member => (
+                <React.Fragment key={member.id}>
+                    <TableRow>
+                      <TableCell className="font-medium">{member.fullName}</TableCell>
+                      <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
+                      <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
+                      <TableCell>
+                        {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="destructive">Closed</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button variant="ghost" size="sm" onClick={() => toggleAccordion(member.id)}>
+                            View Final Statement 
+                            {openAccordionId === member.id ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {openAccordionId === member.id && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="p-0 bg-muted/50">
                             <div className="p-6">
                               <Card>
                                 <CardHeader>
@@ -231,15 +238,13 @@ export default function ClosedAccountsPage() {
                                 </CardContent>
                               </Card>
                             </div>
-                          </td>
-                        </tr>
-                      </AccordionContent>
-                    </>
-                  </AccordionItem>
-                ))}
-              </TableBody>
-            </Table>
-          </Accordion>
+                          </TableCell>
+                        </TableRow>
+                    )}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       ) : (
         <div className="text-center py-16 text-muted-foreground">No closed accounts found.</div>
