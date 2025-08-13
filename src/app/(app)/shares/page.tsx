@@ -48,6 +48,13 @@ import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { getSharePaymentsPageData, addSharePayment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails } from './actions';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const initialPaymentFormState: Partial<SharePaymentInput> = {
   commitmentId: '',
