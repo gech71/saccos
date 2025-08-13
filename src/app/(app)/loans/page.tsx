@@ -84,6 +84,7 @@ export default function LoansPage() {
   const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);
   
   const [guarantorToAdd, setGuarantorToAdd] = useState('');
+  const [openGuarantorCombobox, setOpenGuarantorCombobox] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -481,16 +482,41 @@ export default function LoansPage() {
                 <Label>Member Guarantors</Label>
                 <div className="flex items-end gap-2">
                     <div className="flex-grow">
-                        <Select value={guarantorToAdd} onValueChange={setGuarantorToAdd}>
-                            <SelectTrigger><SelectValue placeholder="Select a guarantor..."/></SelectTrigger>
-                            <SelectContent>
-                              {availableGuarantors.map(m => (
-                                <SelectItem key={m.id} value={m.id}>
-                                  {m.fullName} (Guaranteed: {m.totalGuaranteed})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                        </Select>
+                        <Popover open={openGuarantorCombobox} onOpenChange={setOpenGuarantorCombobox}>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between"
+                            >
+                                {guarantorToAdd ? availableGuarantors.find(g => g.id === guarantorToAdd)?.fullName : "Select a guarantor..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Search member..." />
+                                    <CommandList>
+                                        <CommandEmpty>No available members found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {availableGuarantors.map(m => (
+                                                <CommandItem
+                                                    key={m.id}
+                                                    value={`${m.fullName} ${m.id}`}
+                                                    onSelect={() => {
+                                                        setGuarantorToAdd(m.id)
+                                                        setOpenGuarantorCombobox(false)
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", guarantorToAdd === m.id ? "opacity-100" : "opacity-0")} />
+                                                    {m.fullName} (Guaranteed: {m.totalGuaranteed})
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
                     <Button type="button" onClick={addGuarantor} disabled={!guarantorToAdd}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Guarantor
