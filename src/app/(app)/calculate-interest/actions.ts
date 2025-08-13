@@ -5,7 +5,8 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, format } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, differenceInDays, format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 
 function roundToTwo(num: number) {
@@ -49,19 +50,18 @@ export async function calculateInterest(criteria: {
   schoolId?: string;
   memberId?: string;
   accountTypeId?: string;
-}, period: { month: string, year: string }): Promise<InterestCalculationResult[]> {
+}, period: DateRange): Promise<InterestCalculationResult[]> {
   const { scope, schoolId, memberId, accountTypeId } = criteria;
-  const monthIndex = parseInt(period.month, 10);
-  const year = parseInt(period.year, 10);
-  
-  if (isNaN(monthIndex) || isNaN(year)) {
-      throw new Error("Invalid month or year provided.");
-  }
 
-  const periodStart = startOfMonth(new Date(year, monthIndex));
-  const periodEnd = endOfMonth(new Date(year, monthIndex));
-  const daysInMonth = differenceInDays(periodEnd, periodStart) + 1;
-  const monthName = monthNames[monthIndex];
+  if (!period.from) {
+      throw new Error("A start date for the period is required.");
+  }
+  
+  const periodStart = startOfDay(period.from);
+  // If no 'to' date, use the 'from' date for a single-day calculation
+  const periodEnd = period.to ? endOfDay(period.to) : endOfDay(period.from);
+
+  const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
   
   let whereClause: Prisma.MemberSavingAccountWhereInput = {
     balance: { gt: 0 },
@@ -91,23 +91,7 @@ export async function calculateInterest(criteria: {
     },
   });
 
-  // Fetch existing interest transactions for the period to avoid duplicates
-  const existingInterestNote = `Monthly interest posting for ${monthName} ${year}`;
-  const existingInterestTransactions = await prisma.saving.findMany({
-      where: {
-          memberSavingAccountId: { in: accountsToProcess.map(acc => acc.id) },
-          notes: existingInterestNote,
-          status: { in: ['pending', 'approved'] }
-      },
-      select: {
-          memberSavingAccountId: true,
-      }
-  });
-  const processedAccountIds = new Set(existingInterestTransactions.map(tx => tx.memberSavingAccountId));
-
-
   const results: InterestCalculationResult[] = accountsToProcess
-    .filter(account => !processedAccountIds.has(account.id)) // Exclude accounts that already have interest posted for the month
     .map(account => {
     if (!account.savingAccountType) return null;
 
@@ -149,9 +133,9 @@ export async function calculateInterest(criteria: {
     });
 
     // 3. Calculate Average Daily Balance and Interest
-    const averageDailyBalance = totalDailyBalance / daysInMonth;
-    const monthlyRate = account.savingAccountType.interestRate / 12;
-    const calculatedInterest = roundToTwo(averageDailyBalance * monthlyRate);
+    const averageDailyBalance = totalDailyBalance / daysInPeriod;
+    const annualRate = account.savingAccountType.interestRate;
+    const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
 
     return {
       memberId: account.memberId,
@@ -170,40 +154,38 @@ export async function calculateInterest(criteria: {
 
 export async function postInterestTransactions(
     transactions: InterestCalculationResult[],
-    period: { month: string, year: string }
+    period: DateRange
 ): Promise<{ success: boolean; message: string }> {
     if (transactions.length === 0) {
         return { success: false, message: 'No interest transactions to post.' };
     }
 
-    const monthIndex = parseInt(period.month, 10);
-    const year = parseInt(period.year, 10);
-    
-    if (isNaN(monthIndex) || isNaN(year)) {
-        return { success: false, message: 'Invalid period provided. Could not parse month or year.' };
+    if (!period.from || !period.to) {
+        return { success: false, message: 'A full date range is required to post interest.' };
     }
-    
-    const monthName = monthNames[monthIndex];
+
+    const postingDate = endOfDay(period.to);
+    const monthName = format(postingDate, 'MMMM yyyy');
 
     try {
         const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
           memberId: result.memberId,
           memberSavingAccountId: result.memberSavingAccountId,
           amount: result.calculatedInterest, // Already rounded
-          date: new Date(year, monthIndex + 1, 0), // Day 0 of next month is the last day of the selected month
-          month: `${monthName} ${period.year}`,
+          date: postingDate, 
+          month: monthName,
           transactionType: 'deposit',
           status: 'pending',
-          notes: `Monthly interest posting for ${monthName} ${year}`,
+          notes: `Interest posting for period ending ${format(postingDate, 'PPP')}`,
           depositMode: 'Bank', // System-generated
           sourceName: 'Internal System Posting',
-          transactionReference: `INT-${period.year}${(monthIndex + 1).toString().padStart(2, '0')}-${result.memberId.slice(-8)}`,
+          transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
           evidenceUrl: null
         }));
 
         await prisma.saving.createMany({
             data: newInterestTransactionsData,
-            skipDuplicates: true, // This is a safeguard, but our logic above should prevent duplicates
+            skipDuplicates: true,
         });
 
         revalidatePath('/savings');

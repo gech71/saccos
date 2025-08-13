@@ -31,15 +31,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getCalculationPageData, calculateInterest, postInterestTransactions, type CalculationPageData, type InterestCalculationResult } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-const months = [
-  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
-  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
-  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
-  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', 'label': 'December' }
-];
+import { DateRangePicker } from '@/components/date-range-picker';
+import { DateRange } from 'react-day-picker';
+import { startOfYear, endOfYear } from 'date-fns';
 
 export default function CalculateInterestPage() {
   const { toast } = useToast();
@@ -48,8 +42,10 @@ export default function CalculateInterestPage() {
   const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], savingAccountTypes: [] });
   const [isPageLoading, setIsPageLoading] = useState(true);
 
-  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString()); // Default to last month
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfYear(new Date()),
+    to: endOfYear(new Date()),
+  });
 
   const [calculationScope, setCalculationScope] = useState<'all' | 'school' | 'member' | 'accountType'>('all');
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
@@ -80,6 +76,10 @@ export default function CalculateInterestPage() {
 
   const handleCalculateInterest = async () => {
     // Validation
+     if (!dateRange?.from) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a valid date range.' });
+      return;
+    }
     if (calculationScope === 'school' && !selectedSchoolId) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school to calculate for.' });
       return;
@@ -101,7 +101,7 @@ export default function CalculateInterestPage() {
             schoolId: selectedSchoolId,
             memberId: selectedMemberId,
             accountTypeId: selectedAccountTypeId,
-        }, { month: selectedMonth, year: selectedYear });
+        }, dateRange);
 
         setCalculationResults(results);
         if (results.length > 0) {
@@ -121,10 +121,14 @@ export default function CalculateInterestPage() {
       toast({ variant: 'destructive', title: 'No Results', description: 'There are no calculation results to post.' });
       return;
     }
+     if (!dateRange) {
+        toast({ variant: 'destructive', title: 'Error', description: 'A date range must be selected to post interest.' });
+        return;
+    }
     setIsPosting(true);
     
     try {
-        const result = await postInterestTransactions(calculationResults, { month: selectedMonth, year: selectedYear });
+        const result = await postInterestTransactions(calculationResults, dateRange);
         if (result.success) {
             toast({ title: 'Interest Posted', description: result.message });
             setCalculationResults(null); // Clear results after posting
@@ -165,21 +169,9 @@ export default function CalculateInterestPage() {
           <CardDescription>Select the period and scope for which you want to calculate interest.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="yearFilter">Year</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger id="yearFilter"><SelectValue placeholder="Select Year" /></SelectTrigger>
-                <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="monthFilter">Month</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="monthFilter"><SelectValue placeholder="Select Month" /></SelectTrigger>
-                <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+          <div>
+              <Label>Date Range</Label>
+              <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
           </div>
 
           <Separator />
@@ -267,7 +259,7 @@ export default function CalculateInterestPage() {
         </CardContent>
         {canCreate && (
           <CardFooter>
-              <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto ml-auto">
+              <Button onClick={handleCalculateInterest} disabled={isLoading || !dateRange?.from} className="w-full md:w-auto ml-auto">
                   {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
                   Calculate Interest
               </Button>
@@ -280,7 +272,7 @@ export default function CalculateInterestPage() {
             <CardHeader>
                 <CardTitle className="font-headline text-primary">Calculation Results</CardTitle>
                 <CardDescription>
-                    Interest calculation for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
+                    Interest calculation for the period.
                     Total calculated interest: <span className="font-bold text-primary">{totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
                 </CardDescription>
             </CardHeader>
@@ -298,7 +290,7 @@ export default function CalculateInterestPage() {
                         </TableHeader>
                         <TableBody>
                             {calculationResults.length > 0 ? calculationResults.map(result => (
-                                <TableRow key={result.memberId}>
+                                <TableRow key={result.memberSavingAccountId}>
                                     <TableCell className="font-medium">{result.fullName}</TableCell>
                                     <TableCell>{result.savingsAccountNumber || 'N/A'}</TableCell>
                                     <TableCell className="text-right">{result.savingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
