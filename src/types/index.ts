@@ -12,9 +12,10 @@ export interface School {
 export interface ShareType {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   valuePerShare: number;
-  expectedMonthlyContribution?: number;
+  contributionFrequency: 'ONCE' | 'MONTHLY';
+  contributionDurationMonths?: number | null;
 }
 
 export interface SavingAccountType {

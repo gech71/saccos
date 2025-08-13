@@ -62,10 +62,10 @@ import { FileUpload } from '@/components/file-upload';
 import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput } from './actions';
 import type { Share, Member, ShareType } from '@prisma/client';
 
-const initialShareFormState: Partial<ShareInput & {id?: string}> = {
+const initialShareFormState: Partial<ShareInput & {id?: string, count: number}> = {
   memberId: undefined,
   shareTypeId: undefined,
-  contributionAmount: 0,
+  count: 0,
   allocationDate: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
   sourceName: '',
@@ -84,13 +84,12 @@ export default function SharesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [shareToDelete, setShareToDelete] = useState<string | null>(null);
 
-  const [currentShare, setCurrentShare] = useState<Partial<ShareInput & { id?: string, valuePerShare?: number, shareTypeName?: string }>>(initialShareFormState);
+  const [currentShare, setCurrentShare] = useState<Partial<ShareInput & { id?: string, count: number, shareTypeName?: string }>>(initialShareFormState);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const { toast } = useToast();
-  const [calculatedShares, setCalculatedShares] = useState(0);
   
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -110,30 +109,17 @@ export default function SharesPage() {
     fetchPageData();
   }, []);
 
-  useEffect(() => {
-    const { contributionAmount, valuePerShare } = currentShare;
-    const newCalculatedShares = (valuePerShare && valuePerShare > 0 && contributionAmount && contributionAmount > 0)
-        ? Math.floor(contributionAmount / valuePerShare)
-        : 0;
-    setCalculatedShares(newCalculatedShares);
-  }, [currentShare.contributionAmount, currentShare.valuePerShare]);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name === 'contributionAmount') {
-        setCurrentShare(prev => ({ ...prev, contributionAmount: parseFloat(value) || 0 }));
-    } else {
-        setCurrentShare(prev => ({ ...prev, [name]: value }));
-    }
+    setCurrentShare(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name: keyof Share, value: string) => {
     const selectedType = shareTypes.find(st => st.id === value);
-    const newValuePerShare = selectedType?.valuePerShare || 0;
     const shareTypeName = selectedType?.name || '';
     
     if (name === 'shareTypeId') {
-        setCurrentShare(prev => ({ ...prev, shareTypeId: value, valuePerShare: newValuePerShare, shareTypeName }));
+        setCurrentShare(prev => ({ ...prev, shareTypeId: value, shareTypeName }));
     } else {
         setCurrentShare(prev => ({ ...prev, [name]: value }));
     }
@@ -145,12 +131,8 @@ export default function SharesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.contributionAmount || currentShare.contributionAmount <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid contribution amount.' });
-        return;
-    }
-    if (calculatedShares <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Contribution amount is not enough to allocate any shares.' });
+    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.count || currentShare.count <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid number of shares.' });
         return;
     }
     if ((currentShare.depositMode === 'Bank' || currentShare.depositMode === 'Wallet') && !currentShare.sourceName) {
@@ -165,7 +147,7 @@ export default function SharesPage() {
             toast({ title: 'Success', description: 'Share record updated and is pending re-approval.' });
         } else {
             await addShare(currentShare as ShareInput);
-            toast({ title: 'Submitted for Approval', description: `${calculatedShares} share(s) allocation submitted.` });
+            toast({ title: 'Submitted for Approval', description: `${currentShare.count} share(s) allocation submitted.` });
         }
         await fetchPageData();
         setIsModalOpen(false);
@@ -179,7 +161,6 @@ export default function SharesPage() {
 
   const openAddModal = () => {
     setCurrentShare(initialShareFormState);
-    setCalculatedShares(0);
     setIsEditing(false);
     setIsModalOpen(true);
   };
@@ -187,7 +168,6 @@ export default function SharesPage() {
   const openEditModal = (share: Share) => {
     setCurrentShare({
       ...share,
-      contributionAmount: share.contributionAmount || (share.count * share.valuePerShare),
       allocationDate: share.allocationDate ? new Date(share.allocationDate).toISOString().split('T')[0] : '',
     });
     setIsEditing(true);
@@ -252,6 +232,9 @@ export default function SharesPage() {
     });
     exportToExcel(dataToExport, 'shares_export');
   };
+
+  const selectedShareType = useMemo(() => shareTypes.find(st => st.id === currentShare.shareTypeId), [shareTypes, currentShare.shareTypeId]);
+  const calculatedTotalValue = (selectedShareType?.valuePerShare || 0) * (currentShare.count || 0);
 
   return (
     <div className="space-y-6">
@@ -378,9 +361,9 @@ export default function SharesPage() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Record Share Contribution & Allocation'}</DialogTitle>
+            <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Record Share Contribution'}</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this share allocation.' : 'Enter monetary contribution to allocate shares. This will be sent for approval.'}
+              {isEditing ? 'Update this share allocation.' : 'Enter the number of shares purchased. This will be sent for approval.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
@@ -439,37 +422,24 @@ export default function SharesPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="valuePerShareShare">Value per Share (Birr)</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="valuePerShareShare" name="valuePerShare" type="number" value={currentShare.valuePerShare || ''} readOnly className="pl-7 bg-muted/50" />
-              </div>
+              <Label htmlFor="count">Number of Shares to Purchase</Label>
+              <Input 
+                  id="count" 
+                  name="count" 
+                  type="number" 
+                  step="1" 
+                  min="1"
+                  placeholder="0" 
+                  value={currentShare.count || ''} 
+                  onChange={handleInputChange} 
+                  required
+              />
             </div>
-            <div>
-              <Label htmlFor="contributionAmountShare">Contribution Amount (Birr)</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    id="contributionAmountShare" 
-                    name="contributionAmount" 
-                    type="number" 
-                    step="0.01" 
-                    placeholder="0.00" 
-                    value={currentShare.contributionAmount || ''} 
-                    onChange={handleInputChange} 
-                    required 
-                    className="pl-7"
-                />
+            {calculatedTotalValue > 0 && (
+              <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                  <p>Total Contribution Amount: <strong className="text-primary text-base">{calculatedTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></p>
+                  <p className="text-xs">Based on {currentShare.count} shares @ {selectedShareType?.valuePerShare.toLocaleString()} Birr/share.</p>
               </div>
-            </div>
-             {currentShare.contributionAmount! > 0 && currentShare.valuePerShare! > 0 && (
-                <div className="text-sm text-muted-foreground p-2 border rounded-md bg-accent/10">
-                    <p>This contribution will allocate approximately <strong className="text-primary">{calculatedShares}</strong> share(s).</p>
-                    <p>Total value of allocated shares: <strong className="text-primary">{(calculatedShares * (currentShare.valuePerShare || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></p>
-                    {currentShare.contributionAmount! > (calculatedShares * (currentShare.valuePerShare || 0)) && calculatedShares > 0 &&
-                        <p className="text-xs text-orange-600">Note: Remaining {(currentShare.contributionAmount! - (calculatedShares * (currentShare.valuePerShare || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr is not allocated as it's less than one share value.</p>
-                    }
-                </div>
             )}
             <div>
               <Label htmlFor="allocationDateShare">Allocation Date</Label>
@@ -513,7 +483,7 @@ export default function SharesPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-              <Button type="submit" disabled={isSubmitting || (calculatedShares <= 0 && (currentShare.contributionAmount || 0) > 0)}>
+              <Button type="submit" disabled={isSubmitting || calculatedTotalValue <= 0}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditing ? 'Save Changes' : 'Submit for Approval'}
               </Button>

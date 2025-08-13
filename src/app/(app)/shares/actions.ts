@@ -45,8 +45,9 @@ export async function getSharesPageData(): Promise<SharesPageData> {
   };
 }
 
-export type ShareInput = Omit<Share, 'id' | 'count' | 'status' | 'loanId' | 'totalValueForAllocation' | 'valuePerShare' | 'shareTypeName' | 'allocationDate'> & {
+export type ShareInput = Omit<Share, 'id' | 'valuePerShare' | 'status' | 'loanId' | 'totalValueForAllocation' | 'contributionAmount' | 'shareTypeName' | 'allocationDate'> & {
     allocationDate: string;
+    count: number;
 };
 
 
@@ -57,21 +58,19 @@ export async function addShare(data: ShareInput): Promise<Share> {
   const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
   if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
   
-  const contributionAmount = roundToTwo(data.contributionAmount || 0);
-  const count = Math.floor(contributionAmount / shareType.valuePerShare);
-  const totalValueForAllocation = roundToTwo(count * shareType.valuePerShare);
+  const totalValueForAllocation = roundToTwo(data.count * shareType.valuePerShare);
 
-  if (count <= 0) throw new Error("Contribution amount is insufficient to allocate any shares.");
+  if (data.count <= 0) throw new Error("Number of shares must be positive.");
 
   const newShare = await prisma.share.create({
     data: {
       memberId: data.memberId,
       shareTypeId: data.shareTypeId,
-      count,
+      count: data.count,
       allocationDate: new Date(data.allocationDate),
       valuePerShare: shareType.valuePerShare,
       status: 'pending',
-      contributionAmount: contributionAmount,
+      contributionAmount: totalValueForAllocation,
       totalValueForAllocation,
       depositMode: data.depositMode,
       sourceName: data.sourceName,
@@ -92,22 +91,20 @@ export async function updateShare(id: string, data: ShareInput): Promise<Share> 
     const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
     if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
 
-    const contributionAmount = roundToTwo(data.contributionAmount || 0);
-    const count = Math.floor(contributionAmount / shareType.valuePerShare);
-    const totalValueForAllocation = roundToTwo(count * shareType.valuePerShare);
+    const totalValueForAllocation = roundToTwo(data.count * shareType.valuePerShare);
 
-    if (count <= 0) throw new Error("Contribution amount is insufficient to allocate any shares.");
+    if (data.count <= 0) throw new Error("Number of shares must be positive.");
 
     const updatedShare = await prisma.share.update({
         where: { id },
         data: {
             memberId: data.memberId,
             shareTypeId: data.shareTypeId,
-            count,
+            count: data.count,
             allocationDate: new Date(data.allocationDate),
             valuePerShare: shareType.valuePerShare,
             status: 'pending', // Always require re-approval on edit
-            contributionAmount: contributionAmount,
+            contributionAmount: totalValueForAllocation,
             totalValueForAllocation,
             depositMode: data.depositMode,
             sourceName: data.sourceName,
