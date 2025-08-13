@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Prisma, SavingAccountType, ServiceChargeType, ShareType } from '@prisma/client';
+import type { Prisma, SavingAccountType, ServiceChargeType, ShareType, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 // This is the shape of the data the client page will receive
@@ -274,5 +274,55 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
     } catch (error) {
         console.error("Failed to delete member:", error);
         return { success: false, message: 'Failed to delete member. They may have related records that could not be deleted.' };
+    }
+}
+
+export async function transferMember(memberId: string, newSchoolId: string, reason?: string): Promise<{ success: boolean, message: string }> {
+    try {
+        const transferDate = new Date();
+        const [member, newSchool] = await Promise.all([
+            prisma.member.findUnique({ where: { id: memberId } }),
+            prisma.school.findUnique({ where: { id: newSchoolId } }),
+        ]);
+
+        if (!member) return { success: false, message: 'Member not found.' };
+        if (!newSchool) return { success: false, message: 'New school not found.' };
+
+        await prisma.$transaction(async (tx) => {
+            // 1. End date the current school history record
+            await tx.schoolHistory.updateMany({
+                where: {
+                    memberId: memberId,
+                    endDate: null, // Find the current active record
+                },
+                data: {
+                    endDate: transferDate,
+                }
+            });
+
+            // 2. Create the new school history record
+            await tx.schoolHistory.create({
+                data: {
+                    memberId: memberId,
+                    schoolId: newSchoolId,
+                    schoolName: newSchool.name,
+                    startDate: transferDate,
+                    reason: reason,
+                }
+            });
+
+            // 3. Update the member's current school
+            await tx.member.update({
+                where: { id: memberId },
+                data: { schoolId: newSchoolId }
+            });
+        });
+
+        revalidatePath('/members');
+        revalidatePath(`/member-profile/${memberId}`);
+        return { success: true, message: `Successfully transferred ${member.fullName} to ${newSchool.name}.` };
+    } catch (error) {
+        console.error("Failed to transfer member:", error);
+        return { success: false, message: 'An unexpected error occurred during the transfer.' };
     }
 }
