@@ -10,6 +10,7 @@ async function main() {
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
   await prisma.saving.deleteMany();
+  await prisma.sharePayment.deleteMany();
   await prisma.memberSavingAccount.deleteMany();
   await prisma.memberShareCommitment.deleteMany();
   await prisma.collateral.deleteMany();
@@ -18,7 +19,6 @@ async function main() {
   await prisma.emergencyContact.deleteMany();
   await prisma.loanRepayment.deleteMany();
   await prisma.appliedServiceCharge.deleteMany();
-  await prisma.share.deleteMany();
   await prisma.dividend.deleteMany();
   await prisma.loan.deleteMany();
   await prisma.member.deleteMany();
