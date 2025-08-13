@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { getClosedAccounts, type ClosedAccountWithDetails } from './actions';
 import type { School } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function ClosedAccountsPage() {
   const [closedAccounts, setClosedAccounts] = useState<ClosedAccountWithDetails[]>([]);
@@ -312,5 +312,3 @@ export default function ClosedAccountsPage() {
     </div>
   );
 }
-
-    
