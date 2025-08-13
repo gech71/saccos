@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, DollarSign, Loader2, CalendarClock } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, DollarSign, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -46,16 +45,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getShareTypes, addShareType, updateShareType, deleteShareType } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Badge } from '@/components/ui/badge';
-
 
 const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
   name: '',
   description: '',
   valuePerShare: undefined,
-  contributionFrequency: 'ONCE',
-  contributionDurationMonths: null,
 };
 
 export default function ShareTypesPage() {
@@ -98,16 +92,8 @@ export default function ShareTypesPage() {
     const { name, value } = e.target;
     setCurrentShareType(prev => ({ 
         ...prev, 
-        [name]: (name === 'valuePerShare' || name === 'contributionDurationMonths') ? (value === '' ? null : parseFloat(value)) : value 
+        [name]: name === 'valuePerShare' ? (value === '' ? undefined : parseFloat(value)) : value 
     }));
-  };
-  
-   const handleFrequencyChange = (value: 'ONCE' | 'MONTHLY') => {
-      setCurrentShareType(prev => ({
-          ...prev, 
-          contributionFrequency: value,
-          contributionDurationMonths: value === 'ONCE' ? null : prev.contributionDurationMonths
-      }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,18 +102,12 @@ export default function ShareTypesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive value per share are required.' });
       return;
     }
-     if (currentShareType.contributionFrequency === 'MONTHLY' && (!currentShareType.contributionDurationMonths || currentShareType.contributionDurationMonths <= 0)) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Monthly shares require a contribution duration in months.' });
-        return;
-    }
     
     setIsSubmitting(true);
     const dataToSave = {
         name: currentShareType.name!,
         valuePerShare: currentShareType.valuePerShare!,
         description: currentShareType.description,
-        contributionFrequency: currentShareType.contributionFrequency!,
-        contributionDurationMonths: currentShareType.contributionFrequency === 'MONTHLY' ? currentShareType.contributionDurationMonths : null,
     };
 
     try {
@@ -213,25 +193,17 @@ export default function ShareTypesPage() {
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Value per Share (Birr)</TableHead>
-              <TableHead className="text-center">Contribution Details</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin" /></TableCell></TableRow>
             ) : filteredShareTypes.length > 0 ? filteredShareTypes.map(shareType => (
               <TableRow key={shareType.id}>
                 <TableCell className="font-medium">{shareType.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{shareType.description || 'N/A'}</TableCell>
                 <TableCell className="text-right font-semibold">{shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                 <TableCell className="text-center">
-                    {shareType.contributionFrequency === 'ONCE' ? (
-                        <Badge variant="secondary">One-time</Badge>
-                    ) : (
-                        <Badge variant="outline">Monthly ({shareType.contributionDurationMonths} months)</Badge>
-                    )}
-                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -253,7 +225,7 @@ export default function ShareTypesPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={4} className="h-24 text-center">
                   No share types found. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -293,33 +265,6 @@ export default function ShareTypesPage() {
                     />
                 </div>
             </div>
-            <div>
-              <Label>Contribution Frequency</Label>
-               <RadioGroup value={currentShareType.contributionFrequency || 'ONCE'} onValueChange={handleFrequencyChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="ONCE" id="once" /><Label htmlFor="once">One-time Purchase</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="MONTHLY" id="monthly" /><Label htmlFor="monthly">Monthly Contribution</Label></div>
-                </RadioGroup>
-            </div>
-
-            {currentShareType.contributionFrequency === 'MONTHLY' && (
-                <div className="animate-in fade-in duration-300">
-                    <Label htmlFor="contributionDurationMonths">Contribution Duration (Months)</Label>
-                    <div className="relative">
-                        <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="contributionDurationMonths" 
-                            name="contributionDurationMonths" 
-                            type="number" 
-                            step="1" 
-                            min="1"
-                            value={currentShareType.contributionDurationMonths ?? ''} 
-                            onChange={handleInputChange}
-                            className="pl-8"
-                            placeholder="e.g., 12"
-                        />
-                    </div>
-                </div>
-            )}
             <div>
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea id="description" name="description" value={currentShareType.description || ''} onChange={handleInputChange} placeholder="E.g., Standard membership share, Educational fund share" />

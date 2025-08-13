@@ -14,8 +14,6 @@ export interface ShareType {
   name: string;
   description?: string | null;
   valuePerShare: number;
-  contributionFrequency: 'ONCE' | 'MONTHLY';
-  contributionDurationMonths?: number | null;
 }
 
 export interface SavingAccountType {
