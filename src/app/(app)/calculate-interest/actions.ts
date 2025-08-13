@@ -5,7 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { startOfDay, endOfDay, eachDayOfInterval, differenceInDays, format } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, differenceInDays, format, parse } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
 
@@ -58,7 +58,6 @@ export async function calculateInterest(criteria: {
   }
   
   const periodStart = startOfDay(period.from);
-  // If no 'to' date, use the 'from' date for a single-day calculation
   const periodEnd = period.to ? endOfDay(period.to) : endOfDay(period.from);
 
   const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
@@ -102,39 +101,44 @@ export async function calculateInterest(criteria: {
         balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
     });
     
-    // 2. Calculate sum of daily balances for the period
-    let totalDailyBalance = 0;
-    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
-    
-    // Create a map of transactions by date for efficient lookup
+    // Create a map of transactions by date for efficient lookup within the period
     const transactionsByDate = new Map<string, Saving[]>();
-    account.savings.forEach(tx => {
-        const txDate = format(new Date(tx.date), 'yyyy-MM-dd');
-        if (txDate >= format(periodStart, 'yyyy-MM-dd') && txDate <= format(periodEnd, 'yyyy-MM-dd')) {
+    account.savings
+        .filter(tx => {
+            const txDate = new Date(tx.date);
+            return txDate >= periodStart && txDate <= periodEnd;
+        })
+        .forEach(tx => {
+            const txDate = format(new Date(tx.date), 'yyyy-MM-dd');
             if (!transactionsByDate.has(txDate)) {
                 transactionsByDate.set(txDate, []);
             }
             transactionsByDate.get(txDate)!.push(tx);
-        }
-    });
+        });
 
+    // 2. Calculate sum of daily balances for the period
+    let totalDailyBalance = 0;
+    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
     let runningDayBalance = balanceAtPeriodStart;
+
     intervalDays.forEach(day => {
         const dayString = format(day, 'yyyy-MM-dd');
-        const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         
-        // Apply transactions at the start of the day to get the closing balance
+        // Add the balance *before* this day's transactions to the total
+        totalDailyBalance += runningDayBalance;
+        
+        // Apply this day's transactions to get the closing balance, which will be the next day's opening balance
+        const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         transactionsOnThisDay.forEach(tx => {
             runningDayBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
         });
-
-        // Add the closing balance for this day to the total
-        totalDailyBalance += runningDayBalance;
     });
+
 
     // 3. Calculate Average Daily Balance and Interest
     const averageDailyBalance = totalDailyBalance / daysInPeriod;
     const annualRate = account.savingAccountType.interestRate;
+    // Correct interest calculation for the period
     const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
 
     return {
@@ -163,37 +167,59 @@ export async function postInterestTransactions(
     if (!period.from || !period.to) {
         return { success: false, message: 'A full date range is required to post interest.' };
     }
-
+    
     const postingDate = endOfDay(period.to);
     const monthName = format(postingDate, 'MMMM yyyy');
 
-    try {
-        const newInterestTransactionsData: Prisma.SavingCreateManyInput[] = transactions.map(result => ({
-          memberId: result.memberId,
-          memberSavingAccountId: result.memberSavingAccountId,
-          amount: result.calculatedInterest, // Already rounded
-          date: postingDate, 
-          month: monthName,
-          transactionType: 'deposit',
-          status: 'pending',
-          notes: `Interest posting for period ending ${format(postingDate, 'PPP')}`,
-          depositMode: 'Bank', // System-generated
-          sourceName: 'Internal System Posting',
-          transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
-          evidenceUrl: null
+    const existingTransactions = await prisma.saving.findMany({
+        where: {
+            memberSavingAccountId: {
+                in: transactions.map(t => t.memberSavingAccountId)
+            },
+            notes: {
+                contains: `Interest posting for period ending`
+            },
+            month: monthName, // Check for the same month/year to avoid duplicates
+        }
+    });
+
+    const newTransactionsData: Prisma.SavingCreateManyInput[] = transactions
+        .filter(result => !existingTransactions.some(et => et.memberSavingAccountId === result.memberSavingAccountId))
+        .map(result => ({
+            memberId: result.memberId,
+            memberSavingAccountId: result.memberSavingAccountId,
+            amount: result.calculatedInterest,
+            date: postingDate,
+            month: monthName,
+            transactionType: 'deposit',
+            status: 'pending',
+            notes: `Interest posting for period ending ${format(postingDate, 'PPP')}`,
+            depositMode: 'Bank',
+            sourceName: 'Internal System Posting',
+            transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
+            evidenceUrl: null
         }));
-
-        await prisma.saving.createMany({
-            data: newInterestTransactionsData,
-            skipDuplicates: true,
-        });
-
-        revalidatePath('/savings');
-        revalidatePath('/approve-transactions');
-
-        return { success: true, message: `${transactions.length} interest transactions have been submitted for approval.` };
-    } catch (error) {
-        console.error("Failed to post interest transactions:", error);
-        return { success: false, message: 'An error occurred while posting interest transactions.' };
+    
+    if (newTransactionsData.length === 0) {
+        const skippedCount = transactions.length;
+        return { success: true, message: `All ${skippedCount} interest transaction(s) have already been posted for this period and were skipped.` };
     }
+
+    await prisma.saving.createMany({
+        data: newTransactionsData,
+        skipDuplicates: true, // Just in case, though filter should prevent this
+    });
+
+    revalidatePath('/savings');
+    revalidatePath('/approve-transactions');
+    
+    const postedCount = newTransactionsData.length;
+    const skippedCount = transactions.length - postedCount;
+    let message = `${postedCount} interest transaction(s) submitted for approval.`;
+    if (skippedCount > 0) {
+        message += ` ${skippedCount} transaction(s) were skipped as they were already posted for this period.`
+    }
+
+    return { success: true, message };
 }
+
