@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 interface CalculationResult {
   currentBalance: number;
+  totalSharesPaid: number;
   accruedInterest: number;
   totalPayout: number;
 }
@@ -119,6 +120,8 @@ export default function CloseAccountPage() {
         await confirmAccountClosure(selectedMember.id, {
             totalPayout: calculationResult.totalPayout,
             accruedInterest: calculationResult.accruedInterest,
+            totalSharesPaid: calculationResult.totalSharesPaid,
+            savingsBalance: calculationResult.currentBalance,
             depositMode: payoutDetails.depositMode,
             sourceName: payoutDetails.sourceName,
             transactionReference: payoutDetails.transactionReference,
@@ -224,6 +227,7 @@ export default function CloseAccountPage() {
                     <AlertTitle className="font-bold">Final Payout Summary for {selectedMember.fullName}</AlertTitle>
                     <AlertDescription>
                         <div className="flex justify-between py-1"><span>Current Savings Balance:</span> <span className="font-medium">{calculationResult.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
+                        <div className="flex justify-between py-1"><span>Total Shares Paid (Refundable):</span> <span className="font-medium">{calculationResult.totalSharesPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
                         <div className="flex justify-between py-1"><span>Accrued Interest (Calculated):</span> <span className="font-medium text-green-600">+ {calculationResult.accruedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
                         <Separator className="my-1"/>
                         <div className="flex justify-between py-1 text-lg"><strong>Total Payout Amount:</strong> <strong className="text-primary">{calculationResult.totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></div>
