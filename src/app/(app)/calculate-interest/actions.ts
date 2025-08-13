@@ -51,16 +51,18 @@ export async function calculateInterest(criteria: {
   memberId?: string;
   accountTypeId?: string;
 }, period: DateRange): Promise<InterestCalculationResult[]> {
-  const { scope, schoolId, memberId, accountTypeId } = criteria;
-
   if (!period.from) {
       throw new Error("A start date for the period is required.");
   }
   
   const periodStart = startOfDay(period.from);
+  // If no end date is provided, use the start date as the end date.
   const periodEnd = period.to ? endOfDay(period.to) : endOfDay(period.from);
 
   const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
+  if (daysInPeriod <= 0) {
+      return [];
+  }
   
   let whereClause: Prisma.MemberSavingAccountWhereInput = {
     balance: { gt: 0 },
@@ -118,27 +120,25 @@ export async function calculateInterest(criteria: {
 
     // 2. Calculate sum of daily balances for the period
     let totalDailyBalance = 0;
-    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
     let runningDayBalance = balanceAtPeriodStart;
 
+    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
+    
     intervalDays.forEach(day => {
-        const dayString = format(day, 'yyyy-MM-dd');
-        
-        // Add the balance *before* this day's transactions to the total
+        // Add the opening balance of the day to the total sum
         totalDailyBalance += runningDayBalance;
         
-        // Apply this day's transactions to get the closing balance, which will be the next day's opening balance
+        // Check for transactions on this day and update the running balance for the *next* day
+        const dayString = format(day, 'yyyy-MM-dd');
         const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         transactionsOnThisDay.forEach(tx => {
             runningDayBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
         });
     });
 
-
     // 3. Calculate Average Daily Balance and Interest
     const averageDailyBalance = totalDailyBalance / daysInPeriod;
     const annualRate = account.savingAccountType.interestRate;
-    // Correct interest calculation for the period
     const calculatedInterest = roundToTwo((averageDailyBalance * annualRate / 365) * daysInPeriod);
 
     return {
@@ -164,11 +164,11 @@ export async function postInterestTransactions(
         return { success: false, message: 'No interest transactions to post.' };
     }
 
-    if (!period.from || !period.to) {
-        return { success: false, message: 'A full date range is required to post interest.' };
+    if (!period.from) {
+        return { success: false, message: 'A start date is required to post interest.' };
     }
     
-    const postingDate = endOfDay(period.to);
+    const postingDate = endOfDay(period.to || period.from);
     const monthName = format(postingDate, 'MMMM yyyy');
 
     const existingTransactions = await prisma.saving.findMany({
@@ -179,7 +179,7 @@ export async function postInterestTransactions(
             notes: {
                 contains: `Interest posting for period ending`
             },
-            month: monthName, // Check for the same month/year to avoid duplicates
+            month: monthName, 
         }
     });
 
@@ -207,7 +207,7 @@ export async function postInterestTransactions(
 
     await prisma.saving.createMany({
         data: newTransactionsData,
-        skipDuplicates: true, // Just in case, though filter should prevent this
+        skipDuplicates: true,
     });
 
     revalidatePath('/savings');
