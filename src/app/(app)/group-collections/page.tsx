@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -488,7 +487,7 @@ export default function GroupCollectionsPage() {
                             {pageData.schools.map((s) => (
                                 <CommandItem
                                 key={s.id}
-                                value={s.name}
+                                value={`${s.name} ${s.id}`}
                                 onSelect={() => {
                                     setSelectedSchool(s.id);
                                     setOpenSchoolCombobox(false);

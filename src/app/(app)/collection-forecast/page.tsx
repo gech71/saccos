@@ -24,9 +24,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label';
 import type { School, SavingAccountType, ShareType, LoanType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Loader2, DollarSign, Users, FileDown } from 'lucide-react';
+import { Filter, Loader2, DollarSign, Users, FileDown, ChevronsUpDown, Check } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
 import { getForecastPageData, getCollectionForecast, type ForecastPageData, type ForecastResult } from './actions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
@@ -44,6 +48,7 @@ export default function CollectionForecastPage() {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [openSchoolCombobox, setOpenSchoolCombobox] = useState(false);
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
   
@@ -198,10 +203,50 @@ export default function CollectionForecastPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
-                  <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-                    <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
-                    <SelectContent>{pageData.schools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="schoolFilter"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openSchoolCombobox}
+                        className="w-full justify-between"
+                      >
+                        {selectedSchool
+                          ? pageData.schools.find((s) => s.id === selectedSchool)?.name
+                          : "Select school..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Search school..." />
+                        <CommandList>
+                          <CommandEmpty>No school found.</CommandEmpty>
+                          <CommandGroup>
+                            {pageData.schools.map((s) => (
+                              <CommandItem
+                                key={s.id}
+                                value={`${s.name} ${s.id}`}
+                                onSelect={() => {
+                                  setSelectedSchool(s.id);
+                                  setOpenSchoolCombobox(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedSchool === s.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {s.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label htmlFor="yearFilter">Year <span className="text-destructive">*</span></Label>

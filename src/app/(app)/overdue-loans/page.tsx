@@ -8,11 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { School } from '@prisma/client';
-import { Search, Filter, AlertTriangle, SchoolIcon, Loader2, FileDown } from 'lucide-react';
+import { Search, Filter, AlertTriangle, SchoolIcon, Loader2, FileDown, ChevronsUpDown, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { getOverdueLoansPageData, type OverdueLoanInfo } from './actions';
 import { exportToExcel } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+
 
 export default function OverdueLoansPage() {
     const [overdueLoans, setOverdueLoans] = useState<OverdueLoanInfo[]>([]);
@@ -21,6 +25,7 @@ export default function OverdueLoansPage() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+    const [openSchoolFilterCombobox, setOpenSchoolFilterCombobox] = useState(false);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -136,16 +141,68 @@ export default function OverdueLoansPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input type="search" placeholder="Search by member name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-full" />
                 </div>
-                {/* School filter functionality would require a more complex backend query joining through members to schools */}
-                <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter} disabled>
-                    <SelectTrigger className="w-full sm:w-[220px]">
-                        <Filter className="mr-2 h-4 w-4" /><SelectValue placeholder="Filter by school" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Schools</SelectItem>
-                        {schools.map(school => <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                <Popover open={openSchoolFilterCombobox} onOpenChange={setOpenSchoolFilterCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openSchoolFilterCombobox}
+                      className="w-full sm:w-[220px] justify-between"
+                      disabled
+                    >
+                      <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
+                      <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
+                      {selectedSchoolFilter === 'all'
+                        ? "All Schools"
+                        : schools.find((school) => school.id === selectedSchoolFilter)?.name}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search school..." />
+                      <CommandList>
+                        <CommandEmpty>No school found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            key="all-schools"
+                            value="all"
+                            onSelect={() => {
+                              setSelectedSchoolFilter("all");
+                              setOpenSchoolFilterCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedSchoolFilter === "all" ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            All Schools
+                          </CommandItem>
+                          {schools.map((school) => (
+                            <CommandItem
+                              key={school.id}
+                              value={`${school.name} ${school.id}`}
+                              onSelect={() => {
+                                setSelectedSchoolFilter(school.id);
+                                setOpenSchoolFilterCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {school.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
             </div>
 
             <div className="overflow-x-auto rounded-lg border shadow-sm">

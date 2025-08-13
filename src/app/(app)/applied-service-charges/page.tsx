@@ -61,6 +61,7 @@ export default function AppliedServiceChargesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  const [openSchoolFilterCombobox, setOpenSchoolFilterCombobox] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
@@ -254,19 +255,67 @@ export default function AppliedServiceChargesPage() {
             aria-label="Search members"
           />
         </div>
-        <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter}>
-          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by school">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
-            <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
-            <SelectValue placeholder="Filter by school" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Schools</SelectItem>
-            {pageData.schools.map(school => (
-              <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={openSchoolFilterCombobox} onOpenChange={setOpenSchoolFilterCombobox}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={openSchoolFilterCombobox}
+              className="w-full sm:w-[220px] justify-between"
+            >
+              <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
+              <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
+              {selectedSchoolFilter === 'all'
+                ? "All Schools"
+                : pageData.schools.find((school) => school.id === selectedSchoolFilter)?.name}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <Command>
+              <CommandInput placeholder="Search school..." />
+              <CommandList>
+                <CommandEmpty>No school found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    key="all-schools"
+                    value="all"
+                    onSelect={() => {
+                      setSelectedSchoolFilter("all");
+                      setOpenSchoolFilterCombobox(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedSchoolFilter === "all" ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    All Schools
+                  </CommandItem>
+                  {pageData.schools.map((school) => (
+                    <CommandItem
+                      key={school.id}
+                      value={`${school.name} ${school.id}`}
+                      onSelect={() => {
+                        setSelectedSchoolFilter(school.id);
+                        setOpenSchoolFilterCombobox(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {school.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">

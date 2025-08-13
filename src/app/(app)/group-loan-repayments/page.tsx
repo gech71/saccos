@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -26,7 +25,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LoanType, School, Member } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, UploadCloud, FileCheck2, FileDown, Download } from 'lucide-react';
+import { Filter, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, UploadCloud, FileCheck2, FileDown, Download, ChevronsUpDown, Check } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FileUpload } from '@/components/file-upload';
@@ -35,6 +34,9 @@ import { getGroupLoanRepaymentsPageData, getLoansByCriteria, recordBatchRepaymen
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import { exportToExcel } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -92,6 +94,7 @@ export default function GroupLoanRepaymentsPage() {
 
   // Filter-based state
   const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [openSchoolCombobox, setOpenSchoolCombobox] = useState(false);
   const [selectedLoanType, setSelectedLoanType] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
@@ -479,10 +482,50 @@ export default function GroupLoanRepaymentsPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div>
                 <Label htmlFor="schoolFilter">School <span className="text-destructive">*</span></Label>
-                <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-                  <SelectTrigger id="schoolFilter"><SelectValue placeholder="Select School" /></SelectTrigger>
-                  <SelectContent>{allSchools.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
+                    <PopoverTrigger asChild>
+                    <Button
+                        id="schoolFilter"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openSchoolCombobox}
+                        className="w-full justify-between"
+                    >
+                        {selectedSchool
+                        ? allSchools.find((s) => s.id === selectedSchool)?.name
+                        : "Select school..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                        <CommandInput placeholder="Search school..." />
+                        <CommandList>
+                        <CommandEmpty>No school found.</CommandEmpty>
+                        <CommandGroup>
+                            {allSchools.map((s) => (
+                            <CommandItem
+                                key={s.id}
+                                value={`${s.name} ${s.id}`}
+                                onSelect={() => {
+                                setSelectedSchool(s.id);
+                                setOpenSchoolCombobox(false);
+                                }}
+                            >
+                                <Check
+                                className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedSchool === s.id ? "opacity-100" : "opacity-0"
+                                )}
+                                />
+                                {s.name}
+                            </CommandItem>
+                            ))}
+                        </CommandGroup>
+                        </CommandList>
+                    </Command>
+                    </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label htmlFor="loanTypeFilter">Loan Type</Label>
@@ -704,8 +747,8 @@ export default function GroupLoanRepaymentsPage() {
                         </TableCell>
                         <TableCell className="font-medium">{loan.member.fullName}</TableCell>
                         <TableCell className="font-mono text-xs">{loan.loanAccountNumber}</TableCell>
-                        <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                        <TableCell className="text-right">{expectedPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                        <TableCell className="text-right">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
+                        <TableCell className="text-right">{expectedPayment.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
                         <TableCell>
                         <Input
                             type="number"
@@ -863,5 +906,3 @@ export default function GroupLoanRepaymentsPage() {
     </div>
   );
 }
-
-

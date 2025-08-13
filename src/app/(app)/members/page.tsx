@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -54,11 +53,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { exportToExcel } from '@/lib/utils';
 import { getMembersPageData, addMember, updateMember, deleteMember, importMembers, transferMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -108,6 +110,7 @@ export default function MembersPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
+  const [openSchoolFilterCombobox, setOpenSchoolFilterCombobox] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -126,6 +129,7 @@ export default function MembersPage() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [memberToTransfer, setMemberToTransfer] = useState<MemberWithDetails | null>(null);
   const [newSchoolId, setNewSchoolId] = useState<string>('');
+  const [openSchoolModalCombobox, setOpenSchoolModalCombobox] = useState(false);
   const [transferReason, setTransferReason] = useState('');
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
@@ -593,18 +597,68 @@ export default function MembersPage() {
             aria-label="Search members"
           />
         </div>
-        <Select value={selectedSchoolFilter} onValueChange={setSelectedSchoolFilter} disabled={isLoading}>
-          <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by school">
-            <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Filter by school" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Schools</SelectItem>
-            {schools.map(school => (
-              <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={openSchoolFilterCombobox} onOpenChange={setOpenSchoolFilterCombobox}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={openSchoolFilterCombobox}
+              className="w-full sm:w-[220px] justify-between"
+              disabled={isLoading}
+            >
+              <Filter className="mr-2 h-4 w-4 text-muted-foreground md:hidden" />
+              <SchoolIcon className="mr-2 h-4 w-4 text-muted-foreground hidden md:inline" />
+              {selectedSchoolFilter === 'all'
+                ? "All Schools"
+                : schools.find((school) => school.id === selectedSchoolFilter)?.name}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <Command>
+              <CommandInput placeholder="Search school..." />
+              <CommandList>
+                <CommandEmpty>No school found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    key="all-schools"
+                    value="all"
+                    onSelect={() => {
+                      setSelectedSchoolFilter("all");
+                      setOpenSchoolFilterCombobox(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedSchoolFilter === "all" ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    All Schools
+                  </CommandItem>
+                  {schools.map((school) => (
+                    <CommandItem
+                      key={school.id}
+                      value={`${school.name} ${school.id}`}
+                      onSelect={() => {
+                        setSelectedSchoolFilter(school.id);
+                        setOpenSchoolFilterCombobox(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {school.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
@@ -849,10 +903,51 @@ export default function MembersPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <Label htmlFor="schoolId">School <span className="text-destructive">*</span></Label>
-                <Select name="schoolId" value={currentMember.schoolId} onValueChange={(value) => handleMemberSelectChange('schoolId', value)} required disabled={isViewingOnly}>
-                  <SelectTrigger><SelectValue placeholder="Select a school" /></SelectTrigger>
-                  <SelectContent>{schools.map(school => (<SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>))}</SelectContent>
-                </Select>
+                <Popover open={openSchoolModalCombobox} onOpenChange={setOpenSchoolModalCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="schoolId"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openSchoolModalCombobox}
+                      className="w-full justify-between"
+                      disabled={isViewingOnly}
+                    >
+                      {currentMember.schoolId
+                        ? schools.find((s) => s.id === currentMember.schoolId)?.name
+                        : "Select school..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search school..." />
+                      <CommandList>
+                        <CommandEmpty>No school found.</CommandEmpty>
+                        <CommandGroup>
+                          {schools.map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={`${s.name} ${s.id}`}
+                              onSelect={() => {
+                                handleMemberSelectChange('schoolId', s.id);
+                                setOpenSchoolModalCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  currentMember.schoolId === s.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {s.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label htmlFor="joinDate">Join Date <span className="text-destructive">*</span></Label>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileDown, FileText } from 'lucide-react';
+import { Loader2, FileDown, FileText, ChevronsUpDown, Check } from 'lucide-react';
 import { getReportPageData, generateSimpleReport, type ReportData, type ReportType } from './actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/stat-card';
@@ -30,6 +30,9 @@ import type { SavingAccountType, LoanType } from '@prisma/client';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { startOfYear, endOfYear } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 type SchoolForSelect = {
     id: string;
@@ -57,6 +60,7 @@ export default function ReportsPage() {
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
   
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [openSchoolCombobox, setOpenSchoolCombobox] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('savings');
   const [selectedSavingAccountTypeId, setSelectedSavingAccountTypeId] = useState<string>('');
   const [selectedLoanTypeId, setSelectedLoanTypeId] = useState<string>('all');
@@ -166,16 +170,51 @@ export default function ReportsPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
             <div>
               <Label htmlFor="schoolId">School Name</Label>
-              <Select value={selectedSchoolId} onValueChange={setSelectedSchoolId} required disabled={isFetchingData}>
-                <SelectTrigger id="schoolId" aria-label="Select school">
-                  <SelectValue placeholder={isFetchingData ? "Loading schools..." : "Select a school"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {schools.map(school => (
-                    <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="schoolId"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openSchoolCombobox}
+                    className="w-full justify-between"
+                    disabled={isFetchingData}
+                  >
+                    {selectedSchoolId
+                      ? schools.find((s) => s.id === selectedSchoolId)?.name
+                      : "Select school..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search school..." />
+                    <CommandList>
+                      <CommandEmpty>No school found.</CommandEmpty>
+                      <CommandGroup>
+                        {schools.map((school) => (
+                          <CommandItem
+                            key={school.id}
+                            value={`${school.name} ${school.id}`}
+                            onSelect={() => {
+                              setSelectedSchoolId(school.id);
+                              setOpenSchoolCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedSchoolId === school.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {school.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label htmlFor="reportType">Report Type</Label>
