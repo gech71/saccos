@@ -20,16 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Filter, SchoolIcon, FileText, FileDown, Archive, Loader2 } from 'lucide-react';
+import { Search, Filter, SchoolIcon, FileText, FileDown, Archive, Loader2, DollarSign, Percent, PieChart } from 'lucide-react';
 import { format } from 'date-fns';
-import Link from 'next/link';
 import { exportToExcel } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { getClosedAccounts, type ClosedAccountWithSchool } from './actions';
+import { getClosedAccounts, type ClosedAccountWithDetails } from './actions';
 import type { School } from '@/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ClosedAccountsPage() {
-  const [closedAccounts, setClosedAccounts] = useState<ClosedAccountWithSchool[]>([]);
+  const [closedAccounts, setClosedAccounts] = useState<ClosedAccountWithDetails[]>([]);
   const [allSchools, setAllSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('all');
@@ -44,7 +45,6 @@ export default function ClosedAccountsPage() {
         const accounts = await getClosedAccounts();
         setClosedAccounts(accounts);
         
-        // Extract unique schools from the accounts for filtering
         const schoolsFromAccounts = accounts.reduce((acc, curr) => {
             if (curr.school && !acc.find(s => s.id === curr.schoolId)) {
                 acc.push(curr.school);
@@ -115,6 +115,9 @@ export default function ClosedAccountsPage() {
       'School': member.school?.name ?? 'N/A',
       'Account Number': member.savingsAccountNumber || 'N/A',
       'Closure Date': member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A',
+      'Savings Payout (Birr)': member.finalSavingsPayout,
+      'Interest Payout (Birr)': member.finalInterestPayout,
+      'Shares Refunded (Birr)': member.finalSharesRefund,
     }));
     exportToExcel(dataToExport, 'closed_accounts_export');
   };
@@ -153,52 +156,92 @@ export default function ClosedAccountsPage() {
           </SelectContent>
         </Select>
       </div>
-
-      <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member Name</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead>Account Number</TableHead>
-              <TableHead>Closure Date</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="text-center w-[200px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : paginatedAccounts.length > 0 ? paginatedAccounts.map(member => (
-              <TableRow key={member.id}>
-                <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
-                <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
-                <TableCell>
-                    {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}
-                </TableCell>
-                <TableCell className="text-center">
-                    <Badge variant="destructive">Closed</Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/account-statement?memberId=${member.id}`}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      View Final Statement
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No closed accounts found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : paginatedAccounts.length > 0 ? (
+        <Accordion type="single" collapsible className="w-full space-y-2">
+            <div className="overflow-x-auto rounded-lg border shadow-sm">
+                <Table>
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead>Member Name</TableHead>
+                        <TableHead>School</TableHead>
+                        <TableHead>Account Number</TableHead>
+                        <TableHead>Closure Date</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                {paginatedAccounts.map(member => (
+                    <AccordionItem value={member.id} key={member.id} className="border-b-0">
+                        <TableRow>
+                            <TableCell className="p-0">
+                                <AccordionTrigger className="p-4 [&[data-state=open]>svg]:text-primary"></AccordionTrigger>
+                            </TableCell>
+                            <TableCell className="font-medium">{member.fullName}</TableCell>
+                            <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
+                            <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
+                            <TableCell>
+                                {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge variant="destructive">Closed</Badge>
+                            </TableCell>
+                        </TableRow>
+                        <AccordionContent asChild>
+                            <tr className="bg-muted/50 hover:bg-muted/50">
+                                <td colSpan={6} className="p-0">
+                                    <div className="p-6">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle className="font-headline text-lg">Final Statement Details</CardTitle>
+                                                <CardDescription>A summary of the final payout transactions processed for this member upon account closure.</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className="flex items-start gap-4">
+                                                    <div className="flex-shrink-0 bg-green-100 text-green-700 rounded-lg p-3">
+                                                        <DollarSign className="h-6 w-6"/>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground">Savings Balance Payout</p>
+                                                        <p className="text-xl font-bold">{member.finalSavingsPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-start gap-4">
+                                                    <div className="flex-shrink-0 bg-yellow-100 text-yellow-700 rounded-lg p-3">
+                                                        <Percent className="h-6 w-6"/>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground">Final Interest Paid</p>
+                                                        <p className="text-xl font-bold">{member.finalInterestPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                                                    </div>
+                                                </div>
+                                                 <div className="flex items-start gap-4">
+                                                    <div className="flex-shrink-0 bg-blue-100 text-blue-700 rounded-lg p-3">
+                                                        <PieChart className="h-6 w-6"/>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground">Shares Refunded</p>
+                                                        <p className="text-xl font-bold">{member.finalSharesRefund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </td>
+                            </tr>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+                </TableBody>
+                </Table>
+            </div>
+        </Accordion>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground">No closed accounts found.</div>
+      )}
 
        {filteredClosedAccounts.length > 0 && (
         <div className="flex flex-col items-center gap-4 pt-4">
@@ -269,3 +312,5 @@ export default function ClosedAccountsPage() {
     </div>
   );
 }
+
+    
