@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow } from 'date-fns';
-import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award } from 'lucide-react';
+import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award, PieChart, WalletCards } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 
 const StatInfo = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: React.ReactNode, subValue?: string }) => (
     <div className="flex items-start gap-4">
@@ -110,7 +111,7 @@ export default function MemberProfilePage() {
     const summaryStats = useMemo(() => {
         if (!details) return { totalSavings: 0, totalShares: 0, totalLoans: 0, totalInitialBalance: 0 };
         const totalSavings = details.savingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-        const totalShares = details.shares.reduce((sum, share) => sum + (share.count * share.valuePerShare), 0);
+        const totalShares = details.shareCommitments.reduce((sum, commitment) => sum + commitment.amountPaid, 0);
         const totalLoans = details.loans.filter(l => l.status === 'active' || l.status === 'overdue').reduce((sum, loan) => sum + loan.remainingBalance, 0);
         const totalInitialBalance = details.savingAccounts.reduce((sum, acc) => sum + acc.initialBalance, 0);
 
@@ -144,7 +145,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shares, loans, loanRepayments, dividends, address, schoolHistory, serviceCharges } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shareCommitments, sharePayments, loans, loanRepayments, dividends, address, schoolHistory, serviceCharges } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -164,10 +165,11 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 md:grid-cols-7 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-8 md:grid-cols-8 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
+                    <TabsTrigger value="share-payments">Share Payments</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
                     <TabsTrigger value="service-charges">Service Charges</TabsTrigger>
@@ -178,7 +180,7 @@ export default function MemberProfilePage() {
                 <TabsContent value="overview" className="mt-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Value</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Paid</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</div><div className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</div></CardContent></Card>
                     </div>
@@ -296,27 +298,59 @@ export default function MemberProfilePage() {
                 
                 {/* Shares Tab */}
                 <TabsContent value="shares" className="mt-6">
-                    <SectionCard title="Share Allocations">
+                    <SectionCard title="Share Commitments">
                        <div className="overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader><TableRow>
-                                    <TableHead>Allocation Date</TableHead>
                                     <TableHead>Share Type</TableHead>
-                                    <TableHead className="text-right">Count</TableHead>
-                                    <TableHead className="text-right">Value per Share</TableHead>
-                                    <TableHead className="text-right">Total Value</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Committed</TableHead>
+                                    <TableHead className="text-right">Paid</TableHead>
+                                    <TableHead className="text-right">Balance</TableHead>
+                                    <TableHead className="w-[200px]">Progress</TableHead>
                                 </TableRow></TableHeader>
                                 <TableBody>
-                                     {shares.length > 0 ? shares.map(share => (
-                                        <TableRow key={share.id}>
-                                            <TableCell>{format(new Date(share.allocationDate), 'PPP')}</TableCell>
-                                            <TableCell>{share.shareTypeName}</TableCell>
-                                            <TableCell className="text-right">{share.count}</TableCell>
-                                            <TableCell className="text-right">{share.valuePerShare.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                            <TableCell className="text-right font-semibold">{(share.count * share.valuePerShare).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                     {shareCommitments.length > 0 ? shareCommitments.map(c => (
+                                        <TableRow key={c.id}>
+                                            <TableCell>{c.shareType.name}</TableCell>
+                                            <TableCell><Badge variant={c.status === 'PAID_OFF' ? 'default' : 'secondary'}>{c.status}</Badge></TableCell>
+                                            <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right font-medium text-green-600">{c.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right font-semibold">{(c.totalCommittedAmount - c.amountPaid).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell>
+                                                <Progress value={(c.amountPaid / c.totalCommittedAmount) * 100} className="h-2"/>
+                                            </TableCell>
                                         </TableRow>
                                      )) : (
-                                         <TableRow><TableCell colSpan={5} className="h-24 text-center">No share allocations found.</TableCell></TableRow>
+                                         <TableRow><TableCell colSpan={6} className="h-24 text-center">No share commitments found.</TableCell></TableRow>
+                                     )}
+                                </TableBody>
+                            </Table>
+                       </div>
+                    </SectionCard>
+                </TabsContent>
+
+                 {/* Share Payments Tab */}
+                <TabsContent value="share-payments" className="mt-6">
+                    <SectionCard title="Share Payment History">
+                       <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader><TableRow>
+                                    <TableHead>Payment Date</TableHead>
+                                    <TableHead>Amount Paid</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Deposit Mode</TableHead>
+                                </TableRow></TableHeader>
+                                <TableBody>
+                                     {sharePayments.length > 0 ? sharePayments.map(p => (
+                                        <TableRow key={p.id}>
+                                            <TableCell>{format(new Date(p.paymentDate), 'PPP')}</TableCell>
+                                            <TableCell className="font-semibold text-primary">{p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell><Badge variant={p.status === 'approved' ? 'default' : 'secondary'}>{p.status}</Badge></TableCell>
+                                            <TableCell>{p.depositMode}</TableCell>
+                                        </TableRow>
+                                     )) : (
+                                         <TableRow><TableCell colSpan={4} className="h-24 text-center">No share payments have been recorded.</TableCell></TableRow>
                                      )}
                                 </TableBody>
                             </Table>

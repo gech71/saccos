@@ -4,7 +4,7 @@
 
 import prisma from '@/lib/prisma';
 import { format, compareDesc } from 'date-fns';
-import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Share, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend } from '@prisma/client';
+import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment } from '@prisma/client';
 
 export interface MemberDetails {
     member: Member;
@@ -12,7 +12,8 @@ export interface MemberDetails {
     address: Address | null;
     emergencyContact: EmergencyContact | null;
     savingAccounts: MemberSavingAccount[];
-    shares: (Share & { shareTypeName: string })[];
+    shareCommitments: (MemberShareCommitment & { shareType: { name: string } })[];
+    sharePayments: SharePayment[];
     loans: (Loan & { loanTypeName: string })[];
     dividends: Dividend[];
     loanRepayments: (LoanRepayment & { balanceAfter: number })[];
@@ -36,13 +37,18 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                     savingAccountType: true
                 }
             },
-            shares: {
-                where: { status: 'approved' },
+            memberShareCommitments: {
                 include: {
-                    shareType: true
+                    shareType: true,
+                    payments: {
+                        where: { status: 'approved' },
+                        orderBy: {
+                            paymentDate: 'desc'
+                        }
+                    }
                 },
-                orderBy: {
-                    allocationDate: 'desc'
+                 orderBy: {
+                    joinDate: 'desc'
                 }
             },
             dividends: {
@@ -153,6 +159,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         totalRepaid
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
+    const allSharePayments = member.memberShareCommitments.flatMap(c => c.payments);
 
     return {
         member,
@@ -160,7 +167,8 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         address: member.address,
         emergencyContact: member.emergencyContact,
         savingAccounts: member.memberSavingAccounts,
-        shares: member.shares.map(s => ({ ...s, shareTypeName: s.shareType.name })),
+        shareCommitments: member.memberShareCommitments.map(c => ({...c, payments:[], shareType: { name: c.shareType.name }})),
+        sharePayments: allSharePayments,
         loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name, repayments: [] })), // Clear repayments as they are handled separately
         dividends: member.dividends,
         loanRepayments: allLoanRepaymentsWithBalance,
