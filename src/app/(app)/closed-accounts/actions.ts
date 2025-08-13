@@ -32,11 +32,22 @@ export async function getClosedAccounts(): Promise<ClosedAccountWithDetails[]> {
       }
   });
 
-  const closureShareRefunds = await prisma.sharePayment.findMany({
-      where: {
-          commitmentId: 'CLOSURE_REFUND',
-          memberId: { in: memberIds }
+  // Fetch share payments related to closure commitments
+  const closureSharePayments = await prisma.sharePayment.findMany({
+    where: {
+      commitment: {
+        memberId: { in: memberIds },
+        shareType: { name: 'Closure Refund' },
+        status: 'CANCELLED'
       }
+    },
+    include: {
+        commitment: {
+            select: {
+                memberId: true
+            }
+        }
+    }
   });
 
 
@@ -45,8 +56,10 @@ export async function getClosedAccounts(): Promise<ClosedAccountWithDetails[]> {
     const finalInterestPayout = memberSavings.find(s => s.notes?.includes('Final interest'))?.amount || 0;
     const finalSavingsPayout = memberSavings.find(s => s.notes?.includes('Savings payout'))?.amount || 0;
     
-    // Share refunds are stored as negative numbers in the payment record
-    const finalSharesRefund = Math.abs(closureShareRefunds.find(p => p.memberId === member.id)?.amount || 0);
+    // Sum up all payments linked to this member's closure commitments
+    const finalSharesRefund = closureSharePayments
+        .filter(p => p.commitment.memberId === member.id)
+        .reduce((sum, p) => sum + p.amount, 0);
 
     return {
       ...member,
@@ -56,5 +69,3 @@ export async function getClosedAccounts(): Promise<ClosedAccountWithDetails[]> {
     };
   });
 }
-
-    

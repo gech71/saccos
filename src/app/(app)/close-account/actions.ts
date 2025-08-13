@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -92,6 +93,15 @@ export async function confirmAccountClosure(
     
     const member = await prisma.member.findUnique({ where: { id: memberId } });
     if (!member) throw new Error('Member not found');
+
+    // Find the 'Closure Refund' share type or fail
+    const closureShareType = await prisma.shareType.findFirst({
+        where: { name: 'Closure Refund' }
+    });
+
+    if (!closureShareType) {
+        throw new Error('A Share Type named "Closure Refund" must exist to process account closures. Please create it in Settings > Share Types.');
+    }
     
     const now = new Date();
     const transactionMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -138,10 +148,21 @@ export async function confirmAccountClosure(
 
         // 3. Post share refund as a separate payment record for clarity
         if (totalSharesPaid > 0) {
+            // Create a special commitment record for this refund
+            const refundCommitment = await tx.memberShareCommitment.create({
+                data: {
+                    memberId,
+                    shareTypeId: closureShareType.id,
+                    totalCommittedAmount: 0,
+                    amountPaid: -totalSharesPaid, // Negative to signify refund
+                    status: 'CANCELLED',
+                }
+            });
+
             await tx.sharePayment.create({
                 data: {
-                    commitmentId: 'CLOSURE_REFUND', // Placeholder as it's a refund, not tied to a single commitment
-                    amount: -totalSharesPaid, // Negative amount to signify a refund
+                    commitmentId: refundCommitment.id,
+                    amount: totalSharesPaid, // Positive amount for the payment record itself
                     paymentDate: now,
                     status: 'approved',
                     depositMode: depositMode,
@@ -159,9 +180,12 @@ export async function confirmAccountClosure(
             data: { balance: 0 },
         });
 
-        // 5. Update share commitments to cancelled
+        // 5. Update share commitments to cancelled (excluding the refund one)
         await tx.memberShareCommitment.updateMany({
-            where: { memberId },
+            where: { 
+                memberId,
+                status: { not: 'CANCELLED' }
+            },
             data: { status: 'CANCELLED' }
         })
 
