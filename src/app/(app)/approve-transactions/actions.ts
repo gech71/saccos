@@ -2,27 +2,34 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, Share, Dividend, Loan } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { addMonths } from 'date-fns';
 
-export type PendingTransaction = (Saving | Share | Dividend | Loan) & { 
+export type PendingTransaction = (Saving | SharePayment | Dividend | Loan) & { 
     transactionTypeLabel: string; 
     memberName: string;
     transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
-  const [pendingSavings, pendingShares, pendingDividends, pendingLoans] = await Promise.all([
+  const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans] = await Promise.all([
     prisma.saving.findMany({
       where: { status: 'pending' },
       include: { member: { select: { fullName: true }}},
       orderBy: { date: 'asc' },
     }),
-    prisma.share.findMany({
+    prisma.sharePayment.findMany({
       where: { status: 'pending' },
-      include: { member: { select: { fullName: true }}},
-      orderBy: { allocationDate: 'asc' },
+      include: { 
+          commitment: { 
+              include: { 
+                  member: { select: { fullName: true }},
+                  shareType: { select: { name: true }}
+                }
+            }
+        },
+      orderBy: { paymentDate: 'asc' },
     }),
     prisma.dividend.findMany({
       where: { status: 'pending' },
@@ -44,11 +51,11 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
     transactionCategory: 'Savings'
   }));
 
-  const formattedShares: PendingTransaction[] = pendingShares.map(s => ({
+  const formattedSharePayments: PendingTransaction[] = pendingSharePayments.map(s => ({
     ...s,
-    allocationDate: s.allocationDate.toISOString(),
-    transactionTypeLabel: 'Share Allocation',
-    memberName: s.member.fullName,
+    paymentDate: s.paymentDate.toISOString(),
+    transactionTypeLabel: `Share Payment (${s.commitment.shareType.name})`,
+    memberName: s.commitment.member.fullName,
     transactionCategory: 'Shares'
   }));
 
@@ -68,12 +75,12 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       transactionCategory: 'Loans'
   }));
   
-  const allTransactions = [...formattedSavings, ...formattedShares, ...formattedDividends, ...formattedLoans];
+  const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans];
   
   return allTransactions.sort(
       (a, b) => {
-        const dateA = new Date((a as any).date || (a as any).allocationDate || (a as any).disbursementDate).getTime();
-        const dateB = new Date((b as any).date || (b as any).allocationDate || (b as any).disbursementDate).getTime();
+        const dateA = new Date((a as any).date || (a as any).paymentDate || (a as any).disbursementDate || (a as any).distributionDate).getTime();
+        const dateB = new Date((b as any).date || (b as any).paymentDate || (b as any).disbursementDate || (b as any).distributionDate).getTime();
         return dateA - dateB;
       }
     );
@@ -106,11 +113,27 @@ export async function approveTransaction(txId: string, txType: string): Promise<
           data: { balance: { increment: amountChange } },
         });
 
-      } else if (txType === 'Share Allocation') {
-        const shareTx = await tx.share.findUnique({ where: { id: txId } });
-        if (!shareTx || shareTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
+      } else if (txType.startsWith('Share Payment')) {
+        const sharePaymentTx = await tx.sharePayment.findUnique({ where: { id: txId }, include: { commitment: true } });
+        if (!sharePaymentTx || sharePaymentTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
         
-        await tx.share.update({ where: { id: txId }, data: { status: 'approved' } });
+        await tx.sharePayment.update({ where: { id: txId }, data: { status: 'approved' } });
+        
+        const updatedCommitment = await tx.memberShareCommitment.update({
+            where: { id: sharePaymentTx.commitmentId },
+            data: {
+                amountPaid: {
+                    increment: sharePaymentTx.amount,
+                }
+            }
+        });
+
+        if (updatedCommitment.amountPaid >= updatedCommitment.totalCommittedAmount) {
+             await tx.memberShareCommitment.update({
+                where: { id: sharePaymentTx.commitmentId },
+                data: { status: 'PAID_OFF' }
+            });
+        }
         
       } else if (txType === 'Dividend Distribution') {
         await tx.dividend.update({
@@ -145,8 +168,8 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
    try {
     if (txType.startsWith('Savings')) {
         await prisma.saving.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType === 'Share Allocation') {
-        await prisma.share.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
+    } else if (txType.startsWith('Share Payment')) {
+        await prisma.sharePayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Dividend Distribution') {
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Loan Application') {

@@ -42,7 +42,7 @@ import {
     rejectMultipleTransactions,
     type PendingTransaction 
 } from './actions';
-import type { Saving, Share, Dividend, Loan } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 
 type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans';
@@ -225,14 +225,9 @@ export default function ApproveTransactionsPage() {
 
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Dividends') {
-        const savingOrDividend = tx as Saving | Dividend;
-        return `${savingOrDividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
-    }
-    if (tx.transactionCategory === 'Shares') {
-        const shareTx = tx as Share;
-        const totalValue = shareTx.totalValueForAllocation ?? (shareTx.count * shareTx.valuePerShare);
-        return `${shareTx.count} shares @ ${shareTx.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/share (Value: ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr)`;
+    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares') {
+        const anyTx = tx as Saving | SharePayment | Dividend;
+        return `${anyTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
     if (tx.transactionCategory === 'Loans') {
         const loanTx = tx as Loan;
@@ -243,7 +238,7 @@ export default function ApproveTransactionsPage() {
   
   const getTransactionTypeIcon = (txLabel: string) => {
       if (txLabel.startsWith('Savings')) return <HandCoins className="h-5 w-5 text-green-600" />;
-      if (txLabel === 'Share Allocation') return <PieChart className="h-5 w-5 text-blue-600" />;
+      if (txLabel.startsWith('Share Payment')) return <PieChart className="h-5 w-5 text-blue-600" />;
       if (txLabel === 'Dividend Distribution') return <Landmark className="h-5 w-5 text-purple-600" />;
       if (txLabel === 'Loan Application') return <Banknote className="h-5 w-5 text-indigo-600" />;
       return null;
@@ -252,15 +247,12 @@ export default function ApproveTransactionsPage() {
   const handleExport = () => {
     const dataToExport = filteredTransactions.map(tx => {
       let details = '';
-      if ('amount' in tx) details = `${(tx as Saving | Dividend).amount.toFixed(2)} Birr`;
-      else if ('count' in tx) {
-          const shareTx = tx as Share;
-          details = `${shareTx.count} shares @ ${shareTx.valuePerShare.toFixed(2)} Birr/share`;
-      } else if ('principalAmount' in tx) {
+      if ('amount' in tx) details = `${(tx as Saving | SharePayment | Dividend).amount.toFixed(2)} Birr`;
+      else if ('principalAmount' in tx) {
           details = `Loan of ${(tx as Loan).principalAmount.toFixed(2)} Birr`;
       }
       return {
-        'Date': new Date(tx.date || tx.allocationDate || tx.disbursementDate).toLocaleDateString(),
+        'Date': new Date((tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate).toLocaleDateString(),
         'Member': tx.memberName,
         'Transaction Type': tx.transactionTypeLabel,
         'Amount / Details': details,
@@ -338,7 +330,7 @@ export default function ApproveTransactionsPage() {
                         disabled={!canApprove}
                     />
                 </TableCell>
-                <TableCell>{new Date(tx.date || tx.allocationDate || tx.disbursementDate).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date((tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate).toLocaleDateString()}</TableCell>
                 <TableCell className="font-medium">{tx.memberName}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

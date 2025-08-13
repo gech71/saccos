@@ -16,6 +16,7 @@ import {
   FileDown,
   Loader2,
   List,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Table,
@@ -55,6 +56,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const initialPaymentFormState: Partial<SharePaymentInput> = {
   commitmentId: '',
@@ -182,6 +184,12 @@ export default function SharePaymentsPage() {
   const selectedCommitment = useMemo(() => {
     return pageData?.commitments.find(c => c.id === currentPayment.commitmentId);
   }, [pageData, currentPayment.commitmentId]);
+
+  const isUnderpayment = useMemo(() => {
+    if (!selectedCommitment || !currentPayment.amount) return false;
+    const expectedPayment = selectedCommitment.shareType.monthlyPayment || 0;
+    return expectedPayment > 0 && currentPayment.amount < expectedPayment;
+  }, [selectedCommitment, currentPayment.amount]);
 
 
   return (
@@ -336,7 +344,7 @@ export default function SharePaymentsPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            {selectedCommitment && (
+            {selectedCommitment?.shareType.monthlyPayment && (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                     <p>Expected Monthly Payment: <strong className="text-primary text-base">{(selectedCommitment.shareType.monthlyPayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</strong></p>
                 </div>
@@ -355,6 +363,12 @@ export default function SharePaymentsPage() {
                   required
               />
             </div>
+            {isUnderpayment && (
+              <Alert variant="destructive" className="flex items-center gap-2 text-xs">
+                <AlertTriangle className="h-4 w-4" />
+                This is less than the expected monthly payment.
+              </Alert>
+            )}
             <div>
               <Label htmlFor="paymentDate">Payment Date</Label>
               <Input id="paymentDate" name="paymentDate" type="date" value={currentPayment.paymentDate || ''} onChange={handleInputChange} required />
