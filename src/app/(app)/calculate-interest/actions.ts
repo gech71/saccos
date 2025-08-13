@@ -15,7 +15,7 @@ function roundToTwo(num: number) {
 
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
-    schools: Pick<School, 'id' | 'name'>[];
+    schools: Pick<School, 'id', 'name'>[];
     savingAccountTypes: Pick<SavingAccountType, 'id' | 'name' | 'interestRate'>[];
 }
 
@@ -48,13 +48,13 @@ export async function calculateInterest(criteria: {
   memberId?: string;
   accountTypeId?: string;
 }, period: DateRange): Promise<InterestCalculationResult[]> {
-  const { scope, schoolId, memberId, accountTypeId } = criteria;
-  if (!period.from) {
-      throw new Error("A start date for the period is required.");
+  if (!period.from || !period.to) {
+      throw new Error("A start and end date for the period are required.");
   }
   
+  const { scope, schoolId, memberId, accountTypeId } = criteria;
   const periodStart = startOfDay(period.from);
-  const periodEnd = period.to ? endOfDay(period.to) : endOfDay(period.from);
+  const periodEnd = endOfDay(period.to);
 
   if (periodStart > periodEnd) {
     return [];
@@ -91,7 +91,7 @@ export async function calculateInterest(criteria: {
   const results: InterestCalculationResult[] = accountsToProcess
     .map(account => {
     if (!account.savingAccountType) return null;
-
+    
     // 1. Calculate balance at the beginning of the period
     let balanceAtPeriodStart = account.initialBalance;
     const transactionsBeforePeriod = account.savings.filter(tx => new Date(tx.date) < periodStart);
@@ -99,7 +99,7 @@ export async function calculateInterest(criteria: {
         balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
     });
     
-    // Create a map of transactions by date for efficient lookup within the period
+    // 2. Create a map of transactions by date for efficient lookup within the period
     const transactionsByDate = new Map<string, Saving[]>();
     account.savings
         .filter(tx => {
@@ -114,31 +114,29 @@ export async function calculateInterest(criteria: {
             transactionsByDate.get(txDateString)!.push(tx);
         });
 
-    // 2. Calculate sum of daily CLOSING balances for the period
+    // 3. Calculate sum of daily CLOSING balances for the period
     let sumOfDailyBalances = 0;
     let runningBalance = balanceAtPeriodStart;
     
     const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
     
     intervalDays.forEach(day => {
-        // Apply transactions for the current day to get the closing balance
         const dayString = format(day, 'yyyy-MM-dd');
         const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
         transactionsOnThisDay.forEach(tx => {
             runningBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
         });
-
-        // Add the closing balance of the day to the total sum
         sumOfDailyBalances += runningBalance;
     });
 
-    // 3. Calculate Average Daily Balance and Interest
+    // 4. Calculate Average Daily Balance and Interest
     const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
+    if (daysInPeriod <= 0) return null;
     const averageDailyBalance = sumOfDailyBalances / daysInPeriod;
-    const monthlyRate = account.savingAccountType.interestRate / 12;
-    // Note: A more precise calculation would be (annualRate / 365) * daysInPeriod. 
-    // Using simple monthly rate as it's common practice.
-    const calculatedInterest = roundToTwo(averageDailyBalance * monthlyRate);
+    
+    const annualRate = account.savingAccountType.interestRate;
+    // The correct formula: ADB * (annual rate / 365) * number of days in the period
+    const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
 
     return {
       memberId: account.memberId,
@@ -167,6 +165,7 @@ export async function postInterestTransactions(
         return { success: false, message: 'A start date is required to post interest.' };
     }
     
+    // Use the end date of the selected period for the posting.
     const periodEndDate = period.to || period.from;
     const postingDate = endOfDay(periodEndDate);
     const monthName = format(postingDate, 'MMMM yyyy');
@@ -179,7 +178,7 @@ export async function postInterestTransactions(
             notes: {
                 contains: `Interest posting for period ending`
             },
-            month: monthName, 
+            date: postingDate,
         }
     });
 
