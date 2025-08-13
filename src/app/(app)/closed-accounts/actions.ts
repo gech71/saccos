@@ -15,35 +15,41 @@ export async function getClosedAccounts(): Promise<ClosedAccountWithDetails[]> {
     where: { status: 'inactive' },
     include: {
       school: true,
-      savings: {
-        where: {
-          notes: {
-            contains: 'on account closure',
-          },
-        },
-      },
-      sharePayments: {
-          where: {
-              commitmentId: 'CLOSURE_REFUND'
-          }
-      }
     },
     orderBy: {
       closureDate: 'desc',
     },
   });
 
-  return closedMembers.map(member => {
-    const finalInterestPayout = member.savings.find(s => s.notes?.includes('Final interest'))?.amount || 0;
-    const finalSavingsPayout = member.savings.find(s => s.notes?.includes('Savings payout'))?.amount || 0;
-    // Share refunds are stored as negative numbers in the payment record
-    const finalSharesRefund = Math.abs(member.sharePayments.find(p => p.commitmentId === 'CLOSURE_REFUND')?.amount || 0);
+  const memberIds = closedMembers.map(m => m.id);
 
-    // We remove the relations from the final object as they are processed and no longer needed on the client in this shape.
-    const { savings, sharePayments, ...restOfMember } = member;
+  const closureSavings = await prisma.saving.findMany({
+      where: {
+          memberId: { in: memberIds },
+          notes: {
+              contains: 'on account closure'
+          }
+      }
+  });
+
+  const closureShareRefunds = await prisma.sharePayment.findMany({
+      where: {
+          commitmentId: 'CLOSURE_REFUND',
+          memberId: { in: memberIds }
+      }
+  });
+
+
+  return closedMembers.map(member => {
+    const memberSavings = closureSavings.filter(s => s.memberId === member.id);
+    const finalInterestPayout = memberSavings.find(s => s.notes?.includes('Final interest'))?.amount || 0;
+    const finalSavingsPayout = memberSavings.find(s => s.notes?.includes('Savings payout'))?.amount || 0;
+    
+    // Share refunds are stored as negative numbers in the payment record
+    const finalSharesRefund = Math.abs(closureShareRefunds.find(p => p.memberId === member.id)?.amount || 0);
 
     return {
-      ...restOfMember,
+      ...member,
       finalSavingsPayout,
       finalInterestPayout,
       finalSharesRefund,
