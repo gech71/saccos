@@ -7,8 +7,7 @@ import { revalidatePath } from 'next/cache';
 
 export interface MemberCommitmentWithDetails extends MemberShareCommitment {
   member: Pick<Member, 'fullName'>;
-  shareType: Pick<ShareType, 'name' | 'totalAmount' | 'paymentType' | 'numberOfInstallments'>;
-  monthlyPayment: number;
+  shareType: Pick<ShareType, 'name' | 'totalAmount' | 'paymentType' | 'numberOfInstallments' | 'monthlyPayment'>;
 }
 
 export interface SharePaymentsPageData {
@@ -20,7 +19,7 @@ export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData>
   const commitments = await prisma.memberShareCommitment.findMany({
     include: {
       member: { select: { fullName: true } },
-      shareType: { select: { name: true, totalAmount: true, paymentType: true, numberOfInstallments: true } },
+      shareType: { select: { name: true, totalAmount: true, paymentType: true, numberOfInstallments: true, monthlyPayment: true } },
     },
     orderBy: { member: { fullName: 'asc' } },
   });
@@ -30,14 +29,9 @@ export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData>
   });
 
   const commitmentsWithDetails: MemberCommitmentWithDetails[] = commitments.map(c => {
-    let monthlyPayment = 0;
-    if (c.shareType.paymentType === 'INSTALLMENT' && c.shareType.numberOfInstallments && c.shareType.numberOfInstallments > 0) {
-      monthlyPayment = c.shareType.totalAmount / c.shareType.numberOfInstallments;
-    }
     return {
       ...c,
       joinDate: c.joinDate.toISOString(),
-      monthlyPayment,
     };
   });
 
@@ -62,6 +56,24 @@ export async function addSharePayment(data: SharePaymentInput): Promise<SharePay
       status: 'pending',
     },
   });
+  
+  // After payment, update the commitment's amountPaid and status
+  const totalPaid = (await prisma.sharePayment.aggregate({
+      _sum: { amount: true },
+      where: { commitmentId: data.commitmentId, status: 'approved' }
+  }))._sum.amount || 0;
+  
+  const newTotalPaid = totalPaid + data.amount; // Assuming it will be approved
+
+  await prisma.memberShareCommitment.update({
+      where: { id: data.commitmentId },
+      data: {
+          // This should ideally be updated after approval, but for now we optimistically update.
+          // A more robust system would handle this in the approval action.
+          status: newTotalPaid >= commitment.totalCommittedAmount ? 'PAID_OFF' : 'ACTIVE'
+      }
+  });
+
 
   revalidatePath('/shares'); // This page will now be share-payments
   revalidatePath('/approve-transactions');

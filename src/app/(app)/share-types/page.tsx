@@ -47,6 +47,7 @@ import { getShareTypes, addShareType, updateShareType, deleteShareType, type Sha
 import { useAuth } from '@/contexts/auth-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 const initialShareTypeFormState: Partial<ShareType> = {
   name: '',
@@ -54,7 +55,12 @@ const initialShareTypeFormState: Partial<ShareType> = {
   totalAmount: 0,
   paymentType: 'ONCE',
   numberOfInstallments: null,
+  monthlyPayment: null,
 };
+
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
 
 export default function ShareTypesPage() {
   const [shareTypesList, setShareTypesList] = useState<ShareType[]>([]);
@@ -94,17 +100,32 @@ export default function ShareTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentShareType(prev => ({ 
-        ...prev, 
-        [name]: name === 'totalAmount' || name === 'numberOfInstallments' ? (value === '' ? null : parseFloat(value)) : value 
-    }));
+    const isNumeric = ['totalAmount', 'numberOfInstallments', 'monthlyPayment'].includes(name);
+
+    setCurrentShareType(prev => {
+        const newValues = {
+            ...prev,
+            [name]: isNumeric ? (value === '' ? null : parseFloat(value)) : value
+        };
+        
+        if (name === 'totalAmount' || name === 'numberOfInstallments') {
+            const totalAmount = name === 'totalAmount' ? parseFloat(value) : prev.totalAmount;
+            const installments = name === 'numberOfInstallments' ? parseFloat(value) : prev.numberOfInstallments;
+            if (totalAmount && installments && installments > 0) {
+                newValues.monthlyPayment = roundToTwo(totalAmount / installments);
+            }
+        }
+        
+        return newValues;
+    });
   };
   
   const handlePaymentTypeChange = (value: 'ONCE' | 'INSTALLMENT') => {
       setCurrentShareType(prev => ({
           ...prev, 
           paymentType: value,
-          numberOfInstallments: value === 'ONCE' ? null : prev.numberOfInstallments
+          numberOfInstallments: value === 'ONCE' ? null : prev.numberOfInstallments,
+          monthlyPayment: value === 'ONCE' ? null : prev.monthlyPayment,
       }));
   }
 
@@ -114,9 +135,18 @@ export default function ShareTypesPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive total amount are required.' });
       return;
     }
-     if (currentShareType.paymentType === 'INSTALLMENT' && (!currentShareType.numberOfInstallments || currentShareType.numberOfInstallments <= 0)) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Number of installments is required for installment-based shares.' });
-      return;
+    
+    let minimumPayment = 0;
+    if (currentShareType.paymentType === 'INSTALLMENT') {
+        if (!currentShareType.numberOfInstallments || currentShareType.numberOfInstallments <= 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Number of installments is required for installment-based shares.' });
+            return;
+        }
+        minimumPayment = roundToTwo(currentShareType.totalAmount / currentShareType.numberOfInstallments);
+        if (!currentShareType.monthlyPayment || currentShareType.monthlyPayment < minimumPayment) {
+            toast({ variant: 'destructive', title: 'Error', description: `Monthly payment cannot be less than the minimum of ${minimumPayment.toFixed(2)}.` });
+            return;
+        }
     }
     
     setIsSubmitting(true);
@@ -126,6 +156,7 @@ export default function ShareTypesPage() {
         description: currentShareType.description,
         paymentType: currentShareType.paymentType || 'ONCE',
         numberOfInstallments: currentShareType.paymentType === 'INSTALLMENT' ? currentShareType.numberOfInstallments : null,
+        monthlyPayment: currentShareType.paymentType === 'INSTALLMENT' ? currentShareType.monthlyPayment : null,
     };
 
     try {
@@ -210,7 +241,7 @@ export default function ShareTypesPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead className="text-right">Total Amount (Birr)</TableHead>
-              <TableHead>Payment Type</TableHead>
+              <TableHead>Payment Details</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -224,7 +255,7 @@ export default function ShareTypesPage() {
                 <TableCell>
                   <Badge variant="secondary">
                     {shareType.paymentType === 'INSTALLMENT' 
-                      ? `${shareType.numberOfInstallments} Month Installment` 
+                      ? `${(shareType.monthlyPayment ?? 0).toLocaleString(undefined, {minimumFractionDigits:2})} Birr x ${shareType.numberOfInstallments} Mos`
                       : 'One-Time Payment'}
                   </Badge>
                 </TableCell>
@@ -297,21 +328,43 @@ export default function ShareTypesPage() {
               </RadioGroup>
             </div>
             {currentShareType.paymentType === 'INSTALLMENT' && (
-              <div>
-                <Label htmlFor="numberOfInstallments">Number of Installments (Months)</Label>
-                <div className="relative">
-                    <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        id="numberOfInstallments" 
-                        name="numberOfInstallments" 
-                        type="number" 
-                        step="1" 
-                        min="1"
-                        value={currentShareType.numberOfInstallments ?? ''} 
-                        onChange={handleInputChange} 
-                        className="pl-8"
-                        placeholder="e.g., 12"
-                    />
+              <div className="space-y-4 p-3 border rounded-md bg-muted/50">
+                <div>
+                  <Label htmlFor="numberOfInstallments">Number of Installments (Months)</Label>
+                  <div className="relative">
+                      <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                          id="numberOfInstallments" 
+                          name="numberOfInstallments" 
+                          type="number" 
+                          step="1" 
+                          min="1"
+                          value={currentShareType.numberOfInstallments ?? ''} 
+                          onChange={handleInputChange} 
+                          className="pl-8"
+                          placeholder="e.g., 12"
+                      />
+                  </div>
+                </div>
+                <Separator/>
+                <div>
+                   <Label htmlFor="monthlyPayment">Expected Monthly Contribution</Label>
+                   <div className="relative">
+                       <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                       <Input 
+                           id="monthlyPayment" 
+                           name="monthlyPayment" 
+                           type="number" 
+                           step="0.01" 
+                           value={currentShareType.monthlyPayment ?? ''}
+                           onChange={handleInputChange} 
+                           className="pl-7"
+                           placeholder="e.g., 50.00"
+                       />
+                   </div>
+                   <p className="text-xs text-muted-foreground mt-1">
+                       Calculated minimum is {currentShareType.totalAmount && currentShareType.numberOfInstallments ? roundToTwo(currentShareType.totalAmount / currentShareType.numberOfInstallments).toFixed(2) : '0.00'}. You can set a higher amount.
+                   </p>
                 </div>
               </div>
             )}

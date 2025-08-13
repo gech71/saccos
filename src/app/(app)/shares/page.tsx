@@ -166,6 +166,7 @@ export default function SharePaymentsPage() {
         'Total Committed (Birr)': c.totalCommittedAmount,
         'Amount Paid (Birr)': c.amountPaid,
         'Remaining Balance (Birr)': c.totalCommittedAmount - c.amountPaid,
+        'Expected Monthly Payment (Birr)': c.shareType.monthlyPayment?.toFixed(2) || 'N/A',
       };
     });
     exportToExcel(dataToExport, 'share_commitments_export');
@@ -253,7 +254,10 @@ export default function SharePaymentsPage() {
               return (
                 <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
                   <TableCell className="font-medium">{c.member.fullName}</TableCell>
-                  <TableCell><Badge variant="outline">{c.shareType.name}</Badge></TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{c.shareType.name}</Badge>
+                    {c.shareType.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
+                  </TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status}</Badge></TableCell>
                   <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
@@ -327,7 +331,7 @@ export default function SharePaymentsPage() {
             </div>
             {selectedCommitment && (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
-                    <p>Monthly Payment: <strong className="text-primary text-base">{(selectedCommitment.monthlyPayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</strong></p>
+                    <p>Expected Monthly Payment: <strong className="text-primary text-base">{(selectedCommitment.shareType.monthlyPayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</strong></p>
                 </div>
             )}
             <div>
