@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
   
   { title: 'Shares & Dividends', isGroupLabel: true },
-  { title: 'Share Allocations', href: '/shares', icon: PieChart, permission: 'share:view' },
+  { title: 'Share Payments', href: '/shares', icon: PieChart, permission: 'share:view' },
   { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'dividend:view' },
   
   { title: 'Administration', isGroupLabel: true },
@@ -91,30 +91,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading || !user?.permissions) {
-      return; // Don't run check until auth is resolved and user object is available
+      return; 
     }
-
-    // Allow access to the dashboard by default
+    
     if (pathname === '/dashboard') {
       return;
     }
 
-    // Find the required permission for the current path.
-    // Sort by href length descending to match more specific paths first (e.g., /settings/register before /settings)
     const navItem = [...navItems]
       .filter(item => item.href && item.href !== '/')
       .sort((a, b) => b.href!.length - a.href!.length)
       .find(item => pathname.startsWith(item.href!));
 
-    // If a nav item is found and it requires a specific permission...
     if (navItem && navItem.permission) {
-      // ...check if the user has that permission.
       if (!user.permissions.includes(navItem.permission)) {
-        // If not, redirect them silently.
         router.replace('/dashboard');
       }
     }
-    // If no specific nav item is found, we can assume it's a valid sub-page of an allowed route (already handled by startsWith) or a page that doesn't require specific permissions.
   }, [pathname, user, isLoading, router]);
 
   useEffect(() => {

@@ -1,137 +1,78 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Share, Member, ShareType } from '@prisma/client';
+import type { SharePayment, Member, ShareType, MemberShareCommitment } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-function roundToTwo(num: number) {
-    return Math.round(num * 100) / 100;
+export interface MemberCommitmentWithDetails extends MemberShareCommitment {
+  member: Pick<Member, 'fullName'>;
+  shareType: Pick<ShareType, 'name' | 'totalAmount' | 'paymentType' | 'numberOfInstallments'>;
+  monthlyPayment: number;
 }
 
-export interface SharesPageData {
-  shares: (Share & { memberName: string, shareTypeName: string })[];
-  members: Pick<Member, 'id' | 'fullName'>[];
-  shareTypes: ShareType[];
+export interface SharePaymentsPageData {
+  commitments: MemberCommitmentWithDetails[];
+  payments: SharePayment[];
 }
 
-export async function getSharesPageData(): Promise<SharesPageData> {
-  const [shares, members, shareTypes] = await Promise.all([
-    prisma.share.findMany({
-        include: {
-            member: { select: { fullName: true } },
-            shareType: { select: { name: true } }
-        },
-        orderBy: { allocationDate: 'desc' },
-    }),
-    prisma.member.findMany({
-        where: { status: 'active' },
-        select: { id: true, fullName: true },
-        orderBy: { fullName: 'asc' },
-    }),
-    prisma.shareType.findMany({ orderBy: { name: 'asc' } }),
-  ]);
+export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData> {
+  const commitments = await prisma.memberShareCommitment.findMany({
+    include: {
+      member: { select: { fullName: true } },
+      shareType: { select: { name: true, totalAmount: true, paymentType: true, numberOfInstallments: true } },
+    },
+    orderBy: { member: { fullName: 'asc' } },
+  });
+
+  const payments = await prisma.sharePayment.findMany({
+    orderBy: { paymentDate: 'desc' },
+  });
+
+  const commitmentsWithDetails: MemberCommitmentWithDetails[] = commitments.map(c => {
+    let monthlyPayment = 0;
+    if (c.shareType.paymentType === 'INSTALLMENT' && c.shareType.numberOfInstallments && c.shareType.numberOfInstallments > 0) {
+      monthlyPayment = c.shareType.totalAmount / c.shareType.numberOfInstallments;
+    }
+    return {
+      ...c,
+      joinDate: c.joinDate.toISOString(),
+      monthlyPayment,
+    };
+  });
 
   return {
-    shares: shares.map(s => ({
-        ...s,
-        memberName: s.member.fullName,
-        shareTypeName: s.shareType.name,
-        allocationDate: s.allocationDate.toISOString()
-    })),
-    members,
-    shareTypes,
+    commitments: commitmentsWithDetails,
+    payments: payments.map(p => ({ ...p, paymentDate: p.paymentDate.toISOString() })),
   };
 }
 
-export type ShareInput = Omit<Share, 'id' | 'valuePerShare' | 'status' | 'loanId' | 'totalValueForAllocation' | 'contributionAmount' | 'shareTypeName' | 'allocationDate'> & {
-    allocationDate: string;
-    count: number;
-};
+export type SharePaymentInput = Omit<SharePayment, 'id' | 'status'>;
 
-
-export async function addShare(data: ShareInput): Promise<Share> {
-  const member = await prisma.member.findUnique({ where: { id: data.memberId } });
-  if (!member) throw new Error("Member not found");
+export async function addSharePayment(data: SharePaymentInput): Promise<SharePayment> {
+  const commitment = await prisma.memberShareCommitment.findUnique({ where: { id: data.commitmentId } });
+  if (!commitment) throw new Error("Share commitment not found");
   
-  const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
-  if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
-  
-  const totalValueForAllocation = roundToTwo(data.count * shareType.valuePerShare);
+  if (data.amount <= 0) throw new Error("Payment amount must be positive.");
 
-  if (data.count <= 0) throw new Error("Number of shares must be positive.");
-
-  const newShare = await prisma.share.create({
+  const newPayment = await prisma.sharePayment.create({
     data: {
-      memberId: data.memberId,
-      shareTypeId: data.shareTypeId,
-      count: data.count,
-      allocationDate: new Date(data.allocationDate),
-      valuePerShare: shareType.valuePerShare,
+      ...data,
+      paymentDate: new Date(data.paymentDate),
       status: 'pending',
-      contributionAmount: totalValueForAllocation,
-      totalValueForAllocation,
-      depositMode: data.depositMode,
-      sourceName: data.sourceName,
-      transactionReference: data.transactionReference,
-      evidenceUrl: data.evidenceUrl,
     },
   });
 
-  revalidatePath('/shares');
+  revalidatePath('/shares'); // This page will now be share-payments
   revalidatePath('/approve-transactions');
-  return newShare;
+  return newPayment;
 }
 
-export async function updateShare(id: string, data: ShareInput): Promise<Share> {
-    const member = await prisma.member.findUnique({ where: { id: data.memberId } });
-    if (!member) throw new Error("Member not found");
-    
-    const shareType = await prisma.shareType.findUnique({ where: { id: data.shareTypeId } });
-    if (!shareType || shareType.valuePerShare <= 0) throw new Error("Share Type not found or has zero value");
-
-    const totalValueForAllocation = roundToTwo(data.count * shareType.valuePerShare);
-
-    if (data.count <= 0) throw new Error("Number of shares must be positive.");
-
-    const updatedShare = await prisma.share.update({
-        where: { id },
-        data: {
-            memberId: data.memberId,
-            shareTypeId: data.shareTypeId,
-            count: data.count,
-            allocationDate: new Date(data.allocationDate),
-            valuePerShare: shareType.valuePerShare,
-            status: 'pending', // Always require re-approval on edit
-            contributionAmount: totalValueForAllocation,
-            totalValueForAllocation,
-            depositMode: data.depositMode,
-            sourceName: data.sourceName,
-            transactionReference: data.transactionReference,
-            evidenceUrl: data.evidenceUrl,
-        },
-    });
-
-    revalidatePath('/shares');
-    revalidatePath('/approve-transactions');
-    return updatedShare;
+// Keeping these for now, but they will likely be deprecated.
+export async function updateShare(id: string, data: any): Promise<any> {
+    return Promise.resolve();
 }
 
 export async function deleteShare(id: string): Promise<{ success: boolean; message: string }> {
-  try {
-    const share = await prisma.share.findUnique({ where: { id } });
-    if (!share) {
-      return { success: false, message: 'Share record not found.' };
-    }
-    if (share.status === 'approved') {
-       return { success: false, message: 'Cannot delete an approved share record. Please contact an administrator for adjustments.' };
-    }
-    await prisma.share.delete({ where: { id } });
-    revalidatePath('/shares');
-    return { success: true, message: 'Share record deleted successfully.' };
-  } catch (error) {
-    console.error('Failed to delete share:', error);
-    return { success: false, message: 'An unexpected error occurred.' };
-  }
+    return { success: false, message: 'This action is deprecated.' };
 }

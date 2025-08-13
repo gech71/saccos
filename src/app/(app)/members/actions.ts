@@ -1,9 +1,8 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Prisma, SavingAccountType, ServiceChargeType } from '@prisma/client';
+import type { Prisma, SavingAccountType, ServiceChargeType, ShareType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 // This is the shape of the data the client page will receive
@@ -12,11 +11,9 @@ export interface MemberWithDetails extends Member {
     memberSavingAccounts: ({
         savingAccountType: { name: string; };
     } & Prisma.MemberSavingAccountGetPayload<{}>)[];
-    shareCommitments: {
-        shareTypeId: string;
-        shareTypeName: string;
-        monthlyCommittedAmount: number;
-    }[];
+    memberShareCommitments: ({
+        shareType: { name: string; };
+    } & Prisma.MemberShareCommitmentGetPayload<{}>)[];
     totalSavingsBalance: number;
     address: Prisma.AddressGetPayload<{}> | null;
     emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;
@@ -27,7 +24,7 @@ export interface MemberWithDetails extends Member {
 export interface MembersPageData {
   members: MemberWithDetails[];
   schools: { id: string; name: string }[];
-  shareTypes: { id: string; name: string; valuePerShare: number }[];
+  shareTypes: ShareType[];
   savingAccountTypes: SavingAccountType[];
   serviceChargeTypes: ServiceChargeType[];
 }
@@ -41,9 +38,9 @@ export async function getMembersPageData(): Promise<MembersPageData> {
                     savingAccountType: { select: { name: true } }
                 }
             },
-            shareCommitments: {
+            memberShareCommitments: {
                 include: {
-                    shareType: { select: { name: true, valuePerShare: true } }
+                    shareType: { select: { name: true } }
                 }
             },
             address: true,
@@ -53,7 +50,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     });
 
     const schools = await prisma.school.findMany({ select: { id: true, name: true }, orderBy: {name: 'asc'} });
-    const shareTypes = await prisma.shareType.findMany({ select: { id: true, name: true, valuePerShare: true }, orderBy: {name: 'asc'} });
+    const shareTypes = await prisma.shareType.findMany({ orderBy: {name: 'asc'} });
     const savingAccountTypes = await prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true, interestRate: true }, orderBy: {name: 'asc'} });
     const serviceChargeTypes = await prisma.serviceChargeType.findMany({ orderBy: {name: 'asc'} });
 
@@ -62,11 +59,6 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
         ...member,
         joinDate: member.joinDate.toISOString(), // Ensure date is a string
-        shareCommitments: member.shareCommitments.map(sc => ({
-            shareTypeId: sc.shareTypeId,
-            shareTypeName: sc.shareType.name,
-            monthlyCommittedAmount: sc.monthlyCommittedAmount
-        })),
         totalSavingsBalance: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     }));
 
@@ -80,10 +72,10 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 }
 
 // Type for creating/updating a member, received from the client
-export type MemberInput = Omit<Member, 'schoolName' | 'savingAccountTypeName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts'> & {
+export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts' | 'memberShareCommitments'> & {
     joinDate: string;
     salary?: number | null;
-    shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
+    shareCommitmentIds?: string[];
     serviceChargeIds?: string[];
     address?: Prisma.AddressCreateWithoutMemberInput;
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
@@ -103,11 +95,10 @@ function validateMemberData(data: MemberInput) {
 
 
 export async function addMember(data: MemberInput): Promise<Member> {
-    const { id, address, emergencyContact, shareCommitments, serviceChargeIds, ...memberData } = data;
+    const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
 
     validateMemberData(data);
 
-    // Check for uniqueness of member ID
     const existingMemberById = await prisma.member.findUnique({
         where: { id: id },
     });
@@ -115,7 +106,6 @@ export async function addMember(data: MemberInput): Promise<Member> {
         throw new Error(`The member id already existed`);
     }
 
-    // Check for uniqueness of email
     if (memberData.email) {
         const existingMemberByEmail = await prisma.member.findUnique({
             where: { email: memberData.email },
@@ -125,14 +115,12 @@ export async function addMember(data: MemberInput): Promise<Member> {
         }
     }
     
-    // Prepare a clean payload for address creation, removing relational IDs
     let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
     if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
         const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
         cleanAddressPayload = restOfAddress;
     }
 
-    // Prepare a clean payload for emergency contact creation, removing relational IDs
     let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
     if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
         const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
@@ -145,6 +133,9 @@ export async function addMember(data: MemberInput): Promise<Member> {
         }
     });
 
+    const shareTypesToCommit = await prisma.shareType.findMany({
+        where: { id: { in: shareCommitmentIds || [] } }
+    });
 
     const newMember = await prisma.member.create({
         data: {
@@ -154,14 +145,12 @@ export async function addMember(data: MemberInput): Promise<Member> {
             joinDate: new Date(memberData.joinDate),
             address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
             emergencyContact: cleanEmergencyContactPayload ? { create: cleanEmergencyContactPayload } : undefined,
-            shareCommitments: shareCommitments ? {
-                create: shareCommitments.map(sc => ({
-                    monthlyCommittedAmount: sc.monthlyCommittedAmount,
-                    shareType: {
-                        connect: { id: sc.shareTypeId }
-                    }
+            memberShareCommitments: {
+                create: shareTypesToCommit.map(st => ({
+                    shareTypeId: st.id,
+                    totalCommittedAmount: st.totalAmount
                 }))
-            } : undefined,
+            },
             appliedServiceCharges: {
                 create: serviceChargesToApply.map(sc => ({
                     serviceChargeTypeId: sc.id,
@@ -174,14 +163,13 @@ export async function addMember(data: MemberInput): Promise<Member> {
         },
     });
     
-    // Create initial school history record
     const school = await prisma.school.findUnique({ where: {id: newMember.schoolId }});
     if (school) {
         await prisma.schoolHistory.create({
             data: {
                 memberId: newMember.id,
                 schoolId: school.id,
-                schoolName: school.name, // Denormalized
+                schoolName: school.name,
                 startDate: newMember.joinDate,
                 endDate: null,
             }
@@ -190,15 +178,15 @@ export async function addMember(data: MemberInput): Promise<Member> {
 
     revalidatePath('/members');
     revalidatePath('/applied-service-charges');
+    revalidatePath('/shares');
     return newMember;
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
-    const { address, emergencyContact, shareCommitments, serviceChargeIds, salary, ...memberData } = data;
+    const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = data;
 
     validateMemberData(data);
 
-    // Uniqueness checks for email
     if (memberData.email) {
         const existingMemberByEmail = await prisma.member.findUnique({
             where: { email: memberData.email },
@@ -210,17 +198,17 @@ export async function updateMember(id: string, data: MemberInput): Promise<Membe
     
     const existingMember = await prisma.member.findUnique({
       where: { id },
-      select: { address: true, emergencyContact: true },
+      select: { address: true, emergencyContact: true, memberShareCommitments: { select: { shareTypeId: true }} },
     });
+
+    if (!existingMember) throw new Error("Member not found");
     
-    // Prepare a clean payload for address upsert, removing relational IDs
     let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
     if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
         const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
         cleanAddressPayload = restOfAddress;
     }
 
-    // Prepare a clean payload for emergency contact upsert, removing relational IDs
     let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
     if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
         const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
@@ -234,6 +222,16 @@ export async function updateMember(id: string, data: MemberInput): Promise<Membe
     const emergencyContactUpdate = cleanEmergencyContactPayload
         ? { upsert: { create: cleanEmergencyContactPayload, update: cleanEmergencyContactPayload } }
         : (existingMember?.emergencyContact ? { delete: true } : undefined);
+        
+    const shareTypesToCommit = await prisma.shareType.findMany({
+        where: { id: { in: shareCommitmentIds || [] } }
+    });
+    
+    const existingCommitmentIds = new Set(existingMember.memberShareCommitments.map(c => c.shareTypeId));
+    const newCommitmentIds = new Set(shareCommitmentIds || []);
+
+    const commitmentsToAdd = shareTypesToCommit.filter(st => !existingCommitmentIds.has(st.id));
+    const commitmentsToRemove = Array.from(existingCommitmentIds).filter(id => !newCommitmentIds.has(id));
 
     const updatedMember = await prisma.member.update({
         where: { id },
@@ -243,19 +241,20 @@ export async function updateMember(id: string, data: MemberInput): Promise<Membe
             joinDate: new Date(memberData.joinDate),
             address: addressUpdate,
             emergencyContact: emergencyContactUpdate,
-            shareCommitments: {
-                 deleteMany: {},
-                 create: (shareCommitments || []).map(sc => ({
-                    monthlyCommittedAmount: sc.monthlyCommittedAmount,
-                    shareType: {
-                        connect: { id: sc.shareTypeId }
-                    }
+            memberShareCommitments: {
+                 deleteMany: {
+                     shareTypeId: { in: commitmentsToRemove }
+                 },
+                 create: commitmentsToAdd.map(st => ({
+                    shareTypeId: st.id,
+                    totalCommittedAmount: st.totalAmount,
                 }))
             }
         },
     });
 
     revalidatePath('/members');
+    revalidatePath('/shares');
     return updatedMember;
 }
 
@@ -275,166 +274,5 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
     } catch (error) {
         console.error("Failed to delete member:", error);
         return { success: false, message: 'Failed to delete member. They may have related records that could not be deleted.' };
-    }
-}
-
-export async function importMembers(data: {
-  savingAccountTypeId: string;
-  members: { memberId: string, fullName: string; savingsBalance: number; schoolId: string }[];
-}): Promise<{ success: boolean; message: string, createdCount: number }> {
-    const { savingAccountTypeId, members } = data;
-
-    if (!savingAccountTypeId || !members.length) {
-        return { success: false, message: 'Saving Account Type, and at least one member are required.', createdCount: 0 };
-    }
-
-    const savingAccountType = await prisma.savingAccountType.findUnique({
-        where: { id: savingAccountTypeId },
-    });
-
-    if (!savingAccountType) {
-        return { success: false, message: 'Invalid Saving Account Type selected.', createdCount: 0 };
-    }
-    
-    const existingMemberIds = (await prisma.member.findMany({
-        where: { id: { in: members.map(m => m.memberId) } },
-        select: { id: true }
-    })).map(m => m.id);
-    
-    const membersToCreate = members.filter(m => !existingMemberIds.includes(m.memberId));
-    const skippedCount = members.length - membersToCreate.length;
-
-    if (membersToCreate.length === 0) {
-        return { success: true, message: `Import finished. ${skippedCount} member(s) were skipped as they already exist.`, createdCount: 0 };
-    }
-
-    let createdCount = 0;
-    
-    await prisma.$transaction(async (tx) => {
-      for (const [i, member] of membersToCreate.entries()) {
-        const uniqueSuffix = `${Date.now()}${i}`;
-        let expectedSaving = 0;
-        if (savingAccountType.contributionType === 'FIXED') {
-            expectedSaving = savingAccountType.contributionValue;
-        }
-
-        const newMember = await tx.member.create({
-          data: {
-            id: member.memberId,
-            fullName: member.fullName,
-            email: `${member.memberId}@placeholder.email`,
-            sex: 'Male', // Default value
-            phoneNumber: uniqueSuffix, // Placeholder phone
-            schoolId: member.schoolId,
-            joinDate: new Date(),
-            status: 'active',
-            salary: 0,
-          }
-        });
-
-        await tx.memberSavingAccount.create({
-          data: {
-            memberId: newMember.id,
-            savingAccountTypeId: savingAccountTypeId,
-            accountNumber: `IMP-${newMember.id.slice(-6)}`,
-            expectedMonthlySaving: expectedSaving,
-            initialBalance: member.savingsBalance, // Set initial balance
-            balance: member.savingsBalance, // Set current balance
-          }
-        });
-
-        const school = await tx.school.findUnique({ where: {id: newMember.schoolId }});
-        if (school) {
-            await tx.schoolHistory.create({
-                data: {
-                    memberId: newMember.id,
-                    schoolId: school.id,
-                    schoolName: school.name,
-                    startDate: newMember.joinDate,
-                    endDate: null,
-                }
-            });
-        }
-        
-        createdCount++;
-      }
-    }, {
-        timeout: 30000 // Set timeout to 30 seconds
-    });
-
-    revalidatePath('/members');
-    return { 
-        success: true, 
-        message: `Successfully imported ${createdCount} new members. ${skippedCount > 0 ? `${skippedCount} member(s) were skipped as duplicates.` : ''}`.trim(),
-        createdCount: createdCount 
-    };
-}
-
-
-export async function transferMember(
-    memberId: string, 
-    newSchoolId: string, 
-    reason?: string
-): Promise<{ success: boolean; message: string }> {
-    const today = new Date();
-
-    try {
-        const member = await prisma.member.findUnique({
-            where: { id: memberId },
-            include: { school: true }
-        });
-
-        if (!member) {
-            return { success: false, message: "Member not found." };
-        }
-        
-        if (member.schoolId === newSchoolId) {
-            return { success: false, message: "Member is already in the selected school." };
-        }
-
-        const newSchool = await prisma.school.findUnique({ where: { id: newSchoolId } });
-        if (!newSchool) {
-            return { success: false, message: "The new school does not exist." };
-        }
-
-        await prisma.$transaction(async (tx) => {
-            // 1. End the current school history record
-            const currentHistory = await tx.schoolHistory.findFirst({
-                where: { memberId: memberId, endDate: null },
-                orderBy: { startDate: 'desc' }
-            });
-
-            if (currentHistory) {
-                await tx.schoolHistory.update({
-                    where: { id: currentHistory.id },
-                    data: { endDate: today }
-                });
-            }
-
-            // 2. Create the new school history record
-            await tx.schoolHistory.create({
-                data: {
-                    memberId: memberId,
-                    schoolId: newSchoolId,
-                    schoolName: newSchool.name,
-                    startDate: today,
-                    endDate: null,
-                    reason: reason,
-                }
-            });
-
-            // 3. Update the member's current schoolId
-            await tx.member.update({
-                where: { id: memberId },
-                data: { schoolId: newSchoolId }
-            });
-        });
-
-        revalidatePath('/members');
-        revalidatePath(`/member-profile/${memberId}`);
-        return { success: true, message: `Successfully transferred ${member.fullName} to ${newSchool.name}.` };
-    } catch (error) {
-        console.error("Transfer failed:", error);
-        return { success: false, message: "An unexpected error occurred during the transfer." };
     }
 }

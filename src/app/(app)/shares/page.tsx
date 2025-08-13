@@ -1,11 +1,22 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, PieChart as LucidePieChart, DollarSign, Banknote, Wallet, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
+import {
+  PlusCircle,
+  Search,
+  Filter,
+  DollarSign,
+  Banknote,
+  Wallet,
+  Check,
+  ChevronsUpDown,
+  FileDown,
+  Loader2,
+  List,
+} from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -23,85 +34,53 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
-import { StatCard } from '@/components/stat-card';
 import { FileUpload } from '@/components/file-upload';
-import { getSharesPageData, addShare, updateShare, deleteShare, type ShareInput } from './actions';
-import type { Share, Member, ShareType } from '@prisma/client';
+import { getSharePaymentsPageData, addSharePayment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails } from './actions';
+import { Progress } from '@/components/ui/progress';
 
-const initialShareFormState: Partial<ShareInput & {id?: string, count: number}> = {
-  memberId: undefined,
-  shareTypeId: undefined,
-  count: 0,
-  allocationDate: new Date().toISOString().split('T')[0],
+const initialPaymentFormState: Partial<SharePaymentInput> = {
+  commitmentId: '',
+  amount: 0,
+  paymentDate: new Date().toISOString().split('T')[0],
   depositMode: 'Cash',
   sourceName: '',
   transactionReference: '',
   evidenceUrl: '',
 };
 
-export default function SharesPage() {
-  const [shares, setShares] = useState<Share[]>([]);
-  const [members, setMembersState] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
-  const [shareTypes, setShareTypesState] = useState<ShareType[]>([]);
+export default function SharePaymentsPage() {
+  const [pageData, setPageData] = useState<SharePaymentsPageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [shareToDelete, setShareToDelete] = useState<string | null>(null);
-
-  const [currentShare, setCurrentShare] = useState<Partial<ShareInput & { id?: string, count: number, shareTypeName?: string }>>(initialShareFormState);
-  const [isEditing, setIsEditing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
-  const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
-  const { toast } = useToast();
+  const [currentPayment, setCurrentPayment] = useState<Partial<SharePaymentInput>>(initialPaymentFormState);
+  const [openCommitmentCombobox, setOpenCommitmentCombobox] = useState(false);
   
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<'all' | 'paid_off' | 'active'>('all');
+  const { toast } = useToast();
+
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
-        const data = await getSharesPageData();
-        setShares(data.shares);
-        setMembersState(data.members);
-        setShareTypesState(data.shareTypes);
+      const data = await getSharePaymentsPageData();
+      setPageData(data);
     } catch {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }
 
@@ -111,44 +90,32 @@ export default function SharesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCurrentShare(prev => ({ ...prev, [name]: value }));
+    setCurrentPayment(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
   };
 
-  const handleSelectChange = (name: keyof Share, value: string) => {
-    const selectedType = shareTypes.find(st => st.id === value);
-    const shareTypeName = selectedType?.name || '';
-    
-    if (name === 'shareTypeId') {
-        setCurrentShare(prev => ({ ...prev, shareTypeId: value, shareTypeName }));
-    } else {
-        setCurrentShare(prev => ({ ...prev, [name]: value }));
-    }
+  const handleSelectChange = (name: keyof SharePaymentInput, value: string) => {
+    setCurrentPayment(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleShareDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
-    setCurrentShare(prev => ({ ...prev, depositMode: value }));
+  const handleDepositModeChange = (value: 'Cash' | 'Bank' | 'Wallet') => {
+    setCurrentPayment(prev => ({ ...prev, depositMode: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShare.memberId || !currentShare.shareTypeId || !currentShare.count || currentShare.count <= 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a member, share type, and enter a valid number of shares.' });
+    if (!currentPayment.commitmentId || !currentPayment.amount || currentPayment.amount <= 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a commitment and enter a valid payment amount.' });
         return;
     }
-    if ((currentShare.depositMode === 'Bank' || currentShare.depositMode === 'Wallet') && !currentShare.sourceName) {
-        toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${currentShare.depositMode} Name.` });
+    if ((currentPayment.depositMode === 'Bank' || currentPayment.depositMode === 'Wallet') && !currentPayment.sourceName) {
+        toast({ variant: 'destructive', title: 'Error', description: `Please enter the ${currentPayment.depositMode} Name.` });
         return;
     }
     
     setIsSubmitting(true);
     try {
-        if (isEditing && currentShare.id) {
-            await updateShare(currentShare.id, currentShare as ShareInput);
-            toast({ title: 'Success', description: 'Share record updated and is pending re-approval.' });
-        } else {
-            await addShare(currentShare as ShareInput);
-            toast({ title: 'Submitted for Approval', description: `${currentShare.count} share(s) allocation submitted.` });
-        }
+        await addSharePayment(currentPayment as SharePaymentInput);
+        toast({ title: 'Submitted for Approval', description: `Share payment submitted.` });
         await fetchPageData();
         setIsModalOpen(false);
     } catch(error) {
@@ -160,110 +127,83 @@ export default function SharesPage() {
   };
 
   const openAddModal = () => {
-    setCurrentShare(initialShareFormState);
-    setIsEditing(false);
+    setCurrentPayment(initialPaymentFormState);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (share: Share) => {
-    setCurrentShare({
-      ...share,
-      allocationDate: share.allocationDate ? new Date(share.allocationDate).toISOString().split('T')[0] : '',
-    });
-    setIsEditing(true);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!shareToDelete) return;
-    const result = await deleteShare(shareToDelete);
-    if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        await fetchPageData();
-    } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.message });
-    }
-    setShareToDelete(null);
-    setIsDeleteDialogOpen(false);
-  };
-
-  const openDeleteDialog = (shareId: string) => {
-    setShareToDelete(shareId);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const filteredShares = useMemo(() => {
-    return shares.filter(share => {
-      const member = members.find(m => m.id === share.memberId);
-      if (!member) return false;
+  const filteredCommitments = useMemo(() => {
+    if (!pageData) return [];
+    return pageData.commitments.filter(commitment => {
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = (member.fullName.toLowerCase().includes(searchTermLower));
-      const matchesMemberFilter = selectedMemberFilter === 'all' || share.memberId === selectedMemberFilter;
-      return matchesSearchTerm && matchesMemberFilter;
+      const matchesSearchTerm = commitment.member.fullName.toLowerCase().includes(searchTermLower);
+      const matchesFilter = filter === 'all' || commitment.status.toLowerCase() === filter;
+      return matchesSearchTerm && matchesFilter;
     });
-  }, [shares, members, searchTerm, selectedMemberFilter]);
+  }, [pageData, searchTerm, filter]);
 
-  const totalSharesAllocated = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.count, 0), [filteredShares]);
-  const totalSharesValue = useMemo(() => filteredShares.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.totalValueForAllocation || (s.count * s.valuePerShare)), 0), [filteredShares]);
+  const { totalCommitted, totalPaid } = useMemo(() => {
+    if (!filteredCommitments) return { totalCommitted: 0, totalPaid: 0 };
+    const totalCommitted = filteredCommitments.reduce((sum, c) => sum + c.totalCommittedAmount, 0);
+    const totalPaid = filteredCommitments.reduce((sum, c) => sum + c.amountPaid, 0);
+    return { totalCommitted, totalPaid };
+  }, [filteredCommitments]);
   
-  const getStatusBadgeVariant = (status: 'pending' | 'approved' | 'rejected') => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-        case 'pending': return 'secondary';
-        case 'approved': return 'default';
-        case 'rejected': return 'destructive';
+        case 'ACTIVE': return 'default';
+        case 'PAID_OFF': return 'secondary';
         default: return 'outline';
     }
   };
 
   const handleExport = () => {
-    const dataToExport = filteredShares.map(share => {
-      const member = members.find(m => m.id === share.memberId);
+    if (!pageData) return;
+    const dataToExport = filteredCommitments.map(c => {
       return {
-        'Member Name': (share as any).memberName || member?.fullName || 'N/A',
-        'Share Type': (share as any).shareTypeName || shareTypes.find(st => st.id === share.shareTypeId)?.name || 'N/A',
-        'Status': share.status,
-        'Share Count': share.count,
-        'Value per Share (Birr)': share.valuePerShare,
-        'Total Value (Birr)': share.totalValueForAllocation || (share.count * share.valuePerShare),
-        'Contribution Amount (Birr)': share.contributionAmount,
-        'Allocation Date': new Date(share.allocationDate).toLocaleDateString(),
-        'Deposit Mode': share.depositMode || 'N/A',
+        'Member Name': c.member.fullName,
+        'Share Type': c.shareType.name,
+        'Status': c.status,
+        'Total Committed (Birr)': c.totalCommittedAmount,
+        'Amount Paid (Birr)': c.amountPaid,
+        'Remaining Balance (Birr)': c.totalCommittedAmount - c.amountPaid,
       };
     });
-    exportToExcel(dataToExport, 'shares_export');
+    exportToExcel(dataToExport, 'share_commitments_export');
   };
+  
+  const selectedCommitment = useMemo(() => {
+    return pageData?.commitments.find(c => c.id === currentPayment.commitmentId);
+  }, [pageData, currentPayment.commitmentId]);
 
-  const selectedShareType = useMemo(() => shareTypes.find(st => st.id === currentShare.shareTypeId), [shareTypes, currentShare.shareTypeId]);
-  const calculatedTotalValue = (selectedShareType?.valuePerShare || 0) * (currentShare.count || 0);
 
   return (
     <div className="space-y-6">
-      <PageTitle title={"Share Contribution & Allocation"} subtitle={"Record member share contributions and manage allocations."}>
+      <PageTitle title={"Share Payments & Commitments"} subtitle={"Record member share payments and track their commitments."}>
         <Button onClick={handleExport} variant="outline" disabled={isLoading}>
-            <FileDown className="mr-2 h-4 w-4" /> Export
+            <FileDown className="mr-2 h-4 w-4" /> Export Commitments
         </Button>
         <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-          <PlusCircle className="mr-2 h-5 w-5" /> Record Share Contribution
+          <PlusCircle className="mr-2 h-5 w-5" /> Record Share Payment
         </Button>
       </PageTitle>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Approved Shares (in view)</ShadcnCardTitle>
-                <LucidePieChart className="h-5 w-5 text-accent" />
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Committed Value (in view)</ShadcnCardTitle>
+                <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">{totalSharesAllocated.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-primary">{totalCommitted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
         <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Value of Approved Shares (in view)</ShadcnCardTitle>
+                <ShadcnCardTitle className="text-sm font-medium text-muted-foreground">Total Paid (in view)</ShadcnCardTitle>
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-primary">{totalSharesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
+                <div className="text-2xl font-bold text-primary">{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</div>
             </CardContent>
         </Card>
       </div>
@@ -276,19 +216,17 @@ export default function SharesPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full"
-              aria-label="Search share records"
             />
           </div>
-          <Select value={selectedMemberFilter} onValueChange={setSelectedMemberFilter}>
-            <SelectTrigger className="w-full sm:w-[220px]" aria-label="Filter by member">
-              <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Filter by member" />
+          <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+            <SelectTrigger className="w-full sm:w-[220px]">
+                <List className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Members</SelectItem>
-              {members.map(member => (
-                <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
-              ))}
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paid_off">Paid Off</SelectItem>
             </SelectContent>
           </Select>
       </div>
@@ -297,115 +235,88 @@ export default function SharesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member Name</TableHead>
+              <TableHead>Member</TableHead>
               <TableHead>Share Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Share Count</TableHead>
-              <TableHead className="text-right">Value per Share</TableHead>
-              <TableHead className="text-right">Total Value</TableHead>
-              <TableHead>Allocation Date</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              <TableHead className="text-right">Total Amount</TableHead>
+              <TableHead className="text-right">Amount Paid</TableHead>
+              <TableHead className="text-right">Balance</TableHead>
+              <TableHead className="w-[200px]">Progress</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredShares.length > 0 ? filteredShares.map(share => {
-              const currentAllocationValue = share.totalValueForAllocation || (share.count * share.valuePerShare);
-              const shareWithDetails = share as any;
+                <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredCommitments.length > 0 ? filteredCommitments.map(c => {
+                const balance = c.totalCommittedAmount - c.amountPaid;
+                const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
               return (
-                <TableRow key={share.id} className={share.status === 'pending' ? 'bg-yellow-500/10' : share.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                  <TableCell className="font-medium">{shareWithDetails.memberName}</TableCell>
-                  <TableCell><Badge variant="outline">{shareWithDetails.shareTypeName}</Badge></TableCell>
-                  <TableCell><Badge variant={getStatusBadgeVariant(share.status)}>{share.status.charAt(0).toUpperCase() + share.status.slice(1)}</Badge></TableCell>
-                  <TableCell className="text-right">{share.count}</TableCell>
-                  <TableCell className="text-right">{share.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                  <TableCell className="text-right font-semibold">{currentAllocationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                  <TableCell>{new Date(share.allocationDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <span className="sr-only">Open menu</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEditModal(share)} disabled={share.status === 'approved'}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openDeleteDialog(share.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10" disabled={share.status === 'approved'}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
+                  <TableCell className="font-medium">{c.member.fullName}</TableCell>
+                  <TableCell><Badge variant="outline">{c.shareType.name}</Badge></TableCell>
+                  <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status}</Badge></TableCell>
+                  <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell>
+                      <Progress value={progress} className="h-2" />
+                      <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
                   </TableCell>
                 </TableRow>
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  No share records found.
+                <TableCell colSpan={7} className="h-24 text-center">
+                  No share commitments found.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {filteredShares.length > 10 && (
-        <div className="flex justify-center mt-4">
-          <Button variant="outline">Load More</Button>
-        </div>
-      )}
-
+    
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-headline">{isEditing ? 'Edit Share Record' : 'Record Share Contribution'}</DialogTitle>
+            <DialogTitle className="font-headline">Record Share Payment</DialogTitle>
             <DialogDescription>
-              {isEditing ? 'Update this share allocation.' : 'Enter the number of shares purchased. This will be sent for approval.'}
+              Select a member's commitment and enter the payment details.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
-              <Label htmlFor="memberIdShare">Member</Label>
-              <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
+              <Label htmlFor="commitmentId">Member's Share Commitment</Label>
+              <Popover open={openCommitmentCombobox} onOpenChange={setOpenCommitmentCombobox}>
                 <PopoverTrigger asChild>
                   <Button
-                    id="memberIdShare"
+                    id="commitmentId"
                     variant="outline"
                     role="combobox"
-                    aria-expanded={openMemberCombobox}
                     className="w-full justify-between"
                   >
-                    {currentShare.memberId
-                      ? members.find((member) => member.id === currentShare.memberId)?.fullName
-                      : "Select member..."}
+                    {selectedCommitment
+                      ? `${selectedCommitment.member.fullName} - ${selectedCommitment.shareType.name}`
+                      : "Select commitment..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                   <Command>
-                    <CommandInput placeholder="Search member..." />
+                    <CommandInput placeholder="Search commitment..." />
                     <CommandList>
-                      <CommandEmpty>No member found.</CommandEmpty>
+                      <CommandEmpty>No commitments found.</CommandEmpty>
                       <CommandGroup>
-                        {members.map((member) => (
+                        {pageData?.commitments.filter(c => c.status === 'ACTIVE').map((c) => (
                           <CommandItem
-                            key={member.id}
-                            value={`${member.fullName}`}
+                            key={c.id}
+                            value={`${c.member.fullName} ${c.shareType.name}`}
                             onSelect={() => {
-                              handleSelectChange('memberId' as any, member.id);
-                              setOpenMemberCombobox(false);
+                              handleSelectChange('commitmentId', c.id);
+                              setOpenCommitmentCombobox(false);
                             }}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                currentShare.memberId === member.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {member.fullName}
+                            <Check className={cn("mr-2 h-4 w-4", currentPayment.commitmentId === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.member.fullName} - {c.shareType.name} (Bal: {(c.totalCommittedAmount - c.amountPaid).toFixed(2)})
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -414,67 +325,59 @@ export default function SharesPage() {
                 </PopoverContent>
               </Popover>
             </div>
-             <div>
-              <Label htmlFor="shareTypeIdShare">Share Type</Label>
-              <Select name="shareTypeId" value={currentShare.shareTypeId} onValueChange={(value) => handleSelectChange('shareTypeId', value)} required>
-                <SelectTrigger id="shareTypeIdShare"><SelectValue placeholder="Select share type" /></SelectTrigger>
-                <SelectContent>{shareTypes.map(st => (<SelectItem key={st.id} value={st.id}>{st.name} ({st.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr/share)</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
+            {selectedCommitment && (
+                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                    <p>Monthly Payment: <strong className="text-primary text-base">{(selectedCommitment.monthlyPayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</strong></p>
+                </div>
+            )}
             <div>
-              <Label htmlFor="count">Number of Shares to Purchase</Label>
+              <Label htmlFor="amount">Payment Amount</Label>
               <Input 
-                  id="count" 
-                  name="count" 
+                  id="amount" 
+                  name="amount" 
                   type="number" 
-                  step="1" 
+                  step="0.01" 
                   min="1"
-                  placeholder="0" 
-                  value={currentShare.count || ''} 
+                  placeholder="0.00"
+                  value={currentPayment.amount || ''} 
                   onChange={handleInputChange} 
                   required
               />
             </div>
-            {calculatedTotalValue > 0 && (
-              <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
-                  <p>Total Contribution Amount: <strong className="text-primary text-base">{calculatedTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></p>
-                  <p className="text-xs">Based on {currentShare.count} shares @ {selectedShareType?.valuePerShare.toLocaleString()} Birr/share.</p>
-              </div>
-            )}
             <div>
-              <Label htmlFor="allocationDateShare">Allocation Date</Label>
-              <Input id="allocationDateShare" name="allocationDate" type="date" value={currentShare.allocationDate || ''} onChange={handleInputChange} required />
+              <Label htmlFor="paymentDate">Payment Date</Label>
+              <Input id="paymentDate" name="paymentDate" type="date" value={currentPayment.paymentDate || ''} onChange={handleInputChange} required />
             </div>
 
             <Separator />
             <div>
               <Label htmlFor="depositModeShare">Deposit Mode</Label>
-              <RadioGroup id="depositModeShare" value={currentShare.depositMode || 'Cash'} onValueChange={handleShareDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
+              <RadioGroup id="depositModeShare" value={currentPayment.depositMode || 'Cash'} onValueChange={handleDepositModeChange} className="flex flex-wrap gap-x-4 gap-y-2 items-center pt-2">
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Cash" id="cashShare" /><Label htmlFor="cashShare">Cash</Label></div>
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Bank" id="bankShare" /><Label htmlFor="bankShare">Bank</Label></div>
                   <div className="flex items-center space-x-2"><RadioGroupItem value="Wallet" id="walletShare" /><Label htmlFor="walletShare">Wallet</Label></div>
               </RadioGroup>
             </div>
 
-            {(currentShare.depositMode === 'Bank' || currentShare.depositMode === 'Wallet') && (
+            {(currentPayment.depositMode === 'Bank' || currentPayment.depositMode === 'Wallet') && (
                 <div className="space-y-4 pt-2 pl-1 border-l-2 border-primary/50 ml-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-3">
                         <div>
                             <Label htmlFor="sourceName">Name</Label>
-                            <Input id="sourceName" name="sourceName" placeholder={`Enter ${currentShare.depositMode} Name`} value={currentShare.sourceName || ''} onChange={handleInputChange} />
+                            <Input id="sourceName" name="sourceName" placeholder={`Enter ${currentPayment.depositMode} Name`} value={currentPayment.sourceName || ''} onChange={handleInputChange} />
                         </div>
                         <div>
                             <Label htmlFor="transactionReference">Ref #</Label>
-                            <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={currentShare.transactionReference || ''} onChange={handleInputChange} />
+                            <Input id="transactionReference" name="transactionReference" placeholder="e.g., TRN123XYZ" value={currentPayment.transactionReference || ''} onChange={handleInputChange} />
                         </div>
                     </div>
                     <div className="pl-3">
                          <FileUpload
                             id="evidenceUrl"
                             label="Evidence Attachment"
-                            value={currentShare.evidenceUrl || ''}
+                            value={currentPayment.evidenceUrl || ''}
                             onValueChange={(newValue) => {
-                                setCurrentShare(prev => ({ ...prev, evidenceUrl: newValue }));
+                                setCurrentPayment(prev => ({ ...prev, evidenceUrl: newValue }));
                             }}
                         />
                     </div>
@@ -483,32 +386,15 @@ export default function SharesPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-              <Button type="submit" disabled={isSubmitting || calculatedTotalValue <= 0}>
+              <Button type="submit" disabled={isSubmitting || !currentPayment.commitmentId}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? 'Save Changes' : 'Submit for Approval'}
+                Submit for Approval
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
       
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the share record.
-              This is only possible for records that have not yet been approved.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
-              Yes, delete record
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

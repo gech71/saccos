@@ -43,17 +43,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getShareTypes, addShareType, updateShareType, deleteShareType } from './actions';
+import { getShareTypes, addShareType, updateShareType, deleteShareType, type ShareTypeInput } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 
-const initialShareTypeFormState: Partial<Omit<ShareType, 'id'>> = {
+const initialShareTypeFormState: Partial<ShareType> = {
   name: '',
   description: '',
-  valuePerShare: undefined,
-  contributionFrequency: 'ONCE',
-  contributionDurationMonths: null,
+  totalAmount: 0,
+  paymentType: 'ONCE',
+  numberOfInstallments: null,
 };
 
 export default function ShareTypesPage() {
@@ -96,32 +96,36 @@ export default function ShareTypesPage() {
     const { name, value } = e.target;
     setCurrentShareType(prev => ({ 
         ...prev, 
-        [name]: name === 'valuePerShare' || name === 'contributionDurationMonths' ? (value === '' ? null : parseFloat(value)) : value 
+        [name]: name === 'totalAmount' || name === 'numberOfInstallments' ? (value === '' ? null : parseFloat(value)) : value 
     }));
   };
   
-  const handleFrequencyChange = (value: 'ONCE' | 'MONTHLY') => {
+  const handlePaymentTypeChange = (value: 'ONCE' | 'INSTALLMENT') => {
       setCurrentShareType(prev => ({
           ...prev, 
-          contributionFrequency: value,
-          contributionDurationMonths: value === 'ONCE' ? null : prev.contributionDurationMonths
+          paymentType: value,
+          numberOfInstallments: value === 'ONCE' ? null : prev.numberOfInstallments
       }));
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentShareType.name || currentShareType.valuePerShare === undefined || currentShareType.valuePerShare <= 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive value per share are required.' });
+    if (!currentShareType.name || currentShareType.totalAmount === undefined || currentShareType.totalAmount <= 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Share type name and a valid positive total amount are required.' });
+      return;
+    }
+     if (currentShareType.paymentType === 'INSTALLMENT' && (!currentShareType.numberOfInstallments || currentShareType.numberOfInstallments <= 0)) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Number of installments is required for installment-based shares.' });
       return;
     }
     
     setIsSubmitting(true);
-    const dataToSave = {
+    const dataToSave: ShareTypeInput = {
         name: currentShareType.name!,
-        valuePerShare: currentShareType.valuePerShare!,
+        totalAmount: currentShareType.totalAmount!,
         description: currentShareType.description,
-        contributionFrequency: currentShareType.contributionFrequency || 'ONCE',
-        contributionDurationMonths: currentShareType.contributionFrequency === 'MONTHLY' ? currentShareType.contributionDurationMonths : null,
+        paymentType: currentShareType.paymentType || 'ONCE',
+        numberOfInstallments: currentShareType.paymentType === 'INSTALLMENT' ? currentShareType.numberOfInstallments : null,
     };
 
     try {
@@ -129,7 +133,7 @@ export default function ShareTypesPage() {
             await updateShareType(currentShareType.id, dataToSave);
             toast({ title: 'Success', description: 'Share type updated successfully.' });
         } else {
-            await addShareType(dataToSave as Omit<ShareType, 'id'>);
+            await addShareType(dataToSave);
             toast({ title: 'Success', description: 'Share type added successfully.' });
         }
         await fetchShareTypes();
@@ -205,8 +209,8 @@ export default function ShareTypesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead className="text-right">Value per Share (Birr)</TableHead>
-              <TableHead>Contribution</TableHead>
+              <TableHead className="text-right">Total Amount (Birr)</TableHead>
+              <TableHead>Payment Type</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -216,12 +220,12 @@ export default function ShareTypesPage() {
             ) : filteredShareTypes.length > 0 ? filteredShareTypes.map(shareType => (
               <TableRow key={shareType.id}>
                 <TableCell className="font-medium">{shareType.name}</TableCell>
-                <TableCell className="text-right font-semibold">{shareType.valuePerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                <TableCell className="text-right font-semibold">{shareType.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell>
                   <Badge variant="secondary">
-                    {shareType.contributionFrequency === 'MONTHLY' 
-                      ? `${shareType.contributionDurationMonths} Months` 
-                      : 'One-Time'}
+                    {shareType.paymentType === 'INSTALLMENT' 
+                      ? `${shareType.numberOfInstallments} Month Installment` 
+                      : 'One-Time Payment'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -268,16 +272,16 @@ export default function ShareTypesPage() {
               <Input id="name" name="name" value={currentShareType.name || ''} onChange={handleInputChange} required />
             </div>
              <div>
-                <Label htmlFor="valuePerShare">Value per Share (Birr) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="totalAmount">Total Amount (Birr) <span className="text-destructive">*</span></Label>
                 <div className="relative">
                     <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        id="valuePerShare" 
-                        name="valuePerShare" 
+                        id="totalAmount" 
+                        name="totalAmount" 
                         type="number" 
                         step="0.01" 
                         min="0.01"
-                        value={currentShareType.valuePerShare ?? ''} 
+                        value={currentShareType.totalAmount ?? ''} 
                         onChange={handleInputChange} 
                         required 
                         className="pl-7"
@@ -286,24 +290,24 @@ export default function ShareTypesPage() {
                 </div>
             </div>
             <div>
-              <Label>Contribution Frequency</Label>
-              <RadioGroup value={currentShareType.contributionFrequency} onValueChange={handleFrequencyChange} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
+              <Label>Payment Type</Label>
+              <RadioGroup value={currentShareType.paymentType} onValueChange={handlePaymentTypeChange} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
                 <div className="flex items-center space-x-2"><RadioGroupItem value="ONCE" id="once"/><Label htmlFor="once">One-Time</Label></div>
-                <div className="flex items-center space-x-2"><RadioGroupItem value="MONTHLY" id="monthly"/><Label htmlFor="monthly">Monthly</Label></div>
+                <div className="flex items-center space-x-2"><RadioGroupItem value="INSTALLMENT" id="monthly"/><Label htmlFor="monthly">Installment</Label></div>
               </RadioGroup>
             </div>
-            {currentShareType.contributionFrequency === 'MONTHLY' && (
+            {currentShareType.paymentType === 'INSTALLMENT' && (
               <div>
-                <Label htmlFor="contributionDurationMonths">Contribution Duration (Months)</Label>
+                <Label htmlFor="numberOfInstallments">Number of Installments (Months)</Label>
                 <div className="relative">
                     <CalendarClock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        id="contributionDurationMonths" 
-                        name="contributionDurationMonths" 
+                        id="numberOfInstallments" 
+                        name="numberOfInstallments" 
                         type="number" 
                         step="1" 
                         min="1"
-                        value={currentShareType.contributionDurationMonths ?? ''} 
+                        value={currentShareType.numberOfInstallments ?? ''} 
                         onChange={handleInputChange} 
                         className="pl-8"
                         placeholder="e.g., 12"
@@ -332,7 +336,7 @@ export default function ShareTypesPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the share type.
-              This will fail if the share type is already in use.
+              This will fail if the share type is already in use by any member commitments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
