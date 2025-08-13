@@ -266,7 +266,7 @@ function AccountStatementContent() {
                             mode="single"
                             captionLayout="dropdown-buttons"
                             fromYear={1990}
-                            toYear={new Date().getFullYear()}
+                            toYear={new Date().getFullYear() + 5}
                             selected={startDate}
                             onSelect={setStartDate}
                             initialFocus
@@ -292,7 +292,7 @@ function AccountStatementContent() {
                             mode="single"
                             captionLayout="dropdown-buttons"
                             fromYear={1990}
-                            toYear={new Date().getFullYear()}
+                            toYear={new Date().getFullYear() + 5}
                             selected={endDate}
                             onSelect={setEndDate}
                             initialFocus

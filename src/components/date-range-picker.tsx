@@ -106,7 +106,7 @@ export function DateRangePicker({
                     disabled={disabled}
                     captionLayout="dropdown-buttons"
                     fromYear={1990}
-                    toYear={new Date().getFullYear()}
+                    toYear={new Date().getFullYear() + 5}
                 />
             </PopoverContent>
             </Popover>
@@ -138,7 +138,7 @@ export function DateRangePicker({
                     disabled={(date) => disabled || (dateRange?.from ? date < dateRange.from : false)}
                     captionLayout="dropdown-buttons"
                     fromYear={1990}
-                    toYear={new Date().getFullYear()}
+                    toYear={new Date().getFullYear() + 5}
                 />
             </PopoverContent>
             </Popover>
