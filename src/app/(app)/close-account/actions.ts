@@ -93,15 +93,6 @@ export async function confirmAccountClosure(
     
     const member = await prisma.member.findUnique({ where: { id: memberId } });
     if (!member) throw new Error('Member not found');
-
-    // Find the 'Closure Refund' share type or fail
-    const closureShareType = await prisma.shareType.findFirst({
-        where: { name: 'Closure Refund' }
-    });
-
-    if (!closureShareType) {
-        throw new Error('A Share Type named "Closure Refund" must exist to process account closures. Please create it in Settings > Share Types.');
-    }
     
     const now = new Date();
     const transactionMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -145,31 +136,23 @@ export async function confirmAccountClosure(
                 evidenceUrl,
             }});
         }
-
-        // 3. Post share refund as a separate payment record for clarity
+        
+        // 3. Post share refund as a separate withdrawal transaction
         if (totalSharesPaid > 0) {
-            // Create a special commitment record for this refund
-            const refundCommitment = await tx.memberShareCommitment.create({
+            await tx.saving.create({
                 data: {
-                    memberId,
-                    shareTypeId: closureShareType.id,
-                    totalCommittedAmount: 0,
-                    amountPaid: -totalSharesPaid, // Negative to signify refund
-                    status: 'CANCELLED',
-                }
-            });
-
-            await tx.sharePayment.create({
-                data: {
-                    commitmentId: refundCommitment.id,
-                    amount: totalSharesPaid, // Positive amount for the payment record itself
-                    paymentDate: now,
+                    memberId: member.id,
+                    memberSavingAccountId: null,
+                    amount: totalSharesPaid,
+                    date: now,
+                    month: transactionMonth,
+                    transactionType: 'withdrawal',
                     status: 'approved',
-                    depositMode: depositMode,
-                    sourceName: sourceName,
-                    transactionReference: transactionReference,
-                    evidenceUrl: evidenceUrl,
-                    notes: `Share refund on account closure.`,
+                    notes: `Share refund on account closure via ${depositMode}.`,
+                    depositMode,
+                    sourceName,
+                    transactionReference,
+                    evidenceUrl,
                 }
             })
         }
@@ -180,13 +163,10 @@ export async function confirmAccountClosure(
             data: { balance: 0 },
         });
 
-        // 5. Update share commitments to cancelled (excluding the refund one)
+        // 5. Update share commitments to REFUNDED status
         await tx.memberShareCommitment.updateMany({
-            where: { 
-                memberId,
-                status: { not: 'CANCELLED' }
-            },
-            data: { status: 'CANCELLED' }
+            where: { memberId },
+            data: { status: 'REFUNDED' }
         })
 
         // 6. Update member status

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -78,7 +79,7 @@ export default function SharePaymentsPage() {
   const [openCommitmentCombobox, setOpenCommitmentCombobox] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'paid_off' | 'active'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'paid_off' | 'refunded'>('all');
   const { toast } = useToast();
 
   const fetchPageData = async () => {
@@ -161,6 +162,7 @@ export default function SharePaymentsPage() {
     switch (status) {
         case 'ACTIVE': return 'default';
         case 'PAID_OFF': return 'secondary';
+        case 'REFUNDED': return 'destructive';
         default: return 'outline';
     }
   };
@@ -243,6 +245,7 @@ export default function SharePaymentsPage() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paid_off">Paid Off</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
             </SelectContent>
           </Select>
       </div>
