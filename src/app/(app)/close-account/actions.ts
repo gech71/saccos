@@ -30,9 +30,15 @@ export async function getActiveMembersForClosure() {
   });
 }
 
+export interface SharePayoutDetail {
+    shareTypeName: string;
+    amountPaid: number;
+}
+
 export async function calculateFinalPayout(memberId: string): Promise<{
   currentBalance: number;
   totalSharesPaid: number;
+  sharePayoutDetails: SharePayoutDetail[];
   accruedInterest: number;
   totalPayout: number;
 } | null> {
@@ -42,7 +48,11 @@ export async function calculateFinalPayout(memberId: string): Promise<{
             memberSavingAccounts: {
                 include: { savingAccountType: true }
             },
-            memberShareCommitments: true
+            memberShareCommitments: {
+                include: {
+                    shareType: { select: { name: true } }
+                }
+            }
         }
     });
 
@@ -61,8 +71,13 @@ export async function calculateFinalPayout(memberId: string): Promise<{
     }
 
     // Shares Calculation
-    const totalSharesPaid = member.memberShareCommitments.reduce((sum, commitment) => {
-        return sum + commitment.amountPaid;
+    const sharePayoutDetails = member.memberShareCommitments.map(commitment => ({
+        shareTypeName: commitment.shareType.name,
+        amountPaid: commitment.amountPaid,
+    }));
+    
+    const totalSharesPaid = sharePayoutDetails.reduce((sum, detail) => {
+        return sum + detail.amountPaid;
     }, 0);
     
     totalSavingsBalance = roundToTwo(totalSavingsBalance);
@@ -70,6 +85,7 @@ export async function calculateFinalPayout(memberId: string): Promise<{
 
     return {
         currentBalance: totalSavingsBalance,
+        sharePayoutDetails,
         totalSharesPaid: roundToTwo(totalSharesPaid),
         accruedInterest: totalAccruedInterest,
         totalPayout: roundToTwo(totalSavingsBalance + totalSharesPaid + totalAccruedInterest),

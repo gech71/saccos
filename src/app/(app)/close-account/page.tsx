@@ -24,12 +24,13 @@ import { Loader2, Check, ChevronsUpDown, Calculator, UserX, Banknote, Wallet } f
 import { cn } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure, type ActiveMemberForClosure } from './actions';
+import { getActiveMembersForClosure, calculateFinalPayout, confirmAccountClosure, type ActiveMemberForClosure, type SharePayoutDetail } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 
 interface CalculationResult {
   currentBalance: number;
   totalSharesPaid: number;
+  sharePayoutDetails: SharePayoutDetail[];
   accruedInterest: number;
   totalPayout: number;
 }
@@ -227,7 +228,15 @@ export default function CloseAccountPage() {
                     <AlertTitle className="font-bold">Final Payout Summary for {selectedMember.fullName}</AlertTitle>
                     <AlertDescription>
                         <div className="flex justify-between py-1"><span>Current Savings Balance:</span> <span className="font-medium">{calculationResult.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
-                        <div className="flex justify-between py-1"><span>Total Shares Paid (Refundable):</span> <span className="font-medium">{calculationResult.totalSharesPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
+                        <div className="pl-4">
+                            {calculationResult.sharePayoutDetails.map(detail => (
+                                <div key={detail.shareTypeName} className="flex justify-between py-1 text-sm text-muted-foreground">
+                                    <span>- {detail.shareTypeName} Paid:</span>
+                                    <span>{detail.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex justify-between py-1 border-t"><span>Total Shares Paid (Refundable):</span> <span className="font-medium">{calculationResult.totalSharesPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
                         <div className="flex justify-between py-1"><span>Accrued Interest (Calculated):</span> <span className="font-medium text-green-600">+ {calculationResult.accruedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></div>
                         <Separator className="my-1"/>
                         <div className="flex justify-between py-1 text-lg"><strong>Total Payout Amount:</strong> <strong className="text-primary">{calculationResult.totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</strong></div>
