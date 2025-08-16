@@ -74,7 +74,6 @@ type EligibleAccount = {
 interface ParsedExcelData {
   'MemberID'?: string;
   'SavingCollected'?: number;
-  'ServiceCharges'?: number;
   memberName?: string;
   memberId?: string;
   accountId?: string;
@@ -294,14 +293,13 @@ export default function GroupCollectionsPage() {
         const validatedData = dataRows.map((row): ParsedExcelData => {
             const memberId = row['MemberID']?.toString().trim();
             const savingCollected = parseFloat(row['SavingCollected']);
-            const serviceCharges = parseFloat(row['ServiceCharges'] ?? 0);
             
-            if (!memberId || isNaN(savingCollected) || savingCollected < 0 || isNaN(serviceCharges) || serviceCharges < 0) {
-                return { 'MemberID': memberId || 'N/A', 'SavingCollected': savingCollected || 0, 'ServiceCharges': serviceCharges || 0, status: 'Invalid Data' };
+            if (!memberId || isNaN(savingCollected) || savingCollected < 0) {
+                return { 'MemberID': memberId || 'N/A', 'SavingCollected': savingCollected || 0, status: 'Invalid Data' };
             }
             
             if (seenMemberIDs.has(memberId)) {
-                return { 'MemberID': memberId, 'SavingCollected': savingCollected, 'ServiceCharges': serviceCharges, status: 'Duplicate' };
+                return { 'MemberID': memberId, 'SavingCollected': savingCollected, status: 'Duplicate' };
             }
             
             const member = pageData.members.find(m => m.id === memberId);
@@ -309,10 +307,10 @@ export default function GroupCollectionsPage() {
 
             if (member && account) {
                 seenMemberIDs.add(memberId);
-                return { 'MemberID': memberId, 'SavingCollected': savingCollected, 'ServiceCharges': serviceCharges, memberId: member.id, accountId: account.id, memberName: member.fullName, status: 'Valid' };
+                return { 'MemberID': memberId, 'SavingCollected': savingCollected, memberId: member.id, accountId: account.id, memberName: member.fullName, status: 'Valid' };
             }
             
-            return { 'MemberID': memberId, 'SavingCollected': savingCollected, 'ServiceCharges': serviceCharges, status: 'Invalid MemberID' };
+            return { 'MemberID': memberId, 'SavingCollected': savingCollected, status: 'Invalid MemberID' };
         });
 
         setParsedData(validatedData);
@@ -320,7 +318,7 @@ export default function GroupCollectionsPage() {
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns: "MemberID", "SavingCollected", and optionally "ServiceCharges".' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process the file. Ensure it has columns: "MemberID" and "SavingCollected".' });
       } finally {
         setIsParsing(false);
       }
@@ -332,7 +330,7 @@ export default function GroupCollectionsPage() {
     const validRows = parsedData.filter(d => d.status === 'Valid');
     return {
       count: validRows.length,
-      totalAmount: validRows.reduce((sum, row) => sum + (row.SavingCollected || 0) + (row.ServiceCharges || 0), 0),
+      totalAmount: validRows.reduce((sum, row) => sum + (row.SavingCollected || 0), 0),
     };
   }, [parsedData]);
 
@@ -393,7 +391,7 @@ export default function GroupCollectionsPage() {
             return;
         }
          validRows.forEach(row => newTransactions.push({
-            memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: (row.SavingCollected || 0) + (row.ServiceCharges || 0),
+            memberId: row.memberId!, memberSavingAccountId: row.accountId!, memberName: row.memberName!, amount: (row.SavingCollected || 0),
             date: lastDay, month: transactionMonthString, transactionType: 'deposit', status: 'pending',
             depositMode: batchDetails.depositMode, sourceName: batchDetails.sourceName,
             transactionReference: batchDetails.transactionReference, evidenceUrl: batchDetails.evidenceUrl,
@@ -439,7 +437,6 @@ export default function GroupCollectionsPage() {
     const templateData = [{
       MemberID: 'member-id-goes-here',
       SavingCollected: 100.50,
-      ServiceCharges: 5.00,
     }];
     exportToExcel(templateData, 'savings_collection_template');
   };
@@ -636,7 +633,7 @@ export default function GroupCollectionsPage() {
                     </CardHeader>
                     <CardContent className="text-sm text-muted-foreground space-y-2">
                         <p>1. Download the sample template to see the required format.</p>
-                        <p>2. Fill the sheet with your collection data. The required columns are: <strong>MemberID</strong>, <strong>SavingCollected</strong>, and optionally <strong>ServiceCharges</strong>.</p>
+                        <p>2. Fill the sheet with your collection data. The required columns are: <strong>MemberID</strong> and <strong>SavingCollected</strong>.</p>
                         <p>3. Choose a Saving Account Type below to assign all imported savings to.</p>
                         <p>4. Upload the completed file and click "Process File" to validate your data before submission.</p>
                     </CardContent>
@@ -700,7 +697,7 @@ export default function GroupCollectionsPage() {
                             <TableRow key={index} data-state={row.status !== 'Valid' ? 'error' : undefined} className={row.status === 'Invalid MemberID' ? 'bg-destructive/10' : row.status === 'Duplicate' ? 'bg-amber-500/10' : ''}>
                                 <TableCell>{row.memberName || 'N/A'}</TableCell>
                                 <TableCell>{row.MemberID}</TableCell>
-                                <TableCell className="text-right">{((row.SavingCollected || 0) + (row.ServiceCharges || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell className="text-right">{(row.SavingCollected || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 <TableCell>{getValidationBadge(row.status)}</TableCell>
                             </TableRow>
                         ))}
