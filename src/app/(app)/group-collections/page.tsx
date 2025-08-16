@@ -187,7 +187,6 @@ export default function GroupCollectionsPage() {
     
     setTimeout(() => {
         const schoolName = pageData.schools.find(s => s.id === selectedSchool)?.name || 'N/A';
-        const totalMonthlyCharges = pageData.monthlyServiceCharges.reduce((sum, charge) => sum + charge.amount, 0);
         
         const filteredAccounts: EligibleAccount[] = [];
         pageData.members.forEach(member => {
@@ -211,7 +210,7 @@ export default function GroupCollectionsPage() {
         setSelectedIds(filteredAccounts.map(acc => acc.accountId)); 
         const initialAmounts: Record<string, number> = {};
         filteredAccounts.forEach(acc => {
-            initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
+            initialAmounts[acc.accountId] = acc.totalBalance;
         });
         setCollectionAmounts(initialAmounts);
         if (filteredAccounts.length === 0) {
