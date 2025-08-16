@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -325,4 +326,70 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
         console.error("Failed to transfer member:", error);
         return { success: false, message: 'An unexpected error occurred during the transfer.' };
     }
+}
+
+
+export interface ImportedMember {
+    MemberID: string;
+    MemberFullName: string;
+    InitialSavingsBalance: number;
+    SchoolID: string;
+}
+
+export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
+    // Find a default savings account type, e.g., "Regular Savings"
+    const defaultSavingType = await prisma.savingAccountType.findFirst({
+        where: { name: { contains: 'Regular', mode: 'insensitive' } }
+    });
+
+    if (!defaultSavingType) {
+        return { success: false, message: 'Could not find a default "Regular Savings" account type. Please create one before importing members.' };
+    }
+
+    const membersToCreate = members.map(m => ({
+        id: m.MemberID,
+        fullName: m.MemberFullName,
+        email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
+        sex: 'Male' as 'Male' | 'Female', // Default value
+        phoneNumber: '0900000000', // Default value
+        schoolId: m.SchoolID,
+        joinDate: new Date(),
+        status: 'active' as 'active' | 'inactive',
+    }));
+    
+    const result = await prisma.member.createMany({
+        data: membersToCreate,
+        skipDuplicates: true,
+    });
+    
+    if (result.count > 0) {
+        // Now create the default saving account for the newly created members
+        const createdMemberIds = membersToCreate.slice(0, result.count).map(m => m.id);
+        const savingAccountsToCreate = createdMemberIds.map(memberId => {
+            const importedMember = members.find(m => m.MemberID === memberId);
+            return {
+                memberId: memberId,
+                savingAccountTypeId: defaultSavingType.id,
+                initialBalance: importedMember?.InitialSavingsBalance || 0,
+                balance: importedMember?.InitialSavingsBalance || 0,
+                accountNumber: `SA-${Date.now().toString().slice(-6)}-${memberId.slice(-2)}`,
+                expectedMonthlySaving: 0 // Default, can be updated later
+            };
+        });
+        
+        await prisma.memberSavingAccount.createMany({
+            data: savingAccountsToCreate
+        });
+    }
+
+    revalidatePath('/members');
+    revalidatePath('/savings-accounts');
+
+    const skippedCount = members.length - result.count;
+    let message = `Successfully imported ${result.count} new members and created default savings accounts.`;
+    if (skippedCount > 0) {
+        message += ` ${skippedCount} member(s) were skipped as they already exist.`;
+    }
+
+    return { success: true, message };
 }

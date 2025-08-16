@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -56,7 +57,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { exportToExcel } from '@/lib/utils';
-import { getMembersPageData, addMember, updateMember, deleteMember, transferMember, type MemberWithDetails, type MemberInput, type MembersPageData } from './actions';
+import { getMembersPageData, addMember, updateMember, deleteMember, transferMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData, type ImportedMember } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
@@ -80,6 +81,14 @@ const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: s
   memberShareCommitments: [],
   serviceChargeIds: [],
   shareCommitmentIds: [],
+};
+
+type ParsedMember = {
+  MemberID: string;
+  MemberFullName: string;
+  InitialSavingsBalance: number;
+  SchoolID: string;
+  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID';
 };
 
 export default function MembersPage() {
@@ -116,6 +125,12 @@ export default function MembersPage() {
   const [newSchoolId, setNewSchoolId] = useState<string>('');
   const [openSchoolModalCombobox, setOpenSchoolModalCombobox] = useState(false);
   const [transferReason, setTransferReason] = useState('');
+  
+  // Import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('member:edit'), [user]);
@@ -382,6 +397,107 @@ export default function MembersPage() {
     }
     setIsSubmitting(false);
   };
+  
+  const openImportModal = () => {
+    setParsedMembers([]);
+    setIsImportModalOpen(true);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsParsing(true);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          const existingMemberIds = new Set(members.map(m => m.id));
+          const existingSchoolIds = new Set(schools.map(s => s.id));
+          const seenInFile = new Set<string>();
+
+          const validatedData: ParsedMember[] = dataRows.map(row => {
+            const memberId = row['MemberID']?.toString().trim();
+            const fullName = row['MemberFullName']?.toString().trim();
+            const schoolId = row['SchoolID']?.toString().trim();
+            const initialBalance = parseFloat(row['InitialSavingsBalance']);
+
+            if (!memberId || !fullName || !schoolId || isNaN(initialBalance)) {
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status: 'Invalid ID or Name' };
+            }
+            if (!existingSchoolIds.has(schoolId)) {
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status: 'Invalid School ID' };
+            }
+
+            let status: ParsedMember['status'] = 'Ready to import';
+            if (existingMemberIds.has(memberId)) {
+              status = 'Already exists in DB';
+            } else if (seenInFile.has(memberId)) {
+              status = 'Duplicate in file';
+            }
+            seenInFile.add(memberId);
+
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status };
+          });
+          
+          setParsedMembers(validatedData);
+
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "InitialSavingsBalance", and "SchoolID".' });
+        } finally {
+          setIsParsing(false);
+        }
+      };
+      reader.readAsBinaryString(file);
+    }
+  };
+  
+  const handleConfirmImport = async () => {
+    const membersToImport = parsedMembers
+      .filter(m => m.status === 'Ready to import')
+      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, InitialSavingsBalance: m.InitialSavingsBalance, SchoolID: m.SchoolID }));
+
+    if (membersToImport.length === 0) {
+      toast({ title: 'No New Members', description: 'There are no new members to import from the file.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        const result = await importMembers(membersToImport);
+        toast({ title: 'Import Complete', description: result.message });
+        await fetchPageData();
+        setIsImportModalOpen(false);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  const getValidationBadge = (status: ParsedMember['status']) => {
+    switch (status) {
+      case 'Ready to import': return <Badge variant="default">Ready</Badge>;
+      case 'Already exists in DB': return <Badge variant="secondary">Exists</Badge>;
+      case 'Duplicate in file': return <Badge variant="secondary">Duplicate</Badge>;
+      case 'Invalid ID or Name': return <Badge variant="destructive">Invalid Data</Badge>;
+      case 'Invalid School ID': return <Badge variant="destructive">Invalid School</Badge>;
+    }
+  };
+  
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      MemberID: 'EMP001',
+      MemberFullName: 'John Doe',
+      InitialSavingsBalance: 500,
+      SchoolID: 'school-id-1',
+    }];
+    exportToExcel(templateData, 'member_import_template');
+  };
 
   return (
     <div className="space-y-6">
@@ -389,6 +505,11 @@ export default function MembersPage() {
         <Button onClick={handleExport} variant="outline" disabled={isLoading || members.length === 0}>
             <FileDown className="mr-2 h-4 w-4" /> Export
         </Button>
+         {canCreate && (
+          <Button onClick={openImportModal} variant="outline" disabled={isLoading}>
+              <UploadCloud className="mr-2 h-4 w-4" /> Import Members
+          </Button>
+        )}
         {canCreate && (
           <Button onClick={openAddMemberModal} className="shadow-md hover:shadow-lg transition-shadow">
               <PlusCircle className="mr-2 h-5 w-5" /> Add Member
@@ -533,6 +654,67 @@ export default function MembersPage() {
                 </div>
             </div>
       )}
+      
+      {/* Import Modal */}
+       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
+            <DialogDescription>
+              Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                <FileDown className="mr-2 h-4 w-4" /> Download Template
+            </Button>
+            <div>
+              <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
+              <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
+            </div>
+            {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+            {parsedMembers.length > 0 && (
+              <div>
+                <Label>Import Preview</Label>
+                <div className="mt-2 h-64 overflow-y-auto rounded-md border">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-muted">
+                      <TableRow>
+                        <TableHead>Member ID</TableHead>
+                        <TableHead>Full Name</TableHead>
+                        <TableHead>School ID</TableHead>
+                         <TableHead className="text-right">Initial Balance</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parsedMembers.map((member, index) => (
+                        <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                          <TableCell>{member.MemberID}</TableCell>
+                          <TableCell>{member.MemberFullName}</TableCell>
+                          <TableCell>{member.SchoolID}</TableCell>
+                           <TableCell className="text-right">{member.InitialSavingsBalance.toFixed(2)}</TableCell>
+                          <TableCell>{getValidationBadge(member.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {parsedMembers.filter(s => s.status === 'Ready to import').length} member(s) will be imported. Others will be skipped.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+            <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedMembers.filter(s => s.status === 'Ready to import').length === 0}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Import Members
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isMemberModalOpen} onOpenChange={setIsMemberModalOpen}>
         <DialogContent className="sm:max-w-3xl"> 
