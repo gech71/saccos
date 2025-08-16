@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -66,7 +67,7 @@ type EligibleAccount = {
     accountId: string;
     accountNumber: string;
     expectedMonthlySaving: number;
-    serviceCharges: number;
+    totalBalance: number;
     schoolName: string;
 }
 
@@ -192,14 +193,14 @@ export default function GroupCollectionsPage() {
         pageData.members.forEach(member => {
             if (member.schoolId === selectedSchool) {
                 member.memberSavingAccounts.forEach(account => {
-                    if (account.savingAccountType?.id === selectedAccountType && (account.expectedMonthlySaving ?? 0) > 0) {
+                    if (account.savingAccountType?.id === selectedAccountType) {
                         filteredAccounts.push({
                             memberId: member.id,
                             fullName: member.fullName,
                             accountId: account.id,
                             accountNumber: account.accountNumber,
                             expectedMonthlySaving: account.expectedMonthlySaving,
-                            serviceCharges: totalMonthlyCharges,
+                            totalBalance: account.balance,
                             schoolName: schoolName
                         });
                     }
@@ -210,11 +211,11 @@ export default function GroupCollectionsPage() {
         setSelectedIds(filteredAccounts.map(acc => acc.accountId)); 
         const initialAmounts: Record<string, number> = {};
         filteredAccounts.forEach(acc => {
-            initialAmounts[acc.accountId] = acc.expectedMonthlySaving + acc.serviceCharges;
+            initialAmounts[acc.accountId] = acc.expectedMonthlySaving;
         });
         setCollectionAmounts(initialAmounts);
         if (filteredAccounts.length === 0) {
-          toast({ title: 'No Eligible Savings Accounts', description: 'No member accounts match the selected criteria or have an expected monthly saving.' });
+          toast({ title: 'No Eligible Savings Accounts', description: 'No member accounts match the selected criteria.' });
         }
 
       setIsLoadingMembers(false);
@@ -258,7 +259,7 @@ export default function GroupCollectionsPage() {
       'Account Number': item.accountNumber,
       'School': item.schoolName,
       'Expected Contribution (Birr)': item.expectedMonthlySaving,
-      'Service Charges (Birr)': item.serviceCharges,
+      'Total Savings Balance (Birr)': item.totalBalance,
     }));
     
     const schoolName = pageData?.schools.find(s => s.id === selectedSchool)?.name || 'school';
@@ -550,8 +551,7 @@ export default function GroupCollectionsPage() {
                             </TableHead>
                             <TableHead>Member Name</TableHead>
                             <TableHead>Savings Acct #</TableHead>
-                            <TableHead className="text-right">Exp. Monthly Saving</TableHead>
-                             <TableHead className="text-right">Service Charges</TableHead>
+                            <TableHead className="text-right">Total Savings Balance</TableHead>
                             <TableHead className="w-[200px] text-right">Amount to Collect (Birr)</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -560,8 +560,7 @@ export default function GroupCollectionsPage() {
                             const id = item.accountId;
                             const name = item.fullName;
                             const accNum = item.accountNumber;
-                            const amount = item.expectedMonthlySaving;
-                            const serviceCharges = item.serviceCharges;
+                            const totalBalance = item.totalBalance;
                             const currentAmountPaid = collectionAmounts[id] || 0;
 
                             return (
@@ -571,8 +570,7 @@ export default function GroupCollectionsPage() {
                                 </TableCell>
                                 <TableCell className="font-medium">{name}</TableCell>
                                 <TableCell>{accNum || 'N/A'}</TableCell>
-                                <TableCell className="text-right">{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                <TableCell className="text-right text-muted-foreground">{serviceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                <TableCell className="text-right">{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                                 <TableCell className="text-right">
                                   <div className='flex flex-col items-end'>
                                       <Input

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -6,7 +7,7 @@ import type { School, SavingAccountType, Member, Saving, MemberSavingAccount, Sh
 import { revalidatePath } from 'next/cache';
 
 export type MemberWithSavingAccounts = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
-    memberSavingAccounts: (Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'expectedMonthlySaving'> & {
+    memberSavingAccounts: (Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'expectedMonthlySaving' | 'balance'> & {
         savingAccountType: Pick<SavingAccountType, 'id' | 'name'> | null;
     })[];
 };
@@ -33,6 +34,7 @@ export async function getGroupCollectionsPageData(): Promise<GroupCollectionsPag
                     id: true,
                     accountNumber: true,
                     expectedMonthlySaving: true,
+                    balance: true,
                     savingAccountType: {
                         select: {
                             id: true,
