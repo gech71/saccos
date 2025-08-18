@@ -42,6 +42,7 @@ import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput, type CollateralInput } from './actions';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getLoanSettings } from '../loan-settings/actions';
 
 const specialLoanPurposes = ["Enkutatash", "Gena", "Fasika", "Eid Mubarak", "Mawlid", "Eid al-Adha (Arefa)"];
 
@@ -92,14 +93,17 @@ export default function LoansPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  const [loanSettings, setLoanSettings] = useState({ serviceFee: 15, insuranceFeePercentage: 1 });
 
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
-        const data = await getLoansPageData();
+        const [data, settings] = await Promise.all([getLoansPageData(), getLoanSettings()]);
         setLoans(data.loans);
         setMembers(data.members);
         setLoanTypes(data.loanTypes);
+        setLoanSettings(settings);
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
     }
@@ -124,8 +128,8 @@ export default function LoansPage() {
         const interestPortion = principal * (annualRate / 12);
         const firstMonthPayment = principalPortion + interestPortion;
         
-        const insuranceFee = selectedLoanType.name === 'Regular Loan' ? principal * 0.01 : 0;
-        const serviceFee = selectedLoanType.name === 'Regular Loan' ? 15 : 0;
+        const insuranceFee = selectedLoanType.name === 'Regular Loan' ? principal * (loanSettings.insuranceFeePercentage / 100) : 0;
+        const serviceFee = selectedLoanType.name === 'Regular Loan' ? loanSettings.serviceFee : 0;
 
         setMonthlyPayment(firstMonthPayment);
         setCurrentLoan(prev => ({
@@ -138,7 +142,7 @@ export default function LoansPage() {
         setMonthlyPayment(null);
         setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0, insuranceFee: 0, serviceFee: 0}));
     }
-  }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType]);
+  }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType, loanSettings]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -465,9 +469,10 @@ export default function LoansPage() {
                 {selectedLoanType?.name === 'Regular Loan' && (
                   <>
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">{(currentLoan.serviceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
-                    <div className="flex justify-between"><span>Insurance Fee (1%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee ({loanSettings.insuranceFeePercentage}%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                   </>
                 )}
+                 <div className="flex justify-between font-semibold"><span>Net Amount to be Disbursed:</span><span className="font-bold text-green-600">{((currentLoan.principalAmount || 0) - (currentLoan.serviceFee || 0) - (currentLoan.insuranceFee || 0)).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                 {monthlyPayment && <div className="flex justify-between text-primary font-bold pt-2 border-t mt-2"><span className='text-sm text-muted-foreground'>Est. First Month Repayment:</span><span>{monthlyPayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></div>}
             </div>
 

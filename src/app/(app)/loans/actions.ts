@@ -169,14 +169,25 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
+  // Get Fee settings from DB
+  const loanSettings = await prisma.systemSetting.findMany({
+      where: { key: { in: ['loan_service_fee', 'loan_insurance_fee_percentage'] } }
+  });
+  const serviceFeeSetting = loanSettings.find(s => s.key === 'loan_service_fee');
+  const insuranceFeeSetting = loanSettings.find(s => s.key === 'loan_insurance_fee_percentage');
+
+  const serviceFeeValue = serviceFeeSetting ? parseFloat(serviceFeeSetting.value) : 15;
+  const insuranceFeePercentageValue = insuranceFeeSetting ? parseFloat(insuranceFeeSetting.value) : 1;
+
+
   // Reducing Balance Method: Fixed Principal + Variable Interest
   const fixedPrincipalPayment = roundToTwo(principalAmount / loanTerm);
   const firstMonthInterest = roundToTwo(principalAmount * (loanType.interestRate / 12));
   const firstMonthRepayment = fixedPrincipalPayment + firstMonthInterest;
   
   // Fee calculation
-  const insuranceFee = roundToTwo(loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0);
-  const serviceFee = loanType.name === 'Regular Loan' ? 15 : 0;
+  const insuranceFee = loanType.name === 'Regular Loan' ? roundToTwo(principalAmount * (insuranceFeePercentageValue / 100)) : 0;
+  const serviceFee = loanType.name === 'Regular Loan' ? serviceFeeValue : 0;
 
   return await prisma.loan.create({
     data: {
@@ -238,4 +249,3 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
-
