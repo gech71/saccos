@@ -83,7 +83,7 @@ export default function AggregateCollectionsPage() {
       savings: pageData.savingTypes,
       loans: pageData.loanTypes,
       shares: pageData.shareTypes,
-      serviceCharges: pageData.serviceChargeTypes.filter(sc => sc.frequency !== 'once')
+      serviceCharges: pageData.serviceChargeTypes
     }
   }, [pageData]);
 
