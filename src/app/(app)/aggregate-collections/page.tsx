@@ -15,6 +15,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -247,7 +248,7 @@ export default function AggregateCollectionsPage() {
             <Label htmlFor="monthFilter">Month</Label>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
               <SelectTrigger id="monthFilter"><SelectValue /></SelectTrigger>
-              <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.label}>{m.label}</SelectItem>)}</SelectContent>
+              <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <Button onClick={handleLoadMembers} disabled={isLoading || !selectedSchool}>
@@ -288,10 +289,12 @@ export default function AggregateCollectionsPage() {
                       </TableRow>
                     ))}
                   </TableBody>
-                  <TableRow className="bg-muted font-bold">
-                    <TableCell colSpan={1 + dynamicColumns.savings.length + dynamicColumns.loans.length + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
-                    <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                  </TableRow>
+                  <TableFooter>
+                    <TableRow className="bg-muted font-bold">
+                      <TableCell colSpan={1 + dynamicColumns.savings.length + dynamicColumns.loans.length + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
+                      <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </div>
             </CardContent>
