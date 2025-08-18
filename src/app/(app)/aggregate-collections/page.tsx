@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -104,22 +103,38 @@ export default function AggregateCollectionsPage() {
         const initialData: MemberCollectionData = {};
         members.forEach(member => {
             initialData[member.id] = {};
+            // Loan Repayments
             member.loans.forEach(loan => {
                 const monthlyInterestRate = loan.interestRate / 12;
                 const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
-                const principalPortion = roundToTwo(loan.principalAmount / loan.loanTerm);
-
+                const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
+                
                 initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, principalPortion);
                 initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
             });
+            // Share Contributions
             member.memberShareCommitments.forEach(sc => {
-                initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
+                const shareType = dynamicColumns.shares.find(s => s.id === sc.shareTypeId);
+                if (shareType?.paymentType === 'ONCE' && sc.status === 'PAID_OFF') {
+                   initialData[member.id][`share_${sc.shareTypeId}`] = 0;
+                } else {
+                   initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
+                }
             });
+            // Savings
              member.memberSavingAccounts.forEach(sa => {
                 initialData[member.id][`saving_${sa.savingAccountTypeId}`] = sa.expectedMonthlySaving || 0;
             });
+            // Service Charges
             dynamicColumns.serviceCharges.forEach(sc => {
-                 initialData[member.id][`service_${sc.id}`] = sc.amount;
+                const isOneTime = sc.frequency === 'once';
+                const hasBeenPaid = member.appliedServiceCharges.some(asc => asc.serviceChargeTypeId === sc.id && asc.status === 'paid');
+
+                if (isOneTime && hasBeenPaid) {
+                    initialData[member.id][`service_${sc.id}`] = 0;
+                } else {
+                    initialData[member.id][`service_${sc.id}`] = sc.amount;
+                }
             })
         });
         setCollectionData(initialData);

@@ -1,32 +1,32 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType, Member, MemberSavingAccount, MemberShareCommitment, Loan } from '@prisma/client';
+import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType, Member, MemberSavingAccount, MemberShareCommitment, Loan, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface AggregatePageData {
   schools: Pick<School, 'id', 'name'>[];
   savingTypes: Pick<SavingAccountType, 'id', 'name'>[];
-  loanTypes: Pick<LoanType, 'id', 'name'>[];
-  shareTypes: (Pick<ShareType, 'id' | 'name'> & {monthlyPayment: number | null})[];
-  serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name' | 'frequency' | 'amount'>[];
+  loanTypes: Pick<LoanType, 'id', 'name' | 'interestRate'>[];
+  shareTypes: (Pick<ShareType, 'id' | 'name' | 'monthlyPayment' | 'paymentType'>)[];
+  serviceChargeTypes: Pick<ServiceChargeType, 'id', 'name' | 'frequency' | 'amount'>[];
   members: MemberDataForAggregate[];
 }
 
 export type MemberDataForAggregate = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
-    memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId'> & {shareType: {monthlyPayment: number | null}})[],
-    loans: Pick<Loan, 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'>[]
+    memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId' | 'status'> & {shareType: {monthlyPayment: number | null, paymentType: 'ONCE' | 'INSTALLMENT'}})[],
+    loans: Pick<Loan, 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'>[],
+    appliedServiceCharges: Pick<AppliedServiceCharge, 'serviceChargeTypeId' | 'status'>[]
 }
 
 export async function getAggregateData(): Promise<AggregatePageData> {
   const [schools, savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
     prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-    prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-    prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true }, orderBy: { name: 'asc' } }),
+    prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
+    prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true, paymentType: true }, orderBy: { name: 'asc' } }),
     prisma.serviceChargeType.findMany({ select: { id: true, name: true, frequency: true, amount: true }, orderBy: { name: 'asc' } }),
     prisma.member.findMany({
         where: { status: 'active' },
@@ -43,8 +43,9 @@ export async function getAggregateData(): Promise<AggregatePageData> {
             memberShareCommitments: {
                 select: {
                     shareTypeId: true,
+                    status: true,
                     shareType: {
-                        select: { monthlyPayment: true }
+                        select: { monthlyPayment: true, paymentType: true }
                     }
                 }
             },
@@ -56,6 +57,12 @@ export async function getAggregateData(): Promise<AggregatePageData> {
                     loanTerm: true,
                     interestRate: true,
                     remainingBalance: true,
+                }
+            },
+            appliedServiceCharges: {
+                select: {
+                    serviceChargeTypeId: true,
+                    status: true
                 }
             }
         }
@@ -91,19 +98,22 @@ export async function processAggregateCollection(payload: CollectionPayload): Pr
 
 
         if (type === 'saving') {
-          await tx.saving.create({
-            data: {
-              memberId,
-              memberSavingAccountId: (await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }}))?.id || null,
-              amount,
-              date: paymentDate,
-              month: `${collectionMonth} ${collectionYear}`,
-              transactionType: 'deposit',
-              status: 'pending',
-              depositMode: 'Cash', // Default for batch
-              notes: 'Aggregate group collection',
-            }
-          });
+          const account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
+          if (account) {
+            await tx.saving.create({
+              data: {
+                memberId,
+                memberSavingAccountId: account.id,
+                amount,
+                date: paymentDate,
+                month: `${collectionMonth} ${collectionYear}`,
+                transactionType: 'deposit',
+                status: 'pending',
+                depositMode: 'Cash', // Default for batch
+                notes: 'Aggregate group collection',
+              }
+            });
+          }
         } else if (type === 'share') {
            const commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
            if (commitment) {
