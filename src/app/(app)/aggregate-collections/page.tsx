@@ -333,10 +333,10 @@ export default function AggregateCollectionsPage() {
                   <TableBody>
                     {membersData.map(member => (
                       <TableRow key={member.id}>
-                        <TableCell className="font-mono text-xs sticky left-0 bg-background z-10">
+                        <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
                             {member.id}
                         </TableCell>
-                         <TableCell className="font-medium sticky left-[150px] bg-background z-10">
+                         <TableCell className="font-medium sticky left-[150px] bg-background z-10 w-[200px]">
                             {member.fullName}
                         </TableCell>
                         {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
