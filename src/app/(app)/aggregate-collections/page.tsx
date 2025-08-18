@@ -42,8 +42,12 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-type CollectionInputValues = Record<string, number>; // Key: `type_id`, Value: amount
+type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
 type MemberCollectionData = Record<string, CollectionInputValues>; // Key: `memberId`
+
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
 
 export default function AggregateCollectionsPage() {
   const { toast } = useToast();
@@ -100,7 +104,11 @@ export default function AggregateCollectionsPage() {
         members.forEach(member => {
             initialData[member.id] = {};
             member.loans.forEach(loan => {
-                initialData[member.id][`loan_${loan.loanTypeId}`] = loan.monthlyRepaymentAmount || 0;
+                const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+                const principalPortion = roundToTwo(loan.monthlyRepaymentAmount - interestForMonth);
+
+                initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, principalPortion);
+                initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
             });
             member.memberShareCommitments.forEach(sc => {
                 initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
@@ -174,6 +182,43 @@ export default function AggregateCollectionsPage() {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
     setIsSubmitting(false);
+  };
+
+  const handleExport = () => {
+    if (membersData.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: 'Load data before exporting.' });
+        return;
+    }
+
+    const headers = [
+        'Member ID',
+        'Full Name',
+        ...dynamicColumns.savings.map(s => s.name),
+        ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
+        ...dynamicColumns.shares.map(s => s.name),
+        ...dynamicColumns.serviceCharges.map(sc => sc.name),
+        'Total Collected'
+    ];
+
+    const dataToExport = membersData.map(member => {
+        const row: (string | number)[] = [member.id, member.fullName];
+        dynamicColumns.savings.forEach(s => row.push(collectionData[member.id]?.[`saving_${s.id}`] || 0));
+        dynamicColumns.loans.forEach(l => {
+            row.push(collectionData[member.id]?.[`loan_${l.id}-principal`] || 0);
+            row.push(collectionData[member.id]?.[`loan_${l.id}-interest`] || 0);
+        });
+        dynamicColumns.shares.forEach(s => row.push(collectionData[member.id]?.[`share_${s.id}`] || 0));
+        dynamicColumns.serviceCharges.forEach(sc => row.push(collectionData[member.id]?.[`service_${sc.id}`] || 0));
+        row.push(getRowTotal(member.id));
+        
+        const rowObject: Record<string, any> = {};
+        headers.forEach((header, index) => {
+            rowObject[header] = row[index];
+        });
+        return rowObject;
+    });
+
+    exportToExcel(dataToExport, `aggregate_collection_${selectedSchool}_${months[parseInt(selectedMonth)].label}_${selectedYear}`);
   };
 
 
@@ -261,17 +306,24 @@ export default function AggregateCollectionsPage() {
       {membersData.length > 0 && (
         <Card>
             <CardHeader>
-                <CardTitle>Collection Sheet</CardTitle>
-                <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Collection Sheet</CardTitle>
+                        <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
+                    </div>
+                    <Button onClick={handleExport} variant="outline">
+                        <FileDown className="mr-2 h-4 w-4" /> Export
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-lg border shadow-sm">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-background z-10">Member Name</TableHead>
+                      <TableHead className="sticky left-0 bg-background z-10 w-[250px]">Member</TableHead>
                       {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                      {dynamicColumns.loans.map(c => <TableHead key={`loan_${c.id}`} className="text-center">{c.name} Repayment</TableHead>)}
+                      {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
                       {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
                       {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
                       <TableHead className="text-right sticky right-0 bg-background z-10 font-bold">Total Collected</TableHead>
@@ -280,18 +332,26 @@ export default function AggregateCollectionsPage() {
                   <TableBody>
                     {membersData.map(member => (
                       <TableRow key={member.id}>
-                        <TableCell className="font-medium sticky left-0 bg-background z-10">{member.fullName}</TableCell>
-                        {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[100px]" /></TableCell>)}
-                        {dynamicColumns.loans.map(c => <TableCell key={`loan_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}`, e.target.value)} className="text-right min-w-[100px]" /></TableCell>)}
-                        {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[100px]" /></TableCell>)}
-                        {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[100px]" /></TableCell>)}
+                        <TableCell className="font-medium sticky left-0 bg-background z-10 w-[250px]">
+                            <div className="font-bold">{member.fullName}</div>
+                            <div className="text-xs text-muted-foreground">{member.id}</div>
+                        </TableCell>
+                        {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                        {dynamicColumns.loans.map(c => (
+                            <React.Fragment key={`loan_inputs_${c.id}`}>
+                                <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-principal`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-principal`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                                <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-interest`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-interest`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                            </React.Fragment>
+                        ))}
+                        {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                        {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
                         <TableCell className="text-right font-bold sticky right-0 bg-background z-10">{getRowTotal(member.id).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                   <TableFooter>
                     <TableRow className="bg-muted font-bold">
-                      <TableCell colSpan={1 + dynamicColumns.savings.length + dynamicColumns.loans.length + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
+                      <TableCell colSpan={1 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
                       <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                     </TableRow>
                   </TableFooter>

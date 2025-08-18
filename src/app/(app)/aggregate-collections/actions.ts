@@ -17,7 +17,7 @@ export interface AggregatePageData {
 export type MemberDataForAggregate = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
     memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId'> & {shareType: {monthlyPayment: number | null}})[],
-    loans: Pick<Loan, 'loanTypeId' | 'monthlyRepaymentAmount'>[]
+    loans: Pick<Loan, 'loanTypeId' | 'monthlyRepaymentAmount' | 'interestRate' | 'remainingBalance'>[]
 }
 
 export async function getAggregateData(): Promise<AggregatePageData> {
@@ -52,6 +52,8 @@ export async function getAggregateData(): Promise<AggregatePageData> {
                 select: {
                     loanTypeId: true,
                     monthlyRepaymentAmount: true,
+                    interestRate: true,
+                    remainingBalance: true,
                 }
             }
         }
@@ -82,7 +84,9 @@ export async function processAggregateCollection(payload: CollectionPayload): Pr
       for (const [key, amount] of Object.entries(values)) {
         if (amount <= 0) continue;
 
-        const [type, id] = key.split('_');
+        const [type, idWithSuffix] = key.split('_');
+        const id = idWithSuffix.replace('-principal', '').replace('-interest', '');
+
 
         if (type === 'saving') {
           await tx.saving.create({
@@ -115,14 +119,17 @@ export async function processAggregateCollection(payload: CollectionPayload): Pr
         } else if (type === 'loan') {
             const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}});
             if (loan) {
-                const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                const interestPaid = Math.min(amount, interestForMonth);
-                const principalPaid = amount - interestPaid;
+                const principalPaid = values[`loan_${id}-principal`] || 0;
+                const interestPaid = values[`loan_${id}-interest`] || 0;
+                const totalPaid = principalPaid + interestPaid;
+
+                if (totalPaid <= 0) continue;
+
                 await tx.loanRepayment.create({
                     data: {
                         loanId: loan.id,
                         memberId,
-                        amountPaid: amount,
+                        amountPaid: totalPaid,
                         paymentDate,
                         interestPaid,
                         principalPaid,
@@ -136,6 +143,9 @@ export async function processAggregateCollection(payload: CollectionPayload): Pr
                         status: (loan.remainingBalance - principalPaid) <= 0 ? 'paid_off' : loan.status,
                     }
                 });
+                // To avoid double-counting, we can delete the keys after processing
+                delete values[`loan_${id}-principal`];
+                delete values[`loan_${id}-interest`];
             }
         } else if (type === 'service') {
              await tx.appliedServiceCharge.create({
