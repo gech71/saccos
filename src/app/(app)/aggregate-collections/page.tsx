@@ -101,10 +101,10 @@ export default function AggregateCollectionsPage() {
             member.loans.forEach(loan => {
                 initialData[member.id][`loan_${loan.loanTypeId}`] = loan.monthlyRepaymentAmount || 0;
             });
-            member.shareCommitments.forEach(sc => {
+            member.memberShareCommitments.forEach(sc => {
                 initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
             });
-             member.savingAccounts.forEach(sa => {
+             member.memberSavingAccounts.forEach(sa => {
                 initialData[member.id][`saving_${sa.savingAccountTypeId}`] = sa.expectedMonthlySaving || 0;
             });
             dynamicColumns.serviceCharges.forEach(sc => {

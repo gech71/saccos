@@ -15,8 +15,8 @@ export interface AggregatePageData {
 }
 
 export type MemberDataForAggregate = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
-    savingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
-    shareCommitments: (Pick<MemberShareCommitment, 'shareTypeId'> & {shareType: {monthlyPayment: number | null}})[],
+    memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
+    memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId'> & {shareType: {monthlyPayment: number | null}})[],
     loans: Pick<Loan, 'loanTypeId' | 'monthlyRepaymentAmount'>[]
 }
 
@@ -33,13 +33,13 @@ export async function getAggregateData(): Promise<AggregatePageData> {
             id: true,
             fullName: true,
             schoolId: true,
-            savingAccounts: {
+            memberSavingAccounts: {
                 select: {
                     savingAccountTypeId: true,
                     expectedMonthlySaving: true
                 }
             },
-            shareCommitments: {
+            memberShareCommitments: {
                 select: {
                     shareTypeId: true,
                     shareType: {
