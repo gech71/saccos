@@ -321,22 +321,22 @@ export default function AggregateCollectionsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-background z-10 w-[150px]">Member ID</TableHead>
-                      <TableHead className="sticky left-[150px] bg-background z-10 w-[200px]">Full Name</TableHead>
+                      <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
+                      <TableHead className="sticky left-[150px] bg-background z-20 w-[200px]">Full Name</TableHead>
                       {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
                       {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
                       {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
                       {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                      <TableHead className="text-right sticky right-0 bg-background z-10 font-bold">Total Collected</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-background z-20 font-bold">Total Collected</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {membersData.map(member => (
                       <TableRow key={member.id}>
-                        <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
+                        <TableCell className="font-mono text-xs sticky left-0 bg-background z-10">
                             {member.id}
                         </TableCell>
-                         <TableCell className="font-medium sticky left-[150px] bg-background z-10 w-[200px]">
+                         <TableCell className="font-medium sticky left-[150px] bg-background z-10">
                             {member.fullName}
                         </TableCell>
                         {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
