@@ -29,7 +29,10 @@ export interface LoanType {
   id: string;
   name: string;
   interestRate: number; // Annual interest rate, e.g., 0.08 for 8%
-  loanTerm: number; // in months
+  minLoanAmount: number;
+  maxLoanAmount: number;
+  minRepaymentPeriod: number; // In months
+  maxRepaymentPeriod: number; // In months
   repaymentFrequency: 'monthly' | 'quarterly' | 'yearly';
   nplInterestRate: number; // Non-Performing Loan interest rate, annual
   nplGracePeriodDays?: number; // Days after due date before NPL rate applies
@@ -37,9 +40,14 @@ export interface LoanType {
 }
 
 export interface MemberShareCommitment {
+  id: string;
+  memberId: string;
   shareTypeId: string;
-  shareTypeName: string; // Denormalized for easier display
-  monthlyCommittedAmount: number;
+  totalCommittedAmount: number;
+  monthlyCommittedAmount: number | null;
+  amountPaid: number;
+  status: 'ACTIVE' | 'PAID_OFF' | 'REFUNDED' | 'CANCELLED';
+  joinDate: string;
 }
 
 export interface Member {
@@ -63,6 +71,7 @@ export interface Member {
 export interface Saving {
   id: string;
   memberId: string;
+  memberSavingAccountId: string | null;
   memberName?: string; // Denormalized for display
   amount: number;
   date: string; // ISO date string
@@ -186,6 +195,8 @@ export interface LoanRepayment {
   memberId: string;
   memberName?: string;
   amountPaid: number;
+  principalPaid: number;
+  interestPaid: number;
   paymentDate: string; // ISO
   notes?: string;
   depositMode?: 'Cash' | 'Bank' | 'Wallet';

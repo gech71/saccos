@@ -27,9 +27,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Saving, SavingAccountType, ServiceChargeType } from '@prisma/client';
+import type { Saving } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle, Download, ReceiptText } from 'lucide-react';
+import { Filter, Users, DollarSign, Banknote, Wallet, Loader2, CheckCircle, RotateCcw, FileCheck2, FileDown, Check, ChevronsUpDown, AlertCircle, Download } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/file-upload';
@@ -256,7 +256,6 @@ export default function GroupCollectionsPage() {
       'Member Name': item.fullName,
       'Account Number': item.accountNumber,
       'School': item.schoolName,
-      'Expected Contribution (Birr)': item.expectedMonthlySaving,
       'Total Savings Balance (Birr)': item.totalBalance,
     }));
     
@@ -557,7 +556,6 @@ export default function GroupCollectionsPage() {
                             const name = item.fullName;
                             const accNum = item.accountNumber;
                             const totalBalance = item.totalBalance;
-                            const currentAmountPaid = collectionAmounts[id] || 0;
 
                             return (
                                 <TableRow key={id} data-state={selectedIds.includes(id) ? 'selected' : undefined}>
