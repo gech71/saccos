@@ -779,7 +779,7 @@ export default function MembersPage() {
                     <Separator className="my-4" />
                     <Label className="font-semibold text-base text-primary">Service Charges on Registration</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {serviceChargeTypes.filter(sc => sc.frequency === 'once').map(charge => (
+                        {serviceChargeTypes.map(charge => (
                             <div key={charge.id} className="flex items-center space-x-3">
                                 <Checkbox 
                                     id={`service-charge-${charge.id}`}
@@ -823,3 +823,4 @@ export default function MembersPage() {
     </div>
   );
 }
+
