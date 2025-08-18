@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -190,11 +191,9 @@ export default function GroupLoanRepaymentsPage() {
         
         const initialRepayments: Record<string, number> = {};
         loans.forEach(loan => {
-            const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-            const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-            const standardPayment = principalPortion + interestForMonth;
-            const finalPayment = loan.remainingBalance + interestForMonth;
-            initialRepayments[loan.id] = roundToTwo(Math.min(standardPayment, finalPayment));
+            const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+            const principalPortion = roundToTwo(loan.principalAmount / loan.loanTerm);
+            initialRepayments[loan.id] = roundToTwo(principalPortion + interestForMonth);
         });
         setRepaymentAmounts(initialRepayments);
         setSelectedLoanIds(loans.map(l => l.id));
@@ -266,23 +265,10 @@ export default function GroupLoanRepaymentsPage() {
             const amountPaid = repaymentAmounts[loanId] || 0;
 
             if (amountPaid > 0 && loan) {
-                const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-                const standardPayment = principalPortion + interestForMonth;
+                const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
                 const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
-                const minimumPayment = roundToTwo(Math.min(standardPayment, finalSettlement));
                 
                 const tolerance = 0.01;
-
-                if (amountPaid < minimumPayment - tolerance) {
-                    toast({
-                        variant: 'destructive',
-                        title: `Payment for ${loan.member.fullName} is too low`,
-                        description: `Payment of ${amountPaid.toFixed(2)} is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
-                    });
-                    setIsPosting(false); // Make sure to stop submission
-                    return;
-                }
                 
                 if (amountPaid > finalSettlement + tolerance) { 
                     toast({ 
@@ -314,23 +300,10 @@ export default function GroupLoanRepaymentsPage() {
             if (!loan) continue; 
 
             const amountPaid = row.RepaymentAmount;
-            const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-            const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-            const standardPayment = principalPortion + interestForMonth;
+            const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
             const finalSettlement = roundToTwo(loan.remainingBalance + interestForMonth);
-            const minimumPayment = roundToTwo(Math.min(standardPayment, finalSettlement));
-
             const tolerance = 0.01;
             
-            if (amountPaid < minimumPayment - tolerance) {
-                toast({
-                    variant: 'destructive',
-                    title: `Payment for ${loan.member.fullName} is too low`,
-                    description: `Payment of ${amountPaid.toFixed(2)} from Excel is less than the minimum required of ${minimumPayment.toFixed(2)}.`,
-                });
-                return;
-            }
-
             if (amountPaid > finalSettlement + tolerance) { 
                 toast({ 
                     variant: 'destructive', 
@@ -729,11 +702,9 @@ export default function GroupLoanRepaymentsPage() {
                 </TableHeader>
                 <TableBody>
                     {paginatedLoans.map(loan => {
-                    const interestForMonth = loan.remainingBalance * (loan.interestRate / 12);
-                    const principalPortion = loan.loanTerm > 0 ? loan.principalAmount / loan.loanTerm : 0;
-                    const standardPayment = principalPortion + interestForMonth;
-                    const finalPayment = loan.remainingBalance + interestForMonth;
-                    const expectedPayment = roundToTwo(Math.min(standardPayment, finalPayment));
+                    const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+                    const principalPortion = roundToTwo(loan.principalAmount / loan.loanTerm);
+                    const expectedPayment = principalPortion + interestForMonth;
 
                     return (
                     <TableRow key={loan.id} data-state={selectedLoanIds.includes(loan.id) ? 'selected' : undefined}>

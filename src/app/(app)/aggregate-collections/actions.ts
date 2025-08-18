@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -17,7 +18,7 @@ export interface AggregatePageData {
 export type MemberDataForAggregate = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
     memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId'> & {shareType: {monthlyPayment: number | null}})[],
-    loans: Pick<Loan, 'loanTypeId' | 'monthlyRepaymentAmount' | 'interestRate' | 'remainingBalance'>[]
+    loans: Pick<Loan, 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'>[]
 }
 
 export async function getAggregateData(): Promise<AggregatePageData> {
@@ -51,7 +52,8 @@ export async function getAggregateData(): Promise<AggregatePageData> {
                 where: { status: { in: ['active', 'overdue']}},
                 select: {
                     loanTypeId: true,
-                    monthlyRepaymentAmount: true,
+                    principalAmount: true,
+                    loanTerm: true,
                     interestRate: true,
                     remainingBalance: true,
                 }

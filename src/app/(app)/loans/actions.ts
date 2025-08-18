@@ -169,15 +169,10 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
-  // Correct monthly payment calculation (Annuity Formula)
-  const monthlyInterestRate = loanType.interestRate / 12;
-  let monthlyRepaymentAmount = 0;
-  if (monthlyInterestRate > 0) {
-      monthlyRepaymentAmount = principalAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, loanTerm)) / (Math.pow(1 + monthlyInterestRate, loanTerm) - 1);
-  } else {
-      // For 0% interest loans
-      monthlyRepaymentAmount = principalAmount / loanTerm;
-  }
+  // Reducing Balance Method: Fixed Principal + Variable Interest
+  const fixedPrincipalPayment = roundToTwo(principalAmount / loanTerm);
+  const firstMonthInterest = roundToTwo(principalAmount * (loanType.interestRate / 12));
+  const firstMonthRepayment = fixedPrincipalPayment + firstMonthInterest;
   
   // Fee calculation
   const insuranceFee = roundToTwo(loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0);
@@ -197,7 +192,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       remainingBalance: roundToTwo(principalAmount),
       insuranceFee,
       serviceFee,
-      monthlyRepaymentAmount: roundToTwo(monthlyRepaymentAmount),
+      monthlyRepaymentAmount: roundToTwo(firstMonthRepayment), // Store first month's total payment
       member: { connect: { id: memberId } },
       loanType: { connect: { id: loanTypeId } },
       collaterals: { 
@@ -243,3 +238,4 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
+

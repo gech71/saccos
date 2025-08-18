@@ -86,24 +86,23 @@ export type RepaymentBatchData = {
 
 export async function recordBatchRepayments(repaymentsData: RepaymentBatchData): Promise<{ success: boolean; message: string }> {
   try {
-    const loanAccountNumbers = repaymentsData.map(r => r.loanAccountNumber).filter(Boolean) as string[];
+    const loanIds = repaymentsData.map(r => r.loanId);
     const loansToUpdate = await prisma.loan.findMany({
-      where: { loanAccountNumber: { in: loanAccountNumbers } },
+      where: { id: { in: loanIds } },
     });
 
-    const loanMap = new Map(loansToUpdate.map(l => [l.loanAccountNumber, l]));
+    const loanMap = new Map(loansToUpdate.map(l => [l.id, l]));
 
     await prisma.$transaction(async (tx) => {
       for (const repayment of repaymentsData) {
-        if (!repayment.loanAccountNumber) continue;
-        const loan = loanMap.get(repayment.loanAccountNumber);
+        const loan = loanMap.get(repayment.loanId);
         if (!loan) {
-          throw new Error(`Loan with account number ${repayment.loanAccountNumber} not found.`);
+          throw new Error(`Loan with ID ${repayment.loanId} not found.`);
         }
         
         if (repayment.amountPaid <= 0) continue; // Skip zero or negative payments
 
-        // 1. Calculate interest for the current period
+        // 1. Calculate interest for the current period (Reducing Balance)
         const monthlyInterestRate = loan.interestRate / 12;
         const interestForMonth = loan.remainingBalance * monthlyInterestRate;
 
@@ -116,7 +115,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
         // 3. Create the repayment record with detailed allocation
         await tx.loanRepayment.create({
           data: {
-            loanId: loan.id, // Use the internal ID here
+            loanId: loan.id,
             memberId: loan.memberId,
             amountPaid: repayment.amountPaid,
             paymentDate: new Date(repayment.paymentDate),
@@ -131,7 +130,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
 
         // 4. Update the loan's remaining balance
         await tx.loan.update({
-          where: { id: loan.id }, // Update by internal ID
+          where: { id: loan.id },
           data: {
             remainingBalance: newBalance,
             status: newBalance <= 0 ? 'paid_off' : loan.status,
@@ -140,7 +139,7 @@ export async function recordBatchRepayments(repaymentsData: RepaymentBatchData):
         
         // Update the in-memory map for subsequent calculations in the same batch
         loan.remainingBalance = newBalance;
-        loanMap.set(loan.loanAccountNumber as string, loan);
+        loanMap.set(loan.id, loan);
       }
     });
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -104,8 +105,9 @@ export default function AggregateCollectionsPage() {
         members.forEach(member => {
             initialData[member.id] = {};
             member.loans.forEach(loan => {
-                const interestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
-                const principalPortion = roundToTwo(loan.monthlyRepaymentAmount - interestForMonth);
+                const monthlyInterestRate = loan.interestRate / 12;
+                const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
+                const principalPortion = roundToTwo(loan.principalAmount / loan.loanTerm);
 
                 initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, principalPortion);
                 initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
