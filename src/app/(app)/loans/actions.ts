@@ -117,7 +117,7 @@ export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' 
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
-  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm, monthlyRepaymentAmount } = data;
+  const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm } = data;
   
   const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
   if (!loanType) throw new Error("Loan Type not found");
@@ -169,6 +169,16 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
+  // Correct monthly payment calculation (Annuity Formula)
+  const monthlyInterestRate = loanType.interestRate / 12;
+  let monthlyRepaymentAmount = 0;
+  if (monthlyInterestRate > 0) {
+      monthlyRepaymentAmount = principalAmount * (monthlyInterestRate * Math.pow(1 + monthlyInterestRate, loanTerm)) / (Math.pow(1 + monthlyInterestRate, loanTerm) - 1);
+  } else {
+      // For 0% interest loans
+      monthlyRepaymentAmount = principalAmount / loanTerm;
+  }
+  
   // Fee calculation
   const insuranceFee = roundToTwo(loanType.name === 'Regular Loan' ? principalAmount * 0.01 : 0);
   const serviceFee = loanType.name === 'Regular Loan' ? 15 : 0;
