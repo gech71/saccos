@@ -115,8 +115,8 @@ export default function AggregateCollectionsPage() {
             // Share Contributions
             member.memberShareCommitments.forEach(sc => {
                 const shareType = dynamicColumns.shares.find(s => s.id === sc.shareTypeId);
-                if (shareType?.paymentType === 'ONCE' && sc.status === 'PAID_OFF') {
-                   initialData[member.id][`share_${sc.shareTypeId}`] = 0;
+                if (shareType?.paymentType === 'ONCE') {
+                   initialData[member.id][`share_${sc.shareTypeId}`] = 0; // Default one-time shares to 0
                 } else {
                    initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
                 }
@@ -127,11 +127,8 @@ export default function AggregateCollectionsPage() {
             });
             // Service Charges
             dynamicColumns.serviceCharges.forEach(sc => {
-                const isOneTime = sc.frequency === 'once';
-                const hasBeenPaid = member.appliedServiceCharges.some(asc => asc.serviceChargeTypeId === sc.id && asc.status === 'paid');
-
-                if (isOneTime && hasBeenPaid) {
-                    initialData[member.id][`service_${sc.id}`] = 0;
+                if (sc.frequency === 'once') {
+                    initialData[member.id][`service_${sc.id}`] = 0; // Default one-time charges to 0
                 } else {
                     initialData[member.id][`service_${sc.id}`] = sc.amount;
                 }
@@ -389,3 +386,4 @@ export default function AggregateCollectionsPage() {
     </div>
   );
 }
+
