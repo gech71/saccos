@@ -9,23 +9,25 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
-  await prisma.saving.deleteMany();
-  await prisma.sharePayment.deleteMany();
-  await prisma.memberSavingAccount.deleteMany();
-  await prisma.memberShareCommitment.deleteMany();
+  await prisma.systemSetting.deleteMany();
+  await prisma.schoolHistory.deleteMany();
+  await prisma.loanGuarantor.deleteMany();
+  await prisma.loanRepayment.deleteMany();
   await prisma.collateral.deleteMany();
-  await prisma.organization.deleteMany();
+  await prisma.loan.deleteMany();
+  await prisma.loanType.deleteMany();
+  await prisma.sharePayment.deleteMany();
+  await prisma.memberShareCommitment.deleteMany();
+  await prisma.shareType.deleteMany();
+  await prisma.dividend.deleteMany();
+  await prisma.saving.deleteMany();
+  await prisma.memberSavingAccount.deleteMany();
+  await prisma.savingAccountType.deleteMany();
+  await prisma.appliedServiceCharge.deleteMany();
+  await prisma.serviceChargeType.deleteMany();
   await prisma.address.deleteMany();
   await prisma.emergencyContact.deleteMany();
-  await prisma.loanRepayment.deleteMany();
-  await prisma.appliedServiceCharge.deleteMany();
-  await prisma.dividend.deleteMany();
-  await prisma.loan.deleteMany();
   await prisma.member.deleteMany();
-  await prisma.serviceChargeType.deleteMany();
-  await prisma.loanType.deleteMany();
-  await prisma.shareType.deleteMany();
-  await prisma.savingAccountType.deleteMany();
   await prisma.school.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
