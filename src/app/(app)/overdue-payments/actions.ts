@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -11,7 +12,7 @@ export interface OverdueShareDetail {
   shareTypeName: string;
   monthlyCommittedAmount: number;
   totalExpectedContribution: number;
-  totalAllocatedValue: number;
+  totalAmountPaid: number;
   overdueAmount: number;
 }
 
@@ -38,12 +39,20 @@ export interface OverduePageData {
 
 
 export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
-  const [members, allShares, allShareTypes, allSchools, appliedCharges] = await Promise.all([
+  const [members, allSharePayments, allShareTypes, allSchools, appliedCharges] = await Promise.all([
     prisma.member.findMany({ 
         where: { status: 'active' },
-        include: { school: { select: { name: true }}, shareCommitments: true }
+        include: { 
+          school: { select: { name: true }}, 
+          memberShareCommitments: {
+            include: {
+              shareType: true,
+            }
+          },
+          memberSavingAccounts: true,
+        }
     }),
-    prisma.share.findMany({ where: { status: 'approved' }}),
+    prisma.sharePayment.findMany({ where: { status: 'approved' }}),
     prisma.shareType.findMany(),
     prisma.school.findMany({ select: {id: true, name: true}}),
     prisma.appliedServiceCharge.findMany({ where: { status: 'pending' }, include: { serviceChargeType: true } })
@@ -55,20 +64,21 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
     const contributionPeriods = differenceInMonths(currentDate, joinDate) + 1;
 
     // Savings Overdue
-    const expectedMonthlySaving = member.expectedMonthlySaving ?? 0;
-    const totalExpectedSavings = expectedMonthlySaving * contributionPeriods;
-    const overdueSavingsAmount = Math.max(0, totalExpectedSavings - member.savingsBalance);
+    const totalExpectedSavings = member.memberSavingAccounts.reduce((sum, acc) => sum + (acc.expectedMonthlySaving * contributionPeriods), 0);
+    const totalSavingsBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+    const overdueSavingsAmount = Math.max(0, totalExpectedSavings - totalSavingsBalance);
 
     // Shares Overdue
-    const overdueSharesDetails: OverdueShareDetail[] = (member.shareCommitments || [])
+    const overdueSharesDetails: OverdueShareDetail[] = (member.memberShareCommitments || [])
       .map(commitment => {
-        const shareType = allShareTypes.find(st => st.id === commitment.shareTypeId);
-        if (!shareType) return null;
-        const monthlyCommitted = commitment.monthlyCommittedAmount ?? 0;
+        const shareType = commitment.shareType;
+        if (!shareType || shareType.paymentType === 'ONCE') return null;
+
+        const monthlyCommitted = commitment.shareType.monthlyPayment ?? 0;
         const totalExpectedShareContribution = monthlyCommitted * contributionPeriods;
-        const memberSharesOfType = allShares.filter(s => s.memberId === member.id && s.shareTypeId === commitment.shareTypeId);
-        const totalAllocatedValue = memberSharesOfType.reduce((sum, s) => sum + (s.totalValueForAllocation ?? (s.count * s.valuePerShare)), 0);
-        const overdueAmount = Math.max(0, totalExpectedShareContribution - totalAllocatedValue);
+        
+        const totalAmountPaid = commitment.amountPaid;
+        const overdueAmount = Math.max(0, totalExpectedShareContribution - totalAmountPaid);
         
         if (overdueAmount > 0) {
             return {
@@ -76,7 +86,7 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
               shareTypeName: shareType.name,
               monthlyCommittedAmount: monthlyCommitted,
               totalExpectedContribution: totalExpectedShareContribution,
-              totalAllocatedValue,
+              totalAmountPaid,
               overdueAmount,
             };
         }
@@ -98,8 +108,8 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
       schoolName: member.school?.name ?? 'N/A',
       schoolId: member.schoolId,
       joinDate: member.joinDate.toISOString(),
-      expectedMonthlySaving,
-      savingsBalance: member.savingsBalance,
+      expectedMonthlySaving: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.expectedMonthlySaving, 0),
+      savingsBalance: totalSavingsBalance,
       overdueSavingsAmount,
       overdueSharesDetails,
       pendingServiceCharges,
@@ -112,7 +122,7 @@ export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
   return {
       overdueMembers,
       schools: allSchools,
-      shareTypes: allShareTypes.map(st => ({id: st.id, name: st.name})),
+      shareTypes: allShareTypes,
   };
 }
 
@@ -139,48 +149,49 @@ export async function recordOverduePayment(data: OverduePaymentInput): Promise<{
     await prisma.$transaction(async (tx) => {
         // 1. Create Saving transaction if amount is provided
         if (savingsAmount > 0) {
-            await tx.saving.create({
-                data: {
-                    memberId,
-                    amount: savingsAmount,
-                    date,
-                    month,
-                    transactionType: 'deposit',
-                    status: 'pending',
-                    depositMode: depositMode,
-                    notes: 'Overdue payment catch-up',
-                    sourceName: paymentDetails?.sourceName,
-                    transactionReference: paymentDetails?.transactionReference,
-                    evidenceUrl: paymentDetails?.evidenceUrl,
-                }
+            const primarySavingAccount = await tx.memberSavingAccount.findFirst({
+                where: { memberId },
+                orderBy: { createdAt: 'asc'}
             });
+
+            if (primarySavingAccount) {
+                 await tx.saving.create({
+                    data: {
+                        memberId,
+                        memberSavingAccountId: primarySavingAccount.id,
+                        amount: savingsAmount,
+                        date,
+                        month,
+                        transactionType: 'deposit',
+                        status: 'pending',
+                        depositMode: depositMode,
+                        notes: 'Overdue payment catch-up',
+                        sourceName: paymentDetails?.sourceName,
+                        transactionReference: paymentDetails?.transactionReference,
+                        evidenceUrl: paymentDetails?.evidenceUrl,
+                    }
+                });
+            }
         }
         
         // 2. Create Share transactions if amounts are provided
         if (Object.keys(shareAmounts).length > 0) {
-            const shareTypeIds = Object.keys(shareAmounts);
-            const shareTypes = await tx.shareType.findMany({ where: { id: { in: shareTypeIds } } });
-            const shareTypeMap = new Map(shareTypes.map(st => [st.id, st]));
-
             for (const [shareTypeId, amount] of Object.entries(shareAmounts)) {
                 if (amount <= 0) continue;
-                const shareType = shareTypeMap.get(shareTypeId);
-                if (!shareType || shareType.valuePerShare <= 0) continue;
+                
+                const commitment = await tx.memberShareCommitment.findFirst({
+                    where: { memberId, shareTypeId }
+                });
 
-                const count = Math.floor(amount / shareType.valuePerShare);
-                if (count > 0) {
-                    await tx.share.create({
+                if (commitment) {
+                     await tx.sharePayment.create({
                         data: {
-                            memberId,
-                            shareTypeId,
-                            count,
-                            allocationDate: date,
-                            valuePerShare: shareType.valuePerShare,
+                            commitmentId: commitment.id,
+                            amount: amount,
+                            paymentDate: date,
                             status: 'pending',
-                            contributionAmount: amount,
-                            totalValueForAllocation: count * shareType.valuePerShare,
+                            depositMode: depositMode,
                             notes: 'Overdue payment catch-up',
-                            depositMode,
                             sourceName: paymentDetails?.sourceName,
                             transactionReference: paymentDetails?.transactionReference,
                             evidenceUrl: paymentDetails?.evidenceUrl,
