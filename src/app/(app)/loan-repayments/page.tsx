@@ -134,11 +134,6 @@ export default function LoanRepaymentsPage() {
     // Use a small tolerance for floating point comparisons
     const tolerance = 0.01;
 
-    if (currentRepayment.amountPaid < minimumPayment - tolerance && currentRepayment.amountPaid < finalSettlement - tolerance) {
-        toast({ variant: 'destructive', title: 'Payment Too Low', description: `Payment must be at least the minimum amount of ${minimumPayment.toFixed(2)}. To make a partial payment lower than the minimum, please contact an administrator. To clear the loan, pay the final settlement amount.` });
-        return;
-    }
-
     if (currentRepayment.amountPaid > finalSettlement + tolerance) {
         toast({ variant: 'destructive', title: 'Error', description: `Payment amount cannot exceed the final settlement of ${finalSettlement.toFixed(2)}.` });
         return;
@@ -325,7 +320,7 @@ export default function LoanRepaymentsPage() {
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
                         <div className="flex justify-between">
-                            <span>Minimum Payment:</span>
+                            <span>Minimum Payment (Principal + Interest):</span>
                             <span className="font-semibold">{minimumPayment.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
@@ -392,6 +387,7 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
 
 
 
