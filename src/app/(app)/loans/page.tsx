@@ -42,7 +42,6 @@ import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput, type CollateralInput } from './actions';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { getLoanSettings } from '../loan-settings/actions';
 
 const specialLoanPurposes = ["Enkutatash", "Gena", "Fasika", "Eid Mubarak", "Mawlid", "Eid al-Adha (Arefa)"];
 
@@ -93,17 +92,14 @@ export default function LoansPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  
-  const [loanSettings, setLoanSettings] = useState({ serviceFee: 15, insuranceFeePercentage: 1 });
 
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
-        const [data, settings] = await Promise.all([getLoansPageData(), getLoanSettings()]);
+        const data = await getLoansPageData();
         setLoans(data.loans);
         setMembers(data.members);
         setLoanTypes(data.loanTypes);
-        setLoanSettings(settings);
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load page data.' });
     }
@@ -128,8 +124,9 @@ export default function LoansPage() {
         const interestPortion = principal * (annualRate / 12);
         const firstMonthPayment = principalPortion + interestPortion;
         
-        const insuranceFee = selectedLoanType.name === 'Regular Loan' ? principal * (loanSettings.insuranceFeePercentage / 100) : 0;
-        const serviceFee = selectedLoanType.name === 'Regular Loan' ? loanSettings.serviceFee : 0;
+        const insuranceFee = (selectedLoanType.insuranceFeePercentage || 0) * principal;
+        const serviceFee = selectedLoanType.serviceFee || 0;
+
 
         setMonthlyPayment(firstMonthPayment);
         setCurrentLoan(prev => ({
@@ -142,7 +139,7 @@ export default function LoansPage() {
         setMonthlyPayment(null);
         setCurrentLoan(prev => ({...prev, monthlyRepaymentAmount: 0, insuranceFee: 0, serviceFee: 0}));
     }
-  }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType, loanSettings]);
+  }, [currentLoan.principalAmount, currentLoan.loanTerm, selectedLoanType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -460,16 +457,17 @@ export default function LoansPage() {
                     <div className="flex items-center gap-2"><Coins className="h-4 w-4 text-muted-foreground" /><p>Savings: {selectedMember.totalSavings.toLocaleString(undefined, {minimumFractionDigits:2})} ETB</p></div>
                     <div className="flex items-center gap-2"><UserCheck className="h-4 w-4 text-muted-foreground" /><p>Guaranteed loans: {selectedMember.totalGuaranteed}</p></div>
                 </AlertDescription>
-                {selectedLoanType.name === 'Special Loan' && (!selectedMember || (new Date().getTime() - new Date(selectedMember.joinDate).getTime()) / (1000*60*60*24*30) < 3) && <AlertDescription className="text-destructive font-semibold"><AlertTriangle className="inline h-4 w-4 mr-1"/>Not eligible: Member for less than 3 months.</AlertDescription>}
+                {selectedLoanType.minSavingMonths && selectedMember && (new Date().getTime() - new Date(selectedMember.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30) < selectedLoanType.minSavingMonths && 
+                  <AlertDescription className="text-destructive font-semibold"><AlertTriangle className="inline h-4 w-4 mr-1"/>Not eligible: Member for less than {selectedLoanType.minSavingMonths} months.</AlertDescription>}
               </Alert>
             )}
 
             <div className="p-3 border rounded-md bg-muted text-sm space-y-1">
                 <div className="flex justify-between"><span>Interest Rate:</span><span className="font-semibold">{(selectedLoanType?.interestRate || 0) * 100}%</span></div>
-                {selectedLoanType?.name === 'Regular Loan' && (
+                {selectedLoanType && (
                   <>
                     <div className="flex justify-between"><span>Service Fee:</span><span className="font-semibold">{(currentLoan.serviceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
-                    <div className="flex justify-between"><span>Insurance Fee ({loanSettings.insuranceFeePercentage}%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
+                    <div className="flex justify-between"><span>Insurance Fee ({((selectedLoanType?.insuranceFeePercentage || 0) * 100).toFixed(2)}%):</span><span className="font-semibold">{(currentLoan.insuranceFee || 0).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
                   </>
                 )}
                  <div className="flex justify-between font-semibold"><span>Net Amount to be Disbursed:</span><span className="font-bold text-green-600">{((currentLoan.principalAmount || 0) - (currentLoan.serviceFee || 0) - (currentLoan.insuranceFee || 0)).toLocaleString(undefined, {minimumFractionDigits: 2})} ETB</span></div>
@@ -479,7 +477,7 @@ export default function LoansPage() {
             <Separator/>
             <Label className="font-semibold text-base text-primary">Collateral</Label>
             
-            {selectedLoanType?.name === 'Regular Loan' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
+            {selectedLoanType?.collateralLogic === 'TITLE_DEED_OVER_200K' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
                 <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
 
             {/* Guarantor Section */}
