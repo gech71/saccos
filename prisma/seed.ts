@@ -9,7 +9,6 @@ async function main() {
 
   // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
-  await prisma.systemSetting.deleteMany();
   await prisma.schoolHistory.deleteMany();
   await prisma.loanGuarantor.deleteMany();
   await prisma.loanRepayment.deleteMany();
