@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, AlertTriangle, ShieldQuestion, CalendarDays, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, AlertTriangle, ShieldQuestion, CalendarDays, Loader2, DollarSign } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -52,12 +52,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getLoanTypes, addLoanType, updateLoanType, deleteLoanType } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import { Separator } from '@/components/ui/separator';
 
 const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   name: '',
+  description: '',
   interestRate: undefined,
   minLoanAmount: 1000,
   maxLoanAmount: 5000,
@@ -67,6 +68,11 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   nplInterestRate: undefined,
   nplGracePeriodDays: 30,
   allowConcurrent: false,
+  serviceFee: 0,
+  insuranceFeePercentage: 0,
+  collateralLogic: 'GUARANTOR',
+  minSavingMonths: 0,
+  minSavingBalance: 0,
 };
 
 export default function LoanTypesPage() {
@@ -111,7 +117,8 @@ export default function LoanTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    if (name.includes('Amount') || name.includes('Rate') || name.includes('Period')) {
+    const numericFields = ['minLoanAmount', 'maxLoanAmount', 'minRepaymentPeriod', 'maxRepaymentPeriod', 'nplGracePeriodDays', 'serviceFee', 'minSavingMonths', 'minSavingBalance', 'interestRate', 'nplInterestRate', 'insuranceFeePercentage'];
+    if (numericFields.includes(name)) {
         const parsedValue = parseFloat(value);
         setCurrentLoanType(prev => ({
             ...prev,
@@ -123,7 +130,7 @@ export default function LoanTypesPage() {
   };
   
    const handleSelectChange = (name: keyof LoanType, value: string) => {
-    setCurrentLoanType(prev => ({ ...prev, [name]: value as LoanType['repaymentFrequency'] }));
+    setCurrentLoanType(prev => ({ ...prev, [name]: value as any }));
   };
 
   const handleCheckboxChange = (name: keyof LoanType, checked: boolean) => {
@@ -154,6 +161,7 @@ export default function LoanTypesPage() {
     setIsSubmitting(true);
     const dataToSave = {
         name: currentLoanType.name!,
+        description: currentLoanType.description,
         interestRate: (currentLoanType.interestRate || 0) / 100,
         minLoanAmount: currentLoanType.minLoanAmount,
         maxLoanAmount: currentLoanType.maxLoanAmount,
@@ -163,6 +171,11 @@ export default function LoanTypesPage() {
         nplInterestRate: (currentLoanType.nplInterestRate || 0) / 100,
         nplGracePeriodDays: currentLoanType.nplGracePeriodDays,
         allowConcurrent: currentLoanType.allowConcurrent || false,
+        serviceFee: currentLoanType.serviceFee,
+        insuranceFeePercentage: (currentLoanType.insuranceFeePercentage || 0) / 100,
+        collateralLogic: currentLoanType.collateralLogic,
+        minSavingMonths: currentLoanType.minSavingMonths,
+        minSavingBalance: currentLoanType.minSavingBalance,
     };
 
     try {
@@ -191,8 +204,9 @@ export default function LoanTypesPage() {
   const openEditModal = (loanType: LoanType) => {
     setCurrentLoanType({
         ...loanType, 
-        interestRate: loanType.interestRate * 100, // Display rate as percentage
+        interestRate: loanType.interestRate * 100,
         nplInterestRate: loanType.nplInterestRate * 100,
+        insuranceFeePercentage: (loanType.insuranceFeePercentage || 0) * 100,
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -228,19 +242,6 @@ export default function LoanTypesPage() {
     return filteredLoanTypes.slice(startIndex, endIndex);
   }, [filteredLoanTypes, currentPage, rowsPerPage]);
 
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredLoanTypes.length / rowsPerPage);
-  }, [filteredLoanTypes.length, rowsPerPage]);
-
-  const getFrequencyLabel = (frequency: LoanType['repaymentFrequency']) => {
-    switch (frequency) {
-      case 'monthly': return 'Monthly';
-      case 'quarterly': return 'Quarterly';
-      case 'yearly': return 'Yearly';
-      default: return frequency;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <PageTitle title="Manage Loan Types" subtitle="Define the loan products offered by your association.">
@@ -271,7 +272,7 @@ export default function LoanTypesPage() {
               <TableHead>Loan Range (ETB)</TableHead>
               <TableHead>Repayment Period (Months)</TableHead>
               <TableHead className="text-right">Interest Rate (Annual)</TableHead>
-              <TableHead className="text-right">NPL Rate (Annual)</TableHead>
+              <TableHead className="text-right">Fees</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -284,7 +285,11 @@ export default function LoanTypesPage() {
                 <TableCell>{loanType.minLoanAmount.toLocaleString()} - {loanType.maxLoanAmount.toLocaleString()}</TableCell>
                 <TableCell>{loanType.minRepaymentPeriod} - {loanType.maxRepaymentPeriod}</TableCell>
                 <TableCell className="text-right font-semibold text-green-600">{(loanType.interestRate * 100).toFixed(2)}%</TableCell>
-                <TableCell className="text-right font-semibold text-destructive">{(loanType.nplInterestRate * 100).toFixed(2)}%</TableCell>
+                <TableCell className="text-right">
+                    {loanType.serviceFee && <span>{loanType.serviceFee} ETB Service</span>}
+                    {loanType.serviceFee && loanType.insuranceFeePercentage && <br />}
+                    {loanType.insuranceFeePercentage && <span>{(loanType.insuranceFeePercentage * 100).toFixed(2)}% Insurance</span>}
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -316,19 +321,30 @@ export default function LoanTypesPage() {
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsModalOpen(open); }}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-headline">{isEditing ? 'Edit Loan Type' : 'Add New Loan Type'}</DialogTitle>
             <DialogDescription>
               {isEditing ? 'Update the details for this loan type.' : 'Enter the details for the new loan type.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="name">Loan Type Name <span className="text-destructive">*</span></Label>
-              <Input id="name" name="name" value={currentLoanType.name || ''} onChange={handleInputChange} required />
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="name">Loan Type Name <span className="text-destructive">*</span></Label>
+                    <Input id="name" name="name" value={currentLoanType.name || ''} onChange={handleInputChange} required />
+                </div>
+                 <div>
+                    <Label htmlFor="interestRate">Interest Rate (Annual %) <span className="text-destructive">*</span></Label>
+                    <div className="relative">
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="interestRate" name="interestRate" type="number" step="0.01" min="0" value={currentLoanType.interestRate || ''} onChange={handleInputChange} required className="pr-7" placeholder="e.g., 8.5" />
+                    </div>
+                </div>
             </div>
             
+             <Separator/>
+            <Label className="font-semibold">Loan Terms</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="minLoanAmount">Min Loan Amount (ETB)</Label>
@@ -338,10 +354,7 @@ export default function LoanTypesPage() {
                     <Label htmlFor="maxLoanAmount">Max Loan Amount (ETB)</Label>
                     <Input id="maxLoanAmount" name="maxLoanAmount" type="number" step="100" min="0" value={currentLoanType.maxLoanAmount ?? ''} onChange={handleInputChange} />
                 </div>
-            </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                 <div>
                     <Label htmlFor="minRepaymentPeriod">Min Repayment Period (Months)</Label>
                     <Input id="minRepaymentPeriod" name="minRepaymentPeriod" type="number" step="1" min="1" value={currentLoanType.minRepaymentPeriod ?? ''} onChange={handleInputChange} />
                 </div>
@@ -350,55 +363,52 @@ export default function LoanTypesPage() {
                     <Input id="maxRepaymentPeriod" name="maxRepaymentPeriod" type="number" step="1" min="1" value={currentLoanType.maxRepaymentPeriod ?? ''} onChange={handleInputChange} />
                 </div>
             </div>
-
+            
+            <Separator/>
+            <Label className="font-semibold">Fees</Label>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="interestRate">Interest Rate (Annual %) <span className="text-destructive">*</span></Label>
+                 <div>
+                    <Label htmlFor="serviceFee">Service Fee (ETB)</Label>
                     <div className="relative">
-                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="interestRate" name="interestRate" type="number" step="0.01" min="0" value={currentLoanType.interestRate || ''} onChange={handleInputChange} required className="pr-7" placeholder="e.g., 8.5" />
+                        <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="serviceFee" name="serviceFee" type="number" step="1" min="0" value={currentLoanType.serviceFee ?? ''} onChange={handleInputChange} className="pl-8" />
                     </div>
-                </div>
-                <div>
-                    <Label htmlFor="nplInterestRate">NPL Interest Rate (Annual %)</Label>
+                 </div>
+                 <div>
+                    <Label htmlFor="insuranceFeePercentage">Insurance Fee (%)</Label>
                      <div className="relative">
-                        <AlertTriangle className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-destructive/70" />
-                        <Input id="nplInterestRate" name="nplInterestRate" type="number" step="0.01" min="0" value={currentLoanType.nplInterestRate || ''} onChange={handleInputChange} className="pr-7" placeholder="e.g., 15" />
+                        <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="insuranceFeePercentage" name="insuranceFeePercentage" type="number" step="0.01" min="0" value={currentLoanType.insuranceFeePercentage ?? ''} onChange={handleInputChange} className="pr-7" />
                     </div>
-                </div>
+                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Separator/>
+            <Label className="font-semibold">Eligibility & Collateral</Label>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
-                    <Label htmlFor="nplGracePeriodDays">NPL Grace Period (Days)</Label>
-                    <div className="relative">
-                        <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="nplGracePeriodDays" name="nplGracePeriodDays" type="number" step="1" min="0" value={currentLoanType.nplGracePeriodDays || ''} onChange={handleInputChange} className="pl-8" placeholder="e.g., 30" />
-                    </div>
-                </div>
-                <div>
-                    <Label htmlFor="repaymentFrequency">Repayment Frequency <span className="text-destructive">*</span></Label>
-                     <Select name="repaymentFrequency" value={currentLoanType.repaymentFrequency || 'monthly'} onValueChange={(value) => handleSelectChange('repaymentFrequency', value)} required>
-                        <SelectTrigger id="repaymentFrequency"><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                    <Label htmlFor="collateralLogic">Collateral Logic</Label>
+                    <Select name="collateralLogic" value={currentLoanType.collateralLogic || 'GUARANTOR'} onValueChange={(value) => handleSelectChange('collateralLogic', value)} required>
+                        <SelectTrigger id="collateralLogic"><SelectValue placeholder="Select logic" /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="monthly">Monthly</SelectItem>
-                            <SelectItem value="quarterly">Quarterly</SelectItem>
-                            <SelectItem value="yearly">Yearly</SelectItem>
+                            <SelectItem value="GUARANTOR">Guarantor Required</SelectItem>
+                            <SelectItem value="TITLE_DEED">Title Deed Required</SelectItem>
+                            <SelectItem value="GUARANTOR_OR_SAVINGS_BALANCE">Guarantor or Savings Balance</SelectItem>
+                            <SelectItem value="GUARANTOR_AND_TITLE_DEED_OVER_200K">Guarantor / Title Deed {'>'} 200k</SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
-            </div>
-            <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                    id="allowConcurrent"
-                    name="allowConcurrent"
-                    checked={currentLoanType.allowConcurrent || false}
-                    onCheckedChange={(checked) => handleCheckboxChange('allowConcurrent', !!checked)}
-                />
-                <Label htmlFor="allowConcurrent" className="font-normal text-sm text-muted-foreground">
-                    Allow this loan to be taken with other active loans
-                </Label>
-            </div>
+                 </div>
+                 <div>
+                    <Label htmlFor="minSavingMonths">Minimum Saving Duration (Months)</Label>
+                    <Input id="minSavingMonths" name="minSavingMonths" type="number" step="1" min="0" value={currentLoanType.minSavingMonths ?? ''} onChange={handleInputChange} />
+                 </div>
+                 <div>
+                    <Label htmlFor="minSavingBalance">Minimum Savings Balance (ETB)</Label>
+                    <Input id="minSavingBalance" name="minSavingBalance" type="number" step="100" min="0" value={currentLoanType.minSavingBalance ?? ''} onChange={handleInputChange} />
+                 </div>
+             </div>
+
+
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>
@@ -430,3 +440,4 @@ export default function LoanTypesPage() {
     </div>
   );
 }
+

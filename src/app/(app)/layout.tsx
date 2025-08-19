@@ -59,7 +59,6 @@ const navItems: NavItem[] = [
   { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'configuration:view' },
   { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'configuration:view' },
   { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'configuration:view' },
-  { title: 'Loan Settings', href: '/loan-settings', icon: Banknote, permission: 'configuration:view' },
   { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'configuration:view' },
 ];
 
