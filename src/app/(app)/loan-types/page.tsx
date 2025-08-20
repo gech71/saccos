@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -384,6 +385,22 @@ export default function LoanTypesPage() {
             </div>
 
             <Separator/>
+            <Label className="font-semibold">Non-Performing Loan (NPL) Policy</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nplInterestRate">NPL Interest Rate (Annual %)</Label>
+                <div className="relative">
+                  <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="nplInterestRate" name="nplInterestRate" type="number" step="0.01" min="0" value={currentLoanType.nplInterestRate ?? ''} onChange={handleInputChange} className="pr-7" placeholder="e.g., 15" />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="nplGracePeriodDays">NPL Grace Period (Days)</Label>
+                <Input id="nplGracePeriodDays" name="nplGracePeriodDays" type="number" step="1" min="0" value={currentLoanType.nplGracePeriodDays ?? ''} onChange={handleInputChange} />
+              </div>
+            </div>
+            
+            <Separator/>
             <Label className="font-semibold">Eligibility & Collateral</Label>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
@@ -440,4 +457,3 @@ export default function LoanTypesPage() {
     </div>
   );
 }
-
