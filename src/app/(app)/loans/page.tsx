@@ -269,6 +269,30 @@ export default function LoansPage() {
 
   const totalPages = useMemo(() => Math.ceil(filteredLoans.length / rowsPerPage), [filteredLoans.length, rowsPerPage]);
   
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 1) return [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+    const rangeWithDots: (number | string)[] = [];
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
+  }, [totalPages, currentPage]);
+
   const getStatusBadgeVariant = (status: Loan['status']) => {
     switch (status) {
       case 'pending': return 'secondary';
@@ -439,17 +463,23 @@ export default function LoansPage() {
                     Previous
                 </Button>
                 <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <Button
-                            key={page}
-                            variant={currentPage === page ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-9 w-9 p-0"
-                            onClick={() => setCurrentPage(page)}
-                        >
-                            {page}
-                        </Button>
-                    ))}
+                    {paginationItems.map((item, index) =>
+                        typeof item === 'number' ? (
+                            <Button
+                                key={index}
+                                variant={currentPage === item ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-9 w-9 p-0"
+                                onClick={() => setCurrentPage(item)}
+                            >
+                                {item}
+                            </Button>
+                        ) : (
+                            <span key={index} className="px-2">
+                                {item}
+                            </span>
+                        )
+                    )}
                 </div>
                 <Button
                     variant="outline"
@@ -460,8 +490,30 @@ export default function LoansPage() {
                     Next
                 </Button>
             </div>
-            <div className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                <div>Page {currentPage} of {totalPages || 1}</div>
+                <div>{filteredLoans.length} loan(s) found.</div>
+                <div className="flex items-center space-x-2">
+                    <p className="font-medium">Rows:</p>
+                    <Select
+                        value={`${rowsPerPage}`}
+                        onValueChange={(value) => {
+                            setRowsPerPage(Number(value));
+                            setCurrentPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={`${rowsPerPage}`} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 15, 20, 25, 50].map((pageSize) => (
+                                <SelectItem key={pageSize} value={`${pageSize}`}>
+                                    {pageSize}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
         </div>
       )}
