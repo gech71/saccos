@@ -3,7 +3,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Loan, Prisma, Member, LoanType, Collateral, Address, Organization } from '@prisma/client';
+import type { Loan, Prisma, Member, LoanType, Collateral } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 function roundToTwo(num: number) {
@@ -107,9 +107,10 @@ export type CollateralInput = {
     guarantorId?: string;
 };
 
-export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod' | 'monthlyRepaymentAmount' | 'serviceFee' | 'insuranceFee'> & {
+export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' | 'remainingBalance' | 'disbursementDate' | 'nextDueDate' | 'notes' | 'minLoanAmount' | 'maxLoanAmount' | 'minRepaymentPeriod' | 'maxRepaymentPeriod' | 'monthlyRepaymentAmount' | 'serviceFee' | 'insuranceFee' | 'purpose'> & {
     disbursementDate: string;
     notes?: string | null;
+    purpose?: string | null;
     collaterals: CollateralInput[];
     monthlyRepaymentAmount: number;
     serviceFee: number;
@@ -153,10 +154,10 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
-
+  // Collateral Logic Validation
   if (loanType.collateralLogic === 'GUARANTOR_OR_SAVINGS_BALANCE') {
       const totalSavings = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-      if (totalSavings < loanType.minSavingBalance && guarantorIds.length === 0) {
+      if (totalSavings < (loanType.minSavingBalance || 0) && guarantorIds.length === 0) {
           throw new Error(`Member must have at least one guarantor if savings are less than ${loanType.minSavingBalance} ETB.`);
       }
   } else if (loanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_200K') {
@@ -171,6 +172,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("This loan type requires a title deed.");
   }
   
+  // Membership Duration Validation
   if (loanType.minSavingMonths && loanType.minSavingMonths > 0) {
       const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44); // Avg days in month
       if (monthsSinceJoined < loanType.minSavingMonths) {
@@ -178,6 +180,10 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
+  // Purpose Validation
+  if (loanType.purposes.length > 0 && (!purpose || !loanType.purposes.includes(purpose))) {
+      throw new Error("A valid purpose must be selected for this loan type.");
+  }
 
   // Reducing Balance Method: Fixed Principal + Variable Interest
   const fixedPrincipalPayment = roundToTwo(principalAmount / loanTerm);
@@ -248,4 +254,3 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
-

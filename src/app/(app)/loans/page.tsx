@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins, UserX } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins, UserX, UserRound } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -25,6 +26,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +40,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from '@/hooks/use-toast';
 import type { Loan, LoanType } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
@@ -41,8 +47,6 @@ import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput, type CollateralInput } from './actions';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-const specialLoanPurposes = ["Enkutatash", "Gena", "Fasika", "Eid Mubarak", "Mawlid", "Eid al-Adha (Arefa)"];
 
 type MemberForSelect = { id: string; fullName: string; joinDate: Date; totalSavings: number; totalGuaranteed: number; };
 
@@ -91,6 +95,7 @@ export default function LoansPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [openAccordionId, setOpenAccordionId] = useState<string | null>(null);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -155,12 +160,6 @@ export default function LoansPage() {
     setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
   };
   
-  const handleCollateralTypeChange = (index: number, type: 'GUARANTOR' | 'TITLE_DEED') => {
-      const updatedCollaterals = [...(currentLoan.collaterals || [])];
-      updatedCollaterals[index] = { type }; // Reset the collateral object
-      setCurrentLoan(prev => ({...prev, collaterals: updatedCollaterals}));
-  };
-
   const addTitleDeedCollateral = () => {
     setCurrentLoan(prev => ({
         ...prev,
@@ -321,74 +320,132 @@ export default function LoansPage() {
             </SelectContent>
           </Select>
       </div>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : paginatedLoans.length > 0 ? (
+        <Accordion type="single" collapsible className="w-full space-y-2">
+            {paginatedLoans.map((loan) => {
+              let interestNext = 0;
+              let principalNext = 0;
+              let totalNext = 0;
+              
+              if ((loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0) {
+                  interestNext = loan.remainingBalance * (loan.interestRate / 12);
+                  principalNext = loan.principalAmount / loan.loanTerm;
+                  
+                  const standardPayment = principalNext + interestNext;
+                  const finalPayment = loan.remainingBalance + interestNext;
+                  
+                  totalNext = Math.min(standardPayment, finalPayment);
 
-      <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Loan Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Principal</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-              <TableHead className="text-right">Next Interest</TableHead>
-              <TableHead className="text-right">Next Principal</TableHead>
-              <TableHead className="text-right">Next Payment</TableHead>
-              <TableHead>Disbursed</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            ) : paginatedLoans.length > 0 ? paginatedLoans.map(loan => {
-                let interestNext = 0;
-                let principalNext = 0;
-                let totalNext = 0;
-                
-                if ((loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0) {
-                    interestNext = loan.remainingBalance * (loan.interestRate / 12);
-                    principalNext = loan.principalAmount / loan.loanTerm;
-                    
-                    const standardPayment = principalNext + interestNext;
-                    const finalPayment = loan.remainingBalance + interestNext;
-                    
-                    totalNext = Math.min(standardPayment, finalPayment);
+                  if (totalNext === finalPayment) {
+                      principalNext = loan.remainingBalance;
+                  }
+              }
 
-                    if (totalNext === finalPayment) {
-                        principalNext = loan.remainingBalance;
-                    }
-                }
               return (
-              <TableRow key={loan.id}>
-                <TableCell className="font-medium">{loan.memberName}</TableCell>
-                <TableCell>{loan.loanTypeName}</TableCell>
-                <TableCell><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></TableCell>
-                <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right font-semibold">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                <TableCell className="text-right text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell className="text-right font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</TableCell>
-                <TableCell>{new Date(loan.disbursementDate).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                    {loan.status !== 'paid_off' && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Banknote className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditModal(loan)} disabled={loan.status === 'active' || loan.status === 'paid_off'}><Edit className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDeleteDialog(loan.id)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </TableCell>
-              </TableRow>
-              )
-            }) : (
-              <TableRow><TableCell colSpan={10} className="h-24 text-center">No loans found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  <AccordionItem value={loan.id} key={loan.id} className="border-b-0">
+                      <Card className="shadow-sm">
+                          <AccordionTrigger className="p-4 hover:no-underline [&[data-state=open]]:border-b">
+                              <div className="flex-1 text-left flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                                  <div className="font-medium flex-1">{loan.memberName}</div>
+                                  <div className="text-sm text-muted-foreground flex-1">{loan.loanTypeName}</div>
+                                  <div className="flex-1"><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></div>
+                                  <div className="font-semibold flex-1 text-right md:text-left">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</div>
+                              </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="p-6 pt-4">
+                              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                  <div className="space-y-4">
+                                    <h4 className="font-semibold">Loan Details</h4>
+                                    <div className="text-sm space-y-2">
+                                        <p><strong>Principal:</strong> {loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                        <p><strong>Remaining Balance:</strong> {loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p>
+                                        <p><strong>Disbursed Date:</strong> {new Date(loan.disbursementDate).toLocaleDateString()}</p>
+                                        <p><strong>Next Due Date:</strong> {loan.nextDueDate ? new Date(loan.nextDueDate).toLocaleDateString() : 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-4">
+                                    <h4 className="font-semibold">Next Payment Details</h4>
+                                      <div className="text-sm space-y-2">
+                                        <p><strong>Est. Principal:</strong> <span className="text-green-600">{principalNext > 0 ? principalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</span></p>
+                                        <p><strong>Est. Interest:</strong> <span className="text-orange-600">{interestNext > 0 ? interestNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</span></p>
+                                        <p><strong>Total Est. Payment:</strong> <span className="font-bold text-primary">{totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}</span></p>
+                                    </div>
+                                  </div>
+                                   <div className="space-y-4">
+                                      <h4 className="font-semibold">Collateral</h4>
+                                      <div className="text-sm space-y-2">
+                                          {loan.guarantors.length > 0 && (
+                                              <div>
+                                                  <strong>Guarantors:</strong>
+                                                  <ul className="list-disc pl-5">
+                                                      {loan.guarantors.map(g => <li key={g.guarantor.id}>{g.guarantor.fullName}</li>)}
+                                                  </ul>
+                                              </div>
+                                          )}
+                                          {loan.collaterals.length > 0 && (
+                                              <div>
+                                                  <strong>Title Deeds:</strong>
+                                                  <ul className="list-disc pl-5">
+                                                      {loan.collaterals.map(c => <li key={c.id}>{c.description || 'Title Deed Attached'}</li>)}
+                                                  </ul>
+                                              </div>
+                                          )}
+                                          {loan.guarantors.length === 0 && loan.collaterals.length === 0 && <p className="text-muted-foreground">No collateral on record.</p>}
+                                      </div>
+                                  </div>
+                              </div>
+                          </AccordionContent>
+                      </Card>
+                  </AccordionItem>
+              );
+            })}
+        </Accordion>
+      ) : (
+        <div className="py-12 text-center text-muted-foreground">No loans found matching your criteria.</div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex flex-col items-center gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <Button
+                            key={page}
+                            variant={currentPage === page ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-9 w-9 p-0"
+                            onClick={() => setCurrentPage(page)}
+                        >
+                            {page}
+                        </Button>
+                    ))}
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                </Button>
+            </div>
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+            </div>
+        </div>
+      )}
+
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -428,12 +485,12 @@ export default function LoansPage() {
                 </div>
             </div>
 
-            {selectedLoanType?.name === 'Special Loan' && (
+            {selectedLoanType?.purposes && selectedLoanType.purposes.length > 0 && (
                 <div>
-                    <Label htmlFor="purpose">Purpose (for Special Loan)</Label>
-                    <Select name="purpose" value={currentLoan.purpose} onValueChange={(val) => handleSelectChange('purpose', val)}>
+                    <Label htmlFor="purpose">Purpose (for {selectedLoanType.name})</Label>
+                    <Select name="purpose" value={currentLoan.purpose || ''} onValueChange={(val) => handleSelectChange('purpose', val)}>
                         <SelectTrigger><SelectValue placeholder="Select holiday purpose..." /></SelectTrigger>
-                        <SelectContent>{specialLoanPurposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        <SelectContent>{selectedLoanType.purposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
             )}
@@ -476,7 +533,7 @@ export default function LoansPage() {
             <Separator/>
             <Label className="font-semibold text-base text-primary">Collateral</Label>
             
-            {selectedLoanType?.collateralLogic === 'TITLE_DEED_OVER_200K' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
+            {selectedLoanType?.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_200K' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
                 <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
 
             {/* Guarantor Section */}

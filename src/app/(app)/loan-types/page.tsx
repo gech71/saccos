@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, AlertTriangle, ShieldQuestion, CalendarDays, Loader2, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Percent, CalendarClock, AlertTriangle, ShieldQuestion, CalendarDays, Loader2, DollarSign, Tag, XIcon } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -43,7 +43,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import type { LoanType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -57,7 +56,7 @@ import { getLoanTypes, addLoanType, updateLoanType, deleteLoanType } from './act
 import { useAuth } from '@/contexts/auth-context';
 import { Separator } from '@/components/ui/separator';
 
-const initialFormState: Partial<Omit<LoanType, 'id'>> = {
+const initialFormState: Partial<LoanType> = {
   name: '',
   description: '',
   interestRate: undefined,
@@ -74,6 +73,7 @@ const initialFormState: Partial<Omit<LoanType, 'id'>> = {
   collateralLogic: 'GUARANTOR',
   minSavingMonths: 0,
   minSavingBalance: 0,
+  purposes: [],
 };
 
 export default function LoanTypesPage() {
@@ -83,6 +83,7 @@ export default function LoanTypesPage() {
   const [loanTypeToDelete, setLoanTypeToDelete] = useState<string | null>(null);
   
   const [currentLoanType, setCurrentLoanType] = useState<Partial<LoanType>>(initialFormState);
+  const [newPurpose, setNewPurpose] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,7 +93,6 @@ export default function LoanTypesPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-
 
   const canCreate = useMemo(() => user?.permissions.includes('configuration:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('configuration:edit'), [user]);
@@ -134,8 +134,17 @@ export default function LoanTypesPage() {
     setCurrentLoanType(prev => ({ ...prev, [name]: value as any }));
   };
 
-  const handleCheckboxChange = (name: keyof LoanType, checked: boolean) => {
-    setCurrentLoanType(prev => ({ ...prev, [name]: checked }));
+  const handleAddPurpose = () => {
+    if (newPurpose.trim()) {
+        const updatedPurposes = [...(currentLoanType.purposes || []), newPurpose.trim()];
+        setCurrentLoanType(prev => ({ ...prev, purposes: updatedPurposes }));
+        setNewPurpose('');
+    }
+  };
+
+  const handleRemovePurpose = (index: number) => {
+    const updatedPurposes = (currentLoanType.purposes || []).filter((_, i) => i !== index);
+    setCurrentLoanType(prev => ({ ...prev, purposes: updatedPurposes }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +186,7 @@ export default function LoanTypesPage() {
         collateralLogic: currentLoanType.collateralLogic,
         minSavingMonths: currentLoanType.minSavingMonths,
         minSavingBalance: currentLoanType.minSavingBalance,
+        purposes: currentLoanType.purposes || [],
     };
 
     try {
@@ -339,7 +349,7 @@ export default function LoanTypesPage() {
                     <Label htmlFor="interestRate">Interest Rate (Annual %) <span className="text-destructive">*</span></Label>
                     <div className="relative">
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="interestRate" name="interestRate" type="number" step="0.01" min="0" value={currentLoanType.interestRate || ''} onChange={handleInputChange} required className="pr-7" placeholder="e.g., 8.5" />
+                        <Input id="interestRate" name="interestRate" type="number" step="0.01" min="0" value={currentLoanType.interestRate ?? ''} onChange={handleInputChange} required className="pr-7" placeholder="e.g., 8.5" />
                     </div>
                 </div>
             </div>
@@ -425,6 +435,30 @@ export default function LoanTypesPage() {
                  </div>
              </div>
 
+            <Separator/>
+            <Label className="font-semibold">Loan Purposes (Optional)</Label>
+            <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <Input
+                        id="newPurpose"
+                        value={newPurpose}
+                        onChange={(e) => setNewPurpose(e.target.value)}
+                        placeholder="e.g., Gena, Eid Mubarak"
+                    />
+                    <Button type="button" onClick={handleAddPurpose}>Add</Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {(currentLoanType.purposes || []).map((purpose, index) => (
+                        <Badge key={index} variant="secondary" className="pl-2 pr-1">
+                            {purpose}
+                            <button type="button" onClick={() => handleRemovePurpose(index)} className="ml-1.5 rounded-full hover:bg-destructive/20 p-0.5">
+                                <XIcon className="h-3 w-3" />
+                            </button>
+                        </Badge>
+                    ))}
+                </div>
+                <p className="text-xs text-muted-foreground">If you add purposes, users will be forced to select one when applying for this loan type.</p>
+            </div>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
