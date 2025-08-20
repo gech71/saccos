@@ -433,8 +433,11 @@ export default function LoanTypesPage() {
                  </div>
                   {currentLoanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X' && (
                     <div>
-                        <Label htmlFor="collateralThresholdAmount">Collateral Threshold (ETB)</Label>
+                        <Label htmlFor="collateralThresholdAmount">Title Deed Requirement Threshold (ETB)</Label>
                         <Input id="collateralThresholdAmount" name="collateralThresholdAmount" type="number" min="0" value={currentLoanType.collateralThresholdAmount ?? ''} onChange={handleInputChange} placeholder="e.g., 200000" />
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Loans above this amount will require a title deed. Loans at or below this amount will require guarantors.
+                        </p>
                     </div>
                   )}
                  <div>
@@ -503,4 +506,5 @@ export default function LoanTypesPage() {
     </div>
   );
 }
+
 
