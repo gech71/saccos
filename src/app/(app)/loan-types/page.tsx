@@ -421,7 +421,7 @@ export default function LoanTypesPage() {
                             <SelectItem value="GUARANTOR">Guarantor Required</SelectItem>
                             <SelectItem value="TITLE_DEED">Title Deed Required</SelectItem>
                             <SelectItem value="GUARANTOR_OR_SAVINGS_BALANCE">Guarantor or Savings Balance</SelectItem>
-                            <SelectItem value="GUARANTOR_AND_TITLE_DEED_OVER_200K">Guarantor / Title Deed {'>'} 200k</SelectItem>
+                            <SelectItem value="GUARANTOR_AND_TITLE_DEED_OVER_200K">Guarantor if ≤200k, Title Deed if >200k</SelectItem>
                         </SelectContent>
                     </Select>
                  </div>
@@ -491,3 +491,4 @@ export default function LoanTypesPage() {
     </div>
   );
 }
+
