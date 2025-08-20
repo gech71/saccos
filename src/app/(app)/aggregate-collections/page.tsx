@@ -32,6 +32,8 @@ import * as XLSX from 'xlsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
@@ -65,6 +67,10 @@ export default function AggregateCollectionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForAggregate[]>([]);
   const [collectionData, setCollectionData] = useState<MemberCollectionData>({});
+  
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -94,6 +100,7 @@ export default function AggregateCollectionsPage() {
     setIsLoading(true);
     setMembersData([]);
     setCollectionData({});
+    setExcelFile(null); // Reset file on new load
 
     try {
         const members = pageData?.members.filter(m => m.schoolId === selectedSchool) || [];
@@ -198,13 +205,8 @@ export default function AggregateCollectionsPage() {
     setIsSubmitting(false);
   };
 
-  const handleExport = () => {
-    if (membersData.length === 0) {
-        toast({ variant: 'destructive', title: 'No Data', description: 'Load data before exporting.' });
-        return;
-    }
-
-    const headers = [
+  const getHeaders = () => {
+    return [
         'Member ID',
         'Full Name',
         ...dynamicColumns.savings.map(s => s.name),
@@ -213,6 +215,15 @@ export default function AggregateCollectionsPage() {
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
         'Total Collected'
     ];
+  }
+
+  const handleExport = () => {
+    if (membersData.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: 'Load data before exporting.' });
+        return;
+    }
+
+    const headers = getHeaders();
 
     const dataToExport = membersData.map(member => {
         const row: (string | number)[] = [member.id, member.fullName];
@@ -234,6 +245,81 @@ export default function AggregateCollectionsPage() {
 
     exportToExcel(dataToExport, `aggregate_collection_${selectedSchool}_${months[parseInt(selectedMonth)].label}_${selectedYear}`);
   };
+
+  const handleDownloadTemplate = () => {
+    if (membersData.length === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please load members for the school first to generate a template.' });
+      return;
+    }
+    
+    const headers = getHeaders().filter(h => h !== 'Total Collected');
+    const templateData = membersData.map(member => {
+        const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
+        headers.slice(2).forEach(header => {
+            rowObject[header] = 0; // Default to 0
+        });
+        return rowObject;
+    });
+    
+    exportToExcel(templateData, 'aggregate_collection_template');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setExcelFile(file);
+    }
+  };
+
+  const handleProcessFile = () => {
+    if (!excelFile) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
+      return;
+    }
+    if (membersData.length === 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please load members for the school before processing a file.' });
+        return;
+    }
+
+    setIsParsing(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+            const newCollectionData = { ...collectionData };
+            let updatedCount = 0;
+
+            dataRows.forEach(row => {
+                const memberId = row['Member ID'];
+                const member = membersData.find(m => m.id === memberId);
+                if (member) {
+                    updatedCount++;
+                    dynamicColumns.savings.forEach(s => { newCollectionData[memberId][`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                    dynamicColumns.loans.forEach(l => {
+                        newCollectionData[memberId][`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
+                        newCollectionData[memberId][`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
+                    });
+                    dynamicColumns.shares.forEach(s => { newCollectionData[memberId][`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                    dynamicColumns.serviceCharges.forEach(sc => { newCollectionData[memberId][`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+                }
+            });
+            
+            setCollectionData(newCollectionData);
+            toast({ title: "File Processed", description: `Updated data for ${updatedCount} members from the Excel file.` });
+
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
+        } finally {
+            setIsParsing(false);
+        }
+    };
+    reader.readAsBinaryString(excelFile);
+  }
 
 
   if (isPageLoading || !pageData) {
@@ -318,72 +404,100 @@ export default function AggregateCollectionsPage() {
       </Card>
 
       {membersData.length > 0 && (
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle>Collection Sheet</CardTitle>
-                        <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
+        <Tabs defaultValue="manual">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual">Enter Manually</TabsTrigger>
+                <TabsTrigger value="import">Import from Excel</TabsTrigger>
+            </TabsList>
+            <TabsContent value="manual">
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Collection Sheet</CardTitle>
+                                <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
+                            </div>
+                            <Button onClick={handleExport} variant="outline">
+                                <FileDown className="mr-2 h-4 w-4" /> Export
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="overflow-x-auto rounded-lg border shadow-sm">
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
+                            <TableHead className="sticky left-[150px] bg-background z-20 w-[200px]">Full Name</TableHead>
+                            {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
+                            {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            <TableHead className="text-right sticky right-0 bg-background z-20 font-bold">Total Collected</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {membersData.map(member => (
+                            <TableRow key={member.id}>
+                                <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
+                                    {member.id}
+                                </TableCell>
+                                <TableCell className="font-medium sticky left-[150px] bg-background z-10 w-[200px]">
+                                    {member.fullName}
+                                </TableCell>
+                                {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                {dynamicColumns.loans.map(c => (
+                                    <React.Fragment key={`loan_inputs_${c.id}`}>
+                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-principal`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-principal`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-interest`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-interest`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                                    </React.Fragment>
+                                ))}
+                                {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                <TableCell className="text-right font-bold sticky right-0 bg-background z-10">{getRowTotal(member.id).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow className="bg-muted font-bold">
+                            <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
+                            <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            </TableRow>
+                        </TableFooter>
+                        </Table>
                     </div>
-                    <Button onClick={handleExport} variant="outline">
-                        <FileDown className="mr-2 h-4 w-4" /> Export
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-lg border shadow-sm">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
-                      <TableHead className="sticky left-[150px] bg-background z-20 w-[200px]">Full Name</TableHead>
-                      {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                      {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
-                      {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                      {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                      <TableHead className="text-right sticky right-0 bg-background z-20 font-bold">Total Collected</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {membersData.map(member => (
-                      <TableRow key={member.id}>
-                        <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
-                            {member.id}
-                        </TableCell>
-                         <TableCell className="font-medium sticky left-[150px] bg-background z-10 w-[200px]">
-                            {member.fullName}
-                        </TableCell>
-                        {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                        {dynamicColumns.loans.map(c => (
-                            <React.Fragment key={`loan_inputs_${c.id}`}>
-                                <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-principal`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-principal`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
-                                <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-interest`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-interest`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
-                            </React.Fragment>
-                        ))}
-                        {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                        {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                        <TableCell className="text-right font-bold sticky right-0 bg-background z-10">{getRowTotal(member.id).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow className="bg-muted font-bold">
-                      <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
-                      <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
-              </div>
-            </CardContent>
-            <CardFooter>
-                 <Button onClick={handleSubmit} disabled={isSubmitting || grandTotal <= 0}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Submit Collection
-                </Button>
-            </CardFooter>
-        </Card>
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleSubmit} disabled={isSubmitting || grandTotal <= 0}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Submit Collection
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            <TabsContent value="import">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Import from Excel</CardTitle>
+                        <CardDescription>Upload an Excel file to populate the collection data automatically. The file must match the template format.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Button onClick={handleDownloadTemplate} variant="secondary" size="sm">
+                            <Download className="mr-2 h-4 w-4"/>
+                            Download Template for Loaded Members
+                        </Button>
+                        <div className="flex items-center gap-4">
+                            <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
+                             <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
+                                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                                Process File
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        </Tabs>
       )}
     </div>
   );
 }
-
