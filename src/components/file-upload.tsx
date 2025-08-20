@@ -19,8 +19,8 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Simulate an upload and store a placeholder URL
-      const placeholderUrl = `https://placehold.co/800x1100.png`; // A4-like ratio
+      // Simulate an upload and store a placeholder PDF URL
+      const placeholderUrl = `https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf`;
       onValueChange(placeholderUrl);
     }
   };
