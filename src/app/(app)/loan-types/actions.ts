@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -12,7 +13,12 @@ export async function getLoanTypes(): Promise<LoanType[]> {
 }
 
 export async function addLoanType(data: Omit<LoanType, 'id'>): Promise<LoanType> {
-  const newLoanType = await prisma.loanType.create({ data });
+  const newLoanType = await prisma.loanType.create({ 
+    data: {
+      ...data,
+      purposes: data.purposes || [], // Ensure purposes is initialized as an empty array
+    } 
+  });
   revalidatePath('/loan-types');
   return newLoanType;
 }
