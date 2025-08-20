@@ -68,15 +68,6 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   serviceFee: 0,
 };
 
-function isValidUrl(string: string) {
-    try {
-        new URL(string);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
 export default function LoansPage() {
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [members, setMembers] = useState<MemberForSelect[]>([]);
@@ -366,7 +357,7 @@ export default function LoansPage() {
                                   <div className="flex-1"><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></div>
                                   <div className="font-semibold flex-1 min-w-0 truncate text-right md:text-left">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</div>
                                   <div className="font-semibold text-primary flex-1 min-w-0 truncate text-right md:text-left">
-                                      {totalNext > 0 ? `Est. Pymt: ${totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}
+                                      Est. Pymt: {totalNext > 0 ? totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}
                                   </div>
                               </div>
                           </AccordionTrigger>
@@ -405,9 +396,7 @@ export default function LoansPage() {
                                                   <strong>Title Deeds:</strong>
                                                   <ul className="list-disc pl-5">
                                                       {loan.collaterals.map(c => {
-                                                        const url = c.documentUrl && !isValidUrl(c.documentUrl)
-                                                          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
-                                                          : c.documentUrl;
+                                                        const url = c.documentUrl;
                                                         return (
                                                           <li key={c.id}>
                                                             {url ? (
