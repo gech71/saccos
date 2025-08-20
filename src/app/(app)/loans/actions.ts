@@ -160,11 +160,12 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       if (totalSavings < (loanType.minSavingBalance || 0) && guarantorIds.length === 0) {
           throw new Error(`Member must have at least one guarantor if savings are less than ${loanType.minSavingBalance} ETB.`);
       }
-  } else if (loanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_200K') {
-      if (principalAmount <= 200000) {
-          if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error("Loans up to 200,000 ETB require at least one guarantor.");
-      } else { // > 200,000
-          if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("Loans over 200,000 ETB require a house title deed.");
+  } else if (loanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X') {
+      const threshold = loanType.collateralThresholdAmount || 200000;
+      if (principalAmount <= threshold) {
+          if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error(`Loans up to ${threshold.toLocaleString()} ETB require at least one guarantor.`);
+      } else { // > threshold
+          if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error(`Loans over ${threshold.toLocaleString()} ETB require a house title deed.`);
       }
   } else if (loanType.collateralLogic === 'GUARANTOR') {
       if (guarantorIds.length === 0) throw new Error("This loan type requires at least one guarantor.");
@@ -254,3 +255,4 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
+

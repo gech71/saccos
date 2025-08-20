@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -160,7 +159,11 @@ export default function LoansPage() {
   };
 
   const handleSelectChange = (name: keyof LoanInput, value: string) => {
-    setCurrentLoan(prev => ({...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
+    if (name === 'purpose') {
+      setCurrentLoan(prev => ({...prev, purpose: value}));
+    } else {
+      setCurrentLoan(prev => ({...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
+    }
   };
   
   const handleCollateralChange = (index: number, field: string, value: string) => {
@@ -516,7 +519,7 @@ export default function LoansPage() {
             {selectedLoanType?.purposes && selectedLoanType.purposes.length > 0 && (
                 <div>
                     <Label htmlFor="purpose">Purpose (for {selectedLoanType.name})</Label>
-                    <Select value={currentLoan.purpose || ''} onValueChange={(val) => setCurrentLoan(prev => ({...prev, purpose: val}))}>
+                    <Select name="purpose" value={currentLoan.purpose || ''} onValueChange={(val) => handleSelectChange('purpose', val)}>
                         <SelectTrigger><SelectValue placeholder="Select holiday purpose..." /></SelectTrigger>
                         <SelectContent>{selectedLoanType.purposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
@@ -561,8 +564,8 @@ export default function LoansPage() {
             <Separator/>
             <Label className="font-semibold text-base text-primary">Collateral</Label>
             
-            {selectedLoanType?.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_200K' && currentLoan.principalAmount && currentLoan.principalAmount > 200000 && 
-                <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over 200,000 ETB.</AlertDescription></Alert>}
+            {selectedLoanType?.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X' && currentLoan.principalAmount && currentLoan.principalAmount > (selectedLoanType.collateralThresholdAmount || 200000) && 
+                <Alert><AlertTriangle className="h-4 w-4"/><AlertDescription>A house title deed is required for loans over {(selectedLoanType.collateralThresholdAmount || 200000).toLocaleString()} ETB.</AlertDescription></Alert>}
 
             {/* Guarantor Section */}
             <div className="space-y-2 p-3 border rounded-md">

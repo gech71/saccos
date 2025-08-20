@@ -71,6 +71,7 @@ const initialFormState: Partial<LoanType> = {
   serviceFee: 0,
   insuranceFeePercentage: 0,
   collateralLogic: 'GUARANTOR',
+  collateralThresholdAmount: null,
   minSavingMonths: 0,
   minSavingBalance: 0,
   purposes: [],
@@ -118,12 +119,12 @@ export default function LoanTypesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numericFields = ['minLoanAmount', 'maxLoanAmount', 'minRepaymentPeriod', 'maxRepaymentPeriod', 'nplGracePeriodDays', 'serviceFee', 'minSavingMonths', 'minSavingBalance', 'interestRate', 'nplInterestRate', 'insuranceFeePercentage'];
+    const numericFields = ['minLoanAmount', 'maxLoanAmount', 'minRepaymentPeriod', 'maxRepaymentPeriod', 'nplGracePeriodDays', 'serviceFee', 'minSavingMonths', 'minSavingBalance', 'interestRate', 'nplInterestRate', 'insuranceFeePercentage', 'collateralThresholdAmount'];
     if (numericFields.includes(name)) {
-        const parsedValue = parseFloat(value);
+        const parsedValue = value === '' ? null : parseFloat(value);
         setCurrentLoanType(prev => ({
             ...prev,
-            [name]: isNaN(parsedValue) ? 0 : parsedValue
+            [name]: isNaN(parsedValue!) ? 0 : parsedValue
         }));
     } else {
         setCurrentLoanType(prev => ({ ...prev, [name]: value }));
@@ -149,7 +150,7 @@ export default function LoanTypesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const {name, interestRate, minLoanAmount, maxLoanAmount, minRepaymentPeriod, maxRepaymentPeriod, nplInterestRate} = currentLoanType;
+    const {name, interestRate, minLoanAmount, maxLoanAmount, minRepaymentPeriod, maxRepaymentPeriod, nplInterestRate, collateralLogic, collateralThresholdAmount} = currentLoanType;
 
     if (!name || interestRate === undefined || interestRate < 0 ) {
       toast({ variant: 'destructive', title: 'Error', description: 'Loan type name and a valid interest rate are required.' });
@@ -166,6 +167,10 @@ export default function LoanTypesPage() {
     if (nplInterestRate === undefined || nplInterestRate < 0) {
         toast({ variant: 'destructive', title: 'Error', description: 'NPL Interest Rate must be a non-negative number.' });
         return;
+    }
+     if (collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X' && (!collateralThresholdAmount || collateralThresholdAmount <= 0)) {
+      toast({ variant: 'destructive', title: 'Error', description: 'A positive threshold amount is required for this collateral logic.' });
+      return;
     }
     
     setIsSubmitting(true);
@@ -184,6 +189,7 @@ export default function LoanTypesPage() {
         serviceFee: currentLoanType.serviceFee,
         insuranceFeePercentage: (currentLoanType.insuranceFeePercentage || 0) / 100,
         collateralLogic: currentLoanType.collateralLogic,
+        collateralThresholdAmount: currentLoanType.collateralThresholdAmount,
         minSavingMonths: currentLoanType.minSavingMonths,
         minSavingBalance: currentLoanType.minSavingBalance,
         purposes: currentLoanType.purposes || [],
@@ -421,10 +427,16 @@ export default function LoanTypesPage() {
                             <SelectItem value="GUARANTOR">Guarantor Required</SelectItem>
                             <SelectItem value="TITLE_DEED">Title Deed Required</SelectItem>
                             <SelectItem value="GUARANTOR_OR_SAVINGS_BALANCE">Guarantor or Savings Balance</SelectItem>
-                            <SelectItem value="GUARANTOR_AND_TITLE_DEED_OVER_200K">Guarantor if ≤200k, Title Deed if >200k</SelectItem>
+                            <SelectItem value="GUARANTOR_AND_TITLE_DEED_OVER_X">Guarantor or Title Deed (based on amount)</SelectItem>
                         </SelectContent>
                     </Select>
                  </div>
+                  {currentLoanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X' && (
+                    <div>
+                        <Label htmlFor="collateralThresholdAmount">Collateral Threshold (ETB)</Label>
+                        <Input id="collateralThresholdAmount" name="collateralThresholdAmount" type="number" min="0" value={currentLoanType.collateralThresholdAmount ?? ''} onChange={handleInputChange} placeholder="e.g., 200000" />
+                    </div>
+                  )}
                  <div>
                     <Label htmlFor="minSavingMonths">Minimum Saving Duration (Months)</Label>
                     <Input id="minSavingMonths" name="minSavingMonths" type="number" step="1" min="0" value={currentLoanType.minSavingMonths ?? ''} onChange={handleInputChange} />
