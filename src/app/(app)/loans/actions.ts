@@ -154,30 +154,29 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   }
 
 
-  if (loanType.name === 'Special Loan') {
-      const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
-      if (monthsSinceJoined < 3) throw new Error("Member must have at least 3 months of savings to be eligible for a Special Loan.");
+  if (loanType.collateralLogic === 'GUARANTOR_OR_SAVINGS_BALANCE') {
       const totalSavings = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-      if (totalSavings < 5000 && !collaterals.some(c => c.type === 'GUARANTOR')) {
-          throw new Error("Member must have at least one guarantor if savings are less than 5,000 ETB.");
+      if (totalSavings < loanType.minSavingBalance && guarantorIds.length === 0) {
+          throw new Error(`Member must have at least one guarantor if savings are less than ${loanType.minSavingBalance} ETB.`);
       }
-  } else if (loanType.name === 'Regular Loan') {
+  } else if (loanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_200K') {
       if (principalAmount <= 200000) {
           if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error("Loans up to 200,000 ETB require at least one guarantor.");
       } else { // > 200,000
           if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("Loans over 200,000 ETB require a house title deed.");
       }
+  } else if (loanType.collateralLogic === 'GUARANTOR') {
+      if (guarantorIds.length === 0) throw new Error("This loan type requires at least one guarantor.");
+  } else if (loanType.collateralLogic === 'TITLE_DEED') {
+      if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("This loan type requires a title deed.");
   }
-
-  // Get Fee settings from DB
-  const loanSettings = await prisma.systemSetting.findMany({
-      where: { key: { in: ['loan_service_fee', 'loan_insurance_fee_percentage'] } }
-  });
-  const serviceFeeSetting = loanSettings.find(s => s.key === 'loan_service_fee');
-  const insuranceFeeSetting = loanSettings.find(s => s.key === 'loan_insurance_fee_percentage');
-
-  const serviceFeeValue = serviceFeeSetting ? parseFloat(serviceFeeSetting.value) : 15;
-  const insuranceFeePercentageValue = insuranceFeeSetting ? parseFloat(insuranceFeeSetting.value) : 1;
+  
+  if (loanType.minSavingMonths && loanType.minSavingMonths > 0) {
+      const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44); // Avg days in month
+      if (monthsSinceJoined < loanType.minSavingMonths) {
+          throw new Error(`Member must have at least ${loanType.minSavingMonths} months of membership to be eligible for this loan.`);
+      }
+  }
 
 
   // Reducing Balance Method: Fixed Principal + Variable Interest
@@ -185,9 +184,9 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   const firstMonthInterest = roundToTwo(principalAmount * (loanType.interestRate / 12));
   const firstMonthRepayment = fixedPrincipalPayment + firstMonthInterest;
   
-  // Fee calculation
-  const insuranceFee = loanType.name === 'Regular Loan' ? roundToTwo(principalAmount * (insuranceFeePercentageValue / 100)) : 0;
-  const serviceFee = loanType.name === 'Regular Loan' ? serviceFeeValue : 0;
+  // Fee calculation using values from the loanType object
+  const insuranceFee = roundToTwo(principalAmount * (loanType.insuranceFeePercentage || 0));
+  const serviceFee = loanType.serviceFee || 0;
 
   return await prisma.loan.create({
     data: {
@@ -249,3 +248,4 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
+
