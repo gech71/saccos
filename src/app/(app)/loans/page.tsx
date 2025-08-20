@@ -6,7 +6,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Search, Filter, Check, ChevronsUpDown, FileDown, Banknote, Shield, MinusCircle, Loader2, AlertTriangle, FileText, UserCheck, CalendarDays, Coins, UserX, UserRound } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import {
   Dialog,
   DialogContent,
@@ -26,12 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,11 +41,11 @@ import type { Loan, LoanType } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { exportToExcel } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails, type LoanInput, type CollateralInput } from './actions';
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type MemberForSelect = { id: string; fullName: string; joinDate: Date; totalSavings: number; totalGuaranteed: number; };
 
