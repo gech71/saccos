@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -502,7 +501,7 @@ export default function LoansPage() {
             {selectedLoanType?.purposes && selectedLoanType.purposes.length > 0 && (
                 <div>
                     <Label htmlFor="purpose">Purpose (for {selectedLoanType.name})</Label>
-                    <Select name="purpose" value={currentLoan.purpose || ''} onValueChange={(val) => handleSelectChange('purpose', val)}>
+                    <Select value={currentLoan.purpose || ''} onValueChange={(val) => setCurrentLoan(prev => ({...prev, purpose: val}))}>
                         <SelectTrigger><SelectValue placeholder="Select holiday purpose..." /></SelectTrigger>
                         <SelectContent>{selectedLoanType.purposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
