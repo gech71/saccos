@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -67,6 +68,15 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   insuranceFee: 0,
   serviceFee: 0,
 };
+
+function isValidUrl(string: string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
 
 export default function LoansPage() {
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
@@ -150,7 +160,7 @@ export default function LoansPage() {
   };
 
   const handleSelectChange = (name: keyof LoanInput, value: string) => {
-    setCurrentLoan(prev => ({ ...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
+    setCurrentLoan(prev => ({...prev, [name]: value, purpose: name === 'loanTypeId' ? '' : prev.purpose }));
   };
   
   const handleCollateralChange = (index: number, field: string, value: string) => {
@@ -391,18 +401,23 @@ export default function LoansPage() {
                                               <div>
                                                   <strong>Title Deeds:</strong>
                                                   <ul className="list-disc pl-5">
-                                                      {loan.collaterals.map(c => 
-                                                        <li key={c.id}>
-                                                          {c.documentUrl ? (
-                                                            <a href={c.documentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                                                              <FileText className="h-4 w-4" />
-                                                              {c.description || 'View Attached Document'}
-                                                            </a>
-                                                          ) : (
-                                                            <span>{c.description || 'Title Deed Attached'}</span>
-                                                          )}
-                                                        </li>
-                                                      )}
+                                                      {loan.collaterals.map(c => {
+                                                        const url = c.documentUrl && !isValidUrl(c.documentUrl)
+                                                          ? 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+                                                          : c.documentUrl;
+                                                        return (
+                                                          <li key={c.id}>
+                                                            {url ? (
+                                                              <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                                                                <FileText className="h-4 w-4" />
+                                                                {c.description || 'View Attached Document'}
+                                                              </a>
+                                                            ) : (
+                                                              <span>{c.description || 'Title Deed Attached'}</span>
+                                                            )}
+                                                          </li>
+                                                        )
+                                                      })}
                                                   </ul>
                                               </div>
                                           )}
