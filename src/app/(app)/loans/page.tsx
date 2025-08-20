@@ -46,6 +46,7 @@ import { getLoansPageData, addLoan, updateLoan, deleteLoan, type LoanWithDetails
 import { FileUpload } from '@/components/file-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
 
 type MemberForSelect = { id: string; fullName: string; joinDate: Date; totalSavings: number; totalGuaranteed: number; };
 
@@ -347,11 +348,14 @@ export default function LoansPage() {
                   <AccordionItem value={loan.id} key={loan.id} className="border-b-0">
                       <Card className="shadow-sm">
                           <AccordionTrigger className="p-4 hover:no-underline [&[data-state=open]]:border-b">
-                              <div className="flex-1 text-left flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                                  <div className="font-medium flex-1">{loan.memberName}</div>
-                                  <div className="text-sm text-muted-foreground flex-1">{loan.loanTypeName}</div>
+                              <div className="flex-1 text-left flex flex-col md:flex-row md:items-center gap-2 md:gap-4 w-full">
+                                  <div className="font-medium flex-1 min-w-0 truncate">{loan.memberName}</div>
+                                  <div className="text-sm text-muted-foreground flex-1 min-w-0 truncate">{loan.loanTypeName}</div>
                                   <div className="flex-1"><Badge variant={getStatusBadgeVariant(loan.status)}>{loan.status.replace('_', ' ')}</Badge></div>
-                                  <div className="font-semibold flex-1 text-right md:text-left">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</div>
+                                  <div className="font-semibold flex-1 min-w-0 truncate text-right md:text-left">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</div>
+                                  <div className="font-semibold text-primary flex-1 min-w-0 truncate text-right md:text-left">
+                                      {totalNext > 0 ? `Est. Pymt: ${totalNext.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}
+                                  </div>
                               </div>
                           </AccordionTrigger>
                           <AccordionContent className="p-6 pt-4">
@@ -388,7 +392,18 @@ export default function LoansPage() {
                                               <div>
                                                   <strong>Title Deeds:</strong>
                                                   <ul className="list-disc pl-5">
-                                                      {loan.collaterals.map(c => <li key={c.id}>{c.description || 'Title Deed Attached'}</li>)}
+                                                      {loan.collaterals.map(c => 
+                                                        <li key={c.id}>
+                                                          {c.documentUrl ? (
+                                                            <a href={c.documentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                                                              <FileText className="h-4 w-4" />
+                                                              {c.description || 'View Attached Document'}
+                                                            </a>
+                                                          ) : (
+                                                            <span>{c.description || 'Title Deed Attached'}</span>
+                                                          )}
+                                                        </li>
+                                                      )}
                                                   </ul>
                                               </div>
                                           )}
