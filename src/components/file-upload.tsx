@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useRef } from 'react';
@@ -18,7 +19,9 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      onValueChange(file.name);
+      // Simulate an upload and store a placeholder URL
+      const placeholderUrl = `https://placehold.co/800x1100.png`; // A4-like ratio
+      onValueChange(placeholderUrl);
     }
   };
 
@@ -33,7 +36,7 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
         <div className="mt-2 flex items-center justify-between p-2 pl-3 border rounded-md bg-muted/50">
           <div className="flex items-center gap-2 truncate">
             <FileText className="h-5 w-5 flex-shrink-0 text-primary" />
-            <span className="truncate text-sm font-medium">{value}</span>
+            <span className="truncate text-sm font-medium">Document Attached</span>
           </div>
           <Button
             type="button"
@@ -54,13 +57,14 @@ export function FileUpload({ value, onValueChange, label, id }: FileUploadProps)
               onChange={handleFileChange}
               className="hidden"
               id={id}
+              accept="image/*,.pdf"
             />
             <Button type="button" variant="outline" className="w-full" onClick={handleAttachClick}>
                 <UploadCloud className="mr-2 h-4 w-4" />
                 Attach File
             </Button>
             <p className="text-xs text-muted-foreground mt-1">
-              Select a file. The file itself is not uploaded in this prototype.
+              Select a file. A placeholder document will be linked.
             </p>
         </div>
       )}
