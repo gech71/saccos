@@ -9,8 +9,9 @@ import { jwtDecode } from 'jwt-decode';
 import type { AuthResponse, AuthUser, MemberAuthUser } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/actions';
-import { findMemberByPhoneNumber } from '@/app/login/actions';
+import { verifyMemberCredentials } from '@/app/login/actions';
 import bcrypt from 'bcryptjs';
+import type { Member } from '@prisma/client';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -104,10 +105,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (memberId) {
         // This is a member session
-        const memberRes = await prisma.member.findUnique({ where: {id: memberId }});
-        if (memberRes) {
-            setMember({ id: memberRes.id, fullName: memberRes.fullName, mustChangePassword: memberRes.mustChangePassword ?? undefined });
-        }
+        // For simplicity, we just set the memberId. The profile page will fetch full details.
+        setMember({ id: memberId, fullName: 'Member', mustChangePassword: false });
       } else if (storedAccessToken && storedRefreshToken) {
         try {
           const decoded = jwtDecode<DecodedToken>(storedAccessToken);
@@ -145,24 +144,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
   
   const memberLogin = async (data: {phoneNumber: string, password?: string}) => {
-      const memberResult = await prisma.member.findFirst({ where: {phoneNumber: data.phoneNumber}});
+      const result = await verifyMemberCredentials(data);
       
-      if (!memberResult) {
-          toast({ variant: 'destructive', title: 'Login Failed', description: 'Phone number not found.'});
-          throw new Error('Phone number not found.');
+      if (!result.success || !result.member) {
+          toast({ variant: 'destructive', title: 'Login Failed', description: result.error});
+          throw new Error(result.error);
       }
       
-      if (!memberResult.password) {
-          toast({ variant: 'destructive', title: 'Login Failed', description: 'This member account is not yet configured for password login.' });
-          throw new Error('Account not configured.');
-      }
-      
-      const passwordMatch = await bcrypt.compare(data.password || '', memberResult.password);
-
-      if (!passwordMatch) {
-           toast({ variant: 'destructive', title: 'Login Failed', description: 'Incorrect password.'});
-           throw new Error('Incorrect password.');
-      }
+      const memberResult = result.member as Member;
       
       // Login success
       setMember({
