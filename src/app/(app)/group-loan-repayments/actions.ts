@@ -29,7 +29,7 @@ export async function getGroupLoanRepaymentsPageData(): Promise<{
 }
 
 export type LoanWithMemberInfo = Loan & {
-  member: Pick<Member, 'fullName'>;
+  member: Pick<Member, 'fullName' | 'id'>;
 }
 
 export async function getLoansByCriteria(criteria: { schoolId: string, loanTypeId?: string }): Promise<LoanWithMemberInfo[]> {
@@ -53,7 +53,7 @@ export async function getLoansByCriteria(criteria: { schoolId: string, loanTypeI
     where: whereClause,
     include: {
       member: {
-        select: { fullName: true }
+        select: { fullName: true, id: true }
       }
     },
     orderBy: [
