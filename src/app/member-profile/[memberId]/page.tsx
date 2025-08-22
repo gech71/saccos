@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow } from 'date-fns';
-import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award, PieChart, WalletCards } from 'lucide-react';
+import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award, PieChart, WalletCards, ShieldCheck } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -145,7 +145,7 @@ export default function MemberProfilePage() {
         );
     }
     
-    const { member, school, allSavingsTransactions, savingAccounts, shareCommitments, sharePayments, loans, loanRepayments, dividends, address, schoolHistory, serviceCharges } = details;
+    const { member, school, allSavingsTransactions, savingAccounts, shareCommitments, sharePayments, loans, guaranteedLoans, loanRepayments, dividends, address, schoolHistory, serviceCharges } = details;
 
     return (
         <div className="mx-auto p-4 md:p-8 space-y-8 bg-background">
@@ -165,12 +165,13 @@ export default function MemberProfilePage() {
             </Card>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-8 md:grid-cols-8 h-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-9 md:grid-cols-9 h-auto">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="savings">Savings</TabsTrigger>
                     <TabsTrigger value="shares">Shares</TabsTrigger>
                     <TabsTrigger value="share-payments">Share Payments</TabsTrigger>
                     <TabsTrigger value="loans">Loans</TabsTrigger>
+                    <TabsTrigger value="guaranteed">Guaranteed</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
                     <TabsTrigger value="service-charges">Service Charges</TabsTrigger>
                     <TabsTrigger value="history">School History</TabsTrigger>
@@ -402,6 +403,40 @@ export default function MemberProfilePage() {
                             <div className="text-muted-foreground text-center py-8">This member has not taken any loans.</div>
                         </SectionCard>
                     )}
+                </TabsContent>
+                
+                 {/* Guaranteed Loans Tab */}
+                <TabsContent value="guaranteed" className="mt-6">
+                    <SectionCard title="Guaranteed Loans" description="List of active loans this member is guaranteeing for others.">
+                        <div className="overflow-x-auto rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Borrower</TableHead>
+                                        <TableHead>Loan Type</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Principal Amount</TableHead>
+                                        <TableHead className="text-right">Remaining Balance</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {guaranteedLoans.length > 0 ? guaranteedLoans.map(loan => (
+                                        <TableRow key={loan.id}>
+                                            <TableCell className="font-medium">{loan.member.fullName}</TableCell>
+                                            <TableCell>{loan.loanType.name}</TableCell>
+                                            <TableCell>{getLoanStatusBadge(loan.status)}</TableCell>
+                                            <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
+                                            <TableCell className="text-right font-semibold text-destructive">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center">Not currently guaranteeing any active loans.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </SectionCard>
                 </TabsContent>
                 
                  {/* Dividends Tab */}

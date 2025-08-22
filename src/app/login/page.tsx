@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -111,7 +112,7 @@ export default function LoginPage() {
           aria-label="Member Password"
         />
       </div>
-       <Button type="submit" variant="secondary" className="w-full" disabled={isMemberLoading}>
+       <Button type="submit" variant="default" className="w-full" disabled={isMemberLoading}>
           {isMemberLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Signing In...</> : 'Sign In as Member'}
        </Button>
     </form>

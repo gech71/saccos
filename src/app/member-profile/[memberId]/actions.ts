@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { format, compareDesc } from 'date-fns';
 import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment } from '@prisma/client';
 
+type GuaranteedLoan = Loan & { member: { fullName: string }, loanType: { name: string } };
 export interface MemberDetails {
     member: Member;
     school: School | null;
@@ -15,6 +16,7 @@ export interface MemberDetails {
     shareCommitments: (MemberShareCommitment & { shareType: { name: string } })[];
     sharePayments: SharePayment[];
     loans: (Loan & { loanTypeName: string })[];
+    guaranteedLoans: GuaranteedLoan[];
     dividends: Dividend[];
     loanRepayments: (LoanRepayment & { balanceAfter: number })[];
     serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
@@ -96,6 +98,27 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
             disbursementDate: 'desc'
         }
     });
+    
+    // Fetch loans the member has guaranteed for others
+    const guaranteedLoans = await prisma.loan.findMany({
+        where: {
+            guarantors: {
+                some: {
+                    guarantorId: memberId,
+                },
+            },
+            status: { in: ['active', 'overdue'] }
+        },
+        include: {
+            member: {
+                select: { fullName: true }
+            },
+            loanType: {
+                select: { name: true }
+            }
+        },
+    });
+
 
     const allLoanRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number })[] = [];
     loans.forEach(loan => {
@@ -170,6 +193,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         shareCommitments: member.memberShareCommitments.map(c => ({...c, payments:[], shareType: { name: c.shareType.name }})),
         sharePayments: allSharePayments,
         loans: loans.map(l => ({ ...l, loanTypeName: l.loanType.name, repayments: [] })), // Clear repayments as they are handled separately
+        guaranteedLoans: guaranteedLoans as GuaranteedLoan[],
         dividends: member.dividends,
         loanRepayments: allLoanRepaymentsWithBalance,
         serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType.name })),
