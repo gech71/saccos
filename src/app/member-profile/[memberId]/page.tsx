@@ -416,7 +416,6 @@ export default function MemberProfilePage() {
                                         <TableHead>Loan Type</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Principal Amount</TableHead>
-                                        <TableHead className="text-right">Remaining Balance</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -426,11 +425,10 @@ export default function MemberProfilePage() {
                                             <TableCell>{loan.loanType.name}</TableCell>
                                             <TableCell>{getLoanStatusBadge(loan.status)}</TableCell>
                                             <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
-                                            <TableCell className="text-right font-semibold text-destructive">{loan.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">Not currently guaranteeing any active loans.</TableCell>
+                                            <TableCell colSpan={4} className="h-24 text-center">Not currently guaranteeing any active loans.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
