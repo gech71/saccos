@@ -144,8 +144,8 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
       await tx.loanRepayment.create({ 
         data: {
             ...data,
-            paymentDate: new Date(data.paymentDate),
             memberId: loan.memberId,
+            paymentDate: new Date(data.paymentDate),
             interestPaid: interestPaid,
             principalPaid: principalPaid,
         }
