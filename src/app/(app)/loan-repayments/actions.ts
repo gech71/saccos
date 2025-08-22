@@ -110,7 +110,11 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   };
 }
 
-export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'interestPaid' | 'principalPaid'>;
+export type LoanRepaymentInput = Pick<
+  LoanRepayment,
+  'loanId' | 'amountPaid' | 'paymentDate' | 'depositMode' | 'sourceName' | 'transactionReference' | 'evidenceUrl' | 'notes'
+>;
+
 
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
   try {
