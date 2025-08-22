@@ -65,7 +65,7 @@ const navItems: NavItem[] = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, member } = useAuth();
   const pathname = usePathname();
 
   const filteredNavItems = useMemo(() => {
@@ -91,31 +91,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (isLoading || !user?.permissions) {
+    if (isLoading) {
       return; 
     }
     
-    if (pathname === '/dashboard') {
+    if (!isAuthenticated) {
+      router.replace('/login');
       return;
     }
+    
+    if (member && member.mustChangePassword && !pathname.startsWith('/member-login/change-password')) {
+        router.replace(`/member-login/change-password?memberId=${member.id}`);
+        return;
+    }
+    
+    if (user) { // Admin user is logged in
+      if (pathname === '/dashboard') {
+        return;
+      }
+      const navItem = [...navItems]
+        .filter(item => item.href && item.href !== '/')
+        .sort((a, b) => b.href!.length - a.href!.length)
+        .find(item => pathname.startsWith(item.href!));
 
-    const navItem = [...navItems]
-      .filter(item => item.href && item.href !== '/')
-      .sort((a, b) => b.href!.length - a.href!.length)
-      .find(item => pathname.startsWith(item.href!));
-
-    if (navItem && navItem.permission) {
-      if (!user.permissions.includes(navItem.permission)) {
-        router.replace('/dashboard');
+      if (navItem && navItem.permission) {
+        if (!user.permissions.includes(navItem.permission)) {
+          router.replace('/dashboard');
+        }
       }
     }
-  }, [pathname, user, isLoading, router]);
+  }, [pathname, user, member, isLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isLoading, isAuthenticated, router]);
 
   if (isLoading || !isAuthenticated) {
     return (

@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma, SavingAccountType, ServiceChargeType, ShareType, Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import bcrypt from 'bcryptjs';
 
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
@@ -95,7 +96,7 @@ function validateMemberData(data: MemberInput) {
 }
 
 
-export async function addMember(data: MemberInput): Promise<Member> {
+export async function addMember(data: MemberInput): Promise<{ member: Member, temporaryPassword?: string }> {
     const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
 
     validateMemberData(data);
@@ -138,10 +139,16 @@ export async function addMember(data: MemberInput): Promise<Member> {
         where: { id: { in: shareCommitmentIds || [] } }
     });
 
+    // Generate temporary password
+    const temporaryPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
     const newMember = await prisma.member.create({
         data: {
             id,
             ...memberData,
+            password: hashedPassword,
+            mustChangePassword: true,
             status: 'active',
             joinDate: new Date(memberData.joinDate),
             address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
@@ -180,7 +187,7 @@ export async function addMember(data: MemberInput): Promise<Member> {
     revalidatePath('/members');
     revalidatePath('/applied-service-charges');
     revalidatePath('/shares');
-    return newMember;
+    return { member: newMember, temporaryPassword };
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
@@ -346,16 +353,23 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
         return { success: false, message: 'Could not find a default "Regular Savings" account type. Please create one before importing members.' };
     }
 
-    const membersToCreate = members.map(m => ({
-        id: m.MemberID,
-        fullName: m.MemberFullName,
-        email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
-        sex: 'Male' as 'Male' | 'Female', // Default value
-        phoneNumber: '0900000000', // Default value
-        schoolId: m.SchoolID,
-        joinDate: new Date(),
-        status: 'active' as 'active' | 'inactive',
-    }));
+    const membersToCreate = [];
+    for (const m of members) {
+        const temporaryPassword = Math.random().toString(36).slice(-8);
+        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        membersToCreate.push({
+            id: m.MemberID,
+            fullName: m.MemberFullName,
+            email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
+            password: hashedPassword,
+            mustChangePassword: true,
+            sex: 'Male' as 'Male' | 'Female', // Default value
+            phoneNumber: '0900000000', // Default value
+            schoolId: m.SchoolID,
+            joinDate: new Date(),
+            status: 'active' as 'active' | 'inactive',
+        });
+    }
     
     const result = await prisma.member.createMany({
         data: membersToCreate,
@@ -392,4 +406,16 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
     }
 
     return { success: true, message };
+}
+
+export async function changeMemberPassword(memberId: string, newPassword: string):Promise<{success: boolean}> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.member.update({
+        where: { id: memberId },
+        data: {
+            password: hashedPassword,
+            mustChangePassword: false,
+        }
+    });
+    return { success: true };
 }

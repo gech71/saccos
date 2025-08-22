@@ -1,11 +1,13 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
+import type { Member } from '@prisma/client';
 
-export async function findMemberByPhoneNumber(phoneNumber: string): Promise<{ memberId: string | null; error: string | null }> {
+export async function findMemberByPhoneNumber(phoneNumber: string): Promise<Member | null> {
   if (!phoneNumber) {
-    return { memberId: null, error: 'Phone number is required.' };
+    return null;
   }
 
   const member = await prisma.member.findFirst({
@@ -14,9 +16,5 @@ export async function findMemberByPhoneNumber(phoneNumber: string): Promise<{ me
     },
   });
 
-  if (member) {
-    return { memberId: member.id, error: null };
-  } else {
-    return { memberId: null, error: 'Phone number not registered.' };
-  }
+  return member;
 }

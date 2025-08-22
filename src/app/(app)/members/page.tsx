@@ -62,6 +62,7 @@ import { useAuth } from '@/contexts/auth-context';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -246,8 +247,16 @@ export default function MembersPage() {
           await updateMember(currentMember.id, memberInputData);
           toast({ title: 'Success', description: 'Member updated successfully.' });
         } else {
-          await addMember(memberInputData);
-          toast({ title: 'Success', description: 'Member added successfully.' });
+          const result = await addMember(memberInputData);
+          toast({ 
+            title: 'Success', 
+            description: (
+              <div>
+                <p>Member added successfully.</p>
+                <p className="font-semibold">Temporary Password: <span className="font-bold text-primary">{result.temporaryPassword}</span></p>
+              </div>
+            )
+          });
         }
 
         setIsMemberModalOpen(false);
@@ -661,7 +670,7 @@ export default function MembersPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
             <DialogDescription>
-              Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID".
+              Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID". A temporary password will be generated for each new member.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -723,6 +732,13 @@ export default function MembersPage() {
             <DialogDescription>{isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+            {!isEditingMember && (
+              <Alert>
+                <AlertDescription>
+                  A random, temporary password will be generated for this member upon creation. You will see it in the success notification.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label htmlFor="id">Member ID <span className="text-destructive">*</span></Label><Input id="id" name="id" value={currentMember.id || ''} onChange={handleMemberInputChange} required readOnly={isEditingMember} /></div>
                 <div><Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label><Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required /></div>

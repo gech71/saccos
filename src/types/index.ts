@@ -53,9 +53,11 @@ export interface MemberShareCommitment {
 export interface Member {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
+  password?: string | null;
+  mustChangePassword?: boolean | null;
   sex: 'Male' | 'Female';
-  phoneNumber: string;
+  phoneNumber: string | null;
   address: Prisma.AddressGetPayload<{}> | null;
   emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;
   schoolId: string;
@@ -221,6 +223,12 @@ export interface AuthUser {
   phoneNumber: string;
   roles: string[];
   permissions: string[];
+}
+
+export interface MemberAuthUser {
+  id: string; // Member DB ID
+  fullName: string;
+  mustChangePassword?: boolean | null;
 }
 
 

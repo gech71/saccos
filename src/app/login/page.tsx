@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { findMemberByPhoneNumber } from './actions';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, memberLogin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [isAdminLoading, setIsAdminLoading] = useState(false);
   
   const [memberPhoneNumber, setMemberPhoneNumber] = useState('');
+  const [memberPassword, setMemberPassword] = useState('');
   const [isMemberLoading, setIsMemberLoading] = useState(false);
 
   const handleAdminSubmit = async (event: FormEvent) => {
@@ -44,15 +45,10 @@ export default function LoginPage() {
     event.preventDefault();
     setIsMemberLoading(true);
     try {
-      const result = await findMemberByPhoneNumber(memberPhoneNumber);
-      if (result.memberId) {
-        toast({ title: 'Success', description: 'Member found. Redirecting to profile...' });
-        router.push(`/member-profile/${result.memberId}`);
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.error });
-      }
+      await memberLogin({ phoneNumber: memberPhoneNumber, password: memberPassword });
+      // Redirect is handled by the auth context
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
+      // Error is handled in auth context
     } finally {
       setIsMemberLoading(false);
     }
@@ -103,8 +99,20 @@ export default function LoginPage() {
           aria-label="Member Phone Number"
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="memberPassword">Password</Label>
+        <Input
+          id="memberPassword"
+          type="password"
+          placeholder="Enter your temporary or permanent password"
+          value={memberPassword}
+          onChange={(e) => setMemberPassword(e.target.value)}
+          required
+          aria-label="Member Password"
+        />
+      </div>
        <Button type="submit" variant="secondary" className="w-full" disabled={isMemberLoading}>
-          {isMemberLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Finding Profile...</> : 'View My Profile'}
+          {isMemberLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Signing In...</> : 'Sign In as Member'}
        </Button>
     </form>
   );
@@ -118,7 +126,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Sign In</CardTitle>
           <CardDescription>
-            {authMode === 'admin' ? 'Sign in to manage your NIB Saccos system.' : 'Enter your phone number to view your profile.'}
+            {authMode === 'admin' ? 'Sign in to manage your AcademInvest system.' : 'Sign in to view your member profile.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
