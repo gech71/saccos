@@ -96,7 +96,7 @@ function validateMemberData(data: MemberInput) {
 }
 
 
-export async function addMember(data: MemberInput): Promise<{ member: Member, temporaryPassword?: string }> {
+export async function addMember(data: MemberInput): Promise<{ member: Member }> {
     const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
 
     validateMemberData(data);
@@ -139,8 +139,8 @@ export async function addMember(data: MemberInput): Promise<{ member: Member, te
         where: { id: { in: shareCommitmentIds || [] } }
     });
 
-    // Generate temporary password
-    const temporaryPassword = Math.random().toString(36).slice(-8);
+    // Use a static temporary password
+    const temporaryPassword = '123456';
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
     const newMember = await prisma.member.create({
@@ -187,7 +187,7 @@ export async function addMember(data: MemberInput): Promise<{ member: Member, te
     revalidatePath('/members');
     revalidatePath('/applied-service-charges');
     revalidatePath('/shares');
-    return { member: newMember, temporaryPassword };
+    return { member: newMember };
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {
@@ -355,7 +355,7 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
 
     const membersToCreate = [];
     for (const m of members) {
-        const temporaryPassword = Math.random().toString(36).slice(-8);
+        const temporaryPassword = '123456';
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
         membersToCreate.push({
             id: m.MemberID,

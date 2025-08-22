@@ -247,13 +247,13 @@ export default function MembersPage() {
           await updateMember(currentMember.id, memberInputData);
           toast({ title: 'Success', description: 'Member updated successfully.' });
         } else {
-          const result = await addMember(memberInputData);
+          await addMember(memberInputData);
           toast({ 
             title: 'Success', 
             description: (
               <div>
                 <p>Member added successfully.</p>
-                <p className="font-semibold">Temporary Password: <span className="font-bold text-primary">{result.temporaryPassword}</span></p>
+                <p className="font-semibold">The temporary password is "123456". The member will be required to change it on first login.</p>
               </div>
             )
           });
@@ -735,7 +735,7 @@ export default function MembersPage() {
             {!isEditingMember && (
               <Alert>
                 <AlertDescription>
-                  A random, temporary password will be generated for this member upon creation. You will see it in the success notification.
+                  The default temporary password is "123456". The member will be required to change it on their first login.
                 </AlertDescription>
               </Alert>
             )}
@@ -839,4 +839,5 @@ export default function MembersPage() {
     </div>
   );
 }
+
 
