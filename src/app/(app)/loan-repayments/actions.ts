@@ -110,7 +110,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
   };
 }
 
-export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'memberId' | 'interestPaid' | 'principalPaid'>;
+export type LoanRepaymentInput = Omit<LoanRepayment, 'id' | 'interestPaid' | 'principalPaid'>;
 
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
   try {
@@ -144,7 +144,7 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
       await tx.loanRepayment.create({ 
         data: {
             ...data,
-            memberId: loan.memberId,
+            memberId: loan.memberId, // Ensure memberId from the loan is included
             paymentDate: new Date(data.paymentDate),
             interestPaid: interestPaid,
             principalPaid: principalPaid,
