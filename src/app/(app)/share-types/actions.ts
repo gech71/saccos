@@ -30,17 +30,15 @@ export async function updateShareType(id: string, data: Partial<ShareTypeInput>)
 
 export async function deleteShareType(id: string): Promise<{ success: boolean; message: string }> {
   try {
+    // Check if any MemberShareCommitment record uses this share type.
     const activeCommitments = await prisma.memberShareCommitment.count({
       where: { 
         shareTypeId: id,
-        status: {
-            in: ['ACTIVE', 'PAID_OFF', 'PENDING_REFUND']
-        }
-       },
+      },
     });
 
     if (activeCommitments > 0) {
-      return { success: false, message: 'Cannot delete share type. It is in use by active, paid-off, or pending refund commitments.' };
+      return { success: false, message: 'Cannot delete share type. It is still referenced by member share commitments, even if they are historical or refunded.' };
     }
 
     await prisma.shareType.delete({ where: { id } });
@@ -48,6 +46,8 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     return { success: true, message: 'Share type deleted successfully.' };
   } catch(error) {
     console.error("Failed to delete share type:", error);
-    return { success: false, message: 'An unexpected error occurred. There may still be historical records preventing deletion.' };
+    // This catch block will now primarily handle unexpected database issues,
+    // as the foreign key constraint is checked manually above.
+    return { success: false, message: 'An unexpected database error occurred.' };
   }
 }
