@@ -29,7 +29,6 @@ const navItems: NavItem[] = [
   { title: 'Savings', isGroupLabel: true },
   { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
   { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'savingAccount:view' },
-  { title: 'Group Collections', href: '/group-collections', icon: Library, permission: 'groupCollection:view' },
   { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'savingsInterestCalculation:view' },
   { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'accountStatement:view' },
   { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'accountClosure:view' },
@@ -38,7 +37,6 @@ const navItems: NavItem[] = [
   { title: 'Loans', isGroupLabel: true },
   { title: 'Loans', href: '/loans', icon: Banknote, permission: 'loan:view' },
   { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'loanRepayment:view' },
-  { title: 'Group Loan Repayments', href: '/group-loan-repayments', icon: Library, permission: 'groupLoanRepayment:view' },
   { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'loanInterestCalculation:view' },
   { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
   
