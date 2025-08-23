@@ -277,7 +277,7 @@ export default function ServiceChargeTypesPage() {
               {isEditing ? 'Update the details for this service charge type.' : 'Enter the details for the new service charge type.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div>
               <Label htmlFor="name">Charge Type Name <span className="text-destructive">*</span></Label>
               <Input id="name" name="name" value={currentChargeType.name || ''} onChange={handleInputChange} required />

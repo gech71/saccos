@@ -345,7 +345,7 @@ export default function LoanTypesPage() {
               {isEditing ? 'Update the details for this loan type.' : 'Enter the details for the new loan type.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="name">Loan Type Name <span className="text-destructive">*</span></Label>
@@ -506,5 +506,6 @@ export default function LoanTypesPage() {
     </div>
   );
 }
+
 
 

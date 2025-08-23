@@ -542,7 +542,7 @@ export default function SavingsPage() {
               {isEditing ? 'Update this savings transaction.' : 'Enter details for a new savings transaction for a single member.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmitTransaction} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div>
               <Label htmlFor="memberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>

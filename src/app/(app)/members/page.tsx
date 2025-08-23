@@ -731,7 +731,7 @@ export default function MembersPage() {
             <DialogTitle className="font-headline">{isEditingMember ? 'Edit Member' : 'Add New Member'}</DialogTitle>
             <DialogDescription>{isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
+          <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             {!isEditingMember && (
               <Alert>
                 <AlertDescription>
@@ -839,6 +839,7 @@ export default function MembersPage() {
     </div>
   );
 }
+
 
 
 
