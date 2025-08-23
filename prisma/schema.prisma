@@ -1,340 +1,27 @@
-// datasource db defines the database connection settings.
-// It is used by Prisma to connect to the database.
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// generator client defines the Prisma Client generator.
-// It is used to generate the Prisma Client based on the schema.
-generator client {
-  provider = "prisma-client-js"
-}
-
-//
-// MODEL DEFINITIONS
-//
-
-// School represents an educational institution where members are based.
-model School {
-  id              String          @id @default(cuid())
-  name            String
-  address         String?
-  contactPerson   String?
-  members         Member[]
-  schoolHistories SchoolHistory[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model SchoolHistory {
-  id         String   @id @default(cuid())
-  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId   String
-  school     School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolId   String
-  schoolName String // Denormalized for historical accuracy
-  startDate  DateTime
-  endDate    DateTime?
-  reason     String?
-}
-
-// Member represents an individual who is part of the Sacco.
-model Member {
-  id                        String                   @id
-  fullName                  String
-  email                     String?                  @unique
-  password                  String?
-  mustChangePassword        Boolean?                 @default(false)
-  sex                       String // "Male" or "Female"
-  phoneNumber               String?
-  address                   Address?
-  emergencyContact          EmergencyContact?
-  school                    School                   @relation(fields: [schoolId], references: [id])
-  schoolId                  String
-  joinDate                  DateTime
-  salary                    Float?
-  status                    String                   @default("active") // active, inactive
-  closureDate               DateTime?
-  savings                   Saving[]
-  memberSavingAccounts      MemberSavingAccount[]
-  memberShareCommitments    MemberShareCommitment[]
-  dividends                 Dividend[]
-  loans                     Loan[]
-  loanRepayments            LoanRepayment[]
-  guaranteedLoans           LoanGuarantor[]          @relation("Guarantor")
-  appliedServiceCharges     AppliedServiceCharge[]
-  schoolHistories           SchoolHistory[]
-  createdAt                 DateTime                 @default(now())
-  updatedAt                 DateTime                 @updatedAt
-}
-
-// Address represents a member's physical address.
-model Address {
-  id           String      @id @default(cuid())
-  member       Member?     @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId     String?     @unique
-  city         String
-  subCity      String?
-  wereda       String?
-  kebele       String?
-  houseNumber  String?
-  collateral   Collateral?
-  collateralId String?     @unique
-}
-
-// EmergencyContact represents a contact person for a member in case of emergencies.
-model EmergencyContact {
-  id       String  @id @default(cuid())
-  member   Member? @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId String? @unique
-  name     String
-  phone    String
-}
-
-model SavingAccountType {
-  id                   String                @id @default(cuid())
-  name                 String                @unique
-  description          String?
-  interestRate         Float // Stored as a decimal, e.g., 0.05 for 5%
-  contributionType     String // 'FIXED' or 'PERCENTAGE'
-  contributionValue    Float // The fixed amount or the percentage value
-  memberSavingAccounts MemberSavingAccount[]
-}
-
-model MemberSavingAccount {
-  id                    String              @id @default(cuid())
-  member                Member              @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId              String
-  savingAccountType     SavingAccountType?  @relation(fields: [savingAccountTypeId], references: [id], onDelete: SetNull)
-  savingAccountTypeId   String?
-  accountNumber         String              @unique
-  balance               Float               @default(0)
-  initialBalance        Float               @default(0)
-  expectedMonthlySaving Float?
-  savings               Saving[]
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-
-  @@unique([memberId, savingAccountTypeId])
-}
-
-// Saving represents a savings transaction for a member.
-model Saving {
-  id                      String               @id @default(cuid())
-  member                  Member               @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId                String
-  memberSavingAccount     MemberSavingAccount? @relation(fields: [memberSavingAccountId], references: [id], onDelete: SetNull)
-  memberSavingAccountId   String?
-  amount                  Float
-  date                    DateTime
-  month                   String // e.g., "January 2024"
-  transactionType         String // "deposit" or "withdrawal"
-  status                  String               @default("pending") // "pending", "approved", "rejected"
-  notes                   String?
-  depositMode             String? // 'Cash', 'Bank', 'Wallet' - only for deposits
-  sourceName              String?
-  transactionReference    String?
-  evidenceUrl             String?
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
-}
-
-model ShareType {
-  id                   String                  @id @default(cuid())
-  name                 String                  @unique
-  description          String?
-  totalAmount          Float
-  paymentType          SharePaymentType        @default(ONCE)
-  numberOfInstallments Int?
-  monthlyPayment       Float?
-  memberShareCommitment MemberShareCommitment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model MemberShareCommitment {
-  id                   String        @id @default(cuid())
-  member               Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId             String
-  shareType            ShareType     @relation(fields: [shareTypeId], references: [id], onDelete: Cascade)
-  shareTypeId          String
-  totalCommittedAmount Float
-  amountPaid           Float         @default(0)
-  status               MemberShareCommitmentStatus @default(ACTIVE)
-  joinDate             DateTime      @default(now())
-  payments             SharePayment[]
-
-  @@unique([memberId, shareTypeId])
-}
-
-model SharePayment {
-  id                   String                @id @default(cuid())
-  commitment           MemberShareCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
-  commitmentId         String
-  amount               Float
-  paymentDate          DateTime
-  status               String                @default("pending") // "pending", "approved", "rejected"
-  notes                String?
-  depositMode          String? // 'Cash', 'Bank', 'Wallet'
-  sourceName           String?
-  transactionReference String?
-  evidenceUrl          String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum SharePaymentType {
-  ONCE
-  INSTALLMENT
-}
-
-enum MemberShareCommitmentStatus {
-  ACTIVE
-  PAID_OFF
-  REFUNDED
-  PENDING_REFUND
-  CANCELLED
-}
-
-// Dividend represents a dividend distribution to a member.
-model Dividend {
-  id                       String   @id @default(cuid())
-  member                   Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId                 String
-  amount                   Float
-  distributionDate         DateTime
-  shareCountAtDistribution Int
-  status                   String   @default("pending") // "pending", "approved", "rejected"
-  notes                    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model ServiceChargeType {
-  id                    String                 @id @default(cuid())
-  name                  String                 @unique
-  description           String?
-  amount                Float
-  frequency             String // "once", "monthly", "yearly"
-  appliedServiceCharges AppliedServiceCharge[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AppliedServiceCharge {
-  id                  String            @id @default(cuid())
-  member              Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId            String
-  serviceChargeType   ServiceChargeType @relation(fields: [serviceChargeTypeId], references: [id], onDelete: Cascade)
-  serviceChargeTypeId String
-  amountCharged       Float
-  dateApplied         DateTime
-  status              String            @default("pending") // "pending", "paid", "waived"
-  notes               String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model LoanType {
-  id                        String   @id @default(cuid())
-  name                      String   @unique
-  description               String?
-  interestRate              Float // annual rate
-  minLoanAmount             Float
-  maxLoanAmount             Float
-  minRepaymentPeriod        Int // in months
-  maxRepaymentPeriod        Int // in months
-  repaymentFrequency        String // 'monthly', 'quarterly', 'yearly'
-  nplInterestRate           Float // Non-performing loan interest rate
-  nplGracePeriodDays        Int?
-  allowConcurrent           Boolean  @default(false)
-  serviceFee                Float?
-  insuranceFeePercentage    Float?
-  collateralLogic           String // GUARANTOR, TITLE_DEED, GUARANTOR_OR_SAVINGS_BALANCE, GUARANTOR_AND_TITLE_DEED_OVER_X
-  collateralThresholdAmount Float?
-  minSavingMonths           Int?
-  minSavingBalance          Float?
-  purposes                  String[]
-  loans                     Loan[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Loan {
-  id                     String          @id @default(cuid())
-  loanAccountNumber      String?         @unique
-  member                 Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  memberId               String
-  loanType               LoanType        @relation(fields: [loanTypeId], references: [id])
-  loanTypeId             String
-  principalAmount        Float
-  interestRate           Float // annual rate at the time of loan
-  loanTerm               Int // in months
-  repaymentFrequency     String
-  disbursementDate       DateTime
-  status                 String // 'pending', 'active', 'paid_off', 'rejected', 'overdue'
-  remainingBalance       Float
-  nextDueDate            DateTime?
-  notes                  String?
-  purpose                String?
-  monthlyRepaymentAmount Float?
-  serviceFee             Float?
-  insuranceFee           Float?
-  collaterals            Collateral[]
-  guarantors             LoanGuarantor[]
-  repayments             LoanRepayment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Collateral {
-  id          String   @id @default(cuid())
-  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  loanId      String
-  type        String // e.g. 'TITLE_DEED', 'VEHICLE'
-  description String?
-  documentUrl String?
-  address     Address? @relation(fields: [addressId], references: [id])
-  addressId   String?  @unique
-}
-
-model LoanGuarantor {
-  id          String @id @default(cuid())
-  loan        Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  loanId      String
-  guarantor   Member @relation("Guarantor", fields: [guarantorId], references: [id], onDelete: Cascade)
-  guarantorId String
-
-  @@unique([loanId, guarantorId])
-}
-
-model LoanRepayment {
-  id                   String   @id @default(cuid())
-  loan                 Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
-  loanId               String
-  member               Member   @relation(fields: [memberId], references: [id])
-  memberId             String
-  amountPaid           Float
-  principalPaid        Float
-  interestPaid         Float
-  paymentDate          DateTime
-  notes                String?
-  depositMode          String?
-  sourceName           String?
-  transactionReference String?
-  evidenceUrl          String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// User and Role Management
+model User {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  name               String
+  firstName          String?
+  lastName           String?
+  email              String   @unique
+  phoneNumber        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  roles              Role[]
 }
 
 model Role {
@@ -345,15 +32,274 @@ model Role {
   users       User[]
 }
 
-model User {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  email       String   @unique
-  name        String?
-  firstName   String?
-  lastName    String?
-  phoneNumber String?
-  roles       Role[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// Core Models
+model School {
+  id              String           @id @default(cuid())
+  name            String
+  address         String?
+  contactPerson   String?
+  members         Member[]
+  schoolHistories SchoolHistory[]
+}
+
+model SchoolHistory {
+  id         String   @id @default(cuid())
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  schoolId   String
+  schoolName String
+  startDate  DateTime
+  endDate    DateTime?
+  reason     String?
+}
+
+model Member {
+  id                      String                   @id @default(cuid())
+  fullName                String
+  email                   String?                  @unique
+  password                String?
+  mustChangePassword      Boolean?                 @default(false)
+  sex                     String // Male or Female
+  phoneNumber             String?
+  joinDate                DateTime
+  status                  String                   @default("active") // active, inactive
+  closureDate             DateTime?
+  salary                  Float?
+  school                  School                   @relation(fields: [schoolId], references: [id])
+  schoolId                String
+  address                 Address?
+  emergencyContact        EmergencyContact?
+  savings                 Saving[]
+  dividends               Dividend[]
+  loans                   Loan[]
+  loanRepayments          LoanRepayment[]
+  appliedServiceCharges   AppliedServiceCharge[]
+  memberSavingAccounts    MemberSavingAccount[]
+  memberShareCommitments  MemberShareCommitment[]
+  guaranteedLoans         LoanGuarantor[]          @relation("GuarantorLoans")
+  schoolHistory           SchoolHistory[]
+}
+
+model Address {
+  id            String      @id @default(cuid())
+  member        Member?     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId      String?     @unique
+  city          String?
+  subCity       String?
+  wereda        String?
+  kebele        String?
+  houseNumber   String?
+  collateral    Collateral? @relation(fields: [collateralId], references: [id], onDelete: Cascade)
+  collateralId  String?     @unique
+}
+
+model EmergencyContact {
+  id       String  @id @default(cuid())
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId String? @unique
+  name     String
+  phone    String
+}
+
+// Savings
+model SavingAccountType {
+  id                    String                @id @default(cuid())
+  name                  String                @unique
+  description           String?
+  interestRate          Float // 0.05 for 5%
+  contributionType      String                @default("FIXED") // FIXED, PERCENTAGE
+  contributionValue     Float                 @default(0) // Either fixed amount or percentage value
+  memberSavingAccounts  MemberSavingAccount[]
+}
+
+model MemberSavingAccount {
+  id                   String            @id @default(cuid())
+  member               Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId             String
+  savingAccountType    SavingAccountType? @relation(fields: [savingAccountTypeId], references: [id], onDelete: SetNull)
+  savingAccountTypeId  String?
+  accountNumber        String            @unique
+  balance              Float             @default(0)
+  initialBalance       Float             @default(0)
+  expectedMonthlySaving Float            @default(0)
+  createdAt            DateTime          @default(now())
+  savings              Saving[]
+}
+
+model Saving {
+  id                   String             @id @default(cuid())
+  member               Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId             String
+  memberSavingAccount  MemberSavingAccount? @relation(fields: [memberSavingAccountId], references: [id], onDelete: SetNull)
+  memberSavingAccountId String?
+  amount               Float
+  date                 DateTime
+  month                String
+  transactionType      String // deposit, withdrawal
+  status               String // pending, approved, rejected
+  notes                String?
+  depositMode          String? // Cash, Bank, Wallet
+  sourceName           String?
+  transactionReference String?
+  evidenceUrl          String?
+}
+
+// Shares & Dividends
+model ShareType {
+  id                   String                  @id @default(cuid())
+  name                 String                  @unique
+  description          String?
+  totalAmount          Float
+  paymentType          String                  @default("ONCE") // ONCE, INSTALLMENT
+  numberOfInstallments Int?
+  monthlyPayment       Float?
+  memberShareCommitments MemberShareCommitment[]
+}
+
+model MemberShareCommitment {
+  id                   String        @id @default(cuid())
+  member               Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId             String
+  shareType            ShareType     @relation(fields: [shareTypeId], references: [id])
+  shareTypeId          String
+  totalCommittedAmount Float
+  amountPaid           Float         @default(0)
+  status               String        @default("ACTIVE") // ACTIVE, PAID_OFF, REFUNDED, PENDING_REFUND
+  joinDate             DateTime      @default(now())
+  payments             SharePayment[]
+}
+
+model SharePayment {
+  id                   String                @id @default(cuid())
+  commitment           MemberShareCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  commitmentId         String
+  amount               Float
+  paymentDate          DateTime
+  status               String // pending, approved, rejected
+  notes                String?
+  depositMode          String? // Cash, Bank, Wallet
+  sourceName           String?
+  transactionReference String?
+  evidenceUrl          String?
+}
+
+model Dividend {
+  id                       String   @id @default(cuid())
+  member                   Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId                 String
+  amount                   Float
+  distributionDate         DateTime
+  shareCountAtDistribution Int
+  status                   String // pending, approved, rejected
+  notes                    String?
+}
+
+// Loans
+model LoanType {
+  id                       String   @id @default(cuid())
+  name                     String   @unique
+  description              String?
+  interestRate             Float // annual rate
+  minLoanAmount            Float
+  maxLoanAmount            Float
+  minRepaymentPeriod       Int // months
+  maxRepaymentPeriod       Int // months
+  repaymentFrequency       String   @default("monthly")
+  nplInterestRate          Float // Non-performing loan rate
+  nplGracePeriodDays       Int
+  allowConcurrent          Boolean  @default(false)
+  serviceFee               Float?
+  insuranceFeePercentage   Float?
+  collateralLogic          String   @default("GUARANTOR") // GUARANTOR, TITLE_DEED, GUARANTOR_OR_SAVINGS_BALANCE, GUARANTOR_AND_TITLE_DEED_OVER_X
+  collateralThresholdAmount Float?
+  minSavingMonths          Int? // minimum months of saving to be eligible
+  minSavingBalance         Float? // minimum saving balance to be eligible
+  purposes                 String[]
+  loans                    Loan[]
+}
+
+model Loan {
+  id                     String          @id @default(cuid())
+  loanAccountNumber      String?         @unique
+  member                 Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId               String
+  loanType               LoanType        @relation(fields: [loanTypeId], references: [id])
+  loanTypeId             String
+  principalAmount        Float
+  interestRate           Float
+  loanTerm               Int
+  repaymentFrequency     String
+  disbursementDate       DateTime
+  status                 String // pending, active, paid_off, rejected, overdue
+  remainingBalance       Float
+  nextDueDate            DateTime?
+  monthlyRepaymentAmount Float?
+  serviceFee             Float?
+  insuranceFee           Float?
+  purpose                String?
+  notes                  String?
+  repayments             LoanRepayment[]
+  guarantors             LoanGuarantor[]
+  collaterals            Collateral[]
+}
+
+model LoanGuarantor {
+  id          String @id @default(cuid())
+  loan        Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loanId      String
+  guarantor   Member @relation("GuarantorLoans", fields: [guarantorId], references: [id], onDelete: Cascade)
+  guarantorId String
+
+  @@unique([loanId, guarantorId])
+}
+
+model Collateral {
+  id           String   @id @default(cuid())
+  loan         Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loanId       String
+  type         String // TITLE_DEED, VEHICLE, etc.
+  description  String?
+  estimatedValue Float?
+  documentUrl  String?
+  address      Address?
+}
+
+model LoanRepayment {
+  id                   String   @id @default(cuid())
+  loan                 Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loanId               String
+  member               Member   @relation(fields: [memberId], references: [id], onDelete: NoAction)
+  memberId             String
+  amountPaid           Float
+  principalPaid        Float
+  interestPaid         Float
+  paymentDate          DateTime
+  notes                String?
+  depositMode          String? // Cash, Bank, Wallet
+  sourceName           String?
+  transactionReference String?
+  evidenceUrl          String?
+}
+
+// Service Charges
+model ServiceChargeType {
+  id                    String                 @id @default(cuid())
+  name                  String                 @unique
+  description           String?
+  amount                Float
+  frequency             String // once, monthly, yearly
+  appliedServiceCharges AppliedServiceCharge[]
+}
+
+model AppliedServiceCharge {
+  id                  String            @id @default(cuid())
+  member              Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId            String
+  serviceChargeType   ServiceChargeType @relation(fields: [serviceChargeTypeId], references: [id])
+  serviceChargeTypeId String
+  amountCharged       Float
+  dateApplied         DateTime
+  status              String // pending, paid, waived
+  notes               String?
 }
