@@ -94,8 +94,8 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
         return { success: false, message: "Share commitment not found." };
     }
 
-    if (commitment.status === 'REFUNDED') {
-        return { success: false, message: "This share commitment has already been refunded." };
+    if (commitment.status === 'REFUNDED' || commitment.status === 'PENDING_REFUND') {
+        return { success: false, message: "This share commitment has already been refunded or is pending refund." };
     }
 
     const amountToRefund = commitment.amountPaid;
@@ -124,16 +124,16 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
                 month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
                 transactionType: 'withdrawal',
                 status: 'pending', // This refund needs to be approved
-                notes: `Share refund for commitment: ${commitment.shareType.name}`,
+                notes: `Share refund for commitment ID: ${commitment.id}`,
                 depositMode: 'Bank', // Default for system transactions
                 sourceName: 'Internal System Refund',
             }
         });
 
-        // 2. Update the commitment status to REFUNDED
+        // 2. Update the commitment status to PENDING_REFUND
         await tx.memberShareCommitment.update({
             where: { id: commitmentId },
-            data: { status: 'REFUNDED' }
+            data: { status: 'PENDING_REFUND' }
         });
     });
 

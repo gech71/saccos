@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -112,6 +113,17 @@ export async function approveTransaction(txId: string, txType: string): Promise<
           where: { id: savingTx.memberSavingAccountId },
           data: { balance: { increment: amountChange } },
         });
+
+        // Check if this is a share refund withdrawal
+        if (savingTx.transactionType === 'withdrawal' && savingTx.notes?.startsWith('Share refund for commitment ID:')) {
+            const commitmentId = savingTx.notes.split(': ')[1];
+            if (commitmentId) {
+                await tx.memberShareCommitment.update({
+                    where: { id: commitmentId },
+                    data: { status: 'REFUNDED' }
+                });
+            }
+        }
 
       } else if (txType.startsWith('Share Payment')) {
         const sharePaymentTx = await tx.sharePayment.findUnique({ where: { id: txId }, include: { commitment: true } });

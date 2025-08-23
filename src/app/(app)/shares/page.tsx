@@ -92,7 +92,7 @@ export default function SharePaymentsPage() {
   const [openCommitmentCombobox, setOpenCommitmentCombobox] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'paid_off' | 'refunded'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'paid_off' | 'refunded' | 'pending_refund'>('all');
   const { toast } = useToast();
 
   const [isRefundAlertOpen, setIsRefundAlertOpen] = useState(false);
@@ -204,6 +204,7 @@ export default function SharePaymentsPage() {
         case 'ACTIVE': return 'default';
         case 'PAID_OFF': return 'secondary';
         case 'REFUNDED': return 'destructive';
+        case 'PENDING_REFUND': return 'secondary';
         default: return 'outline';
     }
   };
@@ -286,6 +287,7 @@ export default function SharePaymentsPage() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paid_off">Paid Off</SelectItem>
+                <SelectItem value="pending_refund">Pending Refund</SelectItem>
                 <SelectItem value="refunded">Refunded</SelectItem>
             </SelectContent>
           </Select>
@@ -318,7 +320,7 @@ export default function SharePaymentsPage() {
                     <Badge variant="outline">{c.shareType.name}</Badge>
                     {c.shareType.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
                   </TableCell>
-                  <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status}</Badge></TableCell>
+                  <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
                   <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
@@ -335,7 +337,7 @@ export default function SharePaymentsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.amountPaid <= 0}>
+                        <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.status === 'PENDING_REFUND' || c.amountPaid <= 0}>
                            <RotateCcw className="mr-2 h-4 w-4" /> Refund
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -485,7 +487,7 @@ export default function SharePaymentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to refund this share?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as REFUNDED. This action cannot be undone.
+                This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as PENDING REFUND. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
