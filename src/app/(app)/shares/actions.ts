@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -79,6 +80,56 @@ export async function addSharePayment(data: SharePaymentInput): Promise<SharePay
   revalidatePath('/approve-transactions');
   return newPayment;
 }
+
+export async function refundShareCommitment(commitmentId: string): Promise<{ success: boolean; message: string; }> {
+    const commitment = await prisma.memberShareCommitment.findUnique({
+        where: { id: commitmentId },
+        include: { member: true }
+    });
+
+    if (!commitment) {
+        return { success: false, message: "Share commitment not found." };
+    }
+
+    if (commitment.status === 'REFUNDED') {
+        return { success: false, message: "This share commitment has already been refunded." };
+    }
+
+    const amountToRefund = commitment.amountPaid;
+    if (amountToRefund <= 0) {
+        return { success: false, message: "No amount has been paid for this share, so there is nothing to refund." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Create a withdrawal transaction to represent the refund
+        await tx.saving.create({
+            data: {
+                memberId: commitment.memberId,
+                memberSavingAccountId: null, // General payout, not from a specific account
+                amount: amountToRefund,
+                date: new Date(),
+                month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                transactionType: 'withdrawal',
+                status: 'pending', // This refund needs to be approved
+                notes: `Share refund for commitment: ${commitment.shareType.name}`,
+                depositMode: 'Bank', // Default for system transactions
+                sourceName: 'Internal System Refund',
+            }
+        });
+
+        // 2. Update the commitment status to REFUNDED
+        await tx.memberShareCommitment.update({
+            where: { id: commitmentId },
+            data: { status: 'REFUNDED' }
+        });
+    });
+
+    revalidatePath('/shares');
+    revalidatePath('/approve-transactions');
+
+    return { success: true, message: `Refund of ${amountToRefund.toFixed(2)} Birr for ${commitment.member.fullName}'s share submitted for approval.` };
+}
+
 
 // Keeping these for now, but they will likely be deprecated.
 export async function updateShare(id: string, data: any): Promise<any> {

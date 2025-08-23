@@ -18,6 +18,8 @@ import {
   Loader2,
   List,
   AlertTriangle,
+  RotateCcw,
+  MoreVertical
 } from 'lucide-react';
 import {
   Table,
@@ -36,6 +38,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -48,7 +60,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
-import { getSharePaymentsPageData, addSharePayment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails } from './actions';
+import { getSharePaymentsPageData, addSharePayment, refundShareCommitment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails } from './actions';
 import { Progress } from '@/components/ui/progress';
 import {
   Select,
@@ -58,6 +70,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 const initialPaymentFormState: Partial<SharePaymentInput> = {
   commitmentId: '',
@@ -81,6 +94,9 @@ export default function SharePaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'paid_off' | 'refunded'>('all');
   const { toast } = useToast();
+
+  const [isRefundAlertOpen, setIsRefundAlertOpen] = useState(false);
+  const [commitmentToRefund, setCommitmentToRefund] = useState<MemberCommitmentWithDetails | null>(null);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -140,6 +156,31 @@ export default function SharePaymentsPage() {
     setCurrentPayment(initialPaymentFormState);
     setIsModalOpen(true);
   };
+  
+  const openRefundAlert = (commitment: MemberCommitmentWithDetails) => {
+    setCommitmentToRefund(commitment);
+    setIsRefundAlertOpen(true);
+  };
+
+  const handleConfirmRefund = async () => {
+      if (!commitmentToRefund) return;
+      setIsSubmitting(true);
+      try {
+          const result = await refundShareCommitment(commitmentToRefund.id);
+          if (result.success) {
+              toast({ title: 'Refund Submitted', description: result.message });
+              await fetchPageData();
+          } else {
+              toast({ variant: 'destructive', title: 'Refund Failed', description: result.message });
+          }
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: "An unexpected error occurred during refund." });
+      } finally {
+          setIsSubmitting(false);
+          setIsRefundAlertOpen(false);
+      }
+  };
+
 
   const filteredCommitments = useMemo(() => {
     if (!pageData) return [];
@@ -261,11 +302,12 @@ export default function SharePaymentsPage() {
               <TableHead className="text-right">Amount Paid</TableHead>
               <TableHead className="text-right">Balance</TableHead>
               <TableHead className="w-[200px]">Progress</TableHead>
+              <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredCommitments.length > 0 ? filteredCommitments.map(c => {
                 const balance = c.totalCommittedAmount - c.amountPaid;
                 const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
@@ -284,11 +326,26 @@ export default function SharePaymentsPage() {
                       <Progress value={progress} className="h-2" />
                       <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.amountPaid <= 0}>
+                           <RotateCcw className="mr-2 h-4 w-4" /> Refund
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               );
             }) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No share commitments found.
                 </TableCell>
               </TableRow>
@@ -423,6 +480,23 @@ export default function SharePaymentsPage() {
         </DialogContent>
       </Dialog>
       
+      <AlertDialog open={isRefundAlertOpen} onOpenChange={setIsRefundAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to refund this share?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as REFUNDED. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRefund} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm Refund
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
