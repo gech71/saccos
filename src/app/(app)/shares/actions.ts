@@ -84,7 +84,10 @@ export async function addSharePayment(data: SharePaymentInput): Promise<SharePay
 export async function refundShareCommitment(commitmentId: string): Promise<{ success: boolean; message: string; }> {
     const commitment = await prisma.memberShareCommitment.findUnique({
         where: { id: commitmentId },
-        include: { member: true }
+        include: { 
+            member: true,
+            shareType: true,
+        }
     });
 
     if (!commitment) {
