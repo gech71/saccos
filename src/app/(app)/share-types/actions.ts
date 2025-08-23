@@ -51,6 +51,6 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     return { success: true, message: 'Share type deleted successfully.' };
   } catch(error) {
     console.error("Failed to delete share type:", error);
-    return { success: false, message: 'An unexpected error occurred.' };
+    return { success: false, message: 'An unexpected error occurred. This can happen if there are still refunded commitments from inactive members linked to this share type.' };
   }
 }
