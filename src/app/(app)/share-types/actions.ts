@@ -33,9 +33,6 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     const activeCommitments = await prisma.memberShareCommitment.count({
       where: { 
         shareTypeId: id,
-        member: {
-            status: 'active'
-        },
         status: {
             in: ['ACTIVE', 'PAID_OFF', 'PENDING_REFUND']
         }
@@ -43,7 +40,7 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     });
 
     if (activeCommitments > 0) {
-      return { success: false, message: 'Cannot delete share type. It is in use by active member commitments.' };
+      return { success: false, message: 'Cannot delete share type. It is in use by active, paid-off, or pending refund commitments.' };
     }
 
     await prisma.shareType.delete({ where: { id } });
@@ -51,6 +48,6 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     return { success: true, message: 'Share type deleted successfully.' };
   } catch(error) {
     console.error("Failed to delete share type:", error);
-    return { success: false, message: 'An unexpected error occurred. This can happen if there are still refunded commitments from inactive members linked to this share type.' };
+    return { success: false, message: 'An unexpected error occurred. There may still be historical records preventing deletion.' };
   }
 }
