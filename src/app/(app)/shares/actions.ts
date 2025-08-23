@@ -103,12 +103,22 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
         return { success: false, message: "No amount has been paid for this share, so there is nothing to refund." };
     }
 
+    // Find the member's primary savings account to record the withdrawal against.
+    const primarySavingAccount = await prisma.memberSavingAccount.findFirst({
+        where: { memberId: commitment.memberId },
+        orderBy: { createdAt: 'asc'}
+    });
+    
+    if (!primarySavingAccount) {
+        return { success: false, message: `Cannot process refund because member ${commitment.member.fullName} does not have a savings account.` };
+    }
+
     await prisma.$transaction(async (tx) => {
         // 1. Create a withdrawal transaction to represent the refund
         await tx.saving.create({
             data: {
                 memberId: commitment.memberId,
-                memberSavingAccountId: null, // General payout, not from a specific account
+                memberSavingAccountId: primarySavingAccount.id, // Link to the savings account
                 amount: amountToRefund,
                 date: new Date(),
                 month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
