@@ -30,12 +30,20 @@ export async function updateShareType(id: string, data: Partial<ShareTypeInput>)
 
 export async function deleteShareType(id: string): Promise<{ success: boolean; message: string }> {
   try {
-    const commitmentsWithThisType = await prisma.memberShareCommitment.count({
-        where: { shareTypeId: id }
+    const activeCommitments = await prisma.memberShareCommitment.count({
+      where: { 
+        shareTypeId: id,
+        member: {
+            status: 'active'
+        },
+        status: {
+            in: ['ACTIVE', 'PAID_OFF', 'PENDING_REFUND']
+        }
+       },
     });
 
-    if (commitmentsWithThisType > 0) {
-      return { success: false, message: 'Cannot delete share type. It is currently in use by member commitments.' };
+    if (activeCommitments > 0) {
+      return { success: false, message: 'Cannot delete share type. It is in use by active member commitments.' };
     }
 
     await prisma.shareType.delete({ where: { id } });
