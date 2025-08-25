@@ -82,7 +82,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         return null;
     }
     
-    // Fetch loans separately and process their repayments
     const loans = await prisma.loan.findMany({
         where: { memberId: memberId },
         include: {
@@ -98,7 +97,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         }
     });
     
-    // Fetch loans the member has guaranteed for others
     const guaranteedLoans = await prisma.loan.findMany({
         where: {
             guarantors: {
@@ -118,37 +116,40 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         },
     });
 
+    // --- Data Sanitization & Processing ---
 
+    // Sanitize guaranteed loans
+    const safeGuaranteedLoans = guaranteedLoans.map(loan => ({
+        ...loan,
+        loanType: loan.loanType ? loan.loanType : { name: '[Deleted Loan Type]' }
+    })) as GuaranteedLoan[];
+
+    // Process loan repayments with balance calculation
     const allLoanRepaymentsWithBalance: (LoanRepayment & { balanceAfter: number })[] = [];
     loans.forEach(loan => {
         let runningBalance = loan.principalAmount;
-        loan.repayments.forEach(repayment => {
-            runningBalance -= repayment.principalPaid;
+        (loan.repayments || []).forEach(repayment => {
+            runningBalance -= (repayment.principalPaid || 0);
             allLoanRepaymentsWithBalance.push({ ...repayment, balanceAfter: runningBalance });
         });
     });
-    
-    // Sort all repayments by date descending for final display
     allLoanRepaymentsWithBalance.sort((a,b) => compareDesc(new Date(a.paymentDate), new Date(b.paymentDate)));
 
-
-    // Calculate running balance for savings
-    const totalInitialBalance = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.initialBalance, 0);
-    let runningBalance = totalInitialBalance;
-    const savingsWithBalance = member.savings
-        .map(tx => {
-            if (tx.transactionType === 'deposit') {
-                runningBalance += tx.amount;
-            } else {
-                runningBalance -= tx.amount;
-            }
-            return { ...tx, balanceAfter: runningBalance };
-        }); // Keep the ASC order for correct display
-
+    // Process savings with running balance
+    const totalInitialBalance = (member.memberSavingAccounts || []).reduce((sum, acc) => sum + (acc.initialBalance || 0), 0);
+    let runningSavingsBalance = totalInitialBalance;
+    const savingsWithBalance = (member.savings || []).map(tx => {
+        if (tx.transactionType === 'deposit') {
+            runningSavingsBalance += tx.amount;
+        } else {
+            runningSavingsBalance -= tx.amount;
+        }
+        return { ...tx, balanceAfter: runningSavingsBalance };
+    });
 
     // Process monthly savings
     const monthlySavingsMap = new Map<string, { deposits: number, withdrawals: number }>();
-    member.savings.forEach(saving => {
+    (member.savings || []).forEach(saving => {
         const month = format(new Date(saving.date), 'MMMM yyyy');
         if (!monthlySavingsMap.has(month)) {
             monthlySavingsMap.set(month, { deposits: 0, withdrawals: 0 });
@@ -160,7 +161,6 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
             current.withdrawals += saving.amount;
         }
     });
-    
     const monthlySavings = Array.from(monthlySavingsMap.entries()).map(([month, data]) => ({
         month,
         ...data,
@@ -168,41 +168,42 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
     // Process monthly loan repayments
-    const allRepaymentsFromAllLoans = loans.flatMap(l => l.repayments);
+    const allRepaymentsFromAllLoans = loans.flatMap(l => l.repayments || []);
     const monthlyLoanRepaymentsMap = new Map<string, number>();
     allRepaymentsFromAllLoans.forEach(repayment => {
         const month = format(new Date(repayment.paymentDate), 'MMMM yyyy');
         const currentTotal = monthlyLoanRepaymentsMap.get(month) || 0;
         monthlyLoanRepaymentsMap.set(month, currentTotal + repayment.amountPaid);
     });
-
     const monthlyLoanRepayments = Array.from(monthlyLoanRepaymentsMap.entries()).map(([month, totalRepaid]) => ({
         month,
         totalRepaid
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
     const allSharePayments = (member.memberShareCommitments || []).flatMap(c => c.payments || []);
+    
+    // Sanitize loans to remove repayments from the main object to avoid redundant data transfer
+    const sanitizedLoans = loans.map(l => {
+        const { repayments, ...loanWithoutRepayments } = l;
+        return loanWithoutRepayments;
+    });
 
     return {
         member,
         school: member.school,
         address: member.address,
         emergencyContact: member.emergencyContact,
-        savingAccounts: member.memberSavingAccounts,
-        shareCommitments: (member.memberShareCommitments || []).map(c => ({
-            ...c,
-            shareType: c.shareType, // Already included
-            payments: c.payments || [], // Ensure payments is always an array
-        })),
+        savingAccounts: member.memberSavingAccounts || [],
+        shareCommitments: member.memberShareCommitments || [],
         sharePayments: allSharePayments,
-        loans: loans.map(l => ({ ...l, repayments: [] })),
-        guaranteedLoans: guaranteedLoans,
-        dividends: member.dividends,
+        loans: sanitizedLoans,
+        guaranteedLoans: safeGuaranteedLoans,
+        dividends: member.dividends || [],
         loanRepayments: allLoanRepaymentsWithBalance,
-        serviceCharges: member.appliedServiceCharges,
+        serviceCharges: member.appliedServiceCharges || [],
         monthlySavings,
         monthlyLoanRepayments,
         allSavingsTransactions: savingsWithBalance,
-        schoolHistory: member.schoolHistory,
+        schoolHistory: member.schoolHistory || [],
     };
 }
