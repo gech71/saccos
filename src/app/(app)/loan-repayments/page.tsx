@@ -317,7 +317,7 @@ export default function LoanRepaymentsPage() {
         </Accordion>
       </div>
       
-       {totalPages > 1 && (
+       {filteredRepaymentsByMember.length > 0 && (
         <div className="flex flex-col items-center gap-4 pt-4">
             <div className="flex items-center space-x-2">
                 <Button

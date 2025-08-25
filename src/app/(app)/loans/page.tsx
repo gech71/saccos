@@ -452,7 +452,7 @@ export default function LoansPage() {
         <div className="py-12 text-center text-muted-foreground">No loans found matching your criteria.</div>
       )}
 
-      {totalPages > 1 && (
+      {filteredLoans.length > 0 && (
         <div className="flex flex-col items-center gap-4 pt-4">
             <div className="flex items-center space-x-2">
                 <Button
