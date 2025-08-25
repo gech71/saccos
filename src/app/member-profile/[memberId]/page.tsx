@@ -286,7 +286,7 @@ export default function MemberProfilePage() {
                                 </TableBody>
                             </Table>
                         </div>
-                        {totalPages > 1 && (
+                         {totalPages > 1 && (
                             <div className="flex justify-center items-center gap-2 pt-4">
                                 <Button size="sm" variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
                                 <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
@@ -530,3 +530,5 @@ export default function MemberProfilePage() {
         </div>
     );
 }
+
+    
