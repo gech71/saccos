@@ -44,8 +44,11 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     if (activeCommitments > 0) {
       return { success: false, message: 'Cannot delete share type. It is referenced by one or more active, paid off, or pending refund commitments.' };
     }
-
+    
+    // If we're here, it means no active commitments exist. The schema's onDelete: SetNull will handle disconnecting
+    // historical (REFUNDED, CANCELLED) records.
     await prisma.shareType.delete({ where: { id } });
+
     revalidatePath('/share-types');
     return { success: true, message: 'Share type deleted successfully.' };
   } catch(error) {
