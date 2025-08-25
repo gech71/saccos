@@ -10,6 +10,10 @@ export async function getPaymentFormInitialData(memberId: string) {
         select: { fullName: true }
     });
 
+    if (!member) {
+        throw new Error("Member not found.");
+    }
+
     const pendingCharges = await prisma.appliedServiceCharge.aggregate({
         _sum: { amountCharged: true },
         where: { memberId, status: 'pending' }
@@ -32,13 +36,23 @@ export async function recordChargePayment(memberId: string, data: {
 }) {
     const { amount, paymentDate, depositMode, sourceName, transactionReference, evidenceUrl } = data;
     
+    if (amount <= 0) {
+        throw new Error("Payment amount must be greater than zero.");
+    }
+
     const pendingCharges = await prisma.appliedServiceCharge.findMany({
         where: { memberId, status: 'pending' },
         orderBy: { dateApplied: 'asc' },
     });
 
+    const totalPending = pendingCharges.reduce((sum, charge) => sum + charge.amountCharged, 0);
+
     if (pendingCharges.length === 0) {
         throw new Error('No pending charges found for this member.');
+    }
+    
+    if (amount > totalPending) {
+        throw new Error(`Payment amount cannot exceed the total pending amount of ${totalPending.toFixed(2)} Birr.`);
     }
 
     let remainingAmountToApply = amount;
@@ -58,9 +72,10 @@ export async function recordChargePayment(memberId: string, data: {
                 });
                 remainingAmountToApply -= charge.amountCharged;
             } else {
-                // Partial payment - for simplicity, we don't apply it and stop.
+                // Partial payment not supported in this simplified logic.
+                // We throw an error to indicate that exact amounts are preferred for now.
                 // A more complex app could create a credit or mark partial payment.
-                break;
+                throw new Error('Partial payment of a single service charge is not supported. Please pay the exact charge amount or a total that covers one or more full charges.');
             }
         }
     });

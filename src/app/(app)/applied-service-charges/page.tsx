@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -94,7 +95,8 @@ export default function AppliedServiceChargesPage() {
   const filteredMemberSummaries = useMemo(() => {
     if (!pageData) return [];
     return pageData.summaries.filter(summary => {
-      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTermLower) || summary.memberId.toLowerCase().includes(searchTermLower);
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -184,7 +186,8 @@ export default function AppliedServiceChargesPage() {
         setIsApplyChargeModalOpen(false);
         await fetchPageData();
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to apply service charge.' });
+        const errorMessage = error instanceof Error ? error.message : 'Failed to apply service charge.';
+        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
     } finally {
         setIsSubmitting(false);
     }
@@ -248,7 +251,7 @@ export default function AppliedServiceChargesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"

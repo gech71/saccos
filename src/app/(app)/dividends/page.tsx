@@ -181,7 +181,8 @@ export default function DividendsPage() {
   const filteredDividends = useMemo(() => {
     return dividends.filter(dividend => {
       const member = members.find(m => m.id === dividend.memberId);
-      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false);
+      const searchTermLower = searchTerm.toLowerCase();
+      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTermLower) || member.id.toLowerCase().includes(searchTermLower) : false);
       const matchesMemberFilter = (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter);
       return matchesSearchTerm && matchesMemberFilter;
     });
@@ -298,7 +299,7 @@ export default function DividendsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -538,3 +539,4 @@ export default function DividendsPage() {
     </div>
   );
 }
+

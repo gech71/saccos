@@ -75,7 +75,7 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<Appl
   ]);
 
   if (!member || !serviceChargeType) {
-    throw new Error('Invalid member or service charge type.');
+    throw new Error('Invalid member or service charge type. Please ensure both are selected.');
   }
 
   const newCharge = await prisma.appliedServiceCharge.create({
@@ -127,9 +127,9 @@ export async function recordServiceChargePayment(memberId: string, amountPaid: n
     });
 
     revalidatePath('/applied-service-charges');
-    return { success: true, message: `Payment of $${amountPaid.toFixed(2)} applied successfully.` };
+    return { success: true, message: `Payment of ${amountPaid.toFixed(2)} Birr applied successfully.` };
   } catch (error) {
     console.error('Failed to record service charge payment:', error);
-    return { success: false, message: 'An error occurred while recording the payment.' };
+    return { success: false, message: 'An unexpected error occurred while recording the payment.' };
   }
 }
