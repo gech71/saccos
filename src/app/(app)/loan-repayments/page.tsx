@@ -488,8 +488,3 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
-
-
-
-
-

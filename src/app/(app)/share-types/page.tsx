@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -389,7 +390,7 @@ export default function ShareTypesPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the share type.
-              This will fail if any active member commitments reference this share type.
+              This will fail if the share type is already in use by any member commitments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
