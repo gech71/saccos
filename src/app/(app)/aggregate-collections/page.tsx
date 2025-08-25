@@ -128,11 +128,13 @@ export default function AggregateCollectionsPage() {
             });
             // Share Contributions
             member.memberShareCommitments.forEach(sc => {
-                const shareType = dynamicColumns.shares.find(s => s.id === sc.shareTypeId);
-                if (shareType?.paymentType === 'ONCE') {
-                   initialData[member.id][`share_${sc.shareTypeId}`] = 0; // Default one-time shares to 0
-                } else {
-                   initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
+                // Safely check if shareType exists before accessing properties
+                if (sc.shareType) {
+                  if (sc.shareType.paymentType === 'ONCE') {
+                     initialData[member.id][`share_${sc.shareTypeId}`] = 0; // Default one-time shares to 0
+                  } else {
+                     initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.monthlyPayment || 0;
+                  }
                 }
             });
             // Savings
