@@ -61,6 +61,9 @@ export default function LoanRepaymentsPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLoanTypeFilter, setSelectedLoanTypeFilter] = useState('all');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const canCreate = useMemo(() => user?.permissions.includes('loanRepayment:create'), [user]);
 
@@ -201,6 +204,37 @@ export default function LoanRepaymentsPage() {
     );
     exportToExcel(dataToExport, 'loan_repayments_export');
   };
+  
+  const paginatedRepayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredRepaymentsByMember.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredRepaymentsByMember, currentPage, rowsPerPage]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredRepaymentsByMember.length / rowsPerPage), [filteredRepaymentsByMember.length, rowsPerPage]);
+
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 1) return [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+    const rangeWithDots: (number | string)[] = [];
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    return rangeWithDots;
+  }, [totalPages, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -234,7 +268,7 @@ export default function LoanRepaymentsPage() {
         <Accordion type="multiple" className="w-full">
           {isLoading ? (
             <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-          ) : filteredRepaymentsByMember.length > 0 ? filteredRepaymentsByMember.map(group => (
+          ) : paginatedRepayments.length > 0 ? paginatedRepayments.map(group => (
               <AccordionItem value={group.memberId} key={group.memberId}>
                   <AccordionTrigger className="px-6 py-4 text-lg hover:bg-muted/50 hover:no-underline rounded-lg border">
                     <div className="flex-1 text-left flex items-center gap-4">
@@ -283,6 +317,73 @@ export default function LoanRepaymentsPage() {
         </Accordion>
       </div>
       
+       {totalPages > 1 && (
+        <div className="flex flex-col items-center gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                    {paginationItems.map((item, index) =>
+                        typeof item === 'number' ? (
+                            <Button
+                                key={index}
+                                variant={currentPage === item ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-9 w-9 p-0"
+                                onClick={() => setCurrentPage(item)}
+                            >
+                                {item}
+                            </Button>
+                        ) : (
+                            <span key={index} className="px-2">
+                                {item}
+                            </span>
+                        )
+                    )}
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                </Button>
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                <div>Page {currentPage} of {totalPages || 1}</div>
+                <div>{filteredRepaymentsByMember.length} member(s) found.</div>
+                <div className="flex items-center space-x-2">
+                    <p className="font-medium">Rows:</p>
+                    <Select
+                        value={`${rowsPerPage}`}
+                        onValueChange={(value) => {
+                            setRowsPerPage(Number(value));
+                            setCurrentPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={`${rowsPerPage}`} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 15, 20, 25, 50].map((pageSize) => (
+                                <SelectItem key={pageSize} value={`${pageSize}`}>
+                                    {pageSize}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+        </div>
+      )}
+
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -387,6 +488,7 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+
 
 
 
