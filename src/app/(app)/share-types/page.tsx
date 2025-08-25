@@ -389,7 +389,7 @@ export default function ShareTypesPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the share type.
-              This will fail if it is in use by any active member commitments.
+              This will fail if any active member commitments reference this share type.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

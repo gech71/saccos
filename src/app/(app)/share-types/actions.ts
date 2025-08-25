@@ -30,15 +30,19 @@ export async function updateShareType(id: string, data: Partial<ShareTypeInput>)
 
 export async function deleteShareType(id: string): Promise<{ success: boolean; message: string }> {
   try {
-    // Check if any MemberShareCommitment record uses this share type.
+    // A share type can only be deleted if there are no associated commitments that are in an active state.
+    // Refunded or cancelled commitments are considered historical and do not block deletion.
     const activeCommitments = await prisma.memberShareCommitment.count({
       where: { 
         shareTypeId: id,
+        status: {
+          in: ['ACTIVE', 'PAID_OFF', 'PENDING_REFUND']
+        }
       },
     });
 
     if (activeCommitments > 0) {
-      return { success: false, message: 'Cannot delete share type. It is still referenced by member share commitments, even if they are historical or refunded.' };
+      return { success: false, message: 'Cannot delete share type. It is referenced by one or more active, paid off, or pending refund commitments.' };
     }
 
     await prisma.shareType.delete({ where: { id } });
@@ -46,8 +50,7 @@ export async function deleteShareType(id: string): Promise<{ success: boolean; m
     return { success: true, message: 'Share type deleted successfully.' };
   } catch(error) {
     console.error("Failed to delete share type:", error);
-    // This catch block will now primarily handle unexpected database issues,
-    // as the foreign key constraint is checked manually above.
-    return { success: false, message: 'An unexpected database error occurred.' };
+    // This catch block can still trigger if there are other unexpected relations, but the primary check should prevent most FK violations.
+    return { success: false, message: 'An unexpected database error occurred. Ensure there are absolutely no references to this share type.' };
   }
 }
