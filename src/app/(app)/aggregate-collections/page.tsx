@@ -114,9 +114,16 @@ export default function AggregateCollectionsPage() {
             member.loans.forEach(loan => {
                 const monthlyInterestRate = loan.interestRate / 12;
                 const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
-                const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
+
+                // Ensure loanTerm is positive to avoid division by zero
+                const principalPortion = loan.loanTerm > 0 
+                    ? roundToTwo(loan.principalAmount / loan.loanTerm)
+                    : 0;
+
+                // The principal portion cannot be more than the remaining balance
+                const finalPrincipalPortion = Math.min(principalPortion, loan.remainingBalance);
                 
-                initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, principalPortion);
+                initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, finalPrincipalPortion);
                 initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
             });
             // Share Contributions
@@ -144,7 +151,8 @@ export default function AggregateCollectionsPage() {
         setCollectionData(initialData);
 
     } catch (e) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load member data.' });
+        const error = e as Error;
+        toast({ variant: 'destructive', title: 'Error Loading Data', description: error.message || 'An unexpected error occurred.' });
     }
     setIsLoading(false);
   };
@@ -501,3 +509,4 @@ export default function AggregateCollectionsPage() {
     </div>
   );
 }
+
