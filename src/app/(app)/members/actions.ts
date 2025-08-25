@@ -14,7 +14,7 @@ export interface MemberWithDetails extends Member {
         savingAccountType: { name: string; };
     } & Prisma.MemberSavingAccountGetPayload<{}>)[];
     memberShareCommitments: ({
-        shareType: { name: string; };
+        shareType: { name: string; } | null;
     } & Prisma.MemberShareCommitmentGetPayload<{}>)[];
     totalSavingsBalance: number;
     address: Prisma.AddressGetPayload<{}> | null;
@@ -77,7 +77,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
 export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts' | 'memberShareCommitments'> & {
     joinDate: string;
     salary?: number | null;
-    shareCommitmentIds?: string[];
+    shareCommitmentIds?: (string | null)[];
     serviceChargeIds?: string[];
     address?: Prisma.AddressCreateWithoutMemberInput;
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
@@ -135,8 +135,9 @@ export async function addMember(data: MemberInput): Promise<{ member: Member }> 
         }
     });
 
+    const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
     const shareTypesToCommit = await prisma.shareType.findMany({
-        where: { id: { in: shareCommitmentIds || [] } }
+        where: { id: { in: validShareCommitmentIds } }
     });
 
     // Use a static temporary password
@@ -231,12 +232,15 @@ export async function updateMember(id: string, data: MemberInput): Promise<Membe
         ? { upsert: { create: cleanEmergencyContactPayload, update: cleanEmergencyContactPayload } }
         : (existingMember?.emergencyContact ? { delete: true } : undefined);
         
+    // **FIX**: Filter out null/undefined values from shareCommitmentIds
+    const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
+    
     const shareTypesToCommit = await prisma.shareType.findMany({
-        where: { id: { in: shareCommitmentIds || [] } }
+        where: { id: { in: validShareCommitmentIds } }
     });
     
-    const existingCommitmentIds = new Set(existingMember.memberShareCommitments.map(c => c.shareTypeId));
-    const newCommitmentIds = new Set(shareCommitmentIds || []);
+    const existingCommitmentIds = new Set(existingMember.memberShareCommitments.map(c => c.shareTypeId).filter((id): id is string => !!id));
+    const newCommitmentIds = new Set(validShareCommitmentIds);
 
     const commitmentsToAdd = shareTypesToCommit.filter(st => !existingCommitmentIds.has(st.id));
     const commitmentsToRemove = Array.from(existingCommitmentIds).filter(id => !newCommitmentIds.has(id));
@@ -281,7 +285,11 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
         return { success: true, message: 'Member deleted successfully.' };
     } catch (error) {
         console.error("Failed to delete member:", error);
-        return { success: false, message: 'Failed to delete member. They may have related records that could not be deleted.' };
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // Provide a more specific error if a known constraint is violated
+            return { success: false, message: 'Failed to delete member. They may have related records (like historical share payments or school history) that could not be deleted.' };
+        }
+        return { success: false, message: 'An unexpected error occurred while deleting the member.' };
     }
 }
 

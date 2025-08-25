@@ -107,7 +107,7 @@ export default function MembersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: string[] }>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[] }>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
