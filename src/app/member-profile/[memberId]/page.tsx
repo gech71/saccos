@@ -207,7 +207,7 @@ export default function MemberProfilePage() {
                             {savingAccounts.map(acc => (
                                <Card key={acc.id} className="p-4 flex flex-col justify-between shadow-sm bg-card hover:bg-muted/50 transition-colors">
                                   <div className="flex-1 mb-4">
-                                      <div className="text-base font-semibold text-primary">{acc.savingAccountType?.name}</div>
+                                      <div className="text-base font-semibold text-primary">{acc.savingAccountType?.name || '[Deleted Account Type]'}</div>
                                       <div className="text-sm text-muted-foreground">Acct #: {acc.accountNumber}</div>
                                   </div>
                                   <div className="flex justify-between items-baseline">
@@ -313,7 +313,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {shareCommitments.length > 0 ? shareCommitments.map(c => (
                                         <TableRow key={c.id}>
-                                            <TableCell>{c.shareType.name}</TableCell>
+                                            <TableCell>{c.shareType?.name || '[Deleted Share Type]'}</TableCell>
                                             <TableCell><Badge variant={c.status === 'PAID_OFF' ? 'default' : 'secondary'}>{c.status}</Badge></TableCell>
                                             <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell className="text-right font-medium text-green-600">{c.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
@@ -364,7 +364,7 @@ export default function MemberProfilePage() {
                     {loans.length > 0 ? loans.map(loan => {
                         const specificRepayments = loanRepayments.filter(r => r.loanId === loan.id);
                         return (
-                             <SectionCard key={loan.id} title={`Loan Details: ${loan.loanTypeName} (${loan.loanAccountNumber})`}>
+                             <SectionCard key={loan.id} title={`Loan Details: ${loan.loanType?.name || '[Deleted Loan Type]'} (${loan.loanAccountNumber})`}>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 border-b pb-4">
                                     <StatInfo icon={<></>} label="Principal Amount" value={`${loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
                                     <StatInfo icon={<></>} label="Remaining Balance" value={`${loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
@@ -422,7 +422,7 @@ export default function MemberProfilePage() {
                                     {guaranteedLoans.length > 0 ? guaranteedLoans.map(loan => (
                                         <TableRow key={loan.id}>
                                             <TableCell className="font-medium">{loan.member.fullName}</TableCell>
-                                            <TableCell>{loan.loanType.name}</TableCell>
+                                            <TableCell>{loan.loanType?.name || '[Deleted Loan Type]'}</TableCell>
                                             <TableCell>{getLoanStatusBadge(loan.status)}</TableCell>
                                             <TableCell className="text-right">{loan.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</TableCell>
                                         </TableRow>
@@ -480,7 +480,7 @@ export default function MemberProfilePage() {
                                      {serviceCharges.length > 0 ? serviceCharges.map(charge => (
                                         <TableRow key={charge.id}>
                                             <TableCell>{format(new Date(charge.dateApplied), 'PPP')}</TableCell>
-                                            <TableCell>{charge.serviceChargeTypeName}</TableCell>
+                                            <TableCell>{charge.serviceChargeType?.name || '[Deleted Charge Type]'}</TableCell>
                                             <TableCell className="text-right font-semibold">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
                                         </TableRow>

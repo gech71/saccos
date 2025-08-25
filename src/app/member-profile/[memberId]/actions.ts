@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
 import { format, compareDesc } from 'date-fns';
-import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment } from '@prisma/client';
+import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment, ShareType, LoanType, ServiceChargeType, SavingAccountType } from '@prisma/client';
 
 type GuaranteedLoan = Loan & { member: { fullName: string }, loanType: { name: string } | null };
 export interface MemberDetails {
@@ -12,14 +11,14 @@ export interface MemberDetails {
     school: School | null;
     address: Address | null;
     emergencyContact: EmergencyContact | null;
-    savingAccounts: MemberSavingAccount[];
-    shareCommitments: (MemberShareCommitment & { shareType: { name: string } | null })[];
+    savingAccounts: (MemberSavingAccount & { savingAccountType: SavingAccountType | null })[];
+    shareCommitments: (MemberShareCommitment & { shareType: ShareType | null })[];
     sharePayments: SharePayment[];
-    loans: (Loan & { loanTypeName: string })[];
+    loans: (Loan & { loanType: LoanType | null })[];
     guaranteedLoans: GuaranteedLoan[];
     dividends: Dividend[];
     loanRepayments: (LoanRepayment & { balanceAfter: number })[];
-    serviceCharges: (AppliedServiceCharge & { serviceChargeTypeName: string })[];
+    serviceCharges: (AppliedServiceCharge & { serviceChargeType: ServiceChargeType | null })[];
     monthlySavings: { month: string, deposits: number, withdrawals: number, net: number }[];
     monthlyLoanRepayments: { month: string, totalRepaid: number }[];
     allSavingsTransactions: (Saving & { balanceAfter: number })[];
@@ -189,14 +188,14 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         school: member.school,
         address: member.address,
         emergencyContact: member.emergencyContact,
-        savingAccounts: member.memberSavingAccounts.map(sa => ({ ...sa, savingAccountType: sa.savingAccountType ? { ...sa.savingAccountType } : null })),
-        shareCommitments: member.memberShareCommitments.map(c => ({...c, payments:[], shareType: c.shareType ? { name: c.shareType.name } : null })),
+        savingAccounts: member.memberSavingAccounts,
+        shareCommitments: member.memberShareCommitments,
         sharePayments: allSharePayments,
-        loans: loans.map(l => ({ ...l, loanTypeName: l.loanType?.name ?? '[Deleted Loan Type]', repayments: [] })),
-        guaranteedLoans: guaranteedLoans as GuaranteedLoan[],
+        loans: loans.map(l => ({ ...l, repayments: [] })),
+        guaranteedLoans: guaranteedLoans,
         dividends: member.dividends,
         loanRepayments: allLoanRepaymentsWithBalance,
-        serviceCharges: member.appliedServiceCharges.map(sc => ({ ...sc, serviceChargeTypeName: sc.serviceChargeType?.name ?? '[Deleted Charge Type]' })),
+        serviceCharges: member.appliedServiceCharges,
         monthlySavings,
         monthlyLoanRepayments,
         allSavingsTransactions: savingsWithBalance,
