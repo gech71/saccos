@@ -12,7 +12,7 @@ export interface MemberDetails {
     address: Address | null;
     emergencyContact: EmergencyContact | null;
     savingAccounts: (MemberSavingAccount & { savingAccountType: SavingAccountType | null })[];
-    shareCommitments: (MemberShareCommitment & { shareType: ShareType | null })[];
+    shareCommitments: (MemberShareCommitment & { shareType: ShareType | null, payments: SharePayment[] })[];
     sharePayments: SharePayment[];
     loans: (Loan & { loanType: LoanType | null })[];
     guaranteedLoans: GuaranteedLoan[];
@@ -181,7 +181,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         totalRepaid
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
-    const allSharePayments = member.memberShareCommitments.flatMap(c => c.payments);
+    const allSharePayments = (member.memberShareCommitments || []).flatMap(c => c.payments || []);
 
     return {
         member,
@@ -189,7 +189,11 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         address: member.address,
         emergencyContact: member.emergencyContact,
         savingAccounts: member.memberSavingAccounts,
-        shareCommitments: member.memberShareCommitments,
+        shareCommitments: (member.memberShareCommitments || []).map(c => ({
+            ...c,
+            shareType: c.shareType, // Already included
+            payments: c.payments || [], // Ensure payments is always an array
+        })),
         sharePayments: allSharePayments,
         loans: loans.map(l => ({ ...l, repayments: [] })),
         guaranteedLoans: guaranteedLoans,
