@@ -214,12 +214,12 @@ export default function SharePaymentsPage() {
     const dataToExport = filteredCommitments.map(c => {
       return {
         'Member Name': c.member.fullName,
-        'Share Type': c.shareType.name,
+        'Share Type': c.shareType?.name || '[Deleted Share Type]',
         'Status': c.status,
         'Total Committed (Birr)': c.totalCommittedAmount,
         'Amount Paid (Birr)': c.amountPaid,
         'Remaining Balance (Birr)': c.totalCommittedAmount - c.amountPaid,
-        'Expected Monthly Payment (Birr)': c.shareType.monthlyPayment?.toFixed(2) || 'N/A',
+        'Expected Monthly Payment (Birr)': c.shareType?.monthlyPayment?.toFixed(2) || 'N/A',
       };
     });
     exportToExcel(dataToExport, 'share_commitments_export');
@@ -231,7 +231,7 @@ export default function SharePaymentsPage() {
 
   const isUnderpayment = useMemo(() => {
     if (!selectedCommitment || !currentPayment.amount) return false;
-    const expectedPayment = selectedCommitment.shareType.monthlyPayment || 0;
+    const expectedPayment = selectedCommitment.shareType?.monthlyPayment || 0;
     return expectedPayment > 0 && currentPayment.amount < expectedPayment;
   }, [selectedCommitment, currentPayment.amount]);
 
@@ -317,8 +317,8 @@ export default function SharePaymentsPage() {
                 <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
                   <TableCell className="font-medium">{c.member.fullName}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{c.shareType.name}</Badge>
-                    {c.shareType.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
+                    <Badge variant="outline">{c.shareType?.name || '[Deleted Share Type]'}</Badge>
+                    {c.shareType?.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
                   </TableCell>
                   <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
                   <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
@@ -376,7 +376,7 @@ export default function SharePaymentsPage() {
                     className="w-full justify-between"
                   >
                     {selectedCommitment
-                      ? `${selectedCommitment.member.fullName} - ${selectedCommitment.shareType.name}`
+                      ? `${selectedCommitment.member.fullName} - ${selectedCommitment.shareType?.name}`
                       : "Select commitment..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -387,17 +387,17 @@ export default function SharePaymentsPage() {
                     <CommandList>
                       <CommandEmpty>No commitments found.</CommandEmpty>
                       <CommandGroup>
-                        {pageData?.commitments.filter(c => c.status === 'ACTIVE').map((c) => (
+                        {pageData?.commitments.filter(c => c.status === 'ACTIVE' && c.shareType).map((c) => (
                           <CommandItem
                             key={c.id}
-                            value={`${c.member.fullName} ${c.shareType.name}`}
+                            value={`${c.member.fullName} ${c.shareType?.name}`}
                             onSelect={() => {
                               handleSelectChange('commitmentId', c.id);
                               setOpenCommitmentCombobox(false);
                             }}
                           >
                             <Check className={cn("mr-2 h-4 w-4", currentPayment.commitmentId === c.id ? "opacity-100" : "opacity-0")} />
-                            {c.member.fullName} - {c.shareType.name} (Bal: {(c.totalCommittedAmount - c.amountPaid).toFixed(2)})
+                            {c.member.fullName} - {c.shareType?.name} (Bal: {(c.totalCommittedAmount - c.amountPaid).toFixed(2)})
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -406,7 +406,7 @@ export default function SharePaymentsPage() {
                 </PopoverContent>
               </Popover>
             </div>
-            {selectedCommitment?.shareType.monthlyPayment && (
+            {selectedCommitment?.shareType?.monthlyPayment && (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                     <p>Expected Monthly Payment: <strong className="text-primary text-base">{(selectedCommitment.shareType.monthlyPayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</strong></p>
                 </div>
