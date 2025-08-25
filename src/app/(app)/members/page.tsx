@@ -89,6 +89,7 @@ type ParsedMember = {
   MemberFullName: string;
   InitialSavingsBalance: number;
   SchoolID: string;
+  Salary?: number;
   status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID';
 };
 
@@ -434,12 +435,13 @@ export default function MembersPage() {
             const fullName = row['MemberFullName']?.toString().trim();
             const schoolId = row['SchoolID']?.toString().trim();
             const initialBalance = parseFloat(row['InitialSavingsBalance']);
+            const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
 
             if (!memberId || !fullName || !schoolId || isNaN(initialBalance)) {
-                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status: 'Invalid ID or Name' };
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status: 'Invalid ID or Name' };
             }
             if (!existingSchoolIds.has(schoolId)) {
-                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status: 'Invalid School ID' };
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status: 'Invalid School ID' };
             }
 
             let status: ParsedMember['status'] = 'Ready to import';
@@ -450,13 +452,13 @@ export default function MembersPage() {
             }
             seenInFile.add(memberId);
 
-            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, status };
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status };
           });
           
           setParsedMembers(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "MemberID", "MemberFullName", "InitialSavingsBalance", and "SchoolID".' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "InitialSavingsBalance", and "SchoolID".' });
         } finally {
           setIsParsing(false);
         }
@@ -468,7 +470,7 @@ export default function MembersPage() {
   const handleConfirmImport = async () => {
     const membersToImport = parsedMembers
       .filter(m => m.status === 'Ready to import')
-      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, InitialSavingsBalance: m.InitialSavingsBalance, SchoolID: m.SchoolID }));
+      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, InitialSavingsBalance: m.InitialSavingsBalance, SchoolID: m.SchoolID, Salary: m.Salary }));
 
     if (membersToImport.length === 0) {
       toast({ title: 'No New Members', description: 'There are no new members to import from the file.' });
@@ -504,6 +506,7 @@ export default function MembersPage() {
       MemberFullName: 'John Doe',
       InitialSavingsBalance: 500,
       SchoolID: 'school-id-1',
+      Salary: 50000,
     }];
     exportToExcel(templateData, 'member_import_template');
   };
@@ -666,11 +669,11 @@ export default function MembersPage() {
       
       {/* Import Modal */}
        <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
             <DialogDescription>
-              Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID". A temporary password will be generated for each new member.
+                Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID", and optionally "Salary". A temporary password will be generated.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -691,7 +694,7 @@ export default function MembersPage() {
                       <TableRow>
                         <TableHead>Member ID</TableHead>
                         <TableHead>Full Name</TableHead>
-                        <TableHead>School ID</TableHead>
+                        <TableHead className="text-right">Salary</TableHead>
                          <TableHead className="text-right">Initial Balance</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
@@ -701,7 +704,7 @@ export default function MembersPage() {
                         <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
                           <TableCell>{member.MemberID}</TableCell>
                           <TableCell>{member.MemberFullName}</TableCell>
-                          <TableCell>{member.SchoolID}</TableCell>
+                          <TableCell className="text-right">{member.Salary ? member.Salary.toFixed(2) : 'N/A'}</TableCell>
                            <TableCell className="text-right">{member.InitialSavingsBalance.toFixed(2)}</TableCell>
                           <TableCell>{getValidationBadge(member.status)}</TableCell>
                         </TableRow>
@@ -839,7 +842,3 @@ export default function MembersPage() {
     </div>
   );
 }
-
-
-
-

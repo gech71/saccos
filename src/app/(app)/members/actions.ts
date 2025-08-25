@@ -341,6 +341,7 @@ export interface ImportedMember {
     MemberFullName: string;
     InitialSavingsBalance: number;
     SchoolID: string;
+    Salary?: number;
 }
 
 export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
@@ -368,6 +369,7 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
             schoolId: m.SchoolID,
             joinDate: new Date(),
             status: 'active' as 'active' | 'inactive',
+            salary: m.Salary,
         });
     }
     
