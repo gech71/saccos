@@ -438,7 +438,7 @@ export default function AggregateCollectionsPage() {
                         <TableHeader>
                             <TableRow>
                             <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
-                            <TableHead className="sticky left-[150px] bg-background z-20 w-[200px]">Full Name</TableHead>
+                            <TableHead className="w-[200px]">Full Name</TableHead>
                             {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
                             {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
                             {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
@@ -452,7 +452,7 @@ export default function AggregateCollectionsPage() {
                                 <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
                                     {member.id}
                                 </TableCell>
-                                <TableCell className="font-medium sticky left-[150px] bg-background z-10 w-[200px]">
+                                <TableCell className="font-medium w-[200px]">
                                     {member.fullName}
                                 </TableCell>
                                 {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
@@ -511,4 +511,3 @@ export default function AggregateCollectionsPage() {
     </div>
   );
 }
-
