@@ -14,6 +14,7 @@ This UAT covers all primary functionalities of the application:
 -   **Group Collections:** Loading data and submitting batch collections for a school.
 -   **System Configuration:** Role management and creation of financial product types (Shares, Loans, etc.).
 -   **Reporting & Data Integrity:** Verification of calculations and data consistency across modules.
+-   **Interest Calculation & Forecasts:** Testing the financial calculation engines.
 
 ---
 
@@ -56,7 +57,7 @@ Please execute the following test cases and record the outcome.
 | Test Case ID | Test Scenario | Test Steps | Expected Result | Pass/Fail | Comments |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **UAT-MEM-001** | **(Positive)** View Member List | 1. Log in as Admin. <br> 2. Navigate to "Members" page. | A table of all members is displayed with their ID, name, contact, school, and savings balance. | | |
-| **UAT-MEM-002** | **(Positive)** Add a New Member | 1. Go to "Members" page. <br> 2. Click "Add Member". <br> 3. Fill in all required fields with valid data. <br> 4. Assign a school and select share/service charge commitments. <br> 5. Click "Add Member" in the modal. | A success message is shown. The new member appears in the member list. | | |
+| **UAT-MEM-002** | **(Positive)** Add a New Member | 1. Go to "Members" page. <br> 2. Click "Add Member". <br> 3. Fill in all required fields with valid data. <br> 4. Assign a school and select share/service charge commitments. <br> 5. Click "Add Member" in the modal. | A success message is shown. The new member appears in the member list. Their temporary password is `123456`. | | |
 | **UAT-MEM-003** | **(Negative)** Add Member with Duplicate ID | 1. Go to "Members" page. <br> 2. Click "Add Member". <br> 3. Enter an ID that already exists for another member. <br> 4. Fill other fields. <br> 5. Click "Add Member". | An error message is displayed (e.g., "Member ID already exists"). The member is not created. | | |
 | **UAT-MEM-004** | **(Negative)** Add Member with Missing Required Fields | 1. Go to "Members" page. <br> 2. Click "Add Member". <br> 3. Leave a required field (e.g., Full Name) blank. <br> 4. Click "Add Member". | The form should show a validation error indicating the missing field. The member is not created. | | |
 | **UAT-MEM-005** | **(Positive)** Edit an Existing Member | 1. Go to "Members" page. <br> 2. Click the action menu (...) for a member and select "Edit". <br> 3. Change a field (e.g., Phone Number). <br> 4. Save changes. | A success message is shown. The member's information is updated in the list. | | |
@@ -93,6 +94,34 @@ Please execute the following test cases and record the outcome.
 | **UAT-COLL-002** | **(Positive)** Submit Aggregate Collection | 1. On the "Aggregate Collections" sheet, verify or edit amounts for a few members. <br> 2. Click "Submit Collection". | A success message appears. The submitted amounts appear as individual pending transactions in the "Approve Transactions" list. | | |
 | **UAT-COLL-003** | **(Positive)** Export/Import Collection Sheet | 1. Load data for a school. <br> 2. Click "Export" to download the Excel sheet. <br> 3. Open the file, modify some values, and save it. <br> 4. On the "Import" tab, upload the modified file. <br> 5. Click "Process File". | The values in the on-screen collection table should update to match the imported file. | | |
 
+### 3.6 System Configuration (Admin)
+
+| Test Case ID | Test Scenario | Test Steps | Expected Result | Pass/Fail | Comments |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **UAT-CONF-001** | **(Positive)** Create Saving Account Type | 1. Navigate to "Saving Acct. Types". <br> 2. Click "Add Account Type". <br> 3. Fill in all fields with valid data. <br> 4. Click "Add Account Type". | The new type appears in the list with the correct details. | | |
+| **UAT-CONF-002** | **(Positive)** Edit Saving Account Type | 1. On the "Saving Acct. Types" page, edit an existing type. <br> 2. Change the interest rate. <br> 3. Save changes. | The information is updated correctly in the list. | | |
+| **UAT-CONF-003** | **(Negative)** Delete Saving Account Type in Use | 1. Try to delete a saving account type that is currently assigned to one or more members. | An error message is displayed (e.g., "Cannot delete... in use by members."). The type is not deleted. | | |
+| **UAT-CONF-004** | **(Positive)** Create Share Type | 1. Navigate to "Share Types". <br> 2. Click "Add Share Type". <br> 3. Fill in details for an installment-based share. <br> 4. Click "Add Share Type". | The new share type appears correctly in the list. | | |
+| **UAT-CONF-005** | **(Positive)** Create Loan Type | 1. Navigate to "Loan Types". <br> 2. Click "Add Loan Type". <br> 3. Fill in all fields, including eligibility and collateral logic. <br> 4. Click "Add Loan Type". | The new loan type is created and visible in the list. | | |
+| **UAT-CONF-006** | **(Positive)** Create Service Charge Type | 1. Navigate to "Service Charge Types". <br> 2. Click "Add Charge Type". <br> 3. Fill in the details. <br> 4. Click "Add Charge Type". | The new service charge type appears in the list. | | |
+
+### 3.7 Financial Calculations (Admin)
+
+| Test Case ID | Test Scenario | Test Steps | Expected Result | Pass/Fail | Comments |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **UAT-CALC-001** | **(Positive)** Calculate Savings Interest | 1. Navigate to "Calculate Savings Interest". <br> 2. Select a date range and a scope (e.g., "All Members"). <br> 3. Click "Calculate Interest". | A table of results appears showing the calculated interest for each eligible member. The amounts should be reasonable based on balances and interest rates. | | |
+| **UAT-CALC-002** | **(Positive)** Post Savings Interest | 1. After performing UAT-CALC-001, click "Post Interest for Approval". | A success message is shown. The calculated interest amounts appear as pending "deposit" transactions in "Approve Transactions". | | |
+| **UAT-CALC-003** | **(Positive)** Calculate Loan Interest | 1. Navigate to "Calculate Loan Interest". <br> 2. Select a period and scope. <br> 3. Click "Calculate Loan Interest". | A table of results appears showing calculated interest for active loans. The amounts should be correct based on remaining balance and interest rate. | | |
+| **UAT-CALC-004** | **(Positive)** Post Loan Interest Charges | 1. After performing UAT-CALC-003, click "Post Interest Charges". | A success message is shown. The interest amounts appear as pending "service charges" in the "Applied Service Charges" list for each member. | | |
+
+### 3.8 Reports & Forecasts (Admin)
+
+| Test Case ID | Test Scenario | Test Steps | Expected Result | Pass/Fail | Comments |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **UAT-REP-001** | **(Positive)** Generate a Savings Report | 1. Navigate to "Reports". <br> 2. Select a school, set Report Type to "Saving Report", select a Saving Account Type, and a date range. <br> 3. Click "Generate Report". | A report is generated showing correct columns and data. The summary statistics should match the data in the table. The "Export to Excel" button should work. | | |
+| **UAT-REP-002** | **(Positive)** Generate a Loan Report | 1. Navigate to "Reports". <br> 2. Select a school, set Report Type to "Loan Report", and a date range. <br> 3. Click "Generate Report". | A report with loan data is generated successfully. The "Export to Excel" button should download a valid file. | | |
+| **UAT-REP-003** | **(Positive)** Generate Collection Forecast | 1. Navigate to "Collection Forecast". <br> 2. Select a school, month/year, and a collection type (e.g., "Savings"). <br> 3. Click "Load Forecast". | A table appears with members from the selected school and their expected contribution amounts for the selected type. The total forecast amount is displayed and appears correct. | | |
+
 ---
 
 ## 4. Test Summary and Sign-off
@@ -100,7 +129,7 @@ Please execute the following test cases and record the outcome.
 Upon completion of all test cases, the project stakeholder(s) will review the results and sign off on this document.
 
 ### 4.1 Summary of Results
--   **Total Test Cases:** 23
+-   **Total Test Cases:** 32
 -   **Passed:** ______
 -   **Failed:** ______
 -   **Blocked:** ______
@@ -122,3 +151,4 @@ Upon completion of all test cases, the project stakeholder(s) will review the re
 | | Project Manager | | |
 | | Lead Tester | | |
 | | Business Stakeholder | | |
+```
