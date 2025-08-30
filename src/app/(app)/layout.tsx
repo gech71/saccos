@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus, Combine } from 'lucide-react';
+import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus, Combine, UploadCloud } from 'lucide-react';
 import React, { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -51,6 +51,7 @@ const navItems: NavItem[] = [
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
   { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'collectionForecast:view' },
   { title: 'Reports', href: '/reports', icon: FileText, permission: 'report:view' },
+  { title: 'System Import', href: '/system-import', icon: UploadCloud, permission: 'systemImport:view' },
   { title: 'Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
 
   { title: 'Configuration', isGroupLabel: true },

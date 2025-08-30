@@ -95,6 +95,10 @@ export const permissionsByGroup = {
     'Reports': [
         { id: 'report:view', label: 'View' },
     ],
+    'System Import': [
+        { id: 'systemImport:view', label: 'View' },
+        { id: 'systemImport:create', label: 'Import Data' },
+    ],
     'Settings': [
         { id: 'setting:view', label: 'View' },
         { id: 'setting:create', label: 'Create' },
