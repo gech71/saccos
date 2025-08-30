@@ -87,7 +87,6 @@ const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: s
 type ParsedMember = {
   MemberID: string;
   MemberFullName: string;
-  InitialSavingsBalance: number;
   SchoolID: string;
   Salary?: number;
   status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID';
@@ -434,14 +433,13 @@ export default function MembersPage() {
             const memberId = row['MemberID']?.toString().trim();
             const fullName = row['MemberFullName']?.toString().trim();
             const schoolId = row['SchoolID']?.toString().trim();
-            const initialBalance = parseFloat(row['InitialSavingsBalance']);
             const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
 
-            if (!memberId || !fullName || !schoolId || isNaN(initialBalance)) {
-                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status: 'Invalid ID or Name' };
+            if (!memberId || !fullName || !schoolId) {
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status: 'Invalid ID or Name' };
             }
             if (!existingSchoolIds.has(schoolId)) {
-                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status: 'Invalid School ID' };
+                return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status: 'Invalid School ID' };
             }
 
             let status: ParsedMember['status'] = 'Ready to import';
@@ -452,13 +450,13 @@ export default function MembersPage() {
             }
             seenInFile.add(memberId);
 
-            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status };
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status };
           });
           
           setParsedMembers(validatedData);
 
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "InitialSavingsBalance", and "SchoolID".' });
+          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", and "SchoolID".' });
         } finally {
           setIsParsing(false);
         }
@@ -470,7 +468,7 @@ export default function MembersPage() {
   const handleConfirmImport = async () => {
     const membersToImport = parsedMembers
       .filter(m => m.status === 'Ready to import')
-      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, InitialSavingsBalance: m.InitialSavingsBalance, SchoolID: m.SchoolID, Salary: m.Salary }));
+      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, SchoolID: m.SchoolID, Salary: m.Salary }));
 
     if (membersToImport.length === 0) {
       toast({ title: 'No New Members', description: 'There are no new members to import from the file.' });
@@ -504,7 +502,6 @@ export default function MembersPage() {
     const templateData = [{
       MemberID: 'EMP001',
       MemberFullName: 'John Doe',
-      InitialSavingsBalance: 500,
       SchoolID: 'school-id-1',
       Salary: 50000,
     }];
@@ -575,8 +572,7 @@ export default function MembersPage() {
                     <Check className={cn("mr-2 h-4 w-4", selectedSchoolFilter === "all" ? "opacity-100" : "opacity-0")} />
                     All Schools
                   </CommandItem>
-                  {schools.map((school) => (
-                    <CommandItem key={school.id} value={`${school.name} ${school.id}`} onSelect={() => { setSelectedSchoolFilter(school.id); setOpenSchoolFilterCombobox(false); }}>
+                  {schools.map((school) => (<CommandItem key={school.id} value={`${school.name} ${school.id}`} onSelect={() => { setSelectedSchoolFilter(school.id); setOpenSchoolFilterCombobox(false); }}>
                       <Check className={cn("mr-2 h-4 w-4", selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0")} />
                       {school.name}
                     </CommandItem>
@@ -669,11 +665,11 @@ export default function MembersPage() {
       
       {/* Import Modal */}
        <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
             <DialogDescription>
-                Upload an Excel file with columns: "MemberID", "MemberFullName", "InitialSavingsBalance", "SchoolID", and optionally "Salary". A temporary password will be generated.
+                Upload an Excel file with columns: "MemberID", "MemberFullName", "SchoolID", and optionally "Salary". A temporary password will be generated, and a default savings account will be created with a balance of 0.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -695,7 +691,6 @@ export default function MembersPage() {
                         <TableHead>Member ID</TableHead>
                         <TableHead>Full Name</TableHead>
                         <TableHead className="text-right">Salary</TableHead>
-                         <TableHead className="text-right">Initial Balance</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -705,7 +700,6 @@ export default function MembersPage() {
                           <TableCell>{member.MemberID}</TableCell>
                           <TableCell>{member.MemberFullName}</TableCell>
                           <TableCell className="text-right">{member.Salary ? member.Salary.toFixed(2) : 'N/A'}</TableCell>
-                           <TableCell className="text-right">{member.InitialSavingsBalance.toFixed(2)}</TableCell>
                           <TableCell>{getValidationBadge(member.status)}</TableCell>
                         </TableRow>
                       ))}
@@ -842,4 +836,3 @@ export default function MembersPage() {
     </div>
   );
 }
-

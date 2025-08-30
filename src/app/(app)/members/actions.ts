@@ -347,7 +347,6 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
 export interface ImportedMember {
     MemberID: string;
     MemberFullName: string;
-    InitialSavingsBalance: number;
     SchoolID: string;
     Salary?: number;
 }
@@ -390,12 +389,11 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
         // Now create the default saving account for the newly created members
         const createdMemberIds = membersToCreate.slice(0, result.count).map(m => m.id);
         const savingAccountsToCreate = createdMemberIds.map(memberId => {
-            const importedMember = members.find(m => m.MemberID === memberId);
             return {
                 memberId: memberId,
                 savingAccountTypeId: defaultSavingType.id,
-                initialBalance: importedMember?.InitialSavingsBalance || 0,
-                balance: importedMember?.InitialSavingsBalance || 0,
+                initialBalance: 0,
+                balance: 0,
                 accountNumber: `SA-${Date.now().toString().slice(-6)}-${memberId.slice(-2)}`,
                 expectedMonthlySaving: 0 // Default, can be updated later
             };
