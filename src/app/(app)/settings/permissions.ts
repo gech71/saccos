@@ -57,6 +57,10 @@ export const permissionsByGroup = {
         { id: 'groupLoanRepayment:view', label: 'View' },
         { id: 'groupLoanRepayment:create', label: 'Create' },
     ],
+     'Aggregate Collections': [
+        { id: 'groupCollection:view', label: 'View' },
+        { id: 'groupCollection:create', label: 'Create' },
+    ],
     'Loan Interest Calculation': [
         { id: 'loanInterestCalculation:view', label: 'View' },
         { id: 'loanInterestCalculation:create', label: 'Create' },
