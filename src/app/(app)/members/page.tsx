@@ -669,7 +669,7 @@ export default function MembersPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
             <DialogDescription>
-                Upload an Excel file with columns: "MemberID", "MemberFullName", "SchoolID", and optionally "Salary". A temporary password will be generated, and a default savings account will be created with a balance of 0.
+                Upload an Excel file with columns: "MemberID", "MemberFullName", "SchoolID", and optionally "Salary". A temporary password will be generated.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

@@ -352,15 +352,6 @@ export interface ImportedMember {
 }
 
 export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
-    // Find a default savings account type, e.g., "Regular Savings"
-    const defaultSavingType = await prisma.savingAccountType.findFirst({
-        where: { name: { contains: 'Regular', mode: 'insensitive' } }
-    });
-
-    if (!defaultSavingType) {
-        return { success: false, message: 'Could not find a default "Regular Savings" account type. Please create one before importing members.' };
-    }
-
     const membersToCreate = [];
     for (const m of members) {
         const temporaryPassword = '123456';
@@ -385,30 +376,10 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
         skipDuplicates: true,
     });
     
-    if (result.count > 0) {
-        // Now create the default saving account for the newly created members
-        const createdMemberIds = membersToCreate.slice(0, result.count).map(m => m.id);
-        const savingAccountsToCreate = createdMemberIds.map(memberId => {
-            return {
-                memberId: memberId,
-                savingAccountTypeId: defaultSavingType.id,
-                initialBalance: 0,
-                balance: 0,
-                accountNumber: `SA-${Date.now().toString().slice(-6)}-${memberId.slice(-2)}`,
-                expectedMonthlySaving: 0 // Default, can be updated later
-            };
-        });
-        
-        await prisma.memberSavingAccount.createMany({
-            data: savingAccountsToCreate
-        });
-    }
-
     revalidatePath('/members');
-    revalidatePath('/savings-accounts');
 
     const skippedCount = members.length - result.count;
-    let message = `Successfully imported ${result.count} new members and created default savings accounts.`;
+    let message = `Successfully imported ${result.count} new members.`;
     if (skippedCount > 0) {
         message += ` ${skippedCount} member(s) were skipped as they already exist.`;
     }
