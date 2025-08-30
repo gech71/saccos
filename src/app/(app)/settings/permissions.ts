@@ -25,9 +25,9 @@ export const permissionsByGroup = {
         { id: 'savingAccount:view', label: 'View' },
         { id: 'savingAccount:create', label: 'Create' },
     ],
-    'Group Collections': [
-        { id: 'groupCollection:view', label: 'View' },
-        { id: 'groupCollection:create', label: 'Create' },
+    'System Import': [
+        { id: 'systemImport:view', label: 'View' },
+        { id: 'systemImport:create', label: 'Create' },
     ],
     'Savings Interest Calculation': [
         { id: 'savingsInterestCalculation:view', label: 'View' },
@@ -94,10 +94,6 @@ export const permissionsByGroup = {
     ],
     'Reports': [
         { id: 'report:view', label: 'View' },
-    ],
-    'System Import': [
-        { id: 'systemImport:view', label: 'View' },
-        { id: 'systemImport:create', label: 'Import Data' },
     ],
     'Settings': [
         { id: 'setting:view', label: 'View' },

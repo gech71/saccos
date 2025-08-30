@@ -2,95 +2,185 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType, Member, MemberSavingAccount, MemberShareCommitment, Loan, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
-export interface ImportedMember {
-    MemberID: string;
-    MemberFullName: string;
-    InitialSavingsBalance: number;
-    SchoolID: string;
-    Salary?: number;
+export interface ImportPageData {
+  savingTypes: Pick<SavingAccountType, 'id' | 'name'>[];
+  loanTypes: Pick<LoanType, 'id' | 'name' | 'interestRate'>[];
+  shareTypes: (Pick<ShareType, 'id' | 'name' | 'monthlyPayment' | 'paymentType'>)[];
+  serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name' | 'frequency' | 'amount'>[];
+  members: MemberDataForImport[];
 }
 
-export async function getImportPrerequisites() {
-    const schools = await prisma.school.findMany({ select: { id: true }});
-    const members = await prisma.member.findMany({ select: { id: true }});
-    return {
-        existingSchoolIds: new Set(schools.map(s => s.id)),
-        existingMemberIds: new Set(members.map(m => m.id)),
-    }
+export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
+    memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
+    memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId' | 'status'> & {shareType: {monthlyPayment: number | null, paymentType: 'ONCE' | 'INSTALLMENT'}})[],
+    loans: Pick<Loan, 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'>[],
+    appliedServiceCharges: Pick<AppliedServiceCharge, 'serviceChargeTypeId' | 'status'>[]
 }
 
-export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean; message: string }> {
-    if (!members || members.length === 0) {
-        return { success: false, message: 'No valid member data provided for import.' };
+export async function getImportPageData(): Promise<ImportPageData> {
+  const [savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
+    prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
+    prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true, paymentType: true }, orderBy: { name: 'asc' } }),
+    prisma.serviceChargeType.findMany({ select: { id: true, name: true, frequency: true, amount: true }, orderBy: { name: 'asc' } }),
+    prisma.member.findMany({
+        where: { status: 'active' },
+        select: {
+            id: true,
+            fullName: true,
+            schoolId: true,
+            memberSavingAccounts: {
+                select: {
+                    savingAccountTypeId: true,
+                    expectedMonthlySaving: true
+                }
+            },
+            memberShareCommitments: {
+                select: {
+                    shareTypeId: true,
+                    status: true,
+                    shareType: {
+                        select: { monthlyPayment: true, paymentType: true }
+                    }
+                }
+            },
+            loans: {
+                where: { status: { in: ['active', 'overdue']}},
+                select: {
+                    loanTypeId: true,
+                    principalAmount: true,
+                    loanTerm: true,
+                    interestRate: true,
+                    remainingBalance: true,
+                }
+            },
+            appliedServiceCharges: {
+                select: {
+                    serviceChargeTypeId: true,
+                    status: true
+                }
+            }
+        },
+        orderBy: {
+            fullName: 'asc'
+        }
+    })
+  ]);
+
+  return { savingTypes, loanTypes, shareTypes, serviceChargeTypes, members };
+}
+
+export type ImportPayload = {
+    collectionMonth: string;
+    collectionYear: string;
+    collections: {
+        memberId: string;
+        values: Record<string, number>;
+    }[];
+}
+
+export async function processImport(payload: ImportPayload): Promise<{ success: boolean }> {
+  const { collections, collectionMonth, collectionYear } = payload;
+  const paymentDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
+
+  await prisma.$transaction(async (tx) => {
+    for (const collection of collections) {
+      const { memberId, values } = collection;
+
+      for (const [key, amount] of Object.entries(values)) {
+        if (amount <= 0) continue;
+
+        const [type, idWithSuffix] = key.split('_');
+        const id = idWithSuffix.replace('-principal', '').replace('-interest', '');
+
+
+        if (type === 'saving') {
+          const account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
+          if (account) {
+            await tx.saving.create({
+              data: {
+                memberId,
+                memberSavingAccountId: account.id,
+                amount,
+                date: paymentDate,
+                month: `${collectionMonth} ${collectionYear}`,
+                transactionType: 'deposit',
+                status: 'pending',
+                depositMode: 'Cash', // Default for batch
+                notes: 'Bulk data import',
+              }
+            });
+          }
+        } else if (type === 'share') {
+           const commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
+           if (commitment) {
+               await tx.sharePayment.create({
+                   data: {
+                       commitmentId: commitment.id,
+                       amount,
+                       paymentDate,
+                       depositMode: 'Cash',
+                       status: 'pending',
+                       notes: 'Bulk data import',
+                   }
+               });
+           }
+        } else if (type === 'loan') {
+            const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}});
+            if (loan) {
+                const principalPaid = values[`loan_${id}-principal`] || 0;
+                const interestPaid = values[`loan_${id}-interest`] || 0;
+                const totalPaid = principalPaid + interestPaid;
+
+                if (totalPaid <= 0) continue;
+
+                await tx.loanRepayment.create({
+                    data: {
+                        loanId: loan.id,
+                        memberId,
+                        amountPaid: totalPaid,
+                        paymentDate,
+                        interestPaid,
+                        principalPaid,
+                        depositMode: 'Cash',
+                    }
+                });
+                await tx.loan.update({
+                    where: { id: loan.id },
+                    data: {
+                        remainingBalance: { decrement: principalPaid },
+                        status: (loan.remainingBalance - principalPaid) <= 0 ? 'paid_off' : loan.status,
+                    }
+                });
+                // To avoid double-counting, we can delete the keys after processing
+                delete values[`loan_${id}-principal`];
+                delete values[`loan_${id}-interest`];
+            }
+        } else if (type === 'service') {
+             await tx.appliedServiceCharge.create({
+                data: {
+                    memberId,
+                    serviceChargeTypeId: id,
+                    amountCharged: amount,
+                    dateApplied: paymentDate,
+                    status: 'pending',
+                    notes: 'Bulk data import',
+                }
+             });
+        }
+      }
     }
-    
-    // Find a default savings account type, e.g., "Regular Savings"
-    const defaultSavingType = await prisma.savingAccountType.findFirst({
-        where: { name: { contains: 'Regular', mode: 'insensitive' } }
-    });
+  });
 
-    if (!defaultSavingType) {
-        return { success: false, message: 'Could not find a default "Regular Savings" account type. Please create one before importing members.' };
-    }
+  revalidatePath('/system-import');
+  revalidatePath('/approve-transactions');
+  revalidatePath('/savings');
+  revalidatePath('/shares');
+  revalidatePath('/loan-repayments');
+  revalidatePath('/applied-service-charges');
 
-    const membersToCreate = [];
-    for (const m of members) {
-        const temporaryPassword = '123456';
-        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-        membersToCreate.push({
-            id: m.MemberID,
-            fullName: m.MemberFullName,
-            email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
-            password: hashedPassword,
-            mustChangePassword: true,
-            sex: 'Male' as 'Male' | 'Female', // Default value
-            phoneNumber: '0900000000', // Default value
-            schoolId: m.SchoolID,
-            joinDate: new Date(),
-            status: 'active' as 'active' | 'inactive',
-            salary: m.Salary,
-        });
-    }
-    
-    const result = await prisma.member.createMany({
-        data: membersToCreate,
-        skipDuplicates: true,
-    });
-    
-    const createdCount = result.count;
-
-    if (createdCount > 0) {
-        // Now create the default saving account for the newly created members
-        const createdMemberIds = membersToCreate.slice(0, createdCount).map(m => m.id);
-        const savingAccountsToCreate = createdMemberIds.map(memberId => {
-            const importedMember = members.find(m => m.MemberID === memberId);
-            return {
-                memberId: memberId,
-                savingAccountTypeId: defaultSavingType.id,
-                initialBalance: importedMember?.InitialSavingsBalance || 0,
-                balance: importedMember?.InitialSavingsBalance || 0,
-                accountNumber: `SA-${Date.now().toString().slice(-6)}-${memberId.slice(-2)}`,
-                expectedMonthlySaving: 0 // Default, can be updated later
-            };
-        });
-        
-        await prisma.memberSavingAccount.createMany({
-            data: savingAccountsToCreate,
-            skipDuplicates: true,
-        });
-    }
-
-    revalidatePath('/members');
-    revalidatePath('/savings-accounts');
-
-    const skippedCount = members.length - createdCount;
-    let message = `Successfully imported ${createdCount} new members and created default savings accounts.`;
-    if (skippedCount > 0) {
-        message += ` ${skippedCount} member(s) were skipped as they already exist.`;
-    }
-
-    return { success: true, message };
+  return { success: true };
 }

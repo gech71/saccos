@@ -46,12 +46,11 @@ const navItems: NavItem[] = [
   
   { title: 'Administration', isGroupLabel: true },
   { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'transactionApproval:view' },
-  { title: 'Aggregate Collections', href: '/aggregate-collections', icon: Combine, permission: 'groupCollection:view' },
+  { title: 'System Import', href: '/system-import', icon: UploadCloud, permission: 'systemImport:view' },
   { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'serviceCharge:view' },
   { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
   { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'collectionForecast:view' },
   { title: 'Reports', href: '/reports', icon: FileText, permission: 'report:view' },
-  { title: 'System Import', href: '/system-import', icon: UploadCloud, permission: 'systemImport:view' },
   { title: 'Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
 
   { title: 'Configuration', isGroupLabel: true },

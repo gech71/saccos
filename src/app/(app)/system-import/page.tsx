@@ -1,217 +1,423 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, FileDown, UploadCloud, CheckCircle, XCircle, AlertCircle, AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import * as XLSX from 'xlsx';
+import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
-import { useAuth } from '@/contexts/auth-context';
-import { getImportPrerequisites, importMembers, type ImportedMember } from './actions';
+import { getImportPageData, processImport, type ImportPageData, type MemberDataForImport, type ImportPayload } from './actions';
+import * as XLSX from 'xlsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type ParsedMember = ImportedMember & {
-  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID';
-};
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
+const months = [
+  { value: '0', label: 'January' }, { value: '1', label: 'February' }, { value: '2', label: 'March' },
+  { value: '3', label: 'April' }, { value: '4', label: 'May' }, { value: '5', label: 'June' },
+  { value: '6', label: 'July' }, { value: '7', label: 'August' }, { value: '8', label: 'September' },
+  { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
+];
+
+type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
+type MemberCollectionData = Record<string, CollectionInputValues>; // Key: `memberId`
+
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
 
 export default function SystemImportPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
   
-  const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
-  const [isParsing, setIsParsing] = useState(false);
+  const [pageData, setPageData] = useState<ImportPageData | null>(null);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
+  const [collectionData, setCollectionData] = useState<MemberCollectionData>({});
   
-  const canCreate = user?.permissions.includes('systemImport:create');
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
 
-  const handleDownloadTemplate = () => {
-    const templateData = [{
-      MemberID: 'EMP001',
-      MemberFullName: 'John Doe',
-      InitialSavingsBalance: 500.00,
-      SchoolID: 'school-id-from-schools-page',
-      Salary: 50000,
-    }];
-    exportToExcel(templateData, 'member_import_template');
-  };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setIsParsing(true);
-      setParsedMembers([]);
-      
-      try {
-        const { existingMemberIds, existingSchoolIds } = await getImportPrerequisites();
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
-
-        const seenInFile = new Set<string>();
-        const validatedData: ParsedMember[] = dataRows.map(row => {
-          const memberId = row['MemberID']?.toString().trim();
-          const fullName = row['MemberFullName']?.toString().trim();
-          const schoolId = row['SchoolID']?.toString().trim();
-          const initialBalance = parseFloat(row['InitialSavingsBalance']);
-          const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
-
-          let status: ParsedMember['status'] = 'Ready to import';
-
-          if (!memberId || !fullName || !schoolId || isNaN(initialBalance)) {
-            status = 'Invalid ID or Name';
-          } else if (!existingSchoolIds.has(schoolId)) {
-            status = 'Invalid School ID';
-          } else if (existingMemberIds.has(memberId)) {
-            status = 'Already exists in DB';
-          } else if (seenInFile.has(memberId)) {
-            status = 'Duplicate in file';
-          }
-          seenInFile.add(memberId);
-
-          return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, InitialSavingsBalance: initialBalance, Salary: salary, status };
-        });
-        
-        setParsedMembers(validatedData);
-
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "InitialSavingsBalance", and "SchoolID".' });
-      } finally {
-        setIsParsing(false);
-      }
+  useEffect(() => {
+    async function fetchData() {
+        setIsPageLoading(true);
+        const data = await getImportPageData();
+        setPageData(data);
+        // Initially load all members
+        setMembersData(data.members);
+        initializeCollectionData(data.members);
+        setIsPageLoading(false);
     }
+    fetchData();
+  }, []);
+
+  const dynamicColumns = useMemo(() => {
+    if (!pageData) return { savings: [], loans: [], shares: [], serviceCharges: [] };
+    return {
+      savings: pageData.savingTypes,
+      loans: pageData.loanTypes,
+      shares: pageData.shareTypes,
+      serviceCharges: pageData.serviceChargeTypes
+    }
+  }, [pageData]);
+  
+  const initializeCollectionData = (members: MemberDataForImport[]) => {
+    const initialData: MemberCollectionData = {};
+    members.forEach(member => {
+        initialData[member.id] = {};
+        // Loan Repayments
+        member.loans.forEach(loan => {
+            const monthlyInterestRate = loan.interestRate / 12;
+            const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
+            const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
+            const finalPrincipalPortion = Math.min(principalPortion, loan.remainingBalance);
+            
+            initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, finalPrincipalPortion);
+            initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
+        });
+        // Share Contributions
+        member.memberShareCommitments.forEach(sc => {
+            if (sc.shareType) {
+              initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.paymentType === 'ONCE' ? 0 : sc.shareType.monthlyPayment || 0;
+            }
+        });
+        // Savings
+         member.memberSavingAccounts.forEach(sa => {
+            initialData[member.id][`saving_${sa.savingAccountTypeId}`] = sa.expectedMonthlySaving || 0;
+        });
+        // Service Charges
+        pageData?.serviceChargeTypes.forEach(sc => {
+            initialData[member.id][`service_${sc.id}`] = sc.frequency === 'once' ? 0 : sc.amount;
+        })
+    });
+    setCollectionData(initialData);
+  }
+
+  const handleInputChange = (memberId: string, key: string, value: string) => {
+    const amount = parseFloat(value) || 0;
+    setCollectionData(prev => ({
+        ...prev,
+        [memberId]: {
+            ...prev[memberId],
+            [key]: amount,
+        }
+    }));
+  };
+
+  const getRowTotal = (memberId: string) => {
+      const memberCollections = collectionData[memberId] || {};
+      return Object.values(memberCollections).reduce((sum, amount) => sum + amount, 0);
   };
   
-  const handleConfirmImport = async () => {
-    const membersToImport = parsedMembers.filter(m => m.status === 'Ready to import');
+  const grandTotal = useMemo(() => {
+    return membersData.reduce((total, member) => total + getRowTotal(member.id), 0);
+  }, [collectionData, membersData]);
 
-    if (membersToImport.length === 0) {
-      toast({ title: 'No New Members', description: 'There are no new members ready to import from the file.' });
-      return;
+  const handleSubmit = async () => {
+    const payload: ImportPayload = {
+      collectionMonth: months[parseInt(selectedMonth)].label,
+      collectionYear: selectedYear,
+      collections: []
+    };
+    
+    for (const member of membersData) {
+        const memberCollections = collectionData[member.id];
+        if (memberCollections && Object.values(memberCollections).some(v => v > 0)) {
+            payload.collections.push({
+                memberId: member.id,
+                values: memberCollections
+            });
+        }
+    }
+    
+    if (payload.collections.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: 'No collection amounts were entered.' });
+        return;
     }
 
     setIsSubmitting(true);
     try {
-        const result = await importMembers(membersToImport);
-        toast({ title: 'Import Complete', description: result.message });
-        setParsedMembers([]); // Clear the list after successful import
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
-    } finally {
-      setIsSubmitting(false);
+        await processImport(payload);
+        toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
+        setMembersData([]);
+        setCollectionData({});
+    } catch(e) {
+        const error = e as Error;
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+    setIsSubmitting(false);
+  };
+
+  const getHeaders = () => {
+    if (!dynamicColumns) return [];
+    return [
+        'Member ID',
+        'Full Name',
+        ...dynamicColumns.savings.map(s => s.name),
+        ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
+        ...dynamicColumns.shares.map(s => s.name),
+        ...dynamicColumns.serviceCharges.map(sc => sc.name),
+        'Total Collected'
+    ];
+  }
+
+  const handleExport = () => {
+    if (membersData.length === 0) {
+        toast({ variant: 'destructive', title: 'No Data', description: 'Load data before exporting.' });
+        return;
+    }
+
+    const headers = getHeaders();
+
+    const dataToExport = membersData.map(member => {
+        const row: (string | number)[] = [member.id, member.fullName];
+        dynamicColumns.savings.forEach(s => row.push(collectionData[member.id]?.[`saving_${s.id}`] || 0));
+        dynamicColumns.loans.forEach(l => {
+            row.push(collectionData[member.id]?.[`loan_${l.id}-principal`] || 0);
+            row.push(collectionData[member.id]?.[`loan_${l.id}-interest`] || 0);
+        });
+        dynamicColumns.shares.forEach(s => row.push(collectionData[member.id]?.[`share_${s.id}`] || 0));
+        dynamicColumns.serviceCharges.forEach(sc => row.push(collectionData[member.id]?.[`service_${sc.id}`] || 0));
+        row.push(getRowTotal(member.id));
+        
+        const rowObject: Record<string, any> = {};
+        headers.forEach((header, index) => {
+            rowObject[header] = row[index];
+        });
+        return rowObject;
+    });
+
+    exportToExcel(dataToExport, `system_import_data_${selectedMonth}_${selectedYear}`);
+  };
+
+  const handleDownloadTemplate = () => {
+    if (membersData.length === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Data is still loading, please wait to generate a template.' });
+      return;
+    }
+    
+    const headers = getHeaders().filter(h => h !== 'Total Collected');
+    const templateData = membersData.map(member => {
+        const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
+        headers.slice(2).forEach(header => {
+            rowObject[header] = 0; // Default to 0
+        });
+        return rowObject;
+    });
+    
+    exportToExcel(templateData, 'system_import_template');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setExcelFile(file);
     }
   };
 
-  const getValidationBadge = (status: ParsedMember['status']) => {
-    switch (status) {
-      case 'Ready to import': return <Badge variant="default" className="bg-green-600 hover:bg-green-700"><CheckCircle className="mr-1 h-3 w-3" />Ready</Badge>;
-      case 'Already exists in DB': return <Badge variant="secondary"><AlertCircle className="mr-1 h-3 w-3" />Exists</Badge>;
-      case 'Duplicate in file': return <Badge variant="destructive"><AlertTriangle className="mr-1 h-3 w-3" />Duplicate</Badge>;
-      case 'Invalid ID or Name': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Invalid Data</Badge>;
-      case 'Invalid School ID': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Invalid School</Badge>;
+  const handleProcessFile = () => {
+    if (!excelFile) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
+      return;
     }
-  };
+    if (membersData.length === 0) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please wait for member data to load before processing a file.' });
+        return;
+    }
 
-  const importStats = useMemo(() => {
-    const ready = parsedMembers.filter(p => p.status === 'Ready to import').length;
-    const skipped = parsedMembers.length - ready;
-    return { ready, skipped };
-  }, [parsedMembers]);
+    setIsParsing(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+            const newCollectionData = { ...collectionData };
+            let updatedCount = 0;
+
+            dataRows.forEach(row => {
+                const memberId = row['Member ID'];
+                const member = membersData.find(m => m.id === memberId);
+                if (member) {
+                    updatedCount++;
+                    dynamicColumns.savings.forEach(s => { newCollectionData[memberId][`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                    dynamicColumns.loans.forEach(l => {
+                        newCollectionData[memberId][`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
+                        newCollectionData[memberId][`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
+                    });
+                    dynamicColumns.shares.forEach(s => { newCollectionData[memberId][`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                    dynamicColumns.serviceCharges.forEach(sc => { newCollectionData[memberId][`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+                }
+            });
+            
+            setCollectionData(newCollectionData);
+            toast({ title: "File Processed", description: `Updated data for ${updatedCount} members from the Excel file.` });
+
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
+        } finally {
+            setIsParsing(false);
+        }
+    };
+    reader.readAsBinaryString(excelFile);
+  }
+
+
+  if (isPageLoading || !pageData) {
+      return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-6">
-      <PageTitle title="System Data Import" subtitle="Bulk import member data for initial system setup." />
+      <PageTitle title="System Data Import" subtitle="Import initial savings, loan, and share data for all members from a single file." />
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
-          <CardTitle>1. Download Template</CardTitle>
-          <CardDescription>
-            Download the Excel template file. This ensures your data is in the correct format for a successful import.
-          </CardDescription>
+          <CardTitle className="font-headline">Import Period</CardTitle>
+          <CardDescription>Select the month and year this bulk import should be recorded under.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button variant="secondary" onClick={handleDownloadTemplate}>
-            <FileDown className="mr-2 h-4 w-4" /> Download Template
-          </Button>
-          <Alert className="mt-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Important Notes</AlertTitle>
-            <AlertDescription>
-                <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>`MemberID` and `SchoolID` must match existing records in the system.</li>
-                    <li>A default temporary password ("123456") will be assigned to all new members.</li>
-                    <li>A default "Regular Savings" account will be created for each new member with the specified initial balance.</li>
-                </ul>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-      
-       <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>2. Upload and Preview</CardTitle>
-          <CardDescription>
-            Upload your completed Excel file. The system will validate the data and show a preview before importing.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="importFile">Upload File</Label>
-              <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" disabled={isParsing || isSubmitting} />
-            </div>
-            {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Validating file...</span></div>}
-            
-            {parsedMembers.length > 0 && (
-              <div className="space-y-2">
-                <Label>Import Preview & Validation</Label>
-                <div className="h-80 overflow-y-auto rounded-md border">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-muted">
-                      <TableRow>
-                        <TableHead>Member ID</TableHead>
-                        <TableHead>Full Name</TableHead>
-                        <TableHead className="text-right">Initial Balance</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parsedMembers.map((member, index) => (
-                        <TableRow key={index} data-status={member.status}>
-                          <TableCell>{member.MemberID}</TableCell>
-                          <TableCell>{member.MemberFullName}</TableCell>
-                          <TableCell className="text-right">{member.InitialSavingsBalance.toFixed(2)}</TableCell>
-                          <TableCell>{getValidationBadge(member.status)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                 <div className="text-sm text-muted-foreground flex justify-between">
-                    <span><span className="font-bold text-green-600">{importStats.ready}</span> row(s) ready to import.</span>
-                    <span><span className="font-bold text-destructive">{importStats.skipped}</span> row(s) will be skipped.</span>
-                 </div>
-              </div>
-            )}
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div>
+            <Label htmlFor="yearFilter">Year</Label>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger id="yearFilter"><SelectValue /></SelectTrigger>
+              <SelectContent>{years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="monthFilter">Month</Label>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger id="monthFilter"><SelectValue /></SelectTrigger>
+              <SelectContent>{months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
         </CardContent>
-        <CardFooter>
-            {canCreate && (
-                <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || importStats.ready === 0}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                    Confirm and Import {importStats.ready > 0 ? `(${importStats.ready})` : ''} Members
-                </Button>
-            )}
-        </CardFooter>
       </Card>
+
+      {membersData.length > 0 && (
+        <Tabs defaultValue="manual">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual">Enter Manually</TabsTrigger>
+                <TabsTrigger value="import">Import from Excel</TabsTrigger>
+            </TabsList>
+            <TabsContent value="manual">
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Import Sheet</CardTitle>
+                                <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
+                            </div>
+                            <Button onClick={handleExport} variant="outline">
+                                <FileDown className="mr-2 h-4 w-4" /> Export
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="overflow-x-auto rounded-lg border shadow-sm">
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
+                            <TableHead className="w-[200px]">Full Name</TableHead>
+                            {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
+                            {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
+                            <TableHead className="text-right sticky right-0 bg-background z-20 font-bold">Total Collected</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {membersData.map(member => (
+                            <TableRow key={member.id}>
+                                <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
+                                    {member.id}
+                                </TableCell>
+                                <TableCell className="font-medium w-[200px]">
+                                    {member.fullName}
+                                </TableCell>
+                                {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                {dynamicColumns.loans.map(c => (
+                                    <React.Fragment key={`loan_inputs_${c.id}`}>
+                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-principal`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-principal`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-interest`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-interest`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
+                                    </React.Fragment>
+                                ))}
+                                {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
+                                <TableCell className="text-right font-bold sticky right-0 bg-background z-10">{getRowTotal(member.id).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow className="bg-muted font-bold">
+                            <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
+                            <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            </TableRow>
+                        </TableFooter>
+                        </Table>
+                    </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleSubmit} disabled={isSubmitting || grandTotal <= 0}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Submit for Approval
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            <TabsContent value="import">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Import from Excel</CardTitle>
+                        <CardDescription>Upload an Excel file to populate the data automatically. The file must match the template format.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Button onClick={handleDownloadTemplate} variant="secondary" size="sm">
+                            <Download className="mr-2 h-4 w-4"/>
+                            Download Template for All Members
+                        </Button>
+                        <div className="flex items-center gap-4">
+                            <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
+                             <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
+                                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                                Process File
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
