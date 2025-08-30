@@ -55,7 +55,6 @@ export default function SystemImportPage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
 
-  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
   const [collectionData, setCollectionData] = useState<MemberCollectionData>({});
@@ -71,7 +70,7 @@ export default function SystemImportPage() {
         setPageData(data);
         // Initially load all members
         setMembersData(data.members);
-        initializeCollectionData(data.members);
+        initializeCollectionData(data, data.members);
         setIsPageLoading(false);
     }
     fetchData();
@@ -87,7 +86,8 @@ export default function SystemImportPage() {
     }
   }, [pageData]);
   
-  const initializeCollectionData = (members: MemberDataForImport[]) => {
+  const initializeCollectionData = (pData: ImportPageData, members: MemberDataForImport[]) => {
+    if (!pData) return;
     const initialData: MemberCollectionData = {};
     members.forEach(member => {
         initialData[member.id] = {};
@@ -112,32 +112,12 @@ export default function SystemImportPage() {
             initialData[member.id][`saving_${sa.savingAccountTypeId}`] = sa.expectedMonthlySaving || 0;
         });
         // Service Charges
-        pageData?.serviceChargeTypes.forEach(sc => {
+        pData.serviceChargeTypes.forEach(sc => {
             initialData[member.id][`service_${sc.id}`] = sc.frequency === 'once' ? 0 : sc.amount;
         })
     });
     setCollectionData(initialData);
   }
-
-  const handleInputChange = (memberId: string, key: string, value: string) => {
-    const amount = parseFloat(value) || 0;
-    setCollectionData(prev => ({
-        ...prev,
-        [memberId]: {
-            ...prev[memberId],
-            [key]: amount,
-        }
-    }));
-  };
-
-  const getRowTotal = (memberId: string) => {
-      const memberCollections = collectionData[memberId] || {};
-      return Object.values(memberCollections).reduce((sum, amount) => sum + amount, 0);
-  };
-  
-  const grandTotal = useMemo(() => {
-    return membersData.reduce((total, member) => total + getRowTotal(member.id), 0);
-  }, [collectionData, membersData]);
 
   const handleSubmit = async () => {
     const payload: ImportPayload = {
@@ -157,7 +137,7 @@ export default function SystemImportPage() {
     }
     
     if (payload.collections.length === 0) {
-        toast({ variant: 'destructive', title: 'No Data', description: 'No collection amounts were entered.' });
+        toast({ variant: 'destructive', title: 'No Data', description: 'No collection amounts were entered in the uploaded file.' });
         return;
     }
 
@@ -165,8 +145,11 @@ export default function SystemImportPage() {
     try {
         await processImport(payload);
         toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
-        setMembersData([]);
-        setCollectionData({});
+        // Reset state after successful submission
+        setExcelFile(null);
+        if (pageData) {
+            initializeCollectionData(pageData, membersData);
+        }
     } catch(e) {
         const error = e as Error;
         toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -183,46 +166,16 @@ export default function SystemImportPage() {
         ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
-        'Total Collected'
     ];
   }
-
-  const handleExport = () => {
-    if (membersData.length === 0) {
-        toast({ variant: 'destructive', title: 'No Data', description: 'Load data before exporting.' });
-        return;
-    }
-
-    const headers = getHeaders();
-
-    const dataToExport = membersData.map(member => {
-        const row: (string | number)[] = [member.id, member.fullName];
-        dynamicColumns.savings.forEach(s => row.push(collectionData[member.id]?.[`saving_${s.id}`] || 0));
-        dynamicColumns.loans.forEach(l => {
-            row.push(collectionData[member.id]?.[`loan_${l.id}-principal`] || 0);
-            row.push(collectionData[member.id]?.[`loan_${l.id}-interest`] || 0);
-        });
-        dynamicColumns.shares.forEach(s => row.push(collectionData[member.id]?.[`share_${s.id}`] || 0));
-        dynamicColumns.serviceCharges.forEach(sc => row.push(collectionData[member.id]?.[`service_${sc.id}`] || 0));
-        row.push(getRowTotal(member.id));
-        
-        const rowObject: Record<string, any> = {};
-        headers.forEach((header, index) => {
-            rowObject[header] = row[index];
-        });
-        return rowObject;
-    });
-
-    exportToExcel(dataToExport, `system_import_data_${selectedMonth}_${selectedYear}`);
-  };
-
+  
   const handleDownloadTemplate = () => {
     if (membersData.length === 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Data is still loading, please wait to generate a template.' });
       return;
     }
     
-    const headers = getHeaders().filter(h => h !== 'Total Collected');
+    const headers = getHeaders();
     const templateData = membersData.map(member => {
         const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
         headers.slice(2).forEach(header => {
@@ -324,99 +277,31 @@ export default function SystemImportPage() {
       </Card>
 
       {membersData.length > 0 && (
-        <Tabs defaultValue="manual">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="manual">Enter Manually</TabsTrigger>
-                <TabsTrigger value="import">Import from Excel</TabsTrigger>
-            </TabsList>
-            <TabsContent value="manual">
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Import Sheet</CardTitle>
-                                <CardDescription>Enter the collected amounts for each member. All entries will be submitted as one batch.</CardDescription>
-                            </div>
-                            <Button onClick={handleExport} variant="outline">
-                                <FileDown className="mr-2 h-4 w-4" /> Export
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                    <div className="overflow-x-auto rounded-lg border shadow-sm">
-                        <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead className="sticky left-0 bg-background z-20 w-[150px]">Member ID</TableHead>
-                            <TableHead className="w-[200px]">Full Name</TableHead>
-                            {dynamicColumns.savings.map(c => <TableHead key={`saving_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                            {dynamicColumns.loans.map(c => <React.Fragment key={`loan_group_${c.id}`}><TableHead className="text-center">{c.name} Principal</TableHead><TableHead className="text-center">{c.name} Interest</TableHead></React.Fragment>)}
-                            {dynamicColumns.shares.map(c => <TableHead key={`share_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                            {dynamicColumns.serviceCharges.map(c => <TableHead key={`service_${c.id}`} className="text-center">{c.name}</TableHead>)}
-                            <TableHead className="text-right sticky right-0 bg-background z-20 font-bold">Total Collected</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {membersData.map(member => (
-                            <TableRow key={member.id}>
-                                <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
-                                    {member.id}
-                                </TableCell>
-                                <TableCell className="font-medium w-[200px]">
-                                    {member.fullName}
-                                </TableCell>
-                                {dynamicColumns.savings.map(c => <TableCell key={`saving_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`saving_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `saving_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                                {dynamicColumns.loans.map(c => (
-                                    <React.Fragment key={`loan_inputs_${c.id}`}>
-                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-principal`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-principal`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
-                                        <TableCell><Input type="number" value={collectionData[member.id]?.[`loan_${c.id}-interest`] || ''} onChange={e => handleInputChange(member.id, `loan_${c.id}-interest`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>
-                                    </React.Fragment>
-                                ))}
-                                {dynamicColumns.shares.map(c => <TableCell key={`share_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`share_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `share_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                                {dynamicColumns.serviceCharges.map(c => <TableCell key={`service_${c.id}`}><Input type="number" value={collectionData[member.id]?.[`service_${c.id}`] || ''} onChange={e => handleInputChange(member.id, `service_${c.id}`, e.target.value)} className="text-right min-w-[120px]" /></TableCell>)}
-                                <TableCell className="text-right font-bold sticky right-0 bg-background z-10">{getRowTotal(member.id).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                            </TableRow>
-                            ))}
-                        </TableBody>
-                        <TableFooter>
-                            <TableRow className="bg-muted font-bold">
-                            <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
-                            <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                            </TableRow>
-                        </TableFooter>
-                        </Table>
-                    </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button onClick={handleSubmit} disabled={isSubmitting || grandTotal <= 0}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Submit for Approval
-                        </Button>
-                    </CardFooter>
-                </Card>
-            </TabsContent>
-            <TabsContent value="import">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Import from Excel</CardTitle>
-                        <CardDescription>Upload an Excel file to populate the data automatically. The file must match the template format.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Button onClick={handleDownloadTemplate} variant="secondary" size="sm">
-                            <Download className="mr-2 h-4 w-4"/>
-                            Download Template for All Members
-                        </Button>
-                        <div className="flex items-center gap-4">
-                            <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
-                             <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
-                                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                                Process File
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-        </Tabs>
+          <Card>
+            <CardHeader>
+              <CardTitle>Import from Excel</CardTitle>
+              <CardDescription>Upload an Excel file to populate the data automatically. The file must match the template format.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button onClick={handleDownloadTemplate} variant="secondary" size="sm">
+                <Download className="mr-2 h-4 w-4"/>
+                Download Template for All Members
+              </Button>
+              <div className="flex items-center gap-4">
+                <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
+                  <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
+                    {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                    Process File
+                </Button>
+              </div>
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Submit for Approval
+                </Button>
+            </CardFooter>
+          </Card>
       )}
     </div>
   );
