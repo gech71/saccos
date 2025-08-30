@@ -1,4 +1,3 @@
-
 export const permissionsByGroup = {
     'Dashboard': [
         { id: 'dashboard:view', label: 'View Dashboard' },
