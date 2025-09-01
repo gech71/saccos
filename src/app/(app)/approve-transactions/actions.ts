@@ -3,14 +3,14 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, SharePayment, Dividend, Loan } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan, LoanRepayment } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { addMonths } from 'date-fns';
 
-export type PendingTransaction = (Saving | SharePayment | Dividend | Loan) & { 
+export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | LoanRepayment) & { 
     transactionTypeLabel: string; 
     memberName: string;
-    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans';
+    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {

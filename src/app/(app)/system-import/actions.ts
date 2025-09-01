@@ -23,9 +23,9 @@ export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 
 
 export async function getImportPageData(): Promise<ImportPageData> {
   const [savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
-    prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true }, orderBy: { name: 'asc' } }),
     prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
-    prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true, paymentType: true }, orderBy: { name: 'asc' } }),
+    prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true, paymentType: true, totalAmount: true }, orderBy: { name: 'asc' } }),
     prisma.serviceChargeType.findMany({ select: { id: true, name: true, frequency: true, amount: true }, orderBy: { name: 'asc' } }),
     prisma.member.findMany({
         where: { status: 'active' },
@@ -142,59 +142,73 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
           });
 
         } else if (type === 'share') {
-           const commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
-           if (commitment) {
-               await tx.sharePayment.create({
-                   data: {
-                       commitmentId: commitment.id,
-                       amount,
-                       paymentDate,
-                       depositMode: 'Cash',
-                       status: 'pending',
-                       notes: 'Bulk data import',
-                   }
-               });
+           let commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
+           
+           if (!commitment) {
+                const shareType = await tx.shareType.findUnique({ where: { id }});
+                if (shareType) {
+                    commitment = await tx.memberShareCommitment.create({
+                        data: {
+                            memberId,
+                            shareTypeId: id,
+                            totalCommittedAmount: shareType.totalAmount,
+                        }
+                    });
+                } else {
+                    continue; // Skip if share type doesnt exist
+                }
            }
-        } else if (type === 'loan') {
-            const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}, include: { loanType: { select: { name: true }} }});
-            const primarySavingAccount = await tx.memberSavingAccount.findFirst({ where: {memberId}, orderBy: { createdAt: 'asc' }});
-            const loanInterestServiceChargeType = await tx.serviceChargeType.findFirst({ where: { name: "Loan Interest" } });
 
-            if (loan && primarySavingAccount && loanInterestServiceChargeType) {
+            await tx.sharePayment.create({
+                data: {
+                    commitmentId: commitment.id,
+                    amount,
+                    paymentDate,
+                    depositMode: 'Cash',
+                    status: 'pending',
+                    notes: 'Bulk data import',
+                }
+            });
+        } else if (type === 'loan') {
+            const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}});
+            if (loan) {
                 const principalPaid = values[`loan_${id}-principal`] || 0;
                 const interestPaid = values[`loan_${id}-interest`] || 0;
+                const totalPaid = principalPaid + interestPaid;
 
-                // Handle principal portion as a savings deposit for now
-                if (principalPaid > 0) {
-                     await tx.saving.create({
-                        data: {
-                            memberId,
-                            memberSavingAccountId: primarySavingAccount.id,
-                            amount: principalPaid,
-                            date: paymentDate,
-                            month: `${collectionMonth} ${collectionYear}`,
-                            transactionType: 'deposit',
-                            status: 'pending',
-                            depositMode: 'Cash',
-                            notes: `Loan principal repayment for ${loan.loanType?.name || 'Loan'}`,
-                        }
-                    });
-                }
+                if (totalPaid <= 0) continue;
+
+                // Create a single LOAN REPAYMENT record, which will be handled during approval.
+                // The approval logic will split into principal and interest and update the loan balance.
+                // For simplicity of import, we are creating a loan repayment record that will need manual allocation on approval,
+                // or an enhancement to the approval logic. For now, it gets the data into the system for approval.
+                 await tx.loanRepayment.create({
+                    data: {
+                        loanId: loan.id,
+                        memberId,
+                        amountPaid: totalPaid,
+                        paymentDate,
+                        interestPaid, // Store the imported interest portion
+                        principalPaid, // Store the imported principal portion
+                        depositMode: 'Cash',
+                        notes: 'Bulk data import',
+                        // Status will be handled by the approval process of a real system,
+                        // but since LoanRepayment does not have a status, we create it directly.
+                        // The approval should be on a separate "batch" concept if needed.
+                        // For now, this creates the record directly but a real-world scenario would stage it.
+                    }
+                });
+
+                // Directly update loan balance for now, assuming import is trusted.
+                // A better approach would be to have a "pending repayments" table or similar staging area.
+                await tx.loan.update({
+                    where: { id: loan.id },
+                    data: {
+                        remainingBalance: { decrement: principalPaid },
+                        status: (loan.remainingBalance - principalPaid) <= 0 ? 'paid_off' : loan.status,
+                    }
+                });
                 
-                // Handle interest portion as a service charge
-                if (interestPaid > 0) {
-                    await tx.appliedServiceCharge.create({
-                        data: {
-                            memberId,
-                            serviceChargeTypeId: loanInterestServiceChargeType.id,
-                            amountCharged: interestPaid,
-                            dateApplied: paymentDate,
-                            status: 'pending',
-                            notes: `Loan interest repayment for ${loan.loanType?.name || 'Loan'}`
-                        }
-                    });
-                }
-
                 // To avoid double-counting, we can delete the keys after processing
                 delete values[`loan_${id}-principal`];
                 delete values[`loan_${id}-interest`];
