@@ -31,6 +31,7 @@ import { getImportPageData, processImport, type ImportPageData, type MemberDataF
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
@@ -59,6 +60,7 @@ export default function SystemImportPage() {
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+  const [loanInterestChargeTypeId, setLoanInterestChargeTypeId] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
@@ -83,8 +85,13 @@ export default function SystemImportPage() {
 
   const dynamicColumns = useMemo(() => {
     if (!pageData) return { savings: [], loans: [], shares: [], serviceCharges: [] };
+    
+    // Filter for saving types that have an interest rate > 0
+    const interestBearingSavingTypes = pageData.savingTypes.filter(st => st.interestRate > 0);
+    
     return {
       savings: pageData.savingTypes,
+      savingInterests: interestBearingSavingTypes,
       loans: pageData.loanTypes,
       shares: pageData.shareTypes,
       serviceCharges: pageData.serviceChargeTypes
@@ -98,10 +105,16 @@ export default function SystemImportPage() {
         return;
     }
     
+    if (!loanInterestChargeTypeId) {
+        toast({ variant: 'destructive', title: 'Mapping Required', description: 'Please select a service charge type to map loan interest payments to before submitting.' });
+        return;
+    }
+    
     const payload: ImportPayload = {
       collectionMonth: months[parseInt(selectedMonth)].label,
       collectionYear: selectedYear,
-      collections: validRowsToSubmit.map(row => ({ memberId: row.memberId, values: row.data }))
+      collections: validRowsToSubmit.map(row => ({ memberId: row.memberId, values: row.data })),
+      loanInterestChargeTypeId,
     };
     
     setIsSubmitting(true);
@@ -126,6 +139,7 @@ export default function SystemImportPage() {
     return [
         ...headers,
         ...dynamicColumns.savings.map(s => s.name),
+        ...dynamicColumns.savingInterests.map(s => `${s.name} Interest`),
         ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
@@ -184,18 +198,13 @@ export default function SystemImportPage() {
 
             const allSystemTypes = new Map([
               ...pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]),
+              ...dynamicColumns.savingInterests.map(t => [`${t.name} Interest`, `saving_${t.id}-saving-interest`]),
               ...pageData.shareTypes.map(t => [t.name, `share_${t.id}`]),
               ...pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]),
-              ...pageData.loanTypes.flatMap(t => {
-                  const activeLoanForAnyMember = membersData.some(m => m.loans.some(l => l.loanTypeId === t.id));
-                  if (activeLoanForAnyMember) {
-                      return [
-                        [`${t.name} Principal`, `loan_${t.id}-principal`],
-                        [`${t.name} Interest`, `loan_${t.id}-interest`],
-                      ]
-                  }
-                  return [];
-              }).filter(Boolean) as [string, string][],
+              ...pageData.loanTypes.flatMap(t => ([
+                  [`${t.name} Principal`, `loan_${t.id}-principal`],
+                  [`${t.name} Interest`, `loan_${t.id}-interest`],
+              ])),
             ]);
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
@@ -304,6 +313,22 @@ export default function SystemImportPage() {
                       Process & Validate File
                   </Button>
               </div>
+               {excelFile && (
+                    <div className="space-y-2">
+                        <Label htmlFor="loanInterestChargeTypeId">Map "Loan Interest" to Service Charge Type <span className="text-destructive">*</span></Label>
+                        <Select value={loanInterestChargeTypeId} onValueChange={setLoanInterestChargeTypeId}>
+                            <SelectTrigger id="loanInterestChargeTypeId" className="w-full md:w-1/2">
+                                <SelectValue placeholder="Select a Service Charge Type..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {pageData.serviceChargeTypes.map(sct => (
+                                    <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Select which charge type should be used when importing loan interest payments.</p>
+                    </div>
+                )}
             </CardContent>
             
             {validationSummary && (
@@ -329,14 +354,14 @@ export default function SystemImportPage() {
                         <Table>
                             <TableHeader className="sticky top-0 bg-muted z-10">
                                 <TableRow>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead className="sticky left-0 bg-muted z-20">Status</TableHead>
                                     {fileHeaders.map(header => <TableHead key={header}>{header}</TableHead>)}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {validatedRows.map((row, index) => (
                                     <TableRow key={index} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
-                                        <TableCell>{getValidationBadge(row.status)}</TableCell>
+                                        <TableCell className="sticky left-0 bg-card z-10">{getValidationBadge(row.status)}</TableCell>
                                         {fileHeaders.map(header => (
                                             <TableCell key={`${row.memberId}-${header}`}>{row.originalRow[header]}</TableCell>
                                         ))}

@@ -112,6 +112,7 @@ const revalidateAllPaths = () => {
     revalidatePath('/members'); 
     revalidatePath('/savings-accounts');
     revalidatePath('/applied-service-charges');
+    revalidatePath('/loan-repayments');
 };
 
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
@@ -120,26 +121,23 @@ export async function approveTransaction(txId: string, txType: string): Promise<
       if (txType.startsWith('Savings')) {
         const savingTx = await tx.saving.findUnique({ where: { id: txId } });
         if (!savingTx || savingTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
-        if (!savingTx.memberSavingAccountId) throw new Error('Transaction is not linked to a specific savings account.');
-
+        
         await tx.saving.update({ where: { id: txId }, data: { status: 'approved' } });
         
-        const amountChange = savingTx.transactionType === 'deposit' ? savingTx.amount : -savingTx.amount;
-        
-        await tx.memberSavingAccount.update({
-          where: { id: savingTx.memberSavingAccountId },
-          data: { balance: { increment: amountChange } },
-        });
-
-        // Check if this is a share refund withdrawal
-        if (savingTx.transactionType === 'withdrawal' && savingTx.notes?.startsWith('Share refund for commitment ID:')) {
-            const commitmentId = savingTx.notes.split(': ')[1];
-            if (commitmentId) {
-                await tx.memberShareCommitment.update({
-                    where: { id: commitmentId },
-                    data: { status: 'REFUNDED' }
-                });
-            }
+        if (savingTx.notes?.startsWith('Loan principal repayment from import for Loan')) {
+          const loanId = savingTx.notes.split('ID: ')[1];
+          if (loanId) {
+            await tx.loan.update({
+              where: { id: loanId },
+              data: { remainingBalance: { decrement: savingTx.amount } },
+            });
+          }
+        } else if (savingTx.memberSavingAccountId) {
+            const amountChange = savingTx.transactionType === 'deposit' ? savingTx.amount : -savingTx.amount;
+            await tx.memberSavingAccount.update({
+              where: { id: savingTx.memberSavingAccountId },
+              data: { balance: { increment: amountChange } },
+            });
         }
 
       } else if (txType.startsWith('Share Payment')) {
@@ -185,6 +183,15 @@ export async function approveTransaction(txId: string, txType: string): Promise<
         const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
         if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
         await tx.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'paid' } });
+        
+        if (serviceChargeTx.notes?.startsWith('Loan interest payment from import for Loan')) {
+            const loanId = serviceChargeTx.notes.split('ID: ')[1];
+            if (loanId) {
+                // This interest amount represents a liability that is now being paid. In a simple model,
+                // this doesn't directly affect the loan balance, but it confirms the interest due has been collected.
+                // No direct change to loan.remainingBalance needed for interest payments.
+            }
+        }
       }
     });
 
