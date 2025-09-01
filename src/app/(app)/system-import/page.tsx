@@ -42,7 +42,6 @@ const months = [
 ];
 
 type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
-type MemberCollectionData = Record<string, CollectionInputValues>; // Key: `memberId`
 
 type ValidatedRow = {
   memberId: string;
@@ -69,8 +68,6 @@ export default function SystemImportPage() {
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
   const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  
-  const [loanInterestChargeTypeId, setLoanInterestChargeTypeId] = useState<string>('');
 
 
   useEffect(() => {
@@ -79,10 +76,6 @@ export default function SystemImportPage() {
         const data = await getImportPageData();
         setPageData(data);
         setMembersData(data.members);
-        const loanInterestCharge = data.serviceChargeTypes.find(sc => sc.name.toLowerCase().includes('loan interest'));
-        if (loanInterestCharge) {
-            setLoanInterestChargeTypeId(loanInterestCharge.id);
-        }
         setIsPageLoading(false);
     }
     fetchData();
@@ -105,19 +98,9 @@ export default function SystemImportPage() {
         return;
     }
     
-    const hasLoanInterest = validRowsToSubmit.some(row => 
-        Object.keys(row.data).some(key => key.startsWith('loan_') && key.endsWith('-interest') && row.data[key] > 0)
-    );
-
-    if (hasLoanInterest && !loanInterestChargeTypeId) {
-        toast({ variant: 'destructive', title: 'Loan Interest Type Required', description: 'Please select a service charge type to map loan interest payments to before submitting.' });
-        return;
-    }
-
     const payload: ImportPayload = {
       collectionMonth: months[parseInt(selectedMonth)].label,
       collectionYear: selectedYear,
-      loanInterestChargeTypeId: loanInterestChargeTypeId,
       collections: validRowsToSubmit.map(row => ({ memberId: row.memberId, values: row.data }))
     };
     
@@ -203,10 +186,16 @@ export default function SystemImportPage() {
               ...pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]),
               ...pageData.shareTypes.map(t => [t.name, `share_${t.id}`]),
               ...pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]),
-              ...pageData.loanTypes.flatMap(t => [
-                [`${t.name} Principal`, `loan_${t.id}-principal`],
-                [`${t.name} Interest`, `loan_${t.id}-interest`],
-              ]),
+              ...pageData.loanTypes.flatMap(t => {
+                  const activeLoanForAnyMember = membersData.some(m => m.loans.some(l => l.loanTypeId === t.id));
+                  if (activeLoanForAnyMember) {
+                      return [
+                        [`${t.name} Principal`, `loan_${t.id}-principal`],
+                        [`${t.name} Interest`, `loan_${t.id}-interest`],
+                      ]
+                  }
+                  return [];
+              }).filter(Boolean) as [string, string][],
             ]);
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
@@ -221,7 +210,7 @@ export default function SystemImportPage() {
                 const collectionValues: CollectionInputValues = {};
                 for(const header of headerRow) {
                   if(header === 'Member ID' || header === 'Full Name') continue;
-
+                  
                   const typeKey = allSystemTypes.get(header);
                   if (typeKey) {
                     collectionValues[typeKey] = parseFloat(row[header]) || 0;
@@ -310,21 +299,6 @@ export default function SystemImportPage() {
                       <Label htmlFor="excel-file">Upload File</Label>
                       <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
                   </div>
-                   <div className="flex-grow">
-                        <Label htmlFor="loanInterestChargeTypeId">Map Loan Interest To</Label>
-                        <Select value={loanInterestChargeTypeId} onValueChange={setLoanInterestChargeTypeId}>
-                            <SelectTrigger id="loanInterestChargeTypeId">
-                                <ReceiptText className="mr-2 h-4 w-4" />
-                                <SelectValue placeholder="Select Service Charge for Loan Interest" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {pageData.serviceChargeTypes.map(sct => (
-                                    <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">Select which charge type should be used for imported loan interest values.</p>
-                   </div>
                   <Button onClick={handleProcessFile} disabled={isParsing || !excelFile} className="w-full md:w-auto">
                       {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
                       Process & Validate File
