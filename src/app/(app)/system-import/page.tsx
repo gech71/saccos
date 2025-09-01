@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, CheckCircle, XCircle } from 'lucide-react';
+import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, CheckCircle, XCircle, ReceiptText } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
 import { getImportPageData, processImport, type ImportPageData, type MemberDataForImport, type ImportPayload } from './actions';
 import * as XLSX from 'xlsx';
@@ -59,6 +60,7 @@ export default function SystemImportPage() {
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+  const [selectedLoanInterestChargeType, setSelectedLoanInterestChargeType] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
@@ -94,10 +96,15 @@ export default function SystemImportPage() {
         toast({ variant: 'destructive', title: 'No Valid Data', description: 'There is no valid data to submit for approval.' });
         return;
     }
+    if (!selectedLoanInterestChargeType) {
+        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a service charge type to use for imported loan interest.' });
+        return;
+    }
 
     const payload: ImportPayload = {
       collectionMonth: months[parseInt(selectedMonth)].label,
       collectionYear: selectedYear,
+      loanInterestServiceChargeTypeId: selectedLoanInterestChargeType,
       collections: validatedRows
         .filter(row => row.status === 'Valid')
         .map(row => ({ memberId: row.memberId, values: row.data }))
@@ -272,12 +279,34 @@ export default function SystemImportPage() {
                 <Download className="mr-2 h-4 w-4"/>
                 Download Template for All Members
               </Button>
-              <div className="flex items-center gap-4">
-                <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
-                  <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
-                    {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                    Process & Validate File
-                </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-end gap-2">
+                    <div className="flex-grow">
+                        <Label htmlFor="excel-file">Upload File</Label>
+                        <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
+                    </div>
+                    <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
+                        {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                        Process & Validate File
+                    </Button>
+                </div>
+                 <div className="flex items-end gap-2">
+                    <div className="flex-grow">
+                        <Label htmlFor="loanInterestChargeType">Map "Loan Interest" To <span className="text-destructive">*</span></Label>
+                        <Select value={selectedLoanInterestChargeType} onValueChange={setSelectedLoanInterestChargeType}>
+                            <SelectTrigger id="loanInterestChargeType" className="">
+                                <ReceiptText className="mr-2 h-4 w-4" />
+                                <SelectValue placeholder="Select Service Charge Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {pageData.serviceChargeTypes.map(sct => (
+                                    <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                         <p className="text-xs text-muted-foreground mt-1">Select which charge type to use for imported loan interest payments.</p>
+                    </div>
+                </div>
               </div>
             </CardContent>
             

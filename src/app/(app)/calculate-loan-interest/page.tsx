@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -26,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown, ReceiptText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getCalculationPageData, calculateInterest, postInterestCharges, type CalculationPageData, type InterestCalculationResult } from './actions';
@@ -45,11 +46,12 @@ export default function CalculateLoanInterestPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   
-  const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], loanTypes: [] });
+  const [pageData, setPageData] = useState<CalculationPageData>({ members: [], schools: [], loanTypes: [], serviceChargeTypes: [] });
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() - 1).toString()); // Default to last month
+  const [selectedServiceChargeTypeId, setSelectedServiceChargeTypeId] = useState<string>('');
 
   const [calculationScope, setCalculationScope] = useState<'all' | 'school' | 'member' | 'loanType'>('all');
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
@@ -115,13 +117,17 @@ export default function CalculateLoanInterestPage() {
       toast({ variant: 'destructive', title: 'No Results', description: 'There are no calculation results to post.' });
       return;
     }
+     if (!selectedServiceChargeTypeId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a service charge type to post the interest charges to.' });
+      return;
+    }
     
     setIsPosting(true);
     
     const result = await postInterestCharges(calculationResults, { 
         month: selectedMonth, 
         year: selectedYear 
-    });
+    }, selectedServiceChargeTypeId);
 
     if (result.success) {
         toast({ title: 'Loan Interest Posted', description: result.message });
@@ -316,8 +322,22 @@ export default function CalculateLoanInterestPage() {
                 </div>
             </CardContent>
             {canCreate && (
-              <CardFooter>
-                  <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0} className="ml-auto">
+              <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4">
+                  <div className="grid w-full sm:w-auto sm:max-w-xs gap-1.5">
+                    <Label htmlFor="interestChargeType">Post Interest As <span className="text-destructive">*</span></Label>
+                    <Select value={selectedServiceChargeTypeId} onValueChange={setSelectedServiceChargeTypeId}>
+                        <SelectTrigger id="interestChargeType" className="w-full">
+                            <ReceiptText className="mr-2 h-4 w-4" />
+                            <SelectValue placeholder="Select Service Charge Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {pageData.serviceChargeTypes.map(sct => (
+                                <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0 || !selectedServiceChargeTypeId} className="w-full sm:w-auto self-end">
                       {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                       Post Interest Charges
                   </Button>

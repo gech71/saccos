@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma } from '@prisma/client';
+import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma, ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 function roundToTwo(num: number) {
@@ -11,8 +12,9 @@ function roundToTwo(num: number) {
 
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
-    schools: Pick<School, 'id' | 'name'>[];
-    loanTypes: Pick<LoanType, 'id' | 'name'>[];
+    schools: Pick<School, 'id', 'name'>[];
+    loanTypes: Pick<LoanType, 'id', 'name'>[];
+    serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name'>[];
 }
 
 export interface InterestCalculationResult {
@@ -26,12 +28,13 @@ export interface InterestCalculationResult {
 }
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
-    const [members, schools, loanTypes] = await Promise.all([
+    const [members, schools, loanTypes, serviceChargeTypes] = await Promise.all([
         prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
         prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+        prisma.serviceChargeType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     ]);
-    return { members, schools, loanTypes };
+    return { members, schools, loanTypes, serviceChargeTypes };
 }
 
 export async function calculateInterest(criteria: {
@@ -84,13 +87,22 @@ export async function calculateInterest(criteria: {
 
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export async function postInterestCharges(charges: InterestCalculationResult[], period: { month: string, year: string }): Promise<{ success: boolean; message: string }> {
-  const loanInterestChargeType = await prisma.serviceChargeType.findFirst({
-    where: { name: 'Monthly Loan Interest' },
+export async function postInterestCharges(
+    charges: InterestCalculationResult[], 
+    period: { month: string, year: string },
+    serviceChargeTypeIdForInterest: string
+): Promise<{ success: boolean; message: string }> {
+  
+  if (!serviceChargeTypeIdForInterest) {
+    return { success: false, message: 'You must select a service charge type to post loan interest.' };
+  }
+
+  const loanInterestChargeType = await prisma.serviceChargeType.findUnique({
+    where: { id: serviceChargeTypeIdForInterest },
   });
 
   if (!loanInterestChargeType) {
-    return { success: false, message: 'A service charge type named "Monthly Loan Interest" must exist to post charges.' };
+    return { success: false, message: 'The selected service charge type for interest was not found.' };
   }
 
   const monthIndex = parseInt(period.month, 10);
@@ -113,6 +125,7 @@ export async function postInterestCharges(charges: InterestCalculationResult[], 
         status: 'pending',
         notes: `Monthly loan interest for ${monthName} ${period.year} on Loan ${result.loanAccountNumber}`,
       })),
+      skipDuplicates: true // Avoid re-posting if this logic is run multiple times
     });
 
     revalidatePath('/applied-service-charges');

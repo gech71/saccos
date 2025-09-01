@@ -57,6 +57,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
                     loanTerm: true,
                     interestRate: true,
                     remainingBalance: true,
+                    loanType: { select: { name: true }}
                 }
             },
             appliedServiceCharges: {
@@ -78,6 +79,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
 export type ImportPayload = {
     collectionMonth: string;
     collectionYear: string;
+    loanInterestServiceChargeTypeId: string;
     collections: {
         memberId: string;
         values: Record<string, number>;
@@ -85,15 +87,11 @@ export type ImportPayload = {
 }
 
 export async function processImport(payload: ImportPayload): Promise<{ success: boolean }> {
-  const { collections, collectionMonth, collectionYear } = payload;
+  const { collections, collectionMonth, collectionYear, loanInterestServiceChargeTypeId } = payload;
   const paymentDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
   
-  const loanInterestChargeType = await prisma.serviceChargeType.findFirst({
-    where: { name: 'Monthly Loan Interest' },
-  });
-
-  if (!loanInterestChargeType) {
-      throw new Error('A service charge type named "Monthly Loan Interest" must exist to import loan interest payments.');
+  if (!loanInterestServiceChargeTypeId) {
+      throw new Error('A service charge type for loan interest must be selected for the import.');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -163,7 +161,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                });
            }
         } else if (type === 'loan') {
-            const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}});
+            const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}, include: { loanType: { select: { name: true }} }});
             const primarySavingAccount = await tx.memberSavingAccount.findFirst({ where: {memberId}, orderBy: { createdAt: 'asc' }});
 
             if (loan && primarySavingAccount) {
@@ -192,7 +190,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                     await tx.appliedServiceCharge.create({
                         data: {
                             memberId,
-                            serviceChargeTypeId: loanInterestChargeType.id,
+                            serviceChargeTypeId: loanInterestServiceChargeTypeId,
                             amountCharged: interestPaid,
                             dateApplied: paymentDate,
                             status: 'pending',
