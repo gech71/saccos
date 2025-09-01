@@ -3,18 +3,18 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Saving, SharePayment, Dividend, Loan, LoanRepayment } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan, LoanRepayment, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { addMonths } from 'date-fns';
 
-export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | LoanRepayment) & { 
+export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge) & { 
     transactionTypeLabel: string; 
     memberName: string;
-    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments';
+    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Service Charges';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
-  const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans] = await Promise.all([
+  const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans, pendingServiceCharges] = await Promise.all([
     prisma.saving.findMany({
       where: { status: 'pending' },
       include: { member: { select: { fullName: true }}},
@@ -41,6 +41,14 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
         where: { status: 'pending' },
         include: { member: { select: { fullName: true }}},
         orderBy: { disbursementDate: 'asc' },
+    }),
+    prisma.appliedServiceCharge.findMany({
+        where: { status: 'pending' },
+        include: { 
+            member: { select: { fullName: true }},
+            serviceChargeType: { select: { name: true }}
+        },
+        orderBy: { dateApplied: 'asc' },
     })
   ]);
 
@@ -76,12 +84,20 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       transactionCategory: 'Loans'
   }));
   
-  const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans];
+  const formattedServiceCharges: PendingTransaction[] = pendingServiceCharges.map(sc => ({
+      ...sc,
+      dateApplied: sc.dateApplied.toISOString(),
+      transactionTypeLabel: `Service Charge (${sc.serviceChargeType.name})`,
+      memberName: sc.member.fullName,
+      transactionCategory: 'Service Charges'
+  }));
+  
+  const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans, ...formattedServiceCharges];
   
   return allTransactions.sort(
       (a, b) => {
-        const dateA = new Date((a as any).date || (a as any).paymentDate || (a as any).disbursementDate || (a as any).distributionDate).getTime();
-        const dateB = new Date((b as any).date || (b as any).paymentDate || (b as any).disbursementDate || (b as any).distributionDate).getTime();
+        const dateA = new Date((a as any).date || (a as any).paymentDate || (a as any).disbursementDate || (a as any).distributionDate || (a as any).dateApplied).getTime();
+        const dateB = new Date((b as any).date || (b as any).paymentDate || (b as any).disbursementDate || (b as any).distributionDate || (b as any).dateApplied).getTime();
         return dateA - dateB;
       }
     );
@@ -95,6 +111,7 @@ const revalidateAllPaths = () => {
     revalidatePath('/loans');
     revalidatePath('/members'); 
     revalidatePath('/savings-accounts');
+    revalidatePath('/applied-service-charges');
 };
 
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
@@ -164,6 +181,10 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                   nextDueDate: nextDueDate,
               },
           });
+      } else if (txType.startsWith('Service Charge')) {
+        const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
+        if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
+        await tx.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'paid' } });
       }
     });
 
@@ -186,6 +207,8 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Loan Application') {
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
+    } else if (txType.startsWith('Service Charge')) {
+        await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     }
      revalidateAllPaths();
      return { success: true, message: 'Transaction rejected.' };

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,7 +23,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2, Banknote, Filter } from 'lucide-react';
+import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2, Banknote, Filter, ReceiptText } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
@@ -42,10 +43,10 @@ import {
     rejectMultipleTransactions,
     type PendingTransaction 
 } from './actions';
-import type { Saving, SharePayment, Dividend, Loan } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan, AppliedServiceCharge } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 
-type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans';
+type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Service Charges';
 
 export default function ApproveTransactionsPage() {
   const [allTransactions, setAllTransactions] = useState<PendingTransaction[]>([]);
@@ -233,14 +234,19 @@ export default function ApproveTransactionsPage() {
         const loanTx = tx as Loan;
         return `${loanTx.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr Loan`;
     }
+     if (tx.transactionCategory === 'Service Charges') {
+        const chargeTx = tx as AppliedServiceCharge;
+        return `${chargeTx.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
+    }
     return 'N/A';
   };
   
-  const getTransactionTypeIcon = (txLabel: string) => {
-      if (txLabel.startsWith('Savings')) return <HandCoins className="h-5 w-5 text-green-600" />;
-      if (txLabel.startsWith('Share Payment')) return <PieChart className="h-5 w-5 text-blue-600" />;
-      if (txLabel === 'Dividend Distribution') return <Landmark className="h-5 w-5 text-purple-600" />;
-      if (txLabel === 'Loan Application') return <Banknote className="h-5 w-5 text-indigo-600" />;
+  const getTransactionTypeIcon = (txLabel: string, category: string) => {
+      if (category === 'Savings') return <HandCoins className="h-5 w-5 text-green-600" />;
+      if (category === 'Shares') return <PieChart className="h-5 w-5 text-blue-600" />;
+      if (category === 'Dividends') return <Landmark className="h-5 w-5 text-purple-600" />;
+      if (category === 'Loans') return <Banknote className="h-5 w-5 text-indigo-600" />;
+      if (category === 'Service Charges') return <ReceiptText className="h-5 w-5 text-orange-600" />;
       return null;
   };
 
@@ -250,9 +256,14 @@ export default function ApproveTransactionsPage() {
       if ('amount' in tx) details = `${(tx as Saving | SharePayment | Dividend).amount.toFixed(2)} Birr`;
       else if ('principalAmount' in tx) {
           details = `Loan of ${(tx as Loan).principalAmount.toFixed(2)} Birr`;
+      } else if ('amountCharged' in tx) {
+          details = `${(tx as AppliedServiceCharge).amountCharged.toFixed(2)} Birr`;
       }
+      
+      const txDate = (tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate || (tx as any).dateApplied;
+
       return {
-        'Date': new Date((tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate).toLocaleDateString(),
+        'Date': txDate ? new Date(txDate).toLocaleDateString() : 'N/A',
         'Member': tx.memberName,
         'Transaction Type': tx.transactionTypeLabel,
         'Amount / Details': details,
@@ -282,6 +293,7 @@ export default function ApproveTransactionsPage() {
                   <SelectItem value="Shares">Shares</SelectItem>
                   <SelectItem value="Dividends">Dividends</SelectItem>
                   <SelectItem value="Loans">Loan Applications</SelectItem>
+                  <SelectItem value="Service Charges">Service Charges</SelectItem>
               </SelectContent>
           </Select>
           {selectedIds.size > 0 && canApprove && (
@@ -330,11 +342,11 @@ export default function ApproveTransactionsPage() {
                         disabled={!canApprove}
                     />
                 </TableCell>
-                <TableCell>{new Date((tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date((tx as any).date || (tx as any).paymentDate || (tx as any).disbursementDate || (tx as any).distributionDate || (tx as any).dateApplied).toLocaleDateString()}</TableCell>
                 <TableCell className="font-medium">{tx.memberName}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    {getTransactionTypeIcon(tx.transactionTypeLabel)}
+                    {getTransactionTypeIcon(tx.transactionTypeLabel, tx.transactionCategory)}
                     <span>{tx.transactionTypeLabel}</span>
                   </div>
                 </TableCell>
