@@ -79,7 +79,6 @@ export async function getImportPageData(): Promise<ImportPageData> {
 export type ImportPayload = {
     collectionMonth: string;
     collectionYear: string;
-    loanInterestServiceChargeTypeId: string;
     collections: {
         memberId: string;
         values: Record<string, number>;
@@ -87,13 +86,9 @@ export type ImportPayload = {
 }
 
 export async function processImport(payload: ImportPayload): Promise<{ success: boolean }> {
-  const { collections, collectionMonth, collectionYear, loanInterestServiceChargeTypeId } = payload;
+  const { collections, collectionMonth, collectionYear } = payload;
   const paymentDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
   
-  if (!loanInterestServiceChargeTypeId) {
-      throw new Error('A service charge type for loan interest must be selected for the import.');
-  }
-
   await prisma.$transaction(async (tx) => {
     for (const collection of collections) {
       const { memberId, values } = collection;
@@ -163,8 +158,9 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
         } else if (type === 'loan') {
             const loan = await tx.loan.findFirst({ where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}, include: { loanType: { select: { name: true }} }});
             const primarySavingAccount = await tx.memberSavingAccount.findFirst({ where: {memberId}, orderBy: { createdAt: 'asc' }});
+            const loanInterestServiceChargeType = await tx.serviceChargeType.findFirst({ where: { name: "Loan Interest" } });
 
-            if (loan && primarySavingAccount) {
+            if (loan && primarySavingAccount && loanInterestServiceChargeType) {
                 const principalPaid = values[`loan_${id}-principal`] || 0;
                 const interestPaid = values[`loan_${id}-interest`] || 0;
 
@@ -190,7 +186,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                     await tx.appliedServiceCharge.create({
                         data: {
                             memberId,
-                            serviceChargeTypeId: loanInterestServiceChargeTypeId,
+                            serviceChargeTypeId: loanInterestServiceChargeType.id,
                             amountCharged: interestPaid,
                             dateApplied: paymentDate,
                             status: 'pending',

@@ -60,7 +60,6 @@ export default function SystemImportPage() {
 
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
-  const [selectedLoanInterestChargeType, setSelectedLoanInterestChargeType] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
@@ -69,6 +68,7 @@ export default function SystemImportPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
   const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -92,22 +92,16 @@ export default function SystemImportPage() {
   }, [pageData]);
 
   const handleSubmit = async () => {
-    if (validatedRows.filter(row => row.status === 'Valid').length === 0) {
+    const validRowsToSubmit = validatedRows.filter(row => row.status === 'Valid');
+    if (validRowsToSubmit.length === 0) {
         toast({ variant: 'destructive', title: 'No Valid Data', description: 'There is no valid data to submit for approval.' });
-        return;
-    }
-    if (!selectedLoanInterestChargeType) {
-        toast({ variant: 'destructive', title: 'Missing Information', description: 'Please select a service charge type to use for imported loan interest.' });
         return;
     }
 
     const payload: ImportPayload = {
       collectionMonth: months[parseInt(selectedMonth)].label,
       collectionYear: selectedYear,
-      loanInterestServiceChargeTypeId: selectedLoanInterestChargeType,
-      collections: validatedRows
-        .filter(row => row.status === 'Valid')
-        .map(row => ({ memberId: row.memberId, values: row.data }))
+      collections: validRowsToSubmit.map(row => ({ memberId: row.memberId, values: row.data }))
     };
     
     setIsSubmitting(true);
@@ -125,11 +119,12 @@ export default function SystemImportPage() {
     setIsSubmitting(false);
   };
 
-  const getHeaders = () => {
+  const getHeaders = (includeFullName = true) => {
     if (!dynamicColumns) return [];
+    const headers = ['Member ID'];
+    if (includeFullName) headers.push('Full Name');
     return [
-        'Member ID',
-        'Full Name',
+        ...headers,
         ...dynamicColumns.savings.map(s => s.name),
         ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
@@ -161,6 +156,7 @@ export default function SystemImportPage() {
       setExcelFile(file);
       setValidatedRows([]);
       setValidationSummary(null);
+      setFileHeaders([]);
     }
   };
 
@@ -169,8 +165,8 @@ export default function SystemImportPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
       return;
     }
-    if (membersData.length === 0) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please wait for member data to load before processing a file.' });
+    if (membersData.length === 0 || !pageData) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please wait for system data to load before processing a file.' });
         return;
     }
 
@@ -182,7 +178,19 @@ export default function SystemImportPage() {
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
+            const headerRow: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+            setFileHeaders(headerRow);
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
+
+            const allSystemTypes = new Map([
+              ...pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]),
+              ...pageData.shareTypes.map(t => [t.name, `share_${t.id}`]),
+              ...pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]),
+              ...pageData.loanTypes.flatMap(t => [
+                [`${t.name} Principal`, `loan_${t.id}-principal`],
+                [`${t.name} Interest`, `loan_${t.id}-interest`],
+              ]),
+            ]);
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
                 const memberId = row['Member ID'];
@@ -194,14 +202,15 @@ export default function SystemImportPage() {
                 }
 
                 const collectionValues: CollectionInputValues = {};
-                dynamicColumns.savings.forEach(s => { collectionValues[`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                dynamicColumns.loans.forEach(l => {
-                    collectionValues[`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
-                    collectionValues[`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
-                });
-                dynamicColumns.shares.forEach(s => { collectionValues[`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                dynamicColumns.serviceCharges.forEach(sc => { collectionValues[`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+                for(const header of headerRow) {
+                  if(header === 'Member ID' || header === 'Full Name') continue;
 
+                  const typeKey = allSystemTypes.get(header);
+                  if (typeKey) {
+                    collectionValues[typeKey] = parseFloat(row[header]) || 0;
+                  }
+                }
+                
                 const hasData = Object.values(collectionValues).some(v => v > 0);
 
                 return {
@@ -272,41 +281,22 @@ export default function SystemImportPage() {
           <Card>
             <CardHeader>
               <CardTitle>Import from Excel</CardTitle>
-              <CardDescription>Upload an Excel file to populate the data automatically. The file must match the template format.</CardDescription>
+              <CardDescription>Upload an Excel file to populate the data automatically. The file must match the template format, which includes all configured financial types as columns.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button onClick={handleDownloadTemplate} variant="secondary" size="sm">
                 <Download className="mr-2 h-4 w-4"/>
                 Download Template for All Members
               </Button>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-end gap-2">
-                    <div className="flex-grow">
-                        <Label htmlFor="excel-file">Upload File</Label>
-                        <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
-                    </div>
-                    <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
-                        {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                        Process & Validate File
-                    </Button>
-                </div>
-                 <div className="flex items-end gap-2">
-                    <div className="flex-grow">
-                        <Label htmlFor="loanInterestChargeType">Map "Loan Interest" To <span className="text-destructive">*</span></Label>
-                        <Select value={selectedLoanInterestChargeType} onValueChange={setSelectedLoanInterestChargeType}>
-                            <SelectTrigger id="loanInterestChargeType" className="">
-                                <ReceiptText className="mr-2 h-4 w-4" />
-                                <SelectValue placeholder="Select Service Charge Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {pageData.serviceChargeTypes.map(sct => (
-                                    <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                         <p className="text-xs text-muted-foreground mt-1">Select which charge type to use for imported loan interest payments.</p>
-                    </div>
-                </div>
+              <div className="flex items-end gap-2">
+                  <div className="flex-grow">
+                      <Label htmlFor="excel-file">Upload File</Label>
+                      <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
+                  </div>
+                  <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
+                      {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
+                      Process & Validate File
+                  </Button>
               </div>
             </CardContent>
             
@@ -334,14 +324,14 @@ export default function SystemImportPage() {
                             <TableHeader className="sticky top-0 bg-muted z-10">
                                 <TableRow>
                                     <TableHead>Status</TableHead>
-                                    {getHeaders().map(header => <TableHead key={header}>{header}</TableHead>)}
+                                    {fileHeaders.map(header => <TableHead key={header}>{header}</TableHead>)}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {validatedRows.map((row, index) => (
                                     <TableRow key={index} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
-                                        {getHeaders().map(header => (
+                                        {fileHeaders.map(header => (
                                             <TableCell key={`${row.memberId}-${header}`}>{row.originalRow[header]}</TableCell>
                                         ))}
                                     </TableRow>
