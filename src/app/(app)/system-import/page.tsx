@@ -24,11 +24,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download } from 'lucide-react';
+import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, CheckCircle, XCircle } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
 import { getImportPageData, processImport, type ImportPageData, type MemberDataForImport, type ImportPayload } from './actions';
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
@@ -42,9 +43,13 @@ const months = [
 type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
 type MemberCollectionData = Record<string, CollectionInputValues>; // Key: `memberId`
 
-function roundToTwo(num: number) {
-    return Math.round(num * 100) / 100;
-}
+type ValidatedRow = {
+  memberId: string;
+  fullName: string;
+  status: 'Valid' | 'Invalid Member ID' | 'No Data to Import';
+  data: CollectionInputValues;
+  originalRow: any;
+};
 
 export default function SystemImportPage() {
   const { toast } = useToast();
@@ -57,20 +62,18 @@ export default function SystemImportPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
-  const [collectionData, setCollectionData] = useState<MemberCollectionData>({});
   
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
-
+  const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
+  const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
         setIsPageLoading(true);
         const data = await getImportPageData();
         setPageData(data);
-        // Initially load all members
         setMembersData(data.members);
-        initializeCollectionData(data, data.members);
         setIsPageLoading(false);
     }
     fetchData();
@@ -85,71 +88,29 @@ export default function SystemImportPage() {
       serviceCharges: pageData.serviceChargeTypes
     }
   }, [pageData]);
-  
-  const initializeCollectionData = (pData: ImportPageData, members: MemberDataForImport[]) => {
-    if (!pData) return;
-    const initialData: MemberCollectionData = {};
-    members.forEach(member => {
-        initialData[member.id] = {};
-        // Loan Repayments
-        member.loans.forEach(loan => {
-            const monthlyInterestRate = loan.interestRate / 12;
-            const interestForMonth = roundToTwo(loan.remainingBalance * monthlyInterestRate);
-            const principalPortion = loan.loanTerm > 0 ? roundToTwo(loan.principalAmount / loan.loanTerm) : 0;
-            const finalPrincipalPortion = Math.min(principalPortion, loan.remainingBalance);
-            
-            initialData[member.id][`loan_${loan.loanTypeId}-principal`] = Math.max(0, finalPrincipalPortion);
-            initialData[member.id][`loan_${loan.loanTypeId}-interest`] = interestForMonth;
-        });
-        // Share Contributions
-        member.memberShareCommitments.forEach(sc => {
-            if (sc.shareType) {
-              initialData[member.id][`share_${sc.shareTypeId}`] = sc.shareType.paymentType === 'ONCE' ? 0 : sc.shareType.monthlyPayment || 0;
-            }
-        });
-        // Savings
-         member.memberSavingAccounts.forEach(sa => {
-            initialData[member.id][`saving_${sa.savingAccountTypeId}`] = sa.expectedMonthlySaving || 0;
-        });
-        // Service Charges
-        pData.serviceChargeTypes.forEach(sc => {
-            initialData[member.id][`service_${sc.id}`] = sc.frequency === 'once' ? 0 : sc.amount;
-        })
-    });
-    setCollectionData(initialData);
-  }
 
   const handleSubmit = async () => {
-    const payload: ImportPayload = {
-      collectionMonth: months[parseInt(selectedMonth)].label,
-      collectionYear: selectedYear,
-      collections: []
-    };
-    
-    for (const member of membersData) {
-        const memberCollections = collectionData[member.id];
-        if (memberCollections && Object.values(memberCollections).some(v => v > 0)) {
-            payload.collections.push({
-                memberId: member.id,
-                values: memberCollections
-            });
-        }
-    }
-    
-    if (payload.collections.length === 0) {
-        toast({ variant: 'destructive', title: 'No Data', description: 'No collection amounts were entered in the uploaded file.' });
+    if (validatedRows.filter(row => row.status === 'Valid').length === 0) {
+        toast({ variant: 'destructive', title: 'No Valid Data', description: 'There is no valid data to submit for approval.' });
         return;
     }
 
+    const payload: ImportPayload = {
+      collectionMonth: months[parseInt(selectedMonth)].label,
+      collectionYear: selectedYear,
+      collections: validatedRows
+        .filter(row => row.status === 'Valid')
+        .map(row => ({ memberId: row.memberId, values: row.data }))
+    };
+    
     setIsSubmitting(true);
     try {
         await processImport(payload);
         toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
         // Reset state after successful submission
         setExcelFile(null);
-        if (pageData) {
-            initializeCollectionData(pageData, membersData);
-        }
+        setValidatedRows([]);
+        setValidationSummary(null);
     } catch(e) {
         const error = e as Error;
         toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -191,6 +152,8 @@ export default function SystemImportPage() {
     const file = e.target.files?.[0];
     if (file) {
       setExcelFile(file);
+      setValidatedRows([]);
+      setValidationSummary(null);
     }
   };
 
@@ -214,26 +177,40 @@ export default function SystemImportPage() {
             const worksheet = workbook.Sheets[sheetName];
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            const newCollectionData = { ...collectionData };
-            let updatedCount = 0;
-
-            dataRows.forEach(row => {
+            const validatedData: ValidatedRow[] = dataRows.map(row => {
                 const memberId = row['Member ID'];
                 const member = membersData.find(m => m.id === memberId);
-                if (member) {
-                    updatedCount++;
-                    dynamicColumns.savings.forEach(s => { newCollectionData[memberId][`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                    dynamicColumns.loans.forEach(l => {
-                        newCollectionData[memberId][`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
-                        newCollectionData[memberId][`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
-                    });
-                    dynamicColumns.shares.forEach(s => { newCollectionData[memberId][`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                    dynamicColumns.serviceCharges.forEach(sc => { newCollectionData[memberId][`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+                const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
+                
+                if (!member) {
+                    return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
                 }
+
+                const collectionValues: CollectionInputValues = {};
+                dynamicColumns.savings.forEach(s => { collectionValues[`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                dynamicColumns.loans.forEach(l => {
+                    collectionValues[`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
+                    collectionValues[`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
+                });
+                dynamicColumns.shares.forEach(s => { collectionValues[`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
+                dynamicColumns.serviceCharges.forEach(sc => { collectionValues[`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+
+                const hasData = Object.values(collectionValues).some(v => v > 0);
+
+                return {
+                    memberId,
+                    fullName,
+                    status: hasData ? 'Valid' : 'No Data to Import',
+                    data: collectionValues,
+                    originalRow: row,
+                };
             });
             
-            setCollectionData(newCollectionData);
-            toast({ title: "File Processed", description: `Updated data for ${updatedCount} members from the Excel file.` });
+            setValidatedRows(validatedData);
+            const valid = validatedData.filter(v => v.status === 'Valid').length;
+            const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
+            setValidationSummary({ valid, invalid, total: dataRows.length });
+            toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
 
         } catch (error) {
              toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
@@ -295,8 +272,25 @@ export default function SystemImportPage() {
                 </Button>
               </div>
             </CardContent>
+            
+            {validationSummary && (
+                <CardContent>
+                    <CardTitle className="text-lg font-medium mb-2">Validation Summary</CardTitle>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 p-3 border rounded-md bg-green-50 text-green-800">
+                           <CheckCircle className="h-5 w-5" />
+                           <span className="font-semibold">{validationSummary.valid} Valid Rows</span>
+                        </div>
+                         <div className="flex items-center gap-2 p-3 border rounded-md bg-red-50 text-red-800">
+                           <XCircle className="h-5 w-5" />
+                           <span className="font-semibold">{validationSummary.invalid} Invalid Rows</span>
+                        </div>
+                    </div>
+                </CardContent>
+            )}
+
             <CardFooter>
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                <Button onClick={handleSubmit} disabled={isSubmitting || validationSummary?.valid === 0}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Submit for Approval
                 </Button>
@@ -306,3 +300,4 @@ export default function SystemImportPage() {
     </div>
   );
 }
+
