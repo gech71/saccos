@@ -80,6 +80,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
 export type ImportPayload = {
     collectionMonth: string;
     collectionYear: string;
+    loanInterestChargeTypeId: string;
     collections: {
         memberId: string;
         values: Record<string, number>;
@@ -87,8 +88,12 @@ export type ImportPayload = {
 }
 
 export async function processImport(payload: ImportPayload): Promise<{ success: boolean }> {
-  const { collections, collectionMonth, collectionYear } = payload;
+  const { collections, collectionMonth, collectionYear, loanInterestChargeTypeId } = payload;
   const paymentDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
+  
+  if (!loanInterestChargeTypeId) {
+    throw new Error('A service charge type for loan interest must be selected for the import.');
+  }
   
   await prisma.$transaction(async (tx) => {
     for (const collection of collections) {
@@ -181,7 +186,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                      await tx.appliedServiceCharge.create({
                         data: {
                             memberId,
-                            serviceChargeTypeId: 'loan-interest-charge', // A generic ID or a configurable one
+                            serviceChargeTypeId: loanInterestChargeTypeId,
                             amountCharged: interestPaid,
                             dateApplied: paymentDate,
                             status: 'pending',
