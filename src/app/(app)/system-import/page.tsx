@@ -221,6 +221,14 @@ export default function SystemImportPage() {
     reader.readAsBinaryString(excelFile);
   }
 
+  const getValidationBadge = (status: ValidatedRow['status']) => {
+    switch (status) {
+      case 'Valid': return <Badge variant="default">Valid</Badge>;
+      case 'Invalid Member ID': return <Badge variant="destructive">Invalid Member ID</Badge>;
+      case 'No Data to Import': return <Badge variant="secondary">No Data</Badge>;
+    }
+  };
+
 
   if (isPageLoading || !pageData) {
       return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -289,10 +297,36 @@ export default function SystemImportPage() {
                 </CardContent>
             )}
 
+            {validatedRows.length > 0 && (
+                <CardContent>
+                    <CardTitle className="text-lg font-medium mb-2">Validation Details</CardTitle>
+                    <div className="overflow-x-auto rounded-lg border shadow-sm max-h-96">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Member ID</TableHead>
+                                    <TableHead>Full Name</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {validatedRows.map((row, index) => (
+                                    <TableRow key={index} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
+                                        <TableCell>{row.memberId}</TableCell>
+                                        <TableCell>{row.fullName}</TableCell>
+                                        <TableCell>{getValidationBadge(row.status)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            )}
+
             <CardFooter>
-                <Button onClick={handleSubmit} disabled={isSubmitting || validationSummary?.valid === 0}>
+                <Button onClick={handleSubmit} disabled={isSubmitting || !validationSummary || validationSummary.valid === 0}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Submit for Approval
+                    Submit ({validationSummary?.valid || 0}) Valid Records for Approval
                 </Button>
             </CardFooter>
           </Card>
