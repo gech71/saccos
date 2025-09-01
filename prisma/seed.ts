@@ -59,17 +59,6 @@ async function main() {
     },
   });
 
-  // 4. Seed essential service charge types
-  console.log('Seeding essential service charge types...');
-  await prisma.serviceChargeType.create({
-    data: {
-      name: 'Monthly Loan Interest',
-      description: 'System-generated charge for monthly loan interest accrual.',
-      amount: 0, // Amount is dynamic, based on loan calculation
-      frequency: 'monthly',
-    }
-  });
-
 
   console.log('Seeding finished.');
 }
