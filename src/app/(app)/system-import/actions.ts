@@ -13,7 +13,7 @@ export interface ImportPageData {
   members: MemberDataForImport[];
 }
 
-export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId'> & {
+export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 'salary'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
     memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId' | 'status'> & {shareType: {monthlyPayment: number | null, paymentType: 'ONCE' | 'INSTALLMENT'}})[],
     loans: Pick<Loan, 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'>[],
@@ -32,6 +32,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
             id: true,
             fullName: true,
             schoolId: true,
+            salary: true,
             memberSavingAccounts: {
                 select: {
                     savingAccountTypeId: true,
@@ -98,22 +99,49 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
 
 
         if (type === 'saving') {
-          const account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
-          if (account) {
-            await tx.saving.create({
+          let account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
+          
+          // If the savings account doesn't exist, create it.
+          if (!account) {
+            const savingAccountType = await tx.savingAccountType.findUnique({ where: { id }});
+            if (!savingAccountType) continue; // Skip if the type ID from Excel is invalid
+
+            const member = await tx.member.findUnique({ where: { id: memberId }});
+            
+            let expectedMonthlySaving = 0;
+            if (savingAccountType.contributionType === 'FIXED') {
+              expectedMonthlySaving = savingAccountType.contributionValue;
+            } else if (savingAccountType.contributionType === 'PERCENTAGE' && member?.salary) {
+              expectedMonthlySaving = member.salary * savingAccountType.contributionValue;
+            }
+
+            account = await tx.memberSavingAccount.create({
               data: {
                 memberId,
-                memberSavingAccountId: account.id,
-                amount,
-                date: paymentDate,
-                month: `${collectionMonth} ${collectionYear}`,
-                transactionType: 'deposit',
-                status: 'pending',
-                depositMode: 'Cash', // Default for batch
-                notes: 'Bulk data import',
+                savingAccountTypeId: id,
+                accountNumber: `SA-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
+                balance: 0,
+                initialBalance: 0,
+                expectedMonthlySaving,
               }
             });
           }
+
+          // Now create the saving transaction for that account
+          await tx.saving.create({
+            data: {
+              memberId,
+              memberSavingAccountId: account.id,
+              amount,
+              date: paymentDate,
+              month: `${collectionMonth} ${collectionYear}`,
+              transactionType: 'deposit',
+              status: 'pending',
+              depositMode: 'Cash',
+              notes: 'Bulk data import',
+            }
+          });
+
         } else if (type === 'share') {
            const commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
            if (commitment) {

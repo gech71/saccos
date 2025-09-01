@@ -276,7 +276,7 @@ export default function SystemImportPage() {
                 <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" className="max-w-sm"/>
                   <Button onClick={handleProcessFile} disabled={isParsing || !excelFile}>
                     {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}
-                    Process File
+                    Process & Validate File
                 </Button>
               </div>
             </CardContent>
@@ -302,19 +302,19 @@ export default function SystemImportPage() {
                     <CardTitle className="text-lg font-medium mb-2">Validation Details</CardTitle>
                     <div className="overflow-x-auto rounded-lg border shadow-sm max-h-96">
                         <Table>
-                            <TableHeader>
+                            <TableHeader className="sticky top-0 bg-muted z-10">
                                 <TableRow>
-                                    <TableHead>Member ID</TableHead>
-                                    <TableHead>Full Name</TableHead>
                                     <TableHead>Status</TableHead>
+                                    {getHeaders().map(header => <TableHead key={header}>{header}</TableHead>)}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {validatedRows.map((row, index) => (
                                     <TableRow key={index} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
-                                        <TableCell>{row.memberId}</TableCell>
-                                        <TableCell>{row.fullName}</TableCell>
                                         <TableCell>{getValidationBadge(row.status)}</TableCell>
+                                        {getHeaders().map(header => (
+                                            <TableCell key={`${row.memberId}-${header}`}>{row.originalRow[header]}</TableCell>
+                                        ))}
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -334,4 +334,3 @@ export default function SystemImportPage() {
     </div>
   );
 }
-
