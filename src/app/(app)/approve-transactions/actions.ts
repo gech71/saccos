@@ -39,7 +39,10 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
     }),
     prisma.loan.findMany({
         where: { status: 'pending' },
-        include: { member: { select: { fullName: true }}},
+        include: { 
+            member: { select: { fullName: true }},
+            loanType: { select: { name: true }}
+        },
         orderBy: { disbursementDate: 'asc' },
     }),
     prisma.appliedServiceCharge.findMany({
@@ -79,7 +82,7 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
   const formattedLoans: PendingTransaction[] = pendingLoans.map(l => ({
       ...l,
       disbursementDate: l.disbursementDate.toISOString(),
-      transactionTypeLabel: 'Loan Application',
+      transactionTypeLabel: `Loan Application (${l.loanType.name})`,
       memberName: l.member.fullName,
       transactionCategory: 'Loans'
   }));
@@ -169,7 +172,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
           where: { id: txId },
           data: { status: 'approved' },
         });
-      } else if (txType === 'Loan Application') {
+      } else if (txType.startsWith('Loan Application')) {
           const loanTx = await tx.loan.findUnique({ where: { id: txId }});
           if (!loanTx || loanTx.status !== 'pending') throw new Error('Loan application not found or not pending.');
           
@@ -205,7 +208,7 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
         await prisma.sharePayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Dividend Distribution') {
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType === 'Loan Application') {
+    } else if (txType.startsWith('Loan Application')) {
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType.startsWith('Service Charge')) {
         await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });

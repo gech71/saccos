@@ -41,7 +41,7 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
+type CollectionInputValues = Record<string, number>; // Key: `type_id`, Value: amount
 
 type ValidatedRow = {
   memberId: string;
@@ -126,8 +126,8 @@ export default function SystemImportPage() {
     return [
         ...headers,
         ...dynamicColumns.savings.map(s => s.name),
-        ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
+        ...dynamicColumns.loans.map(l => l.name), // Just the loan name for principal
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
     ];
   }
@@ -186,16 +186,7 @@ export default function SystemImportPage() {
               ...pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]),
               ...pageData.shareTypes.map(t => [t.name, `share_${t.id}`]),
               ...pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]),
-              ...pageData.loanTypes.flatMap(t => {
-                  const activeLoanForAnyMember = membersData.some(m => m.loans.some(l => l.loanTypeId === t.id));
-                  if (activeLoanForAnyMember) {
-                      return [
-                        [`${t.name} Principal`, `loan_${t.id}-principal`],
-                        [`${t.name} Interest`, `loan_${t.id}-interest`],
-                      ]
-                  }
-                  return [];
-              }).filter(Boolean) as [string, string][],
+              ...pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]),
             ]);
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
@@ -213,7 +204,10 @@ export default function SystemImportPage() {
                   
                   const typeKey = allSystemTypes.get(header);
                   if (typeKey) {
-                    collectionValues[typeKey] = parseFloat(row[header]) || 0;
+                    const value = parseFloat(row[header]);
+                    if (!isNaN(value) && value > 0) {
+                      collectionValues[typeKey] = value;
+                    }
                   }
                 }
                 

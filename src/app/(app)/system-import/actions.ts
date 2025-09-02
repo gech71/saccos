@@ -92,8 +92,11 @@ function roundToTwo(num: number) {
 
 export async function processImport(payload: ImportPayload): Promise<{ success: boolean }> {
   const { collections, collectionMonth, collectionYear } = payload;
-  const paymentDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
+  const importDate = new Date(`${collectionMonth} 1, ${collectionYear}`);
   
+  const allLoanTypes = await prisma.loanType.findMany();
+  const loanTypeMap = new Map(allLoanTypes.map(lt => [lt.id, lt]));
+
   await prisma.$transaction(async (tx) => {
     for (const collection of collections) {
       const { memberId, values } = collection;
@@ -135,7 +138,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
               memberId,
               memberSavingAccountId: account.id,
               amount,
-              date: paymentDate,
+              date: importDate,
               month: `${collectionMonth} ${collectionYear}`,
               transactionType: 'deposit',
               status: 'pending',
@@ -166,58 +169,38 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                 data: {
                     commitmentId: commitment.id,
                     amount,
-                    paymentDate,
+                    paymentDate: importDate,
                     depositMode: 'Cash',
                     status: 'pending',
                     notes: 'Bulk data import',
                 }
             });
         } else if (type === 'loan') {
-            const loanId = id.replace('-principal', '').replace('-interest', '');
-            const loan = await tx.loan.findFirst({ where: { id: loanId, status: { in: ['active', 'overdue']}}});
+            const loanType = loanTypeMap.get(id);
+            if (!loanType) continue; // Skip if loan type is not found
 
-            if (loan) {
-                const principalPaid = values[`loan_${loanId}-principal`] || 0;
-                const interestPaid = values[`loan_${loanId}-interest`] || 0;
-                const totalPaid = principalPaid + interestPaid;
-
-                if (totalPaid <= 0) continue;
-
-                // Unlike aggregate collections, we will create LoanRepayment records directly as they dont have a pending status.
-                // The backend logic for splitting is already present here.
-                const newLoanBalance = roundToTwo(loan.remainingBalance - principalPaid);
-                
-                await tx.loanRepayment.create({
-                    data: {
-                        loanId: loan.id,
-                        memberId: loan.memberId,
-                        amountPaid: totalPaid,
-                        paymentDate: paymentDate,
-                        interestPaid: interestPaid,
-                        principalPaid: principalPaid,
-                        depositMode: 'Cash',
-                    }
-                });
-
-                await tx.loan.update({
-                    where: { id: loan.id },
-                    data: {
-                        remainingBalance: newLoanBalance,
-                        status: newLoanBalance <= 0 ? 'paid_off' : loan.status,
-                    }
-                });
-                
-                // To avoid double-counting, we can delete the keys after processing
-                delete values[`loan_${loanId}-principal`];
-                delete values[`loan_${loanId}-interest`];
-            }
+            await tx.loan.create({
+                data: {
+                    memberId,
+                    loanTypeId: id,
+                    principalAmount: amount,
+                    interestRate: loanType.interestRate,
+                    loanTerm: loanType.maxRepaymentPeriod, // Using max as a default for import
+                    repaymentFrequency: loanType.repaymentFrequency,
+                    disbursementDate: importDate,
+                    status: 'pending',
+                    remainingBalance: amount, // Initially, remaining balance is the principal
+                    notes: 'Loan created from bulk system import.',
+                }
+            });
+            
         } else if (type === 'service') {
              await tx.appliedServiceCharge.create({
                 data: {
                     memberId,
                     serviceChargeTypeId: id,
                     amountCharged: amount,
-                    dateApplied: paymentDate,
+                    dateApplied: importDate,
                     status: 'pending',
                     notes: 'Bulk data import',
                 }
