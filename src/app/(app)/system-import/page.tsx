@@ -41,7 +41,7 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-type CollectionInputValues = Record<string, number>; // Key: `type_id`, Value: amount
+type CollectionInputValues = Record<string, number | { principal: number; term: number }>;
 
 type ValidatedRow = {
   memberId: string;
@@ -108,7 +108,6 @@ export default function SystemImportPage() {
     try {
         await processImport(payload);
         toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
-        // Reset state after successful submission
         setExcelFile(null);
         setValidatedRows([]);
         setValidationSummary(null);
@@ -127,7 +126,7 @@ export default function SystemImportPage() {
         ...headers,
         ...dynamicColumns.savings.map(s => s.name),
         ...dynamicColumns.shares.map(s => s.name),
-        ...dynamicColumns.loans.map(l => l.name), // Just the loan name for principal
+        ...dynamicColumns.loans.flatMap(l => [l.name, `${l.name} Repayment Period (Months)`]),
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
     ];
   }
@@ -141,9 +140,13 @@ export default function SystemImportPage() {
     const headers = getHeaders();
     const templateData = membersData.map(member => {
         const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
-        headers.slice(2).forEach(header => {
-            rowObject[header] = 0; // Default to 0
+        dynamicColumns.savings.forEach(s => { rowObject[s.name] = 0; });
+        dynamicColumns.shares.forEach(s => { rowObject[s.name] = 0; });
+        dynamicColumns.loans.forEach(l => { 
+            rowObject[l.name] = 0; 
+            rowObject[`${l.name} Repayment Period (Months)`] = l.maxRepaymentPeriod; 
         });
+        dynamicColumns.serviceCharges.forEach(sc => { rowObject[sc.name] = 0; });
         return rowObject;
     });
     
@@ -182,12 +185,11 @@ export default function SystemImportPage() {
             setFileHeaders(headerRow);
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            const allSystemTypes = new Map([
-              ...pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]),
-              ...pageData.shareTypes.map(t => [t.name, `share_${t.id}`]),
-              ...pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]),
-              ...pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]),
-            ]);
+            const savingTypesMap = new Map(pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]));
+            const shareTypesMap = new Map(pageData.shareTypes.map(t => [t.name, `share_${t.id}`]));
+            const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
+            const loanTypesMap = new Map(pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]));
+
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
                 const memberId = row['Member ID'];
@@ -202,16 +204,24 @@ export default function SystemImportPage() {
                 for(const header of headerRow) {
                   if(header === 'Member ID' || header === 'Full Name') continue;
                   
-                  const typeKey = allSystemTypes.get(header);
-                  if (typeKey) {
-                    const value = parseFloat(row[header]);
-                    if (!isNaN(value) && value > 0) {
-                      collectionValues[typeKey] = value;
-                    }
+                  const value = parseFloat(row[header]);
+                  if(isNaN(value) || value <= 0) continue;
+
+                  if(savingTypesMap.has(header)) {
+                      collectionValues[savingTypesMap.get(header)!] = value;
+                  } else if (shareTypesMap.has(header)) {
+                      collectionValues[shareTypesMap.get(header)!] = value;
+                  } else if (serviceChargeTypesMap.has(header)) {
+                      collectionValues[serviceChargeTypesMap.get(header)!] = value;
+                  } else if (loanTypesMap.has(header)) {
+                      const termHeader = `${header} Repayment Period (Months)`;
+                      const term = parseInt(row[termHeader], 10);
+                      const loanKey = loanTypesMap.get(header)!;
+                      collectionValues[loanKey] = { principal: value, term: term };
                   }
                 }
                 
-                const hasData = Object.values(collectionValues).some(v => v > 0);
+                const hasData = Object.keys(collectionValues).length > 0;
 
                 return {
                     memberId,
@@ -353,3 +363,4 @@ export default function SystemImportPage() {
     </div>
   );
 }
+

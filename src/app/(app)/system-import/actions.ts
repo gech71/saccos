@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 
 export interface ImportPageData {
   savingTypes: Pick<SavingAccountType, 'id' | 'name' | 'contributionType' | 'contributionValue'>[];
-  loanTypes: Pick<LoanType, 'id' | 'name' | 'interestRate'>[];
+  loanTypes: Pick<LoanType, 'id' | 'name' | 'interestRate' | 'maxRepaymentPeriod'>[];
   shareTypes: (Pick<ShareType, 'id' | 'name' | 'monthlyPayment' | 'paymentType'>)[];
   serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name' | 'frequency' | 'amount'>[];
   members: MemberDataForImport[];
@@ -24,7 +24,7 @@ export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 
 export async function getImportPageData(): Promise<ImportPageData> {
   const [savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
     prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true }, orderBy: { name: 'asc' } }),
-    prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
+    prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true, maxRepaymentPeriod: true }, orderBy: { name: 'asc' } }),
     prisma.shareType.findMany({ select: { id: true, name: true, monthlyPayment: true, paymentType: true, totalAmount: true }, orderBy: { name: 'asc' } }),
     prisma.serviceChargeType.findMany({ select: { id: true, name: true, frequency: true, amount: true }, orderBy: { name: 'asc' } }),
     prisma.member.findMany({
@@ -82,7 +82,7 @@ export type ImportPayload = {
     collectionYear: string;
     collections: {
         memberId: string;
-        values: Record<string, number>;
+        values: Record<string, number | { principal: number; term: number }>;
     }[];
 }
 
@@ -101,8 +101,9 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
     for (const collection of collections) {
       const { memberId, values } = collection;
 
-      for (const [key, amount] of Object.entries(values)) {
-        if (amount <= 0) continue;
+      for (const [key, value] of Object.entries(values)) {
+        if (typeof value === 'object' && ('principal' in value) && value.principal <= 0) continue;
+        if (typeof value === 'number' && value <= 0) continue;
 
         const [type, id] = key.split('_');
 
@@ -137,7 +138,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
             data: {
               memberId,
               memberSavingAccountId: account.id,
-              amount,
+              amount: value as number,
               date: importDate,
               month: `${collectionMonth} ${collectionYear}`,
               transactionType: 'deposit',
@@ -161,14 +162,14 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                         }
                     });
                 } else {
-                    continue; // Skip if share type doesnt exist
+                    continue; 
                 }
            }
 
             await tx.sharePayment.create({
                 data: {
                     commitmentId: commitment.id,
-                    amount,
+                    amount: value as number,
                     paymentDate: importDate,
                     depositMode: 'Cash',
                     status: 'pending',
@@ -177,19 +178,19 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
             });
         } else if (type === 'loan') {
             const loanType = loanTypeMap.get(id);
-            if (!loanType) continue; // Skip if loan type is not found
+            if (!loanType || typeof value !== 'object' || !('principal' in value)) continue;
 
             await tx.loan.create({
                 data: {
                     memberId,
                     loanTypeId: id,
-                    principalAmount: amount,
+                    principalAmount: value.principal,
                     interestRate: loanType.interestRate,
-                    loanTerm: loanType.maxRepaymentPeriod, // Using max as a default for import
+                    loanTerm: value.term || loanType.maxRepaymentPeriod,
                     repaymentFrequency: loanType.repaymentFrequency,
                     disbursementDate: importDate,
                     status: 'pending',
-                    remainingBalance: amount, // Initially, remaining balance is the principal
+                    remainingBalance: value.principal,
                     notes: 'Loan created from bulk system import.',
                 }
             });
@@ -199,7 +200,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                 data: {
                     memberId,
                     serviceChargeTypeId: id,
-                    amountCharged: amount,
+                    amountCharged: value as number,
                     dateApplied: importDate,
                     status: 'pending',
                     notes: 'Bulk data import',
