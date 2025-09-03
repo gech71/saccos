@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, ChevronsUpDown, Check } from 'lucide-react';
+import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, ChevronsUpDown, Check, CheckCircle, XCircle } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
 import { getAggregateData, processAggregateCollection, type AggregatePageData, type MemberDataForAggregate, type CollectionPayload } from './actions';
 import { useAuth } from '@/contexts/auth-context';
@@ -46,6 +46,14 @@ const months = [
 
 type CollectionInputValues = Record<string, number>; // Key: `type_id` or `type_id-principal/interest`, Value: amount
 type MemberCollectionData = Record<string, CollectionInputValues>; // Key: `memberId`
+
+type ValidatedRow = {
+  memberId: string;
+  fullName: string;
+  status: 'Valid' | 'Invalid Member ID' | 'No Data to Import';
+  data: CollectionInputValues;
+  originalRow: any;
+};
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -70,6 +78,9 @@ export default function AggregateCollectionsPage() {
   
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [validatedRows, setValidatedRows] = useState<ValidatedRow[]>([]);
+  const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
+  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -101,6 +112,8 @@ export default function AggregateCollectionsPage() {
     setMembersData([]);
     setCollectionData({});
     setExcelFile(null); // Reset file on new load
+    setValidatedRows([]);
+    setValidationSummary(null);
 
     try {
         const members = pageData?.members.filter(m => m.schoolId === selectedSchool) || [];
@@ -215,10 +228,40 @@ export default function AggregateCollectionsPage() {
     setIsSubmitting(false);
   };
 
-  const getHeaders = () => {
+  const handleImportedDataSubmit = async () => {
+      const validRowsToSubmit = validatedRows.filter(row => row.status === 'Valid');
+      if (validRowsToSubmit.length === 0) {
+          toast({ variant: 'destructive', title: 'No Valid Data', description: 'There is no valid data to submit for approval.' });
+          return;
+      }
+      
+      const payload: CollectionPayload = {
+        schoolId: selectedSchool,
+        collectionMonth: months[parseInt(selectedMonth)].label,
+        collectionYear: selectedYear,
+        collections: validRowsToSubmit.map(row => ({ memberId: row.memberId, values: row.data }))
+      };
+
+      setIsSubmitting(true);
+      try {
+          await processAggregateCollection(payload);
+          toast({ title: 'Success', description: 'Imported collection data has been submitted for approval.' });
+          setExcelFile(null);
+          setValidatedRows([]);
+          setValidationSummary(null);
+      } catch(e) {
+          const error = e as Error;
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      }
+      setIsSubmitting(false);
+  };
+
+  const getHeaders = (includeFullName = true) => {
+    if (!dynamicColumns) return [];
+    const headers = ['Member ID'];
+    if (includeFullName) headers.push('Full Name');
     return [
-        'Member ID',
-        'Full Name',
+        ...headers,
         ...dynamicColumns.savings.map(s => s.name),
         ...dynamicColumns.loans.flatMap(l => [`${l.name} Principal`, `${l.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
@@ -278,6 +321,9 @@ export default function AggregateCollectionsPage() {
     const file = e.target.files?.[0];
     if (file) {
       setExcelFile(file);
+      setValidatedRows([]);
+      setValidationSummary(null);
+      setFileHeaders([]);
     }
   };
 
@@ -299,28 +345,61 @@ export default function AggregateCollectionsPage() {
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
+            const headerRow: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+            setFileHeaders(headerRow);
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            const newCollectionData = { ...collectionData };
-            let updatedCount = 0;
-
-            dataRows.forEach(row => {
-                const memberId = row['Member ID'];
+            const savingTypesMap = new Map(pageData!.savingTypes.map(t => [t.name, `saving_${t.id}`]));
+            const shareTypesMap = new Map(pageData!.shareTypes.map(t => [t.name, `share_${t.id}`]));
+            const loanPrincipalMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Principal`, `loan_${t.id}-principal`]));
+            const loanInterestMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Interest`, `loan_${t.id}-interest`]));
+            const serviceChargeTypesMap = new Map(pageData!.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
+            
+            const validatedData: ValidatedRow[] = dataRows.map(row => {
+                const memberId = row['Member ID']?.toString().trim();
                 const member = membersData.find(m => m.id === memberId);
-                if (member) {
-                    updatedCount++;
-                    dynamicColumns.savings.forEach(s => { newCollectionData[memberId][`saving_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                    dynamicColumns.loans.forEach(l => {
-                        newCollectionData[memberId][`loan_${l.id}-principal`] = parseFloat(row[`${l.name} Principal`]) || 0;
-                        newCollectionData[memberId][`loan_${l.id}-interest`] = parseFloat(row[`${l.name} Interest`]) || 0;
-                    });
-                    dynamicColumns.shares.forEach(s => { newCollectionData[memberId][`share_${s.id}`] = parseFloat(row[s.name]) || 0; });
-                    dynamicColumns.serviceCharges.forEach(sc => { newCollectionData[memberId][`service_${sc.id}`] = parseFloat(row[sc.name]) || 0; });
+                const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
+                
+                if (!member) {
+                    return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
                 }
+
+                const collectionValues: CollectionInputValues = {};
+                for(const header of headerRow) {
+                  if(header === 'Member ID' || header === 'Full Name' || header === 'Total Collected') continue;
+                  
+                  const value = parseFloat(row[header]);
+                  if(isNaN(value) || value <= 0) continue;
+
+                  if(savingTypesMap.has(header)) {
+                      collectionValues[savingTypesMap.get(header)!] = value;
+                  } else if (shareTypesMap.has(header)) {
+                      collectionValues[shareTypesMap.get(header)!] = value;
+                  } else if (loanPrincipalMap.has(header)) {
+                      collectionValues[loanPrincipalMap.get(header)!] = value;
+                  } else if (loanInterestMap.has(header)) {
+                      collectionValues[loanInterestMap.get(header)!] = value;
+                  } else if (serviceChargeTypesMap.has(header)) {
+                      collectionValues[serviceChargeTypesMap.get(header)!] = value;
+                  }
+                }
+                
+                const hasData = Object.keys(collectionValues).length > 0;
+
+                return {
+                    memberId,
+                    fullName,
+                    status: hasData ? 'Valid' : 'No Data to Import',
+                    data: collectionValues,
+                    originalRow: row,
+                };
             });
             
-            setCollectionData(newCollectionData);
-            toast({ title: "File Processed", description: `Updated data for ${updatedCount} members from the Excel file.` });
+            setValidatedRows(validatedData);
+            const valid = validatedData.filter(v => v.status === 'Valid').length;
+            const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
+            setValidationSummary({ valid, invalid, total: dataRows.length });
+            toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
 
         } catch (error) {
              toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
@@ -330,6 +409,14 @@ export default function AggregateCollectionsPage() {
     };
     reader.readAsBinaryString(excelFile);
   }
+
+  const getValidationBadge = (status: ValidatedRow['status']) => {
+    switch (status) {
+      case 'Valid': return <Badge variant="default">Valid</Badge>;
+      case 'Invalid Member ID': return <Badge variant="destructive">Invalid Member ID</Badge>;
+      case 'No Data to Import': return <Badge variant="secondary">No Data</Badge>;
+    }
+  };
 
 
   if (isPageLoading || !pageData) {
@@ -486,7 +573,7 @@ export default function AggregateCollectionsPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="import">
-                <Card>
+                 <Card>
                     <CardHeader>
                         <CardTitle>Import from Excel</CardTitle>
                         <CardDescription>Upload an Excel file to populate the collection data automatically. The file must match the template format.</CardDescription>
@@ -504,6 +591,57 @@ export default function AggregateCollectionsPage() {
                             </Button>
                         </div>
                     </CardContent>
+
+                    {validationSummary && (
+                        <CardContent>
+                            <CardTitle className="text-lg font-medium mb-2">Validation Summary</CardTitle>
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 p-3 border rounded-md bg-green-50 text-green-800">
+                                   <CheckCircle className="h-5 w-5" />
+                                   <span className="font-semibold">{validationSummary.valid} Valid Rows</span>
+                                </div>
+                                 <div className="flex items-center gap-2 p-3 border rounded-md bg-red-50 text-red-800">
+                                   <XCircle className="h-5 w-5" />
+                                   <span className="font-semibold">{validationSummary.invalid} Invalid Rows</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
+
+                    {validatedRows.length > 0 && (
+                        <CardContent>
+                            <CardTitle className="text-lg font-medium mb-2">Validation Details</CardTitle>
+                            <div className="overflow-x-auto rounded-lg border shadow-sm max-h-96">
+                                <Table>
+                                    <TableHeader className="sticky top-0 bg-muted z-10">
+                                        <TableRow>
+                                            <TableHead>Status</TableHead>
+                                            {fileHeaders.map(header => <TableHead key={header}>{header}</TableHead>)}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {validatedRows.map((row, index) => (
+                                            <TableRow key={index} className={row.status !== 'Valid' ? 'bg-destructive/10' : ''}>
+                                                <TableCell>{getValidationBadge(row.status)}</TableCell>
+                                                {fileHeaders.map(header => (
+                                                    <TableCell key={`${row.memberId}-${header}`}>{row.originalRow[header]}</TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    )}
+                    
+                    {validationSummary && validationSummary.valid > 0 && (
+                        <CardFooter>
+                            <Button onClick={handleImportedDataSubmit} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Submit ({validationSummary.valid}) Valid Records for Approval
+                            </Button>
+                        </CardFooter>
+                    )}
                 </Card>
             </TabsContent>
         </Tabs>
