@@ -193,7 +193,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
           const loanTx = await tx.loan.findUnique({ where: { id: txId }});
           if (!loanTx || loanTx.status !== 'pending') throw new Error('Loan application not found or not pending.');
           
-          const nextDueDate = addMonths(loanTx.disbursementDate, 1);
+          const nextDueDate = addMonths(new Date(), 1); // Calculate due date from now
           await tx.loan.update({
               where: { id: txId },
               data: { 
@@ -202,8 +202,8 @@ export async function approveTransaction(txId: string, txType: string): Promise<
               },
           });
       } else if (txType.startsWith('Loan Repayment')) {
-        const repaymentTx = await tx.loanRepayment.findUnique({ where: { id: txId }});
-        if (!repaymentTx || repaymentTx.status !== 'pending') throw new Error('Loan repayment not found or not pending.');
+        const repaymentTx = await tx.loanRepayment.findUnique({ where: { id: txId, status: 'pending' }});
+        if (!repaymentTx) throw new Error('Loan repayment not found or not pending.');
 
         const loan = await tx.loan.findUnique({ where: { id: repaymentTx.loanId }});
         if (!loan) throw new Error(`Associated loan for repayment ${txId} not found.`);
