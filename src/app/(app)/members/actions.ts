@@ -359,17 +359,18 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
     for (const m of members) {
         const temporaryPassword = '123456';
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        const timestamp = Date.now();
         
         try {
             await prisma.member.create({
                 data: {
                     id: m.MemberID,
                     fullName: m.MemberFullName,
-                    email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
+                    email: `${timestamp}-${m.MemberID}@academinvest.com`, // Create a unique placeholder email
                     password: hashedPassword,
                     mustChangePassword: true,
                     sex: 'Male', // Default value
-                    phoneNumber: '0900000000', // Default value
+                    phoneNumber: `09${timestamp.toString().slice(-8)}`, // Create a unique placeholder phone number
                     schoolId: m.SchoolID,
                     joinDate: new Date(),
                     status: 'active',
