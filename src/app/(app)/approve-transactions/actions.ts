@@ -137,7 +137,7 @@ const revalidateAllPaths = () => {
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
   try {
     await prisma.$transaction(async (tx) => {
-      if (txType.startsWith('Savings') || txType === 'Saving Interest') {
+      if (txType === 'Savings' || txType === 'Saving Interest') {
         const savingTx = await tx.saving.findUnique({ where: { id: txId } });
         if (!savingTx || savingTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
         if (!savingTx.memberSavingAccountId) throw new Error('Transaction is not linked to a specific savings account.');
@@ -162,7 +162,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
             }
         }
 
-      } else if (txType.startsWith('Share Payment')) {
+      } else if (txType === 'Shares') {
         const sharePaymentTx = await tx.sharePayment.findUnique({ where: { id: txId }, include: { commitment: true } });
         if (!sharePaymentTx || sharePaymentTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
         
@@ -184,12 +184,12 @@ export async function approveTransaction(txId: string, txType: string): Promise<
             });
         }
         
-      } else if (txType === 'Dividend Distribution') {
+      } else if (txType === 'Dividends') {
         await tx.dividend.update({
           where: { id: txId },
           data: { status: 'approved' },
         });
-      } else if (txType.startsWith('Loan Application')) {
+      } else if (txType === 'Loans') {
           const loanTx = await tx.loan.findUnique({ where: { id: txId }});
           if (!loanTx || loanTx.status !== 'pending') throw new Error('Loan application not found or not pending.');
           
@@ -201,7 +201,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                   nextDueDate: nextDueDate,
               },
           });
-      } else if (txType.startsWith('Loan Repayment')) {
+      } else if (txType === 'Loan Repayments') {
         const repaymentTx = await tx.loanRepayment.findUnique({ where: { id: txId, status: 'pending' }});
         if (!repaymentTx) throw new Error('Loan repayment not found or not pending.');
 
@@ -218,7 +218,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                 status: newBalance <= 0 ? 'paid_off' : loan.status,
             }
         });
-      } else if (txType.startsWith('Service Charge')) {
+      } else if (txType === 'Service Charges') {
         const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
         if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
         await tx.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'paid' } });
