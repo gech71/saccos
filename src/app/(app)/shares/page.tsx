@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -60,7 +59,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
-import { getSharePaymentsPageData, addSharePayment, refundShareCommitment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails, SharePaymentWithDetails } from './actions';
+import { getSharePaymentsPageData, addSharePayment, refundShareCommitment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails, type SharePaymentWithDetails } from './actions';
 import { Progress } from '@/components/ui/progress';
 import {
   Select,
@@ -387,7 +386,7 @@ export default function SharePaymentsPage() {
         </TabsList>
         <TabsContent value="commitments" className="mt-6">
             <Card>
-                <CardHeader><CardTitle>Member Commitments</CardTitle></CardHeader>
+                <CardHeader><ShadcnCardTitle>Member Commitments</ShadcnCardTitle></CardHeader>
                 <CardContent>
                     <div className="overflow-x-auto rounded-lg border shadow-sm">
                         <Table>
@@ -457,7 +456,7 @@ export default function SharePaymentsPage() {
         </TabsContent>
         <TabsContent value="payments" className="mt-6">
            <Card>
-             <CardHeader><CardTitle>All Share Payments</CardTitle></CardHeader>
+             <CardHeader><ShadcnCardTitle>All Share Payments</ShadcnCardTitle></CardHeader>
              <CardContent>
                 <div className="overflow-x-auto rounded-lg border shadow-sm">
                     <Table>
