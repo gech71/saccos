@@ -12,39 +12,18 @@ export interface MemberCommitmentWithDetails extends MemberShareCommitment {
   shareType: Pick<ShareType, 'name' | 'totalAmount' | 'paymentType' | 'numberOfInstallments' | 'monthlyPayment'> | null;
 }
 
-export interface SharePaymentWithDetails extends SharePayment {
-  commitment: {
-    member: Pick<Member, 'fullName'>;
-    shareType: Pick<ShareType, 'name'> | null;
-  }
-}
-
 export interface SharePaymentsPageData {
   commitments: MemberCommitmentWithDetails[];
-  payments: SharePaymentWithDetails[];
 }
 
 export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData> {
-  const [commitments, payments] = await Promise.all([
-    prisma.memberShareCommitment.findMany({
+  const commitments = await prisma.memberShareCommitment.findMany({
       include: {
         member: { select: { fullName: true } },
         shareType: { select: { name: true, totalAmount: true, paymentType: true, numberOfInstallments: true, monthlyPayment: true } },
       },
       orderBy: { member: { fullName: 'asc' } },
-    }),
-    prisma.sharePayment.findMany({
-      include: {
-        commitment: {
-          include: {
-            member: { select: { fullName: true } },
-            shareType: { select: { name: true } },
-          }
-        }
-      },
-      orderBy: { paymentDate: 'desc' },
-    }),
-  ]);
+    });
 
   const commitmentsWithDetails: MemberCommitmentWithDetails[] = commitments.map(c => {
     return {
@@ -55,7 +34,6 @@ export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData>
 
   return {
     commitments: commitmentsWithDetails,
-    payments: payments.map(p => ({ ...p, paymentDate: p.paymentDate.toISOString() })),
   };
 }
 
