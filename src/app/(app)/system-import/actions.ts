@@ -107,7 +107,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
 
         const [type, id] = key.split('_');
 
-        if (type === 'saving') {
+        if (type === 'saving' || type === 'interest') {
           let account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
           
           if (!account) {
@@ -144,7 +144,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
               transactionType: 'deposit',
               status: 'pending',
               depositMode: 'Cash',
-              notes: 'Bulk data import',
+              notes: type === 'interest' ? 'Imported Interest' : 'Bulk data import',
             }
           });
 

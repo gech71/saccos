@@ -10,7 +10,7 @@ import { addMonths } from 'date-fns';
 export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge | LoanRepayment) & { 
     transactionTypeLabel: string; 
     memberName: string;
-    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges';
+    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
@@ -60,13 +60,16 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
     })
   ]);
 
-  const formattedSavings: PendingTransaction[] = pendingSavings.map(s => ({
-    ...s,
-    date: s.date.toISOString(),
-    transactionTypeLabel: s.transactionType === 'deposit' ? 'Savings Deposit' : 'Savings Withdrawal',
-    memberName: s.member.fullName,
-    transactionCategory: 'Savings'
-  }));
+  const formattedSavings: PendingTransaction[] = pendingSavings.map(s => {
+    const isInterest = s.notes?.toLowerCase().includes('interest');
+    return {
+        ...s,
+        date: s.date.toISOString(),
+        transactionTypeLabel: isInterest ? 'Saving Interest Deposit' : (s.transactionType === 'deposit' ? 'Savings Deposit' : 'Savings Withdrawal'),
+        memberName: s.member.fullName,
+        transactionCategory: isInterest ? 'Saving Interest' : 'Savings'
+    };
+  });
 
   const formattedSharePayments: PendingTransaction[] = pendingSharePayments.map(s => ({
     ...s,
@@ -134,7 +137,7 @@ const revalidateAllPaths = () => {
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
   try {
     await prisma.$transaction(async (tx) => {
-      if (txType.startsWith('Savings')) {
+      if (txType.startsWith('Savings') || txType === 'Saving Interest') {
         const savingTx = await tx.saving.findUnique({ where: { id: txId } });
         if (!savingTx || savingTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
         if (!savingTx.memberSavingAccountId) throw new Error('Transaction is not linked to a specific savings account.');
@@ -233,7 +236,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
 
 export async function rejectTransaction(txId: string, txType: string, reason: string): Promise<{ success: boolean; message: string }> {
    try {
-    if (txType.startsWith('Savings')) {
+    if (txType.startsWith('Savings') || txType === 'Saving Interest') {
         await prisma.saving.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType.startsWith('Share Payment')) {
         await prisma.sharePayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });

@@ -124,7 +124,7 @@ export default function SystemImportPage() {
     if (includeFullName) headers.push('Full Name');
     return [
         ...headers,
-        ...dynamicColumns.savings.map(s => s.name),
+        ...dynamicColumns.savings.flatMap(s => [s.name, `${s.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
         ...dynamicColumns.loans.flatMap(l => [l.name, `${l.name} Repayment Period (Months)`]),
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
@@ -140,7 +140,10 @@ export default function SystemImportPage() {
     const headers = getHeaders();
     const templateData = membersData.map(member => {
         const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
-        dynamicColumns.savings.forEach(s => { rowObject[s.name] = 0; });
+        dynamicColumns.savings.forEach(s => { 
+            rowObject[s.name] = 0;
+            rowObject[`${s.name} Interest`] = 0;
+        });
         dynamicColumns.shares.forEach(s => { rowObject[s.name] = 0; });
         dynamicColumns.loans.forEach(l => { 
             rowObject[l.name] = 0; 
@@ -186,6 +189,7 @@ export default function SystemImportPage() {
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
             const savingTypesMap = new Map(pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]));
+            const interestTypesMap = new Map(pageData.savingTypes.map(t => [`${t.name} Interest`, `interest_${t.id}`]));
             const shareTypesMap = new Map(pageData.shareTypes.map(t => [t.name, `share_${t.id}`]));
             const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
             const loanTypesMap = new Map(pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]));
@@ -209,6 +213,8 @@ export default function SystemImportPage() {
 
                   if(savingTypesMap.has(header)) {
                       collectionValues[savingTypesMap.get(header)!] = value;
+                  } else if (interestTypesMap.has(header)) {
+                      collectionValues[interestTypesMap.get(header)!] = value;
                   } else if (shareTypesMap.has(header)) {
                       collectionValues[shareTypesMap.get(header)!] = value;
                   } else if (serviceChargeTypesMap.has(header)) {

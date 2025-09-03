@@ -23,7 +23,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2, Banknote, Filter, ReceiptText } from 'lucide-react';
+import { Check, X, HandCoins, PieChart, Landmark, FileDown, Loader2, Banknote, Filter, ReceiptText, Percent } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
@@ -46,7 +46,7 @@ import {
 import type { Saving, SharePayment, Dividend, Loan, AppliedServiceCharge, LoanRepayment } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 
-type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges';
+type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest';
 
 export default function ApproveTransactionsPage() {
   const [allTransactions, setAllTransactions] = useState<PendingTransaction[]>([]);
@@ -226,7 +226,7 @@ export default function ApproveTransactionsPage() {
 
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares' || tx.transactionCategory === 'Loan Repayments') {
+    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Saving Interest' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares' || tx.transactionCategory === 'Loan Repayments') {
         const anyTx = tx as Saving | SharePayment | Dividend | LoanRepayment;
         return `${anyTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
@@ -243,6 +243,7 @@ export default function ApproveTransactionsPage() {
   
   const getTransactionTypeIcon = (txLabel: string, category: string) => {
       if (category === 'Savings') return <HandCoins className="h-5 w-5 text-green-600" />;
+      if (category === 'Saving Interest') return <Percent className="h-5 w-5 text-green-600" />;
       if (category === 'Shares') return <PieChart className="h-5 w-5 text-blue-600" />;
       if (category === 'Dividends') return <Landmark className="h-5 w-5 text-purple-600" />;
       if (category === 'Loans') return <Banknote className="h-5 w-5 text-indigo-600" />;
@@ -291,6 +292,7 @@ export default function ApproveTransactionsPage() {
               <SelectContent>
                   <SelectItem value="All">All Transactions</SelectItem>
                   <SelectItem value="Savings">Savings</SelectItem>
+                  <SelectItem value="Saving Interest">Saving Interest</SelectItem>
                   <SelectItem value="Shares">Shares</SelectItem>
                   <SelectItem value="Dividends">Dividends</SelectItem>
                   <SelectItem value="Loans">Loan Applications</SelectItem>
