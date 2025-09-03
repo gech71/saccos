@@ -54,7 +54,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -246,20 +246,18 @@ export default function SharePaymentsPage() {
   
   const totalPages = Math.ceil(filteredCommitments.length / commitmentsRowsPerPage);
 
-  const getPaginationItems = () => {
+  const paginationItems = useMemo(() => {
     if (totalPages <= 1) return [];
     const delta = 1;
     const left = commitmentsCurrentPage - delta;
     const right = commitmentsCurrentPage + delta + 1;
     const range: number[] = [];
-    const rangeWithDots: (number | string)[] = [];
-
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= left && i < right)) {
             range.push(i);
         }
     }
-
+    const rangeWithDots: (number | string)[] = [];
     let l: number | undefined;
     for (const i of range) {
         if (l) {
@@ -270,9 +268,7 @@ export default function SharePaymentsPage() {
         l = i;
     }
     return rangeWithDots;
-  }
-  
-  const paginationItems = getPaginationItems();
+  }, [totalPages, commitmentsCurrentPage]);
 
   return (
     <div className="space-y-6">
@@ -396,45 +392,44 @@ export default function SharePaymentsPage() {
                     </TableBody>
                   </Table>
               </div>
-              
-              {totalPages > 1 && (
-                 <div className="flex flex-col items-center gap-4 pt-4">
-                    <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p - 1)} disabled={commitmentsCurrentPage === 1}>Previous</Button>
-                        <div className="flex items-center gap-1">
-                            {paginationItems.map((item, index) =>
-                                typeof item === 'number' ? (
-                                    <Button key={index} variant={commitmentsCurrentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCommitmentsCurrentPage(item)}>{item}</Button>
-                                ) : (<span key={index} className="px-2">{item}</span>)
-                            )}
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p + 1)} disabled={commitmentsCurrentPage >= totalPages}>Next</Button>
+          </CardContent>
+          {filteredCommitments.length > commitmentsRowsPerPage && (
+             <CardFooter className="flex flex-col items-center gap-4 pt-4">
+                <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p - 1)} disabled={commitmentsCurrentPage === 1}>Previous</Button>
+                    <div className="flex items-center gap-1">
+                        {paginationItems.map((item, index) =>
+                            typeof item === 'number' ? (
+                                <Button key={index} variant={commitmentsCurrentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCommitmentsCurrentPage(item)}>{item}</Button>
+                            ) : (<span key={index} className="px-2">{item}</span>)
+                        )}
                     </div>
-                    <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                        <div>Page {commitmentsCurrentPage} of {totalPages || 1}</div>
-                        <div>{filteredCommitments.length} record(s) found.</div>
-                        <div className="flex items-center space-x-2">
-                            <p className="font-medium">Rows:</p>
-                            <Select value={`${commitmentsRowsPerPage}`} onValueChange={(value) => { setCommitmentsRowsPerPage(Number(value)); setCommitmentsCurrentPage(1); }}>
-                                <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${commitmentsRowsPerPage}`} /></SelectTrigger>
-                                <SelectContent side="top">
-                                    {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p + 1)} disabled={commitmentsCurrentPage >= totalPages}>Next</Button>
+                </div>
+                <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                    <div>Page {commitmentsCurrentPage} of {totalPages || 1}</div>
+                    <div>{filteredCommitments.length} record(s) found.</div>
+                    <div className="flex items-center space-x-2">
+                        <p className="font-medium">Rows:</p>
+                        <Select value={`${commitmentsRowsPerPage}`} onValueChange={(value) => { setCommitmentsRowsPerPage(Number(value)); setCommitmentsCurrentPage(1); }}>
+                            <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${commitmentsRowsPerPage}`} /></SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
-              )}
-          </CardContent>
+            </CardFooter>
+          )}
       </Card>
       
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-headline">Record Share Payment</DialogTitle>
-            <CardDescription>
+            <DialogDescription>
               Select a member's commitment and enter the payment details.
-            </CardDescription>
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
@@ -558,9 +553,9 @@ export default function SharePaymentsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to refund this share?</AlertDialogTitle>
-            <CardDescription>
+            <DialogDescription>
                 This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as PENDING REFUND. This action cannot be undone.
-            </CardDescription>
+            </DialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
