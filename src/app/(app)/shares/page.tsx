@@ -54,7 +54,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -98,8 +98,8 @@ export default function SharePaymentsPage() {
   const [isRefundAlertOpen, setIsRefundAlertOpen] = useState(false);
   const [commitmentToRefund, setCommitmentToRefund] = useState<MemberCommitmentWithDetails | null>(null);
   
-  const [commitmentsCurrentPage, setCommitmentsCurrentPage] = useState(1);
-  const [commitmentsRowsPerPage, setCommitmentsRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -241,16 +241,17 @@ export default function SharePaymentsPage() {
   }, [selectedCommitment, currentPayment.amount]);
   
   const paginatedCommitments = useMemo(() => {
-    return filteredCommitments.slice((commitmentsCurrentPage - 1) * commitmentsRowsPerPage, commitmentsCurrentPage * commitmentsRowsPerPage);
-  }, [filteredCommitments, commitmentsCurrentPage, commitmentsRowsPerPage]);
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredCommitments.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredCommitments, currentPage, rowsPerPage]);
   
-  const totalPages = Math.ceil(filteredCommitments.length / commitmentsRowsPerPage);
+  const totalPages = Math.ceil(filteredCommitments.length / rowsPerPage);
 
   const paginationItems = useMemo(() => {
     if (totalPages <= 1) return [];
     const delta = 1;
-    const left = commitmentsCurrentPage - delta;
-    const right = commitmentsCurrentPage + delta + 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
     const range: number[] = [];
     for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= left && i < right)) {
@@ -268,7 +269,7 @@ export default function SharePaymentsPage() {
         l = i;
     }
     return rangeWithDots;
-  }, [totalPages, commitmentsCurrentPage]);
+  }, [totalPages, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -283,7 +284,7 @@ export default function SharePaymentsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Committed Value (in view)</CardTitle>
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
@@ -292,7 +293,7 @@ export default function SharePaymentsPage() {
             </CardContent>
         </Card>
         <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Paid (in view)</CardTitle>
                 <DollarSign className="h-5 w-5 text-accent" />
             </CardHeader>
@@ -301,135 +302,135 @@ export default function SharePaymentsPage() {
             </CardContent>
         </Card>
       </div>
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-grow">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search by member name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full"
-            />
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by member name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+            <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                  <List className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paid_off">Paid Off</SelectItem>
+                  <SelectItem value="pending_refund">Pending Refund</SelectItem>
+                  <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
-            <SelectTrigger className="w-full sm:w-[220px]">
-                <List className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paid_off">Paid Off</SelectItem>
-                <SelectItem value="pending_refund">Pending Refund</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
-      </div>
-
-       <Card>
-          <CardHeader><CardTitle>Member Commitments</CardTitle></CardHeader>
-          <CardContent>
-              <div className="overflow-x-auto rounded-lg border shadow-sm">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Member</TableHead>
-                        <TableHead>Share Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                        <TableHead className="text-right">Amount Paid</TableHead>
-                        <TableHead className="text-right">Balance</TableHead>
-                        <TableHead className="w-[200px]">Progress</TableHead>
-                        <TableHead className="text-right w-[120px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoading ? (
-                          <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                      ) : paginatedCommitments.length > 0 ? paginatedCommitments.map(c => {
-                          const balance = c.totalCommittedAmount - c.amountPaid;
-                          const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
-                        return (
-                          <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
-                            <TableCell className="font-medium">{c.member.fullName}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{c.shareType?.name || '[Deleted Share Type]'}</Badge>
-                              {c.shareType?.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
-                            </TableCell>
-                            <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
-                            <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                            <TableCell>
-                                <Progress value={progress} className="h-2" />
-                                <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreVertical className="h-4 w-4" />
-                                    <span className="sr-only">Actions</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.status === 'PENDING_REFUND' || c.amountPaid <= 0}>
-                                     <RotateCcw className="mr-2 h-4 w-4" /> Refund
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      }) : (
-                        <TableRow>
-                          <TableCell colSpan={8} className="h-24 text-center">
-                            No share commitments found.
+        </CardHeader>
+        <CardContent>
+            <div className="overflow-x-auto rounded-lg border shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Share Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Total Amount</TableHead>
+                      <TableHead className="text-right">Amount Paid</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead className="w-[200px]">Progress</TableHead>
+                      <TableHead className="text-right w-[120px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                        <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : paginatedCommitments.length > 0 ? paginatedCommitments.map(c => {
+                        const balance = c.totalCommittedAmount - c.amountPaid;
+                        const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
+                      return (
+                        <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
+                          <TableCell className="font-medium">{c.member.fullName}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{c.shareType?.name || '[Deleted Share Type]'}</Badge>
+                            {c.shareType?.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
+                          </TableCell>
+                          <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
+                          <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell>
+                              <Progress value={progress} className="h-2" />
+                              <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">Actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.status === 'PENDING_REFUND' || c.amountPaid <= 0}>
+                                   <RotateCcw className="mr-2 h-4 w-4" /> Refund
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
+                      );
+                    }) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center">
+                          No share commitments found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+            </div>
+        </CardContent>
+         {filteredCommitments.length > rowsPerPage && (
+           <CardFooter className="flex flex-col items-center gap-4 pt-4">
+              <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>Previous</Button>
+                  <div className="flex items-center gap-1">
+                      {paginationItems.map((item, index) =>
+                          typeof item === 'number' ? (
+                              <Button key={index} variant={currentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCurrentPage(item)}>{item}</Button>
+                          ) : (<span key={index} className="px-2">{item}</span>)
                       )}
-                    </TableBody>
-                  </Table>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages}>Next</Button>
               </div>
-          </CardContent>
-          {filteredCommitments.length > commitmentsRowsPerPage && (
-             <CardFooter className="flex flex-col items-center gap-4 pt-4">
-                <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p - 1)} disabled={commitmentsCurrentPage === 1}>Previous</Button>
-                    <div className="flex items-center gap-1">
-                        {paginationItems.map((item, index) =>
-                            typeof item === 'number' ? (
-                                <Button key={index} variant={commitmentsCurrentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCommitmentsCurrentPage(item)}>{item}</Button>
-                            ) : (<span key={index} className="px-2">{item}</span>)
-                        )}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setCommitmentsCurrentPage(p => p + 1)} disabled={commitmentsCurrentPage >= totalPages}>Next</Button>
-                </div>
-                <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
-                    <div>Page {commitmentsCurrentPage} of {totalPages || 1}</div>
-                    <div>{filteredCommitments.length} record(s) found.</div>
-                    <div className="flex items-center space-x-2">
-                        <p className="font-medium">Rows:</p>
-                        <Select value={`${commitmentsRowsPerPage}`} onValueChange={(value) => { setCommitmentsRowsPerPage(Number(value)); setCommitmentsCurrentPage(1); }}>
-                            <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${commitmentsRowsPerPage}`} /></SelectTrigger>
-                            <SelectContent side="top">
-                                {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-            </CardFooter>
-          )}
+              <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                  <div>Page {currentPage} of {totalPages || 1}</div>
+                  <div>{filteredCommitments.length} record(s) found.</div>
+                  <div className="flex items-center space-x-2">
+                      <p className="font-medium">Rows:</p>
+                      <Select value={`${rowsPerPage}`} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}>
+                          <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${rowsPerPage}`} /></SelectTrigger>
+                          <SelectContent side="top">
+                              {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
+          </CardFooter>
+         )}
       </Card>
       
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-headline">Record Share Payment</DialogTitle>
-            <DialogDescription>
+            <CardDescription>
               Select a member's commitment and enter the payment details.
-            </DialogDescription>
+            </CardDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
