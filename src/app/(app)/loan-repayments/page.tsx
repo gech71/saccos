@@ -151,7 +151,7 @@ export default function LoanRepaymentsPage() {
     const result = await addLoanRepayment(currentRepayment as LoanRepaymentInput);
 
     if (result.success) {
-        toast({ title: 'Repayment Recorded', description: result.message });
+        toast({ title: 'Repayment Submitted', description: result.message });
         await fetchPageData(); // Refresh data
         setIsModalOpen(false);
     } else {
@@ -285,7 +285,7 @@ export default function LoanRepaymentsPage() {
                           <Table>
                               <TableHeader>
                               <TableRow>
-                                  <TableHead>Loan Acct. #</TableHead>
+                                  <TableHead>Loan Type</TableHead>
                                   <TableHead>Payment Date</TableHead>
                                   <TableHead className="text-right">Total Paid</TableHead>
                                   <TableHead className="text-right">Principal Paid</TableHead>
@@ -297,7 +297,7 @@ export default function LoanRepaymentsPage() {
                               <TableBody>
                                   {group.repayments.map(repayment => (
                                       <TableRow key={repayment.id}>
-                                          <TableCell className="font-mono text-xs">{repayment.loan?.loanAccountNumber}</TableCell>
+                                          <TableCell className="font-mono text-xs">{repayment.loan?.loanTypeName}</TableCell>
                                           <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
                                           <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                           <TableCell className="text-right text-green-600">{repayment.principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
@@ -479,7 +479,7 @@ export default function LoanRepaymentsPage() {
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Record Repayment
+                Submit for Approval
               </Button>
             </DialogFooter>
           </form>
@@ -488,3 +488,4 @@ export default function LoanRepaymentsPage() {
     </div>
   );
 }
+

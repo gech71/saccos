@@ -43,10 +43,10 @@ import {
     rejectMultipleTransactions,
     type PendingTransaction 
 } from './actions';
-import type { Saving, SharePayment, Dividend, Loan, AppliedServiceCharge } from '@prisma/client';
+import type { Saving, SharePayment, Dividend, Loan, AppliedServiceCharge, LoanRepayment } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 
-type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Service Charges';
+type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges';
 
 export default function ApproveTransactionsPage() {
   const [allTransactions, setAllTransactions] = useState<PendingTransaction[]>([]);
@@ -158,7 +158,7 @@ export default function ApproveTransactionsPage() {
 
   const handleApprove = async (tx: PendingTransaction) => {
     setIsSubmitting(true);
-    const result = await approveTransaction(tx.id, tx.transactionTypeLabel);
+    const result = await approveTransaction(tx.id, tx.transactionCategory);
     if (result.success) {
       toast({ title: 'Transaction Approved', description: result.message });
       await fetchPendingTransactions();
@@ -192,9 +192,9 @@ export default function ApproveTransactionsPage() {
       let result;
       if (isBulkAction) {
           const transactionsToReject = allTransactions.filter(tx => selectedIds.has(tx.id));
-          result = await rejectMultipleTransactions(transactionsToReject.map(tx => ({ txId: tx.id, txType: tx.transactionTypeLabel})), rejectionReason);
+          result = await rejectMultipleTransactions(transactionsToReject.map(tx => ({ txId: tx.id, txType: tx.transactionCategory})), rejectionReason);
       } else if (transactionToActOn) {
-          result = await rejectTransaction(transactionToActOn.id, transactionToActOn.transactionTypeLabel, rejectionReason);
+          result = await rejectTransaction(transactionToActOn.id, transactionToActOn.transactionCategory, rejectionReason);
       }
 
       if (result?.success) {
@@ -212,7 +212,7 @@ export default function ApproveTransactionsPage() {
   const handleBulkApprove = async () => {
       setIsSubmitting(true);
       const transactionsToApprove = allTransactions.filter(tx => selectedIds.has(tx.id));
-      const result = await approveMultipleTransactions(transactionsToApprove.map(tx => ({ txId: tx.id, txType: tx.transactionTypeLabel })));
+      const result = await approveMultipleTransactions(transactionsToApprove.map(tx => ({ txId: tx.id, txType: tx.transactionCategory })));
       
        if (result.success) {
         toast({ title: 'Transactions Approved', description: result.message });
@@ -226,8 +226,8 @@ export default function ApproveTransactionsPage() {
 
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares') {
-        const anyTx = tx as Saving | SharePayment | Dividend;
+    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares' || tx.transactionCategory === 'Loan Repayments') {
+        const anyTx = tx as Saving | SharePayment | Dividend | LoanRepayment;
         return `${anyTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
     if (tx.transactionCategory === 'Loans') {
@@ -246,6 +246,7 @@ export default function ApproveTransactionsPage() {
       if (category === 'Shares') return <PieChart className="h-5 w-5 text-blue-600" />;
       if (category === 'Dividends') return <Landmark className="h-5 w-5 text-purple-600" />;
       if (category === 'Loans') return <Banknote className="h-5 w-5 text-indigo-600" />;
+      if (category === 'Loan Repayments') return <Banknote className="h-5 w-5 text-teal-600" />;
       if (category === 'Service Charges') return <ReceiptText className="h-5 w-5 text-orange-600" />;
       return null;
   };
@@ -253,7 +254,7 @@ export default function ApproveTransactionsPage() {
   const handleExport = () => {
     const dataToExport = filteredTransactions.map(tx => {
       let details = '';
-      if ('amount' in tx) details = `${(tx as Saving | SharePayment | Dividend).amount.toFixed(2)} Birr`;
+      if ('amount' in tx) details = `${(tx as Saving | SharePayment | Dividend | LoanRepayment).amount.toFixed(2)} Birr`;
       else if ('principalAmount' in tx) {
           details = `Loan of ${(tx as Loan).principalAmount.toFixed(2)} Birr`;
       } else if ('amountCharged' in tx) {
@@ -293,6 +294,7 @@ export default function ApproveTransactionsPage() {
                   <SelectItem value="Shares">Shares</SelectItem>
                   <SelectItem value="Dividends">Dividends</SelectItem>
                   <SelectItem value="Loans">Loan Applications</SelectItem>
+                  <SelectItem value="Loan Repayments">Loan Repayments</SelectItem>
                   <SelectItem value="Service Charges">Service Charges</SelectItem>
               </SelectContent>
           </Select>
@@ -480,3 +482,4 @@ export default function ApproveTransactionsPage() {
     </div>
   );
 }
+
