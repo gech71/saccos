@@ -3,7 +3,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Prisma, SavingAccountType, ServiceChargeType, ShareType, Member } from '@prisma/client';
+import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType, type Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 
