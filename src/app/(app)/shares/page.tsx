@@ -54,13 +54,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
-import { getSharePaymentsPageData, addSharePayment, refundShareCommitment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails } from './actions';
+import { getSharePaymentsPageData, addSharePayment, refundShareCommitment, type SharePaymentsPageData, type SharePaymentInput, type MemberCommitmentWithDetails, SharePaymentWithDetails } from './actions';
 import { Progress } from '@/components/ui/progress';
 import {
   Select,
@@ -71,6 +71,8 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { format } from 'date-fns';
 
 const initialPaymentFormState: Partial<SharePaymentInput> = {
   commitmentId: '',
@@ -97,6 +99,11 @@ export default function SharePaymentsPage() {
 
   const [isRefundAlertOpen, setIsRefundAlertOpen] = useState(false);
   const [commitmentToRefund, setCommitmentToRefund] = useState<MemberCommitmentWithDetails | null>(null);
+  
+  const [commitmentsCurrentPage, setCommitmentsCurrentPage] = useState(1);
+  const [commitmentsRowsPerPage, setCommitmentsRowsPerPage] = useState(10);
+  const [paymentsCurrentPage, setPaymentsCurrentPage] = useState(1);
+  const [paymentsRowsPerPage, setPaymentsRowsPerPage] = useState(10);
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -181,7 +188,6 @@ export default function SharePaymentsPage() {
       }
   };
 
-
   const filteredCommitments = useMemo(() => {
     if (!pageData) return [];
     return pageData.commitments.filter(commitment => {
@@ -191,6 +197,14 @@ export default function SharePaymentsPage() {
       return matchesSearchTerm && matchesFilter;
     });
   }, [pageData, searchTerm, filter]);
+
+  const filteredPayments = useMemo(() => {
+    if (!pageData) return [];
+    return pageData.payments.filter(payment => {
+        const searchTermLower = searchTerm.toLowerCase();
+        return payment.commitment.member.fullName.toLowerCase().includes(searchTermLower);
+    });
+  }, [pageData, searchTerm]);
 
   const { totalCommitted, totalPaid } = useMemo(() => {
     if (!filteredCommitments) return { totalCommitted: 0, totalPaid: 0 };
@@ -205,6 +219,9 @@ export default function SharePaymentsPage() {
         case 'PAID_OFF': return 'secondary';
         case 'REFUNDED': return 'destructive';
         case 'PENDING_REFUND': return 'secondary';
+        case 'pending': return 'secondary';
+        case 'approved': return 'default';
+        case 'rejected': return 'destructive';
         default: return 'outline';
     }
   };
@@ -234,6 +251,76 @@ export default function SharePaymentsPage() {
     const expectedPayment = selectedCommitment.shareType?.monthlyPayment || 0;
     return expectedPayment > 0 && currentPayment.amount < expectedPayment;
   }, [selectedCommitment, currentPayment.amount]);
+  
+  const getPaginationComponent = (
+    totalItems: number,
+    currentPage: number,
+    setCurrentPage: (page: number) => void,
+    rowsPerPage: number,
+    setRowsPerPage: (rows: number) => void
+  ) => {
+    const totalPages = Math.ceil(totalItems / rowsPerPage);
+    if (totalPages <= 1) return null;
+
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= left && i < right)) {
+            range.push(i);
+        }
+    }
+
+    let l: number | undefined;
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) rangeWithDots.push(l + 1);
+            else if (i - l !== 1) rangeWithDots.push('...');
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+    
+    return (
+        <div className="flex flex-col items-center gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}>Previous</Button>
+                <div className="flex items-center gap-1">
+                    {rangeWithDots.map((item, index) =>
+                        typeof item === 'number' ? (
+                            <Button key={index} variant={currentPage === item ? 'default' : 'outline'} size="sm" className="h-9 w-9 p-0" onClick={() => setCurrentPage(item)}>{item}</Button>
+                        ) : (<span key={index} className="px-2">{item}</span>)
+                    )}
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= totalPages}>Next</Button>
+            </div>
+            <div className="flex items-center space-x-6 lg:space-x-8 text-sm text-muted-foreground">
+                <div>Page {currentPage} of {totalPages || 1}</div>
+                <div>{totalItems} record(s) found.</div>
+                <div className="flex items-center space-x-2">
+                    <p className="font-medium">Rows:</p>
+                    <Select value={`${rowsPerPage}`} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}>
+                        <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={`${rowsPerPage}`} /></SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 15, 20, 25, 50].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+        </div>
+    );
+  }
+  
+  const paginatedCommitments = useMemo(() => {
+    return filteredCommitments.slice((commitmentsCurrentPage - 1) * commitmentsRowsPerPage, commitmentsCurrentPage * commitmentsRowsPerPage);
+  }, [filteredCommitments, commitmentsCurrentPage, commitmentsRowsPerPage]);
+  
+  const paginatedPayments = useMemo(() => {
+    return filteredPayments.slice((paymentsCurrentPage - 1) * paymentsRowsPerPage, paymentsCurrentPage * paymentsRowsPerPage);
+  }, [filteredPayments, paymentsCurrentPage, paymentsRowsPerPage]);
 
 
   return (
@@ -292,77 +379,127 @@ export default function SharePaymentsPage() {
             </SelectContent>
           </Select>
       </div>
+
+      <Tabs defaultValue="commitments" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="commitments">Share Commitments</TabsTrigger>
+          <TabsTrigger value="payments">Payment History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="commitments" className="mt-6">
+            <Card>
+                <CardHeader><CardTitle>Member Commitments</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto rounded-lg border shadow-sm">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Member</TableHead>
+                              <TableHead>Share Type</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Total Amount</TableHead>
+                              <TableHead className="text-right">Amount Paid</TableHead>
+                              <TableHead className="text-right">Balance</TableHead>
+                              <TableHead className="w-[200px]">Progress</TableHead>
+                              <TableHead className="text-right w-[120px]">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {isLoading ? (
+                                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                            ) : paginatedCommitments.length > 0 ? paginatedCommitments.map(c => {
+                                const balance = c.totalCommittedAmount - c.amountPaid;
+                                const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
+                              return (
+                                <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
+                                  <TableCell className="font-medium">{c.member.fullName}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">{c.shareType?.name || '[Deleted Share Type]'}</Badge>
+                                    {c.shareType?.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
+                                  </TableCell>
+                                  <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
+                                  <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell>
+                                      <Progress value={progress} className="h-2" />
+                                      <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MoreVertical className="h-4 w-4" />
+                                          <span className="sr-only">Actions</span>
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.status === 'PENDING_REFUND' || c.amountPaid <= 0}>
+                                           <RotateCcw className="mr-2 h-4 w-4" /> Refund
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            }) : (
+                              <TableRow>
+                                <TableCell colSpan={8} className="h-24 text-center">
+                                  No share commitments found.
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                    </div>
+                    {getPaginationComponent(filteredCommitments.length, commitmentsCurrentPage, setCommitmentsCurrentPage, commitmentsRowsPerPage, setCommitmentsRowsPerPage)}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="payments" className="mt-6">
+           <Card>
+             <CardHeader><CardTitle>All Share Payments</CardTitle></CardHeader>
+             <CardContent>
+                <div className="overflow-x-auto rounded-lg border shadow-sm">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Member</TableHead>
+                                <TableHead>Share Type</TableHead>
+                                <TableHead>Payment Date</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Amount (Birr)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                            ) : paginatedPayments.length > 0 ? paginatedPayments.map(payment => (
+                                <TableRow key={payment.id}>
+                                    <TableCell className="font-medium">{payment.commitment.member.fullName}</TableCell>
+                                    <TableCell>{payment.commitment.shareType?.name}</TableCell>
+                                    <TableCell><Badge variant={getStatusBadgeVariant(payment.status)}>{payment.status}</Badge></TableCell>
+                                    <TableCell>{format(new Date(payment.paymentDate), 'PPP')}</TableCell>
+                                    <TableCell className="text-right font-semibold text-primary">{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No share payments found.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                 {getPaginationComponent(filteredPayments.length, paymentsCurrentPage, setPaymentsCurrentPage, paymentsRowsPerPage, setPaymentsRowsPerPage)}
+             </CardContent>
+           </Card>
+        </TabsContent>
+      </Tabs>
       
-      <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Share Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Total Amount</TableHead>
-              <TableHead className="text-right">Amount Paid</TableHead>
-              <TableHead className="text-right">Balance</TableHead>
-              <TableHead className="w-[200px]">Progress</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredCommitments.length > 0 ? filteredCommitments.map(c => {
-                const balance = c.totalCommittedAmount - c.amountPaid;
-                const progress = c.totalCommittedAmount > 0 ? (c.amountPaid / c.totalCommittedAmount) * 100 : 0;
-              return (
-                <TableRow key={c.id} data-state={c.status !== 'ACTIVE' ? 'completed' : 'pending'}>
-                  <TableCell className="font-medium">{c.member.fullName}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{c.shareType?.name || '[Deleted Share Type]'}</Badge>
-                    {c.shareType?.monthlyPayment && <div className="text-xs text-muted-foreground mt-1">Exp: {c.shareType.monthlyPayment.toFixed(2)}/mo</div>}
-                  </TableCell>
-                  <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status.replace('_', ' ')}</Badge></TableCell>
-                  <TableCell className="text-right">{c.totalCommittedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right text-green-600">{c.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right font-semibold">{balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell>
-                      <Progress value={progress} className="h-2" />
-                      <span className="text-xs text-muted-foreground">{progress.toFixed(1)}%</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openRefundAlert(c)} disabled={c.status === 'REFUNDED' || c.status === 'PENDING_REFUND' || c.amountPaid <= 0}>
-                           <RotateCcw className="mr-2 h-4 w-4" /> Refund
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            }) : (
-              <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  No share commitments found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-headline">Record Share Payment</DialogTitle>
-            <DialogDescription>
+            <CardDescription>
               Select a member's commitment and enter the payment details.
-            </DialogDescription>
+            </CardDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
@@ -486,9 +623,9 @@ export default function SharePaymentsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to refund this share?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <CardDescription>
                 This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as PENDING REFUND. This action cannot be undone.
-            </AlertDialogDescription>
+            </CardDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
