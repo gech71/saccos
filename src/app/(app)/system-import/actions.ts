@@ -180,46 +180,20 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
             const loanType = loanTypeMap.get(id);
             if (!loanType || typeof value !== 'object' || !('principal' in value)) continue;
 
-            // Find existing loan or create one if not found from import
-            let loan = await tx.loan.findFirst({ where: { memberId: memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}});
-
-            if (!loan) {
-              loan = await tx.loan.create({
-                  data: {
-                      memberId,
-                      loanTypeId: id,
-                      principalAmount: value.principal,
-                      interestRate: loanType.interestRate,
-                      loanTerm: value.term || loanType.maxRepaymentPeriod,
-                      repaymentFrequency: loanType.repaymentFrequency,
-                      disbursementDate: importDate,
-                      status: 'active', // Assume imported loans are active
-                      remainingBalance: value.principal,
-                      notes: 'Loan created from bulk system import.',
-                  }
-              });
-            }
-
-            // Create a pending repayment for the imported interest and principal
-            const interestPaid = (values[`${key}-interest`] as number) || 0;
-            const principalPaid = (values[`${key}-principal`] as number) || 0;
-            const totalPaid = interestPaid + principalPaid;
-            
-            if (totalPaid > 0) {
-                 await tx.loanRepayment.create({
-                    data: {
-                        loanId: loan.id,
-                        memberId,
-                        amountPaid: totalPaid,
-                        principalPaid,
-                        interestPaid,
-                        paymentDate: importDate,
-                        status: 'pending',
-                        depositMode: 'Cash',
-                        notes: 'Bulk data import',
-                    }
-                });
-            }
+            const loan = await tx.loan.create({
+                data: {
+                    memberId,
+                    loanTypeId: id,
+                    principalAmount: value.principal,
+                    interestRate: loanType.interestRate,
+                    loanTerm: value.term || loanType.maxRepaymentPeriod,
+                    repaymentFrequency: loanType.repaymentFrequency,
+                    disbursementDate: importDate,
+                    status: 'pending', // Imported loans must be approved
+                    remainingBalance: value.principal,
+                    notes: 'Loan created from bulk system import.',
+                }
+            });
             
         } else if (type === 'service') {
              await tx.appliedServiceCharge.create({

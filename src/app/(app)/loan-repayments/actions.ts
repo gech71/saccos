@@ -113,7 +113,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
 
 export type LoanRepaymentInput = Pick<
   LoanRepayment,
-  'loanId' | 'amountPaid' | 'paymentDate' | 'depositMode' | 'sourceName' | 'transactionReference' | 'evidenceUrl' | 'notes' | 'status'
+  'loanId' | 'amountPaid' | 'paymentDate' | 'depositMode' | 'sourceName' | 'transactionReference' | 'evidenceUrl' | 'notes'
 >;
 
 
