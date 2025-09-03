@@ -352,34 +352,54 @@ export interface ImportedMember {
 }
 
 export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
-    const membersToCreate = [];
+    let createdCount = 0;
+    const schools = await prisma.school.findMany({ select: { id: true, name: true }});
+    const schoolMap = new Map(schools.map(s => [s.id, s.name]));
+
     for (const m of members) {
         const temporaryPassword = '123456';
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-        membersToCreate.push({
-            id: m.MemberID,
-            fullName: m.MemberFullName,
-            email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
-            password: hashedPassword,
-            mustChangePassword: true,
-            sex: 'Male' as 'Male' | 'Female', // Default value
-            phoneNumber: '0900000000', // Default value
-            schoolId: m.SchoolID,
-            joinDate: new Date(),
-            status: 'active' as 'active' | 'inactive',
-            salary: m.Salary,
-        });
+        
+        try {
+            await prisma.member.create({
+                data: {
+                    id: m.MemberID,
+                    fullName: m.MemberFullName,
+                    email: `${m.MemberID}@academinvest.com`, // Create a placeholder email
+                    password: hashedPassword,
+                    mustChangePassword: true,
+                    sex: 'Male', // Default value
+                    phoneNumber: '0900000000', // Default value
+                    schoolId: m.SchoolID,
+                    joinDate: new Date(),
+                    status: 'active',
+                    salary: m.Salary,
+                    schoolHistory: {
+                        create: {
+                            schoolId: m.SchoolID,
+                            schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
+                            startDate: new Date(),
+                            endDate: null,
+                        }
+                    }
+                }
+            });
+            createdCount++;
+        } catch(e) {
+            // This will catch unique constraint violations (e.g., duplicate ID) and skip the member.
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+                console.log(`Skipping member with ID ${m.MemberID} as they already exist.`);
+            } else {
+                // Re-throw other errors
+                throw e;
+            }
+        }
     }
-    
-    const result = await prisma.member.createMany({
-        data: membersToCreate,
-        skipDuplicates: true,
-    });
     
     revalidatePath('/members');
 
-    const skippedCount = members.length - result.count;
-    let message = `Successfully imported ${result.count} new members.`;
+    const skippedCount = members.length - createdCount;
+    let message = `Successfully imported ${createdCount} new members.`;
     if (skippedCount > 0) {
         message += ` ${skippedCount} member(s) were skipped as they already exist.`;
     }
