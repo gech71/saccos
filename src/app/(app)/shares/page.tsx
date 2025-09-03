@@ -427,9 +427,9 @@ export default function SharePaymentsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-headline">Record Share Payment</DialogTitle>
-            <CardDescription>
+            <DialogDescription>
               Select a member's commitment and enter the payment details.
-            </CardDescription>
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-2">
             <div>
@@ -553,9 +553,9 @@ export default function SharePaymentsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to refund this share?</AlertDialogTitle>
-            <DialogDescription>
+            <AlertDialogDescription>
                 This will submit a transaction to withdraw <strong className="text-primary">{commitmentToRefund?.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</strong> and mark this commitment as PENDING REFUND. This action cannot be undone.
-            </DialogDescription>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
@@ -570,3 +570,4 @@ export default function SharePaymentsPage() {
   );
 
     
+
