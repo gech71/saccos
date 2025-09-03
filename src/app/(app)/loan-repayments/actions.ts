@@ -30,6 +30,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
     prisma.loan.findMany({
         include: {
             repayments: {
+                where: { status: 'approved' }, // Only consider approved repayments for history
                 orderBy: {
                     paymentDate: 'asc' // Fetch in chronological order to calculate running balance
                 }
@@ -112,7 +113,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
 
 export type LoanRepaymentInput = Pick<
   LoanRepayment,
-  'loanId' | 'amountPaid' | 'paymentDate' | 'depositMode' | 'sourceName' | 'transactionReference' | 'evidenceUrl' | 'notes'
+  'loanId' | 'amountPaid' | 'paymentDate' | 'depositMode' | 'sourceName' | 'transactionReference' | 'evidenceUrl' | 'notes' | 'status'
 >;
 
 
@@ -134,40 +135,25 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
         throw new Error(`Payment amount of ${data.amountPaid.toFixed(2)} cannot exceed the final settlement amount of ${finalPayment.toFixed(2)}.`);
     }
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Calculate interest for the current period (re-calculate inside transaction for consistency)
-      const freshInterestForMonth = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+    // 1. Calculate interest for the current period
+    const calculatedInterestPaid = roundToTwo(Math.min(data.amountPaid, interestForMonth));
+    const calculatedPrincipalPaid = roundToTwo(data.amountPaid - calculatedInterestPaid);
 
-      // 2. Allocate payment
-      const interestPaid = roundToTwo(Math.min(data.amountPaid, freshInterestForMonth));
-      const principalPaid = roundToTwo(data.amountPaid - interestPaid);
-      
-      const newBalance = roundToTwo(loan.remainingBalance - principalPaid);
-
-      // 3. Create the repayment record with detailed allocation
-      await tx.loanRepayment.create({ 
-        data: {
-            ...data,
-            memberId: loan.memberId, // Ensure memberId from the loan is included
-            paymentDate: new Date(data.paymentDate),
-            interestPaid: interestPaid,
-            principalPaid: principalPaid,
-        }
-      });
-
-      // 4. Update the loan's remaining balance
-      await tx.loan.update({
-        where: { id: data.loanId },
-        data: {
-          remainingBalance: newBalance,
-          status: newBalance <= 0 ? 'paid_off' : loan.status,
-        },
-      });
+    // 2. Create the repayment record with a PENDING status
+    await prisma.loanRepayment.create({ 
+      data: {
+          ...data,
+          memberId: loan.memberId,
+          paymentDate: new Date(data.paymentDate),
+          interestPaid: calculatedInterestPaid,
+          principalPaid: calculatedPrincipalPaid,
+          status: 'pending', // This is the key change
+      }
     });
 
     revalidatePath('/loan-repayments');
-    revalidatePath('/loans');
-    return { success: true, message: 'Loan repayment recorded successfully.' };
+    revalidatePath('/approve-transactions'); // Ensure approval page is updated
+    return { success: true, message: 'Loan repayment submitted for approval.' };
   } catch (error) {
     console.error('Failed to record loan repayment:', error);
     const errorMessage = error instanceof Error ? error.message : 'An error occurred while recording the repayment.';

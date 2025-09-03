@@ -7,14 +7,14 @@ import type { Saving, SharePayment, Dividend, Loan, LoanRepayment, AppliedServic
 import { revalidatePath } from 'next/cache';
 import { addMonths } from 'date-fns';
 
-export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge) & { 
+export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge | LoanRepayment) & { 
     transactionTypeLabel: string; 
     memberName: string;
-    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Service Charges';
+    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
-  const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans, pendingServiceCharges] = await Promise.all([
+  const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans, pendingServiceCharges, pendingLoanRepayments] = await Promise.all([
     prisma.saving.findMany({
       where: { status: 'pending' },
       include: { member: { select: { fullName: true }}},
@@ -52,6 +52,11 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
             serviceChargeType: { select: { name: true }}
         },
         orderBy: { dateApplied: 'asc' },
+    }),
+    prisma.loanRepayment.findMany({
+      where: { status: 'pending' },
+      include: { member: { select: { fullName: true }}},
+      orderBy: { paymentDate: 'asc' },
     })
   ]);
 
@@ -95,7 +100,15 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       transactionCategory: 'Service Charges'
   }));
   
-  const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans, ...formattedServiceCharges];
+  const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => ({
+      ...lr,
+      paymentDate: lr.paymentDate.toISOString(),
+      transactionTypeLabel: `Loan Repayment`,
+      memberName: lr.member.fullName,
+      transactionCategory: 'Loan Repayments'
+  }));
+  
+  const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans, ...formattedServiceCharges, ...formattedLoanRepayments];
   
   return allTransactions.sort(
       (a, b) => {
@@ -115,6 +128,7 @@ const revalidateAllPaths = () => {
     revalidatePath('/members'); 
     revalidatePath('/savings-accounts');
     revalidatePath('/applied-service-charges');
+    revalidatePath('/loan-repayments');
 };
 
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
@@ -184,6 +198,23 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                   nextDueDate: nextDueDate,
               },
           });
+      } else if (txType.startsWith('Loan Repayment')) {
+        const repaymentTx = await tx.loanRepayment.findUnique({ where: { id: txId }});
+        if (!repaymentTx || repaymentTx.status !== 'pending') throw new Error('Loan repayment not found or not pending.');
+
+        const loan = await tx.loan.findUnique({ where: { id: repaymentTx.loanId }});
+        if (!loan) throw new Error(`Associated loan for repayment ${txId} not found.`);
+        
+        await tx.loanRepayment.update({ where: { id: txId }, data: { status: 'approved' }});
+        
+        const newBalance = loan.remainingBalance - repaymentTx.principalPaid;
+        await tx.loan.update({
+            where: { id: repaymentTx.loanId },
+            data: {
+                remainingBalance: newBalance,
+                status: newBalance <= 0 ? 'paid_off' : loan.status,
+            }
+        });
       } else if (txType.startsWith('Service Charge')) {
         const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
         if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
@@ -210,6 +241,8 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType.startsWith('Loan Application')) {
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
+    } else if (txType.startsWith('Loan Repayment')) {
+        await prisma.loanRepayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType.startsWith('Service Charge')) {
         await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     }
