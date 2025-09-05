@@ -46,7 +46,7 @@ import {
 import type { Saving, SharePayment, Dividend, Loan, AppliedServiceCharge, LoanRepayment } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 
-type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest';
+type TransactionCategory = 'All' | 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest' | 'Loan Interest';
 
 export default function ApproveTransactionsPage() {
   const [allTransactions, setAllTransactions] = useState<PendingTransaction[]>([]);
@@ -234,7 +234,7 @@ export default function ApproveTransactionsPage() {
         const loanTx = tx as Loan;
         return `${loanTx.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr Loan`;
     }
-     if (tx.transactionCategory === 'Service Charges') {
+     if (tx.transactionCategory === 'Service Charges' || tx.transactionCategory === 'Loan Interest') {
         const chargeTx = tx as AppliedServiceCharge;
         return `${chargeTx.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
@@ -248,7 +248,7 @@ export default function ApproveTransactionsPage() {
       if (category === 'Dividends') return <Landmark className="h-5 w-5 text-purple-600" />;
       if (category === 'Loans') return <Banknote className="h-5 w-5 text-indigo-600" />;
       if (category === 'Loan Repayments') return <Banknote className="h-5 w-5 text-teal-600" />;
-      if (category === 'Service Charges') return <ReceiptText className="h-5 w-5 text-orange-600" />;
+      if (category === 'Service Charges' || category === 'Loan Interest') return <ReceiptText className="h-5 w-5 text-orange-600" />;
       return null;
   };
 
@@ -297,6 +297,7 @@ export default function ApproveTransactionsPage() {
                   <SelectItem value="Dividends">Dividends</SelectItem>
                   <SelectItem value="Loans">Loan Applications</SelectItem>
                   <SelectItem value="Loan Repayments">Loan Repayments</SelectItem>
+                  <SelectItem value="Loan Interest">Loan Interest</SelectItem>
                   <SelectItem value="Service Charges">Service Charges</SelectItem>
               </SelectContent>
           </Select>

@@ -10,7 +10,7 @@ import { addMonths } from 'date-fns';
 export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge | LoanRepayment) & { 
     transactionTypeLabel: string; 
     memberName: string;
-    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest';
+    transactionCategory: 'Savings' | 'Shares' | 'Dividends' | 'Loans' | 'Loan Repayments' | 'Service Charges' | 'Saving Interest' | 'Loan Interest';
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
@@ -95,13 +95,16 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       transactionCategory: 'Loans'
   }));
   
-  const formattedServiceCharges: PendingTransaction[] = pendingServiceCharges.map(sc => ({
-      ...sc,
-      dateApplied: sc.dateApplied.toISOString(),
-      transactionTypeLabel: `Service Charge (${sc.serviceChargeType.name})`,
-      memberName: sc.member.fullName,
-      transactionCategory: 'Service Charges'
-  }));
+  const formattedServiceCharges: PendingTransaction[] = pendingServiceCharges.map(sc => {
+      const isInterest = sc.notes?.toLowerCase().includes('loan interest');
+      return {
+        ...sc,
+        dateApplied: sc.dateApplied.toISOString(),
+        transactionTypeLabel: `Service Charge (${sc.serviceChargeType.name})`,
+        memberName: sc.member.fullName,
+        transactionCategory: isInterest ? 'Loan Interest' : 'Service Charges'
+      };
+  });
   
   const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => ({
       ...lr,
@@ -218,7 +221,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                 status: newBalance <= 0 ? 'paid_off' : loan.status,
             }
         });
-      } else if (txType === 'Service Charges') {
+      } else if (txType === 'Service Charges' || txType === 'Loan Interest') {
         const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
         if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
         await tx.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'paid' } });
@@ -246,7 +249,7 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType.startsWith('Loan Repayment')) {
         await prisma.loanRepayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType.startsWith('Service Charge')) {
+    } else if (txType.startsWith('Service Charge') || txType === 'Loan Interest') {
         await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     }
      revalidateAllPaths();
