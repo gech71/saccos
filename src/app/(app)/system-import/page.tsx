@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -41,7 +40,8 @@ const months = [
   { value: '9', label: 'October' }, { value: '10', label: 'November' }, { value: '11', label: 'December' }
 ];
 
-type CollectionInputValues = Record<string, number | { principal: number; term: number }>;
+type CollectionInputValues = Record<string, number | { principal: number; term: number } | { principalRepaid: number; interestRepaid: number }>;
+
 
 type ValidatedRow = {
   memberId: string;
@@ -126,7 +126,7 @@ export default function SystemImportPage() {
         ...headers,
         ...dynamicColumns.savings.flatMap(s => [s.name, `${s.name} Interest`]),
         ...dynamicColumns.shares.map(s => s.name),
-        ...dynamicColumns.loans.flatMap(l => [l.name, `${l.name} Repayment Period (Months)`]),
+        ...dynamicColumns.loans.flatMap(l => [l.name, `${l.name} Repayment Period (Months)`, `${l.name} Principal Repaid`, `${l.name} Interest Repaid`]),
         ...dynamicColumns.serviceCharges.map(sc => sc.name),
     ];
   }
@@ -148,6 +148,8 @@ export default function SystemImportPage() {
         dynamicColumns.loans.forEach(l => { 
             rowObject[l.name] = 0; 
             rowObject[`${l.name} Repayment Period (Months)`] = l.maxRepaymentPeriod; 
+            rowObject[`${l.name} Principal Repaid`] = 0;
+            rowObject[`${l.name} Interest Repaid`] = 0;
         });
         dynamicColumns.serviceCharges.forEach(sc => { rowObject[sc.name] = 0; });
         return rowObject;
@@ -193,7 +195,8 @@ export default function SystemImportPage() {
             const shareTypesMap = new Map(pageData.shareTypes.map(t => [t.name, `share_${t.id}`]));
             const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
             const loanTypesMap = new Map(pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]));
-
+            const loanRepaymentPrincipalMap = new Map(pageData.loanTypes.map(t => [`${t.name} Principal Repaid`, `loanrepay_${t.id}_principal`]));
+            const loanRepaymentInterestMap = new Map(pageData.loanTypes.map(t => [`${t.name} Interest Repaid`, `loanrepay_${t.id}_interest`]));
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
                 const memberId = row['Member ID'];
@@ -224,6 +227,16 @@ export default function SystemImportPage() {
                       const term = parseInt(row[termHeader], 10);
                       const loanKey = loanTypesMap.get(header)!;
                       collectionValues[loanKey] = { principal: value, term: term };
+                  } else if (loanRepaymentPrincipalMap.has(header)) {
+                      const key = loanRepaymentPrincipalMap.get(header)!;
+                      const current = (collectionValues[key] || { principalRepaid: 0, interestRepaid: 0 }) as { principalRepaid: number; interestRepaid: number };
+                      current.principalRepaid = value;
+                      collectionValues[key] = current;
+                  } else if (loanRepaymentInterestMap.has(header)) {
+                      const key = loanRepaymentInterestMap.get(header)!.replace('_interest', '_principal'); // Assumes principal key is the base
+                      const current = (collectionValues[key] || { principalRepaid: 0, interestRepaid: 0 }) as { principalRepaid: number; interestRepaid: number };
+                      current.interestRepaid = value;
+                      collectionValues[key] = current;
                   }
                 }
                 

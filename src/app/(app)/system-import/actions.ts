@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -82,7 +81,7 @@ export type ImportPayload = {
     collectionYear: string;
     collections: {
         memberId: string;
-        values: Record<string, number | { principal: number; term: number }>;
+        values: Record<string, number | { principal: number; term: number } | { principalRepaid: number; interestRepaid: number }>;
     }[];
 }
 
@@ -102,10 +101,15 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
       const { memberId, values } = collection;
 
       for (const [key, value] of Object.entries(values)) {
-        if (typeof value === 'object' && ('principal' in value) && value.principal <= 0) continue;
+        if (typeof value === 'object') {
+            if ('principal' in value && value.principal <= 0) continue;
+            if ('principalRepaid' in value && value.principalRepaid <= 0 && value.interestRepaid <= 0) continue;
+        }
         if (typeof value === 'number' && value <= 0) continue;
 
-        const [type, id] = key.split('_');
+        const [type, idWithSuffix] = key.split('_');
+        const id = idWithSuffix.replace('_principal','');
+
 
         if (type === 'saving' || type === 'interest') {
           let account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
@@ -194,7 +198,27 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                     notes: 'Loan created from bulk system import.',
                 }
             });
-            
+        } else if (type === 'loanrepay') {
+             if (typeof value !== 'object' || !('principalRepaid' in value)) continue;
+             const existingLoan = await tx.loan.findFirst({
+                 where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}
+             });
+             if (!existingLoan) continue;
+             
+             await tx.loanRepayment.create({
+                 data: {
+                     loanId: existingLoan.id,
+                     memberId: memberId,
+                     amountPaid: value.principalRepaid + value.interestRepaid,
+                     principalPaid: value.principalRepaid,
+                     interestPaid: value.interestRepaid,
+                     paymentDate: importDate,
+                     status: 'pending',
+                     depositMode: 'Cash',
+                     notes: 'Bulk import loan repayment'
+                 }
+             });
+
         } else if (type === 'service') {
              await tx.appliedServiceCharge.create({
                 data: {
