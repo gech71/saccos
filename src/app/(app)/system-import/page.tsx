@@ -199,7 +199,8 @@ export default function SystemImportPage() {
             const loanRepaymentInterestMap = new Map(pageData.loanTypes.map(t => [`${t.name} Interest Repaid`, `loanrepay_${t.id}_interest`]));
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
-                const memberId = row['Member ID'];
+                const memberIdFromFile = row['Member ID'];
+                const memberId = memberIdFromFile?.toString().trim(); // Convert to string and trim
                 const member = membersData.find(m => m.id === memberId);
                 const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
                 
@@ -382,4 +383,3 @@ export default function SystemImportPage() {
     </div>
   );
 }
-
