@@ -65,7 +65,8 @@ export async function getAggregateData(): Promise<AggregatePageData> {
                     status: true
                 }
             }
-        }
+        },
+        orderBy: { id: 'asc' }
     })
   ]);
 

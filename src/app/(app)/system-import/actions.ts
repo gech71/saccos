@@ -69,7 +69,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
             }
         },
         orderBy: {
-            fullName: 'asc'
+            id: 'asc'
         }
     })
   ]);
