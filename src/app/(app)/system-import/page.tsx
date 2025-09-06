@@ -51,6 +51,9 @@ type ValidatedRow = {
   originalRow: any;
 };
 
+// Helper to standardize header names for case-insensitive matching
+const standardizeHeader = (header: string) => header.toLowerCase().replace(/\s+/g, '');
+
 export default function SystemImportPage() {
   const { toast } = useToast();
   
@@ -186,64 +189,73 @@ export default function SystemImportPage() {
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const headerRow: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
-            setFileHeaders(headerRow);
+            const originalHeaders: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+            setFileHeaders(originalHeaders);
+            
+            // Create a map from original header to its standardized version
+            const headerMap: { [key: string]: string } = {};
+            originalHeaders.forEach(h => headerMap[standardizeHeader(h)] = h);
+            
             const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            const savingTypesMap = new Map(pageData.savingTypes.map(t => [t.name, `saving_${t.id}`]));
-            const interestTypesMap = new Map(pageData.savingTypes.map(t => [`${t.name} Interest`, `interest_${t.id}`]));
-            const shareTypesMap = new Map(pageData.shareTypes.map(t => [t.name, `share_${t.id}`]));
-            const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
-            const loanTypesMap = new Map(pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]));
-            
-            // Corrected Map for repayments
+            // Create standardized maps for system data
+            const savingTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(t.name), `saving_${t.id}`]));
+            const interestTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(`${t.name} Interest`), `interest_${t.id}`]));
+            const shareTypesMap = new Map(pageData.shareTypes.map(t => [standardizeHeader(t.name), `share_${t.id}`]));
+            const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [standardizeHeader(t.name), `service_${t.id}`]));
+            const loanTypesMap = new Map(pageData.loanTypes.map(t => [standardizeHeader(t.name), `loan_${t.id}`]));
             const loanRepaymentMap = new Map();
             pageData.loanTypes.forEach(lt => {
-                loanRepaymentMap.set(`${lt.name} Principal Repaid`, `loanrepay_${lt.id}_principal`);
-                loanRepaymentMap.set(`${lt.name} Interest Repaid`, `loanrepay_${lt.id}_interest`);
+                loanRepaymentMap.set(standardizeHeader(`${lt.name} Principal Repaid`), `loanrepay_${lt.id}`);
+                loanRepaymentMap.set(standardizeHeader(`${lt.name} Interest Repaid`), `loanrepay_${lt.id}`);
             });
 
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
-                const memberIdFromFile = row['Member ID'];
-                const memberId = memberIdFromFile?.toString().trim(); // Convert to string and trim
+                const memberIdKey = headerMap[standardizeHeader('Member ID')];
+                const fullNameKey = headerMap[standardizeHeader('Full Name')];
+                const memberIdFromFile = row[memberIdKey];
+                const memberId = memberIdFromFile?.toString().trim();
                 const member = membersData.find(m => m.id === memberId);
-                const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
+                const fullName = member?.fullName || row[fullNameKey] || 'Unknown Member';
                 
                 if (!member) {
                     return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
                 }
 
                 const collectionValues: CollectionInputValues = {};
-                for(const header of headerRow) {
-                  if(header === 'Member ID' || header === 'Full Name') continue;
+                for(const standardizedHeader of Object.keys(headerMap)) {
+                  const originalHeader = headerMap[standardizedHeader];
+                  if(standardizedHeader === standardizeHeader('Member ID') || standardizedHeader === standardizeHeader('Full Name')) continue;
                   
-                  const value = parseFloat(row[header]);
-                  if(isNaN(value) || value < 0) continue; // Allow 0 for repayments
-
-                  if (value === 0 && !header.includes('Repaid')) continue;
-
-                  if(savingTypesMap.has(header)) {
-                      collectionValues[savingTypesMap.get(header)!] = value;
-                  } else if (interestTypesMap.has(header)) {
-                      collectionValues[interestTypesMap.get(header)!] = value;
-                  } else if (shareTypesMap.has(header)) {
-                      collectionValues[shareTypesMap.get(header)!] = value;
-                  } else if (serviceChargeTypesMap.has(header)) {
-                      collectionValues[serviceChargeTypesMap.get(header)!] = value;
-                  } else if (loanTypesMap.has(header)) {
+                  const value = parseFloat(row[originalHeader]);
+                  if(isNaN(value) || value < 0) continue;
+                  if (value === 0 && !standardizedHeader.includes('repaid')) continue;
+                  
+                  if(savingTypesMap.has(standardizedHeader)) {
+                      collectionValues[savingTypesMap.get(standardizedHeader)!] = value;
+                  } else if (interestTypesMap.has(standardizedHeader)) {
+                      collectionValues[interestTypesMap.get(standardizedHeader)!] = value;
+                  } else if (shareTypesMap.has(standardizedHeader)) {
+                      collectionValues[shareTypesMap.get(standardizedHeader)!] = value;
+                  } else if (serviceChargeTypesMap.has(standardizedHeader)) {
+                      collectionValues[serviceChargeTypesMap.get(standardizedHeader)!] = value;
+                  } else if (loanTypesMap.has(standardizedHeader)) {
                       if (value > 0) {
-                        const termHeader = `${header} Repayment Period (Months)`;
-                        const term = parseInt(row[termHeader], 10);
-                        const loanKey = loanTypesMap.get(header)!;
+                        const termHeaderKey = headerMap[standardizeHeader(`${originalHeader} Repayment Period (Months)`)];
+                        const term = termHeaderKey ? parseInt(row[termHeaderKey], 10) : 0;
+                        const loanKey = loanTypesMap.get(standardizedHeader)!;
                         collectionValues[loanKey] = { principal: value, term: term };
                       }
-                  } else if (loanRepaymentMap.has(header)) {
-                      const loanType = pageData.loanTypes.find(lt => header.startsWith(lt.name));
+                  } else if (loanRepaymentMap.has(standardizedHeader)) {
+                      const loanType = pageData.loanTypes.find(lt => standardizedHeader.startsWith(standardizeHeader(lt.name)));
                       if (loanType) {
                         const key = `loanrepay_${loanType.id}`;
-                        const principalRepaid = parseFloat(row[`${loanType.name} Principal Repaid`]) || 0;
-                        const interestRepaid = parseFloat(row[`${loanType.name} Interest Repaid`]) || 0;
+                        const principalKey = headerMap[standardizeHeader(`${loanType.name} Principal Repaid`)] || '';
+                        const interestKey = headerMap[standardizeHeader(`${loanType.name} Interest Repaid`)] || '';
+                        
+                        const principalRepaid = parseFloat(row[principalKey]) || 0;
+                        const interestRepaid = parseFloat(row[interestKey]) || 0;
                         
                         if (principalRepaid > 0 || interestRepaid > 0) {
                            collectionValues[key] = { principalRepaid, interestRepaid };
@@ -394,5 +406,3 @@ export default function SystemImportPage() {
     </div>
   );
 }
-
-    
