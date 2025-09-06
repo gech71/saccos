@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -57,7 +56,7 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       where: { status: 'pending' },
       include: { 
         member: { select: { fullName: true }},
-        loan: { select: { loanType: { select: { name: true }}}}
+        loan: { include: { loanType: { select: { name: true }}}}
       },
       orderBy: { paymentDate: 'asc' },
     })
@@ -112,7 +111,7 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
   const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => ({
       ...lr,
       paymentDate: lr.paymentDate.toISOString(),
-      transactionTypeLabel: `Loan Repayment (${(lr as any).loan.loanType.name})`,
+      transactionTypeLabel: `Loan Repayment (${lr.loan.loanType?.name || 'N/A'})`,
       memberName: lr.member.fullName,
       transactionCategory: 'Loan Repayments'
   }));
@@ -297,3 +296,5 @@ export async function rejectMultipleTransactions(
     return { success: false, message: 'One or more transactions failed to reject during bulk operation.' };
   }
 }
+
+    

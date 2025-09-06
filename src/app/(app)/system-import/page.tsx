@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -196,8 +195,14 @@ export default function SystemImportPage() {
             const shareTypesMap = new Map(pageData.shareTypes.map(t => [t.name, `share_${t.id}`]));
             const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
             const loanTypesMap = new Map(pageData.loanTypes.map(t => [t.name, `loan_${t.id}`]));
-            const loanRepaymentPrincipalMap = new Map(pageData.loanTypes.map(t => [`${t.name} Principal Repaid`, `loanrepay_${t.id}_principal`]));
-            const loanRepaymentInterestMap = new Map(pageData.loanTypes.map(t => [`${t.name} Interest Repaid`, `loanrepay_${t.id}_interest`]));
+            
+            // Corrected Map for repayments
+            const loanRepaymentMap = new Map();
+            pageData.loanTypes.forEach(lt => {
+                loanRepaymentMap.set(`${lt.name} Principal Repaid`, `loanrepay_${lt.id}_principal`);
+                loanRepaymentMap.set(`${lt.name} Interest Repaid`, `loanrepay_${lt.id}_interest`);
+            });
+
 
             const validatedData: ValidatedRow[] = dataRows.map(row => {
                 const memberIdFromFile = row['Member ID'];
@@ -233,14 +238,15 @@ export default function SystemImportPage() {
                         const loanKey = loanTypesMap.get(header)!;
                         collectionValues[loanKey] = { principal: value, term: term };
                       }
-                  } else if (loanRepaymentPrincipalMap.has(header)) {
+                  } else if (loanRepaymentMap.has(header)) {
                       const loanType = pageData.loanTypes.find(lt => header.startsWith(lt.name));
                       if (loanType) {
                         const key = `loanrepay_${loanType.id}`;
-                        const interestHeader = `${loanType.name} Interest Repaid`;
-                        const interestRepaid = parseFloat(row[interestHeader]) || 0;
-                        if (value > 0 || interestRepaid > 0) {
-                          collectionValues[key] = { principalRepaid: value, interestRepaid: interestRepaid };
+                        const principalRepaid = parseFloat(row[`${loanType.name} Principal Repaid`]) || 0;
+                        const interestRepaid = parseFloat(row[`${loanType.name} Interest Repaid`]) || 0;
+                        
+                        if (principalRepaid > 0 || interestRepaid > 0) {
+                           collectionValues[key] = { principalRepaid, interestRepaid };
                         }
                       }
                   }
@@ -388,3 +394,5 @@ export default function SystemImportPage() {
     </div>
   );
 }
+
+    
