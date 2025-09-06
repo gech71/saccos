@@ -50,7 +50,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
                 }
             },
             loans: {
-                where: { status: { in: ['active', 'overdue']}},
+                where: { status: { in: ['active', 'overdue', 'pending']}},
                 select: {
                     id: true,
                     loanTypeId: true,
@@ -168,11 +168,10 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                         transactionType: 'deposit',
                         status: 'pending',
                         depositMode: 'Bank',
-                        notes: `Imported Savings Interest for ${collectionMonth} ${collectionYear}`,
+                        notes: `Savings Interest posting for ${collectionMonth} ${collectionYear}`,
                     }
                 });
             }
-
         } else if (type === 'share') {
            let commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
            
@@ -228,20 +227,36 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
              
              const { principalRepaid, interestRepaid } = value as { principalRepaid: number, interestRepaid: number };
 
-             await tx.loanRepayment.create({
-                 data: {
-                     loanId: existingLoan.id,
-                     memberId: memberId,
-                     amountPaid: principalRepaid + interestRepaid,
-                     principalPaid: principalRepaid,
-                     interestPaid: interestRepaid,
-                     paymentDate: importDate,
-                     status: 'pending',
-                     depositMode: 'Cash',
-                     notes: 'Imported Loan Interest'
-                 }
-             });
-
+            if(interestRepaid > 0) {
+                 await tx.loanRepayment.create({
+                     data: {
+                         loanId: existingLoan.id,
+                         memberId: memberId,
+                         amountPaid: interestRepaid,
+                         principalPaid: 0,
+                         interestPaid: interestRepaid,
+                         paymentDate: importDate,
+                         status: 'pending',
+                         depositMode: 'Cash',
+                         notes: 'Imported Loan Interest'
+                     }
+                 });
+             }
+             if (principalRepaid > 0) {
+                 await tx.loanRepayment.create({
+                     data: {
+                         loanId: existingLoan.id,
+                         memberId: memberId,
+                         amountPaid: principalRepaid,
+                         principalPaid: principalRepaid,
+                         interestPaid: 0,
+                         paymentDate: importDate,
+                         status: 'pending',
+                         depositMode: 'Cash',
+                         notes: 'Imported Loan Repayment'
+                     }
+                 });
+             }
         } else if (type === 'service') {
              await tx.appliedServiceCharge.create({
                 data: {

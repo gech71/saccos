@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -285,7 +286,7 @@ export async function generateSimpleReport(
             where: {
                 memberId: { in: memberIdsInSchool },
                 status: 'approved',
-                notes: { contains: 'Monthly interest posting' },
+                notes: { contains: 'Savings Interest' },
                 date: {
                     gte: startDate,
                     lte: endDate,

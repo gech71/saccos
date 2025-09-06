@@ -175,7 +175,7 @@ export async function postInterestTransactions(
                 in: transactions.map(t => t.memberSavingAccountId)
             },
             notes: {
-                contains: `Interest posting for period ending`
+                contains: `Savings Interest posting for period ending`
             },
             date: postingDate,
         }
@@ -191,7 +191,7 @@ export async function postInterestTransactions(
             month: monthName,
             transactionType: 'deposit',
             status: 'pending',
-            notes: `Interest posting for period ending ${format(postingDate, 'PPP')}`,
+            notes: `Savings Interest posting for period ending ${format(postingDate, 'PPP')}`,
             depositMode: 'Bank',
             sourceName: 'Internal System Posting',
             transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
