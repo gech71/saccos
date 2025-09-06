@@ -154,24 +154,24 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
           });
 
         } else if (type === 'interest') {
-             const existingLoan = await tx.loan.findFirst({
-                 where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue', 'pending']}}
-             });
-             if (!existingLoan || typeof value !== 'number' || value <= 0) continue;
-
-             await tx.loanRepayment.create({
-                 data: {
-                     loanId: existingLoan.id,
-                     memberId: memberId,
-                     amountPaid: value,
-                     principalPaid: 0,
-                     interestPaid: value,
-                     paymentDate: importDate,
-                     status: 'pending',
-                     depositMode: 'Cash',
-                     notes: 'Imported Loan Interest'
-                 }
-             });
+            const savingAccount = await tx.memberSavingAccount.findFirst({
+                where: { memberId: memberId, savingAccountTypeId: id }
+            });
+            if (savingAccount && typeof value === 'number' && value > 0) {
+                await tx.saving.create({
+                    data: {
+                        memberId,
+                        memberSavingAccountId: savingAccount.id,
+                        amount: value,
+                        date: importDate,
+                        month: `${collectionMonth} ${collectionYear}`,
+                        transactionType: 'deposit',
+                        status: 'pending',
+                        depositMode: 'Bank',
+                        notes: `Imported Savings Interest for ${collectionMonth} ${collectionYear}`,
+                    }
+                });
+            }
 
         } else if (type === 'share') {
            let commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
@@ -226,17 +226,19 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
              });
              if (!existingLoan) continue;
              
+             const { principalRepaid, interestRepaid } = value as { principalRepaid: number, interestRepaid: number };
+
              await tx.loanRepayment.create({
                  data: {
                      loanId: existingLoan.id,
                      memberId: memberId,
-                     amountPaid: value.principalRepaid + value.interestRepaid,
-                     principalPaid: value.principalRepaid,
-                     interestPaid: value.interestRepaid,
+                     amountPaid: principalRepaid + interestRepaid,
+                     principalPaid: principalRepaid,
+                     interestPaid: interestRepaid,
                      paymentDate: importDate,
                      status: 'pending',
                      depositMode: 'Cash',
-                     notes: 'Bulk import loan repayment'
+                     notes: 'Imported Loan Interest'
                  }
              });
 
