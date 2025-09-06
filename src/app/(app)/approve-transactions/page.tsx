@@ -226,9 +226,13 @@ export default function ApproveTransactionsPage() {
 
 
   const getTransactionAmountDetails = (tx: PendingTransaction): string => {
-    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Saving Interest' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares' || tx.transactionCategory === 'Loan Repayments') {
-        const anyTx = tx as Saving | SharePayment | Dividend | LoanRepayment;
+    if (tx.transactionCategory === 'Savings' || tx.transactionCategory === 'Saving Interest' || tx.transactionCategory === 'Dividends' || tx.transactionCategory === 'Shares') {
+        const anyTx = tx as Saving | SharePayment | Dividend;
         return `${anyTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
+    }
+    if (tx.transactionCategory === 'Loan Repayments') {
+        const anyTx = tx as LoanRepayment;
+        return `${anyTx.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
     if (tx.transactionCategory === 'Loans') {
         const loanTx = tx as Loan;
@@ -256,6 +260,7 @@ export default function ApproveTransactionsPage() {
     const dataToExport = filteredTransactions.map(tx => {
       let details = '';
       if ('amount' in tx) details = `${(tx as Saving | SharePayment | Dividend | LoanRepayment).amount.toFixed(2)} Birr`;
+      else if ('amountPaid' in tx) details = `${(tx as LoanRepayment).amountPaid.toFixed(2)} Birr`;
       else if ('principalAmount' in tx) {
           details = `Loan of ${(tx as Loan).principalAmount.toFixed(2)} Birr`;
       } else if ('amountCharged' in tx) {
