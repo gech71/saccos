@@ -234,11 +234,14 @@ export default function SystemImportPage() {
                         collectionValues[loanKey] = { principal: value, term: term };
                       }
                   } else if (loanRepaymentPrincipalMap.has(header)) {
-                      const key = loanRepaymentPrincipalMap.get(header)!.replace('_principal', '');
-                      const interestHeader = `${header.replace(' Principal Repaid', '')} Interest Repaid`;
-                      const interestRepaid = parseFloat(row[interestHeader]) || 0;
-                      if (value > 0 || interestRepaid > 0) {
-                        collectionValues[key] = { principalRepaid: value, interestRepaid: interestRepaid };
+                      const loanType = pageData.loanTypes.find(lt => header.startsWith(lt.name));
+                      if (loanType) {
+                        const key = `loanrepay_${loanType.id}`;
+                        const interestHeader = `${loanType.name} Interest Repaid`;
+                        const interestRepaid = parseFloat(row[interestHeader]) || 0;
+                        if (value > 0 || interestRepaid > 0) {
+                          collectionValues[key] = { principalRepaid: value, interestRepaid: interestRepaid };
+                        }
                       }
                   }
                 }
