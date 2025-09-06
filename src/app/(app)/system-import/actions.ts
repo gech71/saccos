@@ -112,7 +112,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
         const id = idWithSuffix.replace('_principal','').replace('_interest','');
 
 
-        if (type === 'saving' || type === 'interest') {
+        if (type === 'saving') {
           let account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
           
           if (!account) {
@@ -149,9 +149,29 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
               transactionType: 'deposit',
               status: 'pending',
               depositMode: 'Cash',
-              notes: type === 'interest' ? 'Imported Interest' : 'Bulk data import',
+              notes: 'Bulk data import',
             }
           });
+
+        } else if (type === 'interest') {
+             const existingLoan = await tx.loan.findFirst({
+                 where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue', 'pending']}}
+             });
+             if (!existingLoan || typeof value !== 'number' || value <= 0) continue;
+
+             await tx.loanRepayment.create({
+                 data: {
+                     loanId: existingLoan.id,
+                     memberId: memberId,
+                     amountPaid: value,
+                     principalPaid: 0,
+                     interestPaid: value,
+                     paymentDate: importDate,
+                     status: 'pending',
+                     depositMode: 'Cash',
+                     notes: 'Imported Loan Interest'
+                 }
+             });
 
         } else if (type === 'share') {
            let commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
@@ -202,7 +222,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
         } else if (type === 'loanrepay') {
              if (typeof value !== 'object' || !('principalRepaid' in value)) continue;
              const existingLoan = await tx.loan.findFirst({
-                 where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue']}}
+                 where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue', 'pending']}}
              });
              if (!existingLoan) continue;
              
