@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -213,7 +214,9 @@ export default function SystemImportPage() {
                   if(header === 'Member ID' || header === 'Full Name') continue;
                   
                   const value = parseFloat(row[header]);
-                  if(isNaN(value) || value <= 0) continue;
+                  if(isNaN(value) || value < 0) continue; // Allow 0 for repayments
+
+                  if (value === 0 && !header.includes('Repaid')) continue;
 
                   if(savingTypesMap.has(header)) {
                       collectionValues[savingTypesMap.get(header)!] = value;
@@ -224,20 +227,19 @@ export default function SystemImportPage() {
                   } else if (serviceChargeTypesMap.has(header)) {
                       collectionValues[serviceChargeTypesMap.get(header)!] = value;
                   } else if (loanTypesMap.has(header)) {
-                      const termHeader = `${header} Repayment Period (Months)`;
-                      const term = parseInt(row[termHeader], 10);
-                      const loanKey = loanTypesMap.get(header)!;
-                      collectionValues[loanKey] = { principal: value, term: term };
+                      if (value > 0) {
+                        const termHeader = `${header} Repayment Period (Months)`;
+                        const term = parseInt(row[termHeader], 10);
+                        const loanKey = loanTypesMap.get(header)!;
+                        collectionValues[loanKey] = { principal: value, term: term };
+                      }
                   } else if (loanRepaymentPrincipalMap.has(header)) {
-                      const key = loanRepaymentPrincipalMap.get(header)!;
-                      const current = (collectionValues[key] || { principalRepaid: 0, interestRepaid: 0 }) as { principalRepaid: number; interestRepaid: number };
-                      current.principalRepaid = value;
-                      collectionValues[key] = current;
-                  } else if (loanRepaymentInterestMap.has(header)) {
-                      const key = loanRepaymentInterestMap.get(header)!.replace('_interest', '_principal'); // Assumes principal key is the base
-                      const current = (collectionValues[key] || { principalRepaid: 0, interestRepaid: 0 }) as { principalRepaid: number; interestRepaid: number };
-                      current.interestRepaid = value;
-                      collectionValues[key] = current;
+                      const key = loanRepaymentPrincipalMap.get(header)!.replace('_principal', '');
+                      const interestHeader = `${header.replace(' Principal Repaid', '')} Interest Repaid`;
+                      const interestRepaid = parseFloat(row[interestHeader]) || 0;
+                      if (value > 0 || interestRepaid > 0) {
+                        collectionValues[key] = { principalRepaid: value, interestRepaid: interestRepaid };
+                      }
                   }
                 }
                 

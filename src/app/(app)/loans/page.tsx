@@ -69,6 +69,10 @@ const initialLoanFormState: Partial<LoanInput & { id?: string }> = {
   serviceFee: 0,
 };
 
+function roundToTwo(num: number) {
+    return Math.round(num * 100) / 100;
+}
+
 export default function LoansPage() {
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [members, setMembers] = useState<MemberForSelect[]>([]);
@@ -359,16 +363,21 @@ export default function LoansPage() {
               let totalNext = 0;
               
               if ((loan.status === 'active' || loan.status === 'overdue') && loan.loanTerm > 0) {
-                  interestNext = loan.remainingBalance * (loan.interestRate / 12);
-                  principalNext = loan.principalAmount / loan.loanTerm;
+                  interestNext = roundToTwo(loan.remainingBalance * (loan.interestRate / 12));
+                  principalNext = roundToTwo(loan.principalAmount / loan.loanTerm);
                   
-                  const standardPayment = principalNext + interestNext;
+                  // The principal portion cannot be more than the remaining balance
+                  const finalPrincipalPortion = Math.min(principalNext, loan.remainingBalance);
+
+                  const standardPayment = finalPrincipalPortion + interestNext;
                   const finalPayment = loan.remainingBalance + interestNext;
                   
-                  totalNext = Math.min(standardPayment, finalPayment);
+                  totalNext = roundToTwo(Math.min(standardPayment, finalPayment));
 
                   if (totalNext === finalPayment) {
                       principalNext = loan.remainingBalance;
+                  } else {
+                      principalNext = finalPrincipalPortion;
                   }
               }
 

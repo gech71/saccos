@@ -55,7 +55,10 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
     }),
     prisma.loanRepayment.findMany({
       where: { status: 'pending' },
-      include: { member: { select: { fullName: true }}},
+      include: { 
+        member: { select: { fullName: true }},
+        loan: { select: { loanType: { select: { name: true }}}}
+      },
       orderBy: { paymentDate: 'asc' },
     })
   ]);
@@ -109,7 +112,7 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
   const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => ({
       ...lr,
       paymentDate: lr.paymentDate.toISOString(),
-      transactionTypeLabel: `Loan Repayment`,
+      transactionTypeLabel: `Loan Repayment (${(lr as any).loan.loanType.name})`,
       memberName: lr.member.fullName,
       transactionCategory: 'Loan Repayments'
   }));
@@ -239,17 +242,17 @@ export async function approveTransaction(txId: string, txType: string): Promise<
 
 export async function rejectTransaction(txId: string, txType: string, reason: string): Promise<{ success: boolean; message: string }> {
    try {
-    if (txType.startsWith('Savings') || txType === 'Saving Interest') {
+    if (txType === 'Savings' || txType === 'Saving Interest') {
         await prisma.saving.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType.startsWith('Share Payment')) {
+    } else if (txType === 'Shares') {
         await prisma.sharePayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType === 'Dividend Distribution') {
+    } else if (txType === 'Dividends') {
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType.startsWith('Loan Application')) {
+    } else if (txType === 'Loans') {
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType.startsWith('Loan Repayment')) {
+    } else if (txType === 'Loan Repayments') {
         await prisma.loanRepayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType.startsWith('Service Charge') || txType === 'Loan Interest') {
+    } else if (txType === 'Service Charges' || txType === 'Loan Interest') {
         await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     }
      revalidateAllPaths();

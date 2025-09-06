@@ -109,7 +109,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
         if (typeof value === 'number' && value <= 0) continue;
 
         const [type, idWithSuffix] = key.split('_');
-        const id = idWithSuffix.replace('_principal','');
+        const id = idWithSuffix.replace('_principal','').replace('_interest','');
 
 
         if (type === 'saving' || type === 'interest') {
