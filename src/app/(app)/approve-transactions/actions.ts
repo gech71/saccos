@@ -63,7 +63,7 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
   ]);
 
   const formattedSavings: PendingTransaction[] = pendingSavings.map(s => {
-    const isInterest = s.notes?.toLowerCase().includes('interest');
+    const isInterest = s.notes?.toLowerCase().includes('savings interest');
     return {
         ...s,
         date: s.date.toISOString(),
@@ -108,13 +108,18 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
       };
   });
   
-  const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => ({
-      ...lr,
-      paymentDate: lr.paymentDate.toISOString(),
-      transactionTypeLabel: `Loan Repayment (${lr.loan.loanType?.name || 'N/A'})`,
-      memberName: lr.member.fullName,
-      transactionCategory: 'Loan Repayments'
-  }));
+  const formattedLoanRepayments: PendingTransaction[] = pendingLoanRepayments.map(lr => {
+      // If principal is 0 and interest is > 0, it's an interest payment.
+      // Otherwise, it's a regular repayment (even if it includes interest).
+      const isInterestOnly = lr.principalPaid === 0 && lr.interestPaid > 0;
+      return {
+        ...lr,
+        paymentDate: lr.paymentDate.toISOString(),
+        transactionTypeLabel: isInterestOnly ? `Loan Interest Payment (${lr.loan.loanType?.name || 'N/A'})` : `Loan Repayment (${lr.loan.loanType?.name || 'N/A'})`,
+        memberName: lr.member.fullName,
+        transactionCategory: isInterestOnly ? 'Loan Interest' : 'Loan Repayments'
+      };
+  });
   
   const allTransactions = [...formattedSavings, ...formattedSharePayments, ...formattedDividends, ...formattedLoans, ...formattedServiceCharges, ...formattedLoanRepayments];
   
@@ -206,7 +211,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                   nextDueDate: nextDueDate,
               },
           });
-      } else if (txType === 'Loan Repayments') {
+      } else if (txType === 'Loan Repayments' || txType === 'Loan Interest') {
         const repaymentTx = await tx.loanRepayment.findUnique({ where: { id: txId, status: 'pending' }});
         if (!repaymentTx) throw new Error('Loan repayment not found or not pending.');
 
@@ -223,7 +228,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
                 status: newBalance <= 0 ? 'paid_off' : loan.status,
             }
         });
-      } else if (txType === 'Service Charges' || txType === 'Loan Interest') {
+      } else if (txType === 'Service Charges') {
         const serviceChargeTx = await tx.appliedServiceCharge.findUnique({ where: { id: txId } });
         if (!serviceChargeTx || serviceChargeTx.status !== 'pending') throw new Error('Service charge not found or not pending.');
         await tx.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'paid' } });
@@ -249,9 +254,9 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
         await prisma.dividend.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Loans') {
         await prisma.loan.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType === 'Loan Repayments') {
+    } else if (txType === 'Loan Repayments' || txType === 'Loan Interest') {
         await prisma.loanRepayment.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
-    } else if (txType === 'Service Charges' || txType === 'Loan Interest') {
+    } else if (txType === 'Service Charges') {
         await prisma.appliedServiceCharge.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     }
      revalidateAllPaths();
