@@ -230,15 +230,17 @@ export default function ApproveTransactionsPage() {
         const anyTx = tx as Saving | SharePayment | Dividend;
         return `${anyTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
-    if (tx.transactionCategory === 'Loan Repayments') {
+    if (tx.transactionCategory === 'Loan Repayments' || tx.transactionCategory === 'Loan Interest') {
         const anyTx = tx as LoanRepayment;
-        return `${anyTx.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
+        // LoanRepayments for pure interest will have amountPaid but it represents interest
+        const amount = anyTx.amountPaid;
+        return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
     if (tx.transactionCategory === 'Loans') {
         const loanTx = tx as Loan;
         return `${loanTx.principalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr Loan`;
     }
-     if (tx.transactionCategory === 'Service Charges' || tx.transactionCategory === 'Loan Interest') {
+     if (tx.transactionCategory === 'Service Charges') {
         const chargeTx = tx as AppliedServiceCharge;
         return `${chargeTx.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr`;
     }
@@ -252,7 +254,8 @@ export default function ApproveTransactionsPage() {
       if (category === 'Dividends') return <Landmark className="h-5 w-5 text-purple-600" />;
       if (category === 'Loans') return <Banknote className="h-5 w-5 text-indigo-600" />;
       if (category === 'Loan Repayments') return <Banknote className="h-5 w-5 text-teal-600" />;
-      if (category === 'Service Charges' || category === 'Loan Interest') return <ReceiptText className="h-5 w-5 text-orange-600" />;
+      if (category === 'Loan Interest') return <Percent className="h-5 w-5 text-teal-600" />;
+      if (category === 'Service Charges') return <ReceiptText className="h-5 w-5 text-orange-600" />;
       return null;
   };
 
