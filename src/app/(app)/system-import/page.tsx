@@ -298,6 +298,28 @@ export default function SystemImportPage() {
     }
   };
 
+  const totalImportAmount = useMemo(() => {
+    if (!validatedRows) return 0;
+
+    return validatedRows
+        .filter(row => row.status === 'Valid')
+        .reduce((total, row) => {
+            let rowTotal = 0;
+            for (const value of Object.values(row.data)) {
+                if (typeof value === 'number') {
+                    rowTotal += value;
+                } else if (typeof value === 'object') {
+                    if ('principal' in value) {
+                        rowTotal += value.principal; // Loan principal
+                    } else if ('principalRepaid' in value) {
+                        rowTotal += value.principalRepaid + value.interestRepaid;
+                    }
+                }
+            }
+            return total + rowTotal;
+        }, 0);
+  }, [validatedRows]);
+
 
   if (isPageLoading || !pageData) {
       return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -395,8 +417,15 @@ export default function SystemImportPage() {
                 </CardContent>
             )}
 
-            <CardFooter>
-                <Button onClick={handleSubmit} disabled={isSubmitting || !validationSummary || validationSummary.valid === 0}>
+            <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                {totalImportAmount > 0 && (
+                    <div className="text-lg font-semibold text-primary flex items-center gap-2">
+                        <DollarSign className="h-6 w-6" />
+                        <span>Total Import Amount:</span>
+                        <span>{totalImportAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                    </div>
+                )}
+                <Button onClick={handleSubmit} disabled={isSubmitting || !validationSummary || validationSummary.valid === 0} className="ml-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Submit ({validationSummary?.valid || 0}) Valid Records for Approval
                 </Button>
