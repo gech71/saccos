@@ -95,6 +95,16 @@ export const permissionsByGroup = {
     'Reports': [
         { id: 'report:view', label: 'View' },
     ],
+     'Website Management': [
+        { id: 'website:view', label: 'View Website Settings' },
+        { id: 'website:edit', label: 'Edit Website Settings' },
+    ],
+    'News Management': [
+        { id: 'news:view', label: 'View News Posts' },
+        { id: 'news:create', label: 'Create News Posts' },
+        { id: 'news:edit', label: 'Edit News Posts' },
+        { id: 'news:delete', label: 'Delete News Posts' },
+    ],
     'Settings': [
         { id: 'setting:view', label: 'View' },
         { id: 'setting:create', label: 'Create' },
