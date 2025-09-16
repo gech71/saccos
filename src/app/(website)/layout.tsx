@@ -1,7 +1,7 @@
 
 import { Footer } from '@/components/website/footer';
 import { Navbar } from '@/components/website/navbar';
-import { getWebsiteContent } from '@/app/(app)/settings/website/actions';
+import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 
 export default async function WebsiteLayout({
