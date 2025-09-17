@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "prisma db push",
+    "db:migrate": "prisma migrate dev --name init",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
