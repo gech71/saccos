@@ -39,15 +39,21 @@ export async function getWebsiteContentForAdmin() {
 export async function updateWebsiteContent(data: Partial<WebsiteContent>): Promise<WebsiteContent> {
     const currentContent = await prisma.websiteContent.findFirst();
     
+    // Exclude relation fields from the data payload for the update.
+    // These are handled by their own dedicated create/update/delete functions.
+    const { socialLinks, services, ...contentData } = data;
+
     let updatedContent;
     if (currentContent) {
         updatedContent = await prisma.websiteContent.update({
             where: { id: currentContent.id },
-            data,
+            data: contentData,
         });
     } else {
+        // createMany is not supported for related records in this way.
+        // The initial create should not have relational data.
         updatedContent = await prisma.websiteContent.create({
-            data: data as WebsiteContent,
+            data: contentData as WebsiteContent,
         });
     }
     
