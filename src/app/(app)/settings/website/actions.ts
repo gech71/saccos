@@ -49,7 +49,7 @@ export async function getPostsForAdmin(): Promise<Post[]> {
   return posts;
 }
 
-export async function createPost(data: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>): Promise<Post> {
+export async function createPost(data: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'slug'>): Promise<Post> {
   const newPost = await prisma.post.create({
     data: {
       ...data,
@@ -61,7 +61,7 @@ export async function createPost(data: Omit<Post, 'id' | 'createdAt' | 'updatedA
   return newPost;
 }
 
-export async function updatePost(id: string, data: Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Post> {
+export async function updatePost(id: string, data: Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'slug'>>): Promise<Post> {
   const postData = { ...data };
   if (data.title) {
     postData.slug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
