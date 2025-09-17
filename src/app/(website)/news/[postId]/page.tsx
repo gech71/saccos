@@ -23,7 +23,7 @@ export default async function PostPage({ params }: { params: { postId: string } 
           <div className="flex items-center gap-4 text-muted-foreground">
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              <time dateTime={post.createdAt.toISOString()}>
+              <time dateTime={new Date(post.createdAt).toISOString()}>
                 {format(new Date(post.createdAt), 'PPP')}
               </time>
             </div>
