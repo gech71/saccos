@@ -34,8 +34,8 @@ export function Footer({ content }: { content: (WebsiteContent & { socialLinks: 
             <div className="flex gap-4">
               {content?.socialLinks?.map((link) => (
                 <Link key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
-                    <Image 
-                        src={link.iconUrl} 
+                    <Image
+                        src={link.iconUrl}
                         alt={link.name}
                         width={24}
                         height={24}
