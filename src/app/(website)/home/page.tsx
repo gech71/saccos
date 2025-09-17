@@ -6,6 +6,13 @@ import { ArrowRight, Landmark, PiggyBank, HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+const iconComponents: { [key: string]: React.ElementType } = {
+    PiggyBank,
+    Landmark,
+    HandCoins,
+};
+
+
 export default async function HomePage() {
   const content = await getWebsiteContent();
 
@@ -55,34 +62,53 @@ export default async function HomePage() {
                 </p>
               </div>
             </div>
-            <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
-              <Card>
-                <CardHeader className="flex flex-col items-center text-center">
-                    <div className="p-4 bg-primary/10 rounded-full mb-2"><PiggyBank className="h-8 w-8 text-primary"/></div>
-                    <CardTitle>Savings Accounts</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-center text-muted-foreground">Secure and grow your funds with our competitive savings products designed for stability and growth.</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-col items-center text-center">
-                    <div className="p-4 bg-primary/10 rounded-full mb-2"><Landmark className="h-8 w-8 text-primary"/></div>
-                    <CardTitle>Affordable Loans</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-center text-muted-foreground">Access capital for your personal and professional needs with our fair and transparent loan products.</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-col items-center text-center">
-                    <div className="p-4 bg-primary/10 rounded-full mb-2"><HandCoins className="h-8 w-8 text-primary"/></div>
-                    <CardTitle>Dividends & Shares</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-center text-muted-foreground">Invest in the SACCO and earn returns on your shares through our annual dividend distributions.</p>
-                </CardContent>
-              </Card>
+            <div className="mx-auto grid max-w-5xl items-start gap-6 py-12 lg:grid-cols-3 lg:gap-12">
+              {content?.services && content.services.length > 0 ? (
+                content.services.map(service => {
+                  const IconComponent = iconComponents[service.icon];
+                  return (
+                    <Card key={service.id}>
+                      <CardHeader className="flex flex-col items-center text-center">
+                          {IconComponent && <div className="p-4 bg-primary/10 rounded-full mb-2"><IconComponent className="h-8 w-8 text-primary"/></div>}
+                          <CardTitle>{service.title}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <p className="text-center text-muted-foreground">{service.description}</p>
+                      </CardContent>
+                    </Card>
+                  )
+                })
+              ) : (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-col items-center text-center">
+                        <div className="p-4 bg-primary/10 rounded-full mb-2"><PiggyBank className="h-8 w-8 text-primary"/></div>
+                        <CardTitle>Savings Accounts</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-center text-muted-foreground">Secure and grow your funds with our competitive savings products designed for stability and growth.</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-col items-center text-center">
+                        <div className="p-4 bg-primary/10 rounded-full mb-2"><Landmark className="h-8 w-8 text-primary"/></div>
+                        <CardTitle>Affordable Loans</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-center text-muted-foreground">Access capital for your personal and professional needs with our fair and transparent loan products.</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-col items-center text-center">
+                        <div className="p-4 bg-primary/10 rounded-full mb-2"><HandCoins className="h-8 w-8 text-primary"/></div>
+                        <CardTitle>Dividends & Shares</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-center text-muted-foreground">Invest in the SACCO and earn returns on your shares through our annual dividend distributions.</p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           </div>
         </section>

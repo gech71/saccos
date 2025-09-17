@@ -11,6 +11,7 @@ export const getWebsiteContent = unstable_cache(
     const content = await prisma.websiteContent.findFirst({
         include: {
             socialLinks: true,
+            services: true,
         }
     });
     return content;

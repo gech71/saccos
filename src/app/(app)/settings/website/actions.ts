@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { WebsiteContent, Post, SocialMediaLink } from '@prisma/client';
+import type { WebsiteContent, Post, SocialMediaLink, Service } from '@prisma/client';
 import { revalidateTag } from 'next/cache';
 
 export async function getWebsiteContentForAdmin() {
@@ -11,6 +11,11 @@ export async function getWebsiteContentForAdmin() {
             socialLinks: {
                 orderBy: {
                     name: 'asc'
+                }
+            },
+            services: {
+                orderBy: {
+                    title: 'asc'
                 }
             }
         }
@@ -24,6 +29,7 @@ export async function getWebsiteContentForAdmin() {
             },
             include: {
                 socialLinks: true,
+                services: true,
             }
         });
     }
@@ -78,6 +84,41 @@ export async function createOrUpdateSocialMediaLink(data: Partial<Omit<SocialMed
 
 export async function deleteSocialMediaLink(id: string): Promise<{ success: boolean }> {
   await prisma.socialMediaLink.delete({
+    where: { id },
+  });
+  revalidateTag('website-content');
+  return { success: true };
+}
+
+// SERVICE ACTIONS
+export async function createOrUpdateService(data: Partial<Omit<Service, 'id'>> & { id?: string; contentId: string }): Promise<Service> {
+  const { id, contentId, ...serviceData } = data;
+
+  if (id) {
+    // Update
+    const updatedService = await prisma.service.update({
+      where: { id },
+      data: serviceData,
+    });
+    revalidateTag('website-content');
+    return updatedService;
+  } else {
+    // Create
+    const newService = await prisma.service.create({
+      data: {
+        title: serviceData.title!,
+        description: serviceData.description!,
+        icon: serviceData.icon!,
+        content: { connect: { id: contentId } },
+      },
+    });
+    revalidateTag('website-content');
+    return newService;
+  }
+}
+
+export async function deleteService(id: string): Promise<{ success: boolean }> {
+  await prisma.service.delete({
     where: { id },
   });
   revalidateTag('website-content');
