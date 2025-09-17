@@ -79,8 +79,8 @@ export default function WebsiteSettingsPage() {
     setContent(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLogoChange = (url: string) => {
-    setContent(prev => ({ ...prev, logoUrl: url }));
+  const handleFileUploadChange = (field: keyof WebsiteContent, url: string) => {
+    setContent(prev => ({ ...prev, [field]: url }));
   }
   
   const handleSocialLinkInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -218,12 +218,12 @@ export default function WebsiteSettingsPage() {
                   <Input id="saccoName" name="saccoName" value={content.saccoName || ''} onChange={handleInputChange} disabled={!canEdit} />
                 </div>
                 <div>
-                  <Label htmlFor="logoUrl">Logo URL</Label>
+                  <Label htmlFor="logoUrl">Logo</Label>
                    <FileUpload
                         id="logoUrl"
                         label="Upload your SACCO's logo"
                         value={content.logoUrl || ''}
-                        onValueChange={handleLogoChange}
+                        onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
                     />
                 </div>
               </CardContent>
@@ -232,7 +232,7 @@ export default function WebsiteSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Info className="h-5 w-5 text-primary" /> Page Content</CardTitle>
-                <CardDescription>The text that appears on your homepage and about page.</CardDescription>
+                <CardDescription>The text and images that appear on your homepage and about page.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -246,6 +246,15 @@ export default function WebsiteSettingsPage() {
                  <div>
                   <Label htmlFor="aboutUs">About Us Section Content</Label>
                   <Textarea id="aboutUs" name="aboutUs" value={content.aboutUs || ''} onChange={handleInputChange} rows={6} disabled={!canEdit} />
+                </div>
+                <div>
+                  <Label htmlFor="aboutUsImageUrl">About Us Image</Label>
+                   <FileUpload
+                        id="aboutUsImageUrl"
+                        label="Upload an image for the About Us page"
+                        value={content.aboutUsImageUrl || ''}
+                        onValueChange={(url) => handleFileUploadChange('aboutUsImageUrl', url)}
+                    />
                 </div>
               </CardContent>
             </Card>

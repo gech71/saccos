@@ -29,7 +29,7 @@ export default async function AboutPage() {
           </div>
           <div className="relative h-80 w-full overflow-hidden rounded-xl shadow-lg">
              <Image
-                src="https://picsum.photos/seed/community/800/600"
+                src={content?.aboutUsImageUrl || "https://picsum.photos/seed/community/800/600"}
                 alt="Community"
                 layout="fill"
                 objectFit="cover"

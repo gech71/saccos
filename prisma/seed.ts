@@ -72,6 +72,7 @@ async function main() {
       heroTitle: 'Empowering Your Financial Future, Together.',
       heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
       aboutUs: 'We are a member-owned financial cooperative dedicated to providing quality financial services to the educational community. Our mission is to promote thrift, provide access to credit, and support the financial well-being of our members.\n\nFounded on the principles of cooperation and mutual support, we strive to be a trusted partner for all our members, helping them achieve their financial goals through ethical and transparent practices.',
+      aboutUsImageUrl: 'https://picsum.photos/seed/community/800/600',
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
       email: 'contact@academinvest.com',
