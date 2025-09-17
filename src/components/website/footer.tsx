@@ -18,9 +18,9 @@ export function Footer({ content }: { content: (WebsiteContent & { socialLinks: 
           </div>
 
           {/* Quick Links */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center md:items-start">
             <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
-            <nav className="flex flex-col gap-2 items-center">
+            <nav className="flex flex-col gap-2 items-center md:items-start">
               <Link href="/home" className="hover:text-primary">Home</Link>
               <Link href="/about" className="hover:text-primary">About Us</Link>
               <Link href="/news" className="hover:text-primary">News</Link>

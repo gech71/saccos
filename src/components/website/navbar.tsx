@@ -23,7 +23,9 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Logo />
+        <div className="group">
+            <Logo />
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex gap-6 items-center">
@@ -40,7 +42,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
             </Link>
           ))}
           <Button asChild>
-            <Link href="/login">Member Login</Link>
+            <Link href="/login">Login</Link>
           </Button>
         </nav>
 
@@ -55,7 +57,9 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
             </SheetTrigger>
             <SheetContent side="left">
               <nav className="grid gap-6 text-lg font-medium p-6">
-                <Logo />
+                <div className="group">
+                    <Logo />
+                </div>
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -69,7 +73,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
                   </Link>
                 ))}
                  <Button asChild className="mt-4">
-                    <Link href="/login">Member Login</Link>
+                    <Link href="/login">Login</Link>
                 </Button>
               </nav>
             </SheetContent>

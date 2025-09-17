@@ -9,7 +9,7 @@ export function Logo({ className }: { className?: string }) {
         alt="NIB Saccos Logo"
         width={32}
         height={32}
-        className="rounded-md"
+        className="rounded-md transition-transform duration-300 group-hover:rotate-12"
       />
       <span className="font-headline">NIB Saccos</span>
     </Link>
