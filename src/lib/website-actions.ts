@@ -8,7 +8,11 @@ import { unstable_cache } from 'next/cache';
 // This acts like a server-side cache that can be revalidated.
 export const getWebsiteContent = unstable_cache(
   async () => {
-    const content = await prisma.websiteContent.findFirst();
+    const content = await prisma.websiteContent.findFirst({
+        include: {
+            socialLinks: true,
+        }
+    });
     return content;
   },
   ['website-content'], // Cache key

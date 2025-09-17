@@ -12,8 +12,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
