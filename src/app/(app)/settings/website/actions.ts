@@ -50,7 +50,7 @@ export async function updateWebsiteContent(data: Partial<WebsiteContent>): Promi
 }
 
 // SOCIAL MEDIA ACTIONS
-export async function createOrUpdateSocialMediaLink(data: Partial<SocialMediaLink> & { contentId: string }): Promise<SocialMediaLink> {
+export async function createOrUpdateSocialMediaLink(data: Partial<Omit<SocialMediaLink, 'id'>> & { id?: string; contentId: string }): Promise<SocialMediaLink> {
   const { id, contentId, ...linkData } = data;
 
   if (id) {
@@ -67,7 +67,7 @@ export async function createOrUpdateSocialMediaLink(data: Partial<SocialMediaLin
       data: {
         name: linkData.name!,
         url: linkData.url!,
-        icon: linkData.icon!,
+        iconUrl: linkData.iconUrl!,
         content: { connect: { id: contentId } },
       },
     });

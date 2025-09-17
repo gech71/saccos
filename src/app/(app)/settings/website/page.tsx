@@ -17,14 +17,11 @@ import { FileUpload } from '@/components/file-upload';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const availableIcons = ['Facebook', 'Twitter', 'Linkedin', 'Instagram', 'Youtube', 'Gitlab'];
 
 const initialSocialLinkFormState: Partial<SocialMediaLink> = {
   name: '',
   url: '',
-  icon: '',
+  iconUrl: '',
 };
 
 export default function WebsiteSettingsPage() {
@@ -73,8 +70,8 @@ export default function WebsiteSettingsPage() {
     setCurrentSocialLink(prev => ({...prev, [name]: value}));
   };
   
-  const handleSocialLinkIconChange = (value: string) => {
-    setCurrentSocialLink(prev => ({...prev, icon: value}));
+  const handleSocialLinkIconChange = (url: string) => {
+    setCurrentSocialLink(prev => ({...prev, iconUrl: url}));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,7 +100,7 @@ export default function WebsiteSettingsPage() {
   
   const handleSocialLinkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content?.id || !currentSocialLink.name || !currentSocialLink.url || !currentSocialLink.icon) {
+    if (!content?.id || !currentSocialLink.name || !currentSocialLink.url || !currentSocialLink.iconUrl) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields for the social link.' });
       return;
     }
@@ -275,15 +272,13 @@ export default function WebsiteSettingsPage() {
                     <Input id="socialName" name="name" value={currentSocialLink.name || ''} onChange={handleSocialLinkInputChange} placeholder="e.g., Facebook" required />
                 </div>
                 <div>
-                    <Label htmlFor="socialIcon">Icon</Label>
-                     <Select value={currentSocialLink.icon || ''} onValueChange={handleSocialLinkIconChange}>
-                        <SelectTrigger id="socialIcon"><SelectValue placeholder="Select an icon" /></SelectTrigger>
-                        <SelectContent>
-                            {availableIcons.map(icon => (
-                                <SelectItem key={icon} value={icon}>{icon}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                     <Label htmlFor="iconUrl">Icon Image</Label>
+                     <FileUpload
+                        id="iconUrl"
+                        label="Upload an icon"
+                        value={currentSocialLink.iconUrl || ''}
+                        onValueChange={handleSocialLinkIconChange}
+                    />
                 </div>
                 <div>
                     <Label htmlFor="socialUrl">URL</Label>
