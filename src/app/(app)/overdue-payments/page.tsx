@@ -33,14 +33,15 @@ import {
 } from '@/components/ui/dialog';
 import type { School, ShareType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, Banknote, Wallet, ReceiptText, FileDown, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search, Filter, SchoolIcon, Edit, ListChecks, DollarSign, Banknote, Wallet, ReceiptText, FileDown, Loader2, PiggyBank, PieChart } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { exportToExcel } from '@/lib/utils';
 import { FileUpload } from '@/components/file-upload';
 import { getOverduePaymentsPageData, recordOverduePayment, type OverduePageData, type OverdueMemberInfo, type OverduePaymentInput } from './actions';
 import { useAuth } from '@/contexts/auth-context';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface PaymentFormState {
   savingsAmount: number;
@@ -313,125 +314,79 @@ export default function OverduePaymentsPage() {
         </Select>
       </div>
       
-      <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member Name</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead className="text-right text-destructive">Overdue Savings (Birr)</TableHead>
-              <TableHead className="text-left">Overdue Shares Details</TableHead>
-              <TableHead className="text-right text-destructive">Overdue Service Charges (Birr)</TableHead>
-              <TableHead className="text-center w-[150px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedOverdueMembers.length > 0 ? paginatedOverdueMembers.map(member => (
-              <TableRow key={member.memberId} className={member.hasAnyOverdue ? 'bg-destructive/5 hover:bg-destructive/10' : ''}>
-                <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>{member.schoolName}</TableCell>
-                <TableCell className="text-right font-semibold text-destructive">
-                  {member.overdueSavingsAmount > 0 ? `${member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr` : <span className="text-muted-foreground/70">-</span>}
-                </TableCell>
-                <TableCell>
-                  {member.overdueSharesDetails.length > 0 ? (
-                    <ul className="list-disc list-inside space-y-0.5 text-xs">
-                      {member.overdueSharesDetails.map(detail => (
-                        <li key={detail.shareTypeId}>
-                          <span className="font-medium">{detail.shareTypeName}</span>: <span className="text-destructive font-semibold">{detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <span className="text-muted-foreground/70">-</span>}
-                </TableCell>
-                <TableCell className="text-right font-semibold text-destructive">
-                   {member.totalOverdueServiceCharges > 0 ? (
-                    <div className="flex flex-col items-end">
-                      <span>{member.totalOverdueServiceCharges.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                      <ul className="list-disc list-inside text-xs text-right">
-                        {member.pendingServiceCharges.map(sc => (
-                            <li key={sc.id}><span className="font-normal text-muted-foreground">{sc.serviceChargeTypeName}: {sc.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span></li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : <span className="text-muted-foreground/70">-</span>}
-                </TableCell>
-                <TableCell className="text-center">
-                  {member.hasAnyOverdue && canCreate && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenPaymentModal(member)}
-                      className="border-primary text-primary hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Edit className="mr-1.5 h-3.5 w-3.5" />
-                      Record Payment
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No overdue payments found matching your criteria.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-       {filteredOverdueMembers.length > 0 && (
-        <div className="flex flex-col items-center gap-2 pt-4">
-          <div className="flex items-center space-x-6 lg:space-x-8">
-              <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Rows per page</p>
-                  <Select
-                      value={`${rowsPerPage}`}
-                      onValueChange={(value) => {
-                          setRowsPerPage(Number(value));
-                          setCurrentPage(1);
-                      }}
-                  >
-                      <SelectTrigger className="h-8 w-[70px]">
-                          <SelectValue placeholder={`${rowsPerPage}`} />
-                      </SelectTrigger>
-                      <SelectContent side="top">
-                          {[10, 15, 20, 25].map((pageSize) => (
-                              <SelectItem key={pageSize} value={`${pageSize}`}>
-                                  {pageSize}
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-              </div>
-              <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                  Page {currentPage} of {totalPages || 1}
-              </div>
-              <div className="flex items-center space-x-2">
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                  >
-                      Previous
-                  </Button>
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage >= totalPages}
-                  >
-                      Next
-                  </Button>
-              </div>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {filteredOverdueMembers.length} member(s) found.
-          </div>
-        </div>
-      )}
+      <Accordion type="multiple" className="w-full space-y-2">
+        {isLoading ? (
+            <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
+        ) : paginatedOverdueMembers.length > 0 ? paginatedOverdueMembers.map(member => {
+            const totalOverdue = member.overdueSavingsAmount + member.overdueSharesDetails.reduce((sum, d) => sum + d.overdueAmount, 0) + member.totalOverdueServiceCharges;
+            return (
+                <AccordionItem value={member.memberId} key={member.memberId} className="border-b-0">
+                    <Card className="shadow-sm">
+                        <AccordionTrigger className="p-4 hover:no-underline [&[data-state=open]]:border-b">
+                           <div className="flex-1 text-left flex flex-col md:flex-row md:items-center gap-2 md:gap-4 w-full">
+                                <div className="font-medium flex-1 min-w-0 truncate">{member.fullName}</div>
+                                <div className="text-sm text-muted-foreground flex-1 min-w-0 truncate">{member.schoolName}</div>
+                                <div className="font-semibold text-destructive flex-1 min-w-0 truncate text-right md:text-left">
+                                    Total Overdue: {totalOverdue.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-6 pt-0">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {member.overdueSavingsAmount > 0 && (
+                                    <Card>
+                                        <CardHeader><CardTitle className="text-base flex items-center gap-2"><PiggyBank className="h-5 w-5 text-primary"/> Overdue Savings</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <p className="text-2xl font-bold text-destructive">{member.overdueSavingsAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                {member.overdueSharesDetails.length > 0 && (
+                                    <Card>
+                                        <CardHeader><CardTitle className="text-base flex items-center gap-2"><PieChart className="h-5 w-5 text-primary"/> Overdue Shares</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <Table>
+                                                <TableHeader><TableRow><TableHead>Type</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    {member.overdueSharesDetails.map(detail => (
+                                                        <TableRow key={detail.shareTypeId}><TableCell>{detail.shareTypeName}</TableCell><TableCell className="text-right font-medium text-destructive">{detail.overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell></TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                 {member.totalOverdueServiceCharges > 0 && (
+                                    <Card>
+                                        <CardHeader><CardTitle className="text-base flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary"/> Overdue Service Charges</CardTitle></CardHeader>
+                                        <CardContent>
+                                            <Table>
+                                                <TableHeader><TableRow><TableHead>Type</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    {member.pendingServiceCharges.map(charge => (
+                                                         <TableRow key={charge.id}><TableCell>{charge.serviceChargeTypeName}</TableCell><TableCell className="text-right font-medium text-destructive">{charge.amountCharged.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell></TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                            {canCreate && (
+                                <div className="mt-4 flex justify-end">
+                                    <Button size="sm" onClick={() => handleOpenPaymentModal(member)}>
+                                        <Edit className="mr-2 h-4 w-4"/> Record Payment
+                                    </Button>
+                                </div>
+                            )}
+                        </AccordionContent>
+                    </Card>
+                </AccordionItem>
+            );
+        }) : (
+            <div className="p-12 text-center text-muted-foreground">No overdue payments found.</div>
+        )}
+      </Accordion>
 
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
         <DialogContent className="sm:max-w-lg">
