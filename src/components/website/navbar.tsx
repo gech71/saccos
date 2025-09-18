@@ -13,6 +13,7 @@ import type { WebsiteContent } from '@prisma/client';
 const navLinks = [
   { href: '/home', label: 'Home' },
   { href: '/about', label: 'About Us' },
+  { href: '/home#services', label: 'Services' },
   { href: '/news', label: 'News' },
   { href: '/contact', label: 'Contact' },
 ];
