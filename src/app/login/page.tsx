@@ -105,7 +105,7 @@ export default function LoginPage() {
         <Input
           id="memberPassword"
           type="password"
-          placeholder="Enter your temporary or permanent password"
+          placeholder="Enter your Password"
           value={memberPassword}
           onChange={(e) => setMemberPassword(e.target.value)}
           required
