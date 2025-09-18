@@ -15,12 +15,12 @@ export default async function HomePage() {
         {/* Hero Section */}
         <section className="relative w-full h-[60vh] flex items-center justify-center text-center text-white bg-accent/80">
            <Image
-            src="https://picsum.photos/seed/rocket/1200/800"
+            src="https://picsum.photos/seed/finance/1200/800"
             alt="Community finance"
             layout="fill"
             objectFit="cover"
             className="absolute inset-0 z-[-1] object-cover w-full h-full"
-            data-ai-hint="community finance people collaborating"
+            data-ai-hint="finance currency"
           />
           <div className="absolute inset-0 bg-black/50 z-[-1]"></div>
           <div className="container px-4 md:px-6 z-10">
