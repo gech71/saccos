@@ -42,13 +42,20 @@ The dashboard provides a high-level overview of the Saccos's health, including:
 -   Total Members, Total Savings, Total Loan Principal.
 -   Monthly savings trends and school performance charts.
 
-### 4.2 Member Management
+### 4.2 School Management
+-   **Location:** `Basic Information > Schools`
+-   **View:** This page lists all registered schools and shows the number of members associated with each.
+-   **Create:** Click the "Add School" button to open a form where you can input the School ID, Name, Address, and Contact Person.
+-   **Update:** Use the actions menu on any school's row to edit its details.
+-   **Import:** Use the "Import Schools" feature to bulk-upload new schools from a pre-formatted Excel file.
+
+### 4.3 Member Management
 -   **Location:** `Basic Information > Members`
 -   **Create:** Click the "Add Member" button to open a form where you can input all personal, contact, and financial details for a new member. You can also subscribe them to initial shares and apply registration fees here.
 -   **View/Update:** The main table lists all members. You can search by name/ID or filter by school. Click the actions menu on any member's row to edit their details or transfer them to another school.
 -   **Import:** Use the "Import Members" feature to bulk-upload new members from a pre-formatted Excel file.
 
-### 4.3 Financial Transactions: A Detailed Walkthrough
+### 4.4 Financial Transactions: A Detailed Walkthrough
 
 This section provides step-by-step instructions for common financial workflows. The core principle is that most transactions are a two-step process: **Recording** and **Approval**.
 
@@ -62,7 +69,7 @@ Next, a user with approval permissions (or a different user, for checks and bala
 
 ---
 
-#### 4.3.1 Workflow: Managing Member Savings
+#### 4.4.1 Workflow: Managing Member Savings
 
 **A. Creating a New Savings Account for a Member**
 
@@ -94,7 +101,7 @@ Before a member can save, they need a saving account.
 
 ---
 
-#### 4.3.2 Workflow: Managing Loans
+#### 4.4.2 Workflow: Managing Loans
 
 **A. Creating a New Loan Application**
 
@@ -125,7 +132,7 @@ Before a member can save, they need a saving account.
 
 ---
 
-#### 4.3.3 Workflow: The Approval Process
+#### 4.4.3 Workflow: The Approval Process
 
 All recorded financial transactions must be approved to take effect.
 
@@ -138,7 +145,9 @@ All recorded financial transactions must be approved to take effect.
 
 ---
 
-### 4.4 Aggregate Collections
+### 4.5 Advanced Operations
+
+#### 4.5.1 Aggregate Collections
 -   **Location:** `Administration > Aggregate Collections`
 -   This powerful feature allows for bulk data entry for an entire school for a specific month.
 -   **How to Use:**
@@ -148,7 +157,36 @@ All recorded financial transactions must be approved to take effect.
     4.  Fill out the collected amounts in the Excel file and then use the **Import from Excel** tab to upload it. The system will validate the file and show a preview.
     5.  Once you submit, the system creates individual pending transactions for each entry, ready for approval.
 
-### 4.5 System Configuration
+#### 4.5.2 Overdue Payments
+-   **Location:** `Administration > Overdue Payments`
+-   This page provides a summary of all members who have outstanding payments for savings, shares, or service charges.
+-   **How to Use:**
+    1.  Use the filters to search for a member or filter by school.
+    2.  Each member with an overdue amount will be listed in an expandable section.
+    3.  Expand a member's section to see a detailed breakdown of their overdue amounts for savings, different share types, and specific service charges.
+    4.  Click the "Record Payment" button to open a form pre-filled with the total overdue amounts.
+    5.  You can adjust the amounts the member is paying, select the payment method, and submit the payment for approval.
+
+#### 4.5.3 Collection Forecast
+-   **Location:** `Administration > Collection Forecast`
+-   This tool helps you predict expected revenue for a future month.
+-   **How to Use:**
+    1.  Select a School, Year, and Month.
+    2.  Choose the `Collection Type` you want to forecast (e.g., "Savings", "Shares", "Loan Repayments").
+    3.  Select the specific `Saving Account Type`, `Share Type`, or `Loan Type` from the next dropdown.
+    4.  Click "Load Forecast". The system will generate a list of all members who are expected to contribute and the amount they are expected to pay for that month.
+
+#### 4.5.4 Close Member Account
+-   **Location:** `Savings > Close Account`
+-   This feature allows you to formally close a member's account and process their final payout.
+-   **How to Use:**
+    1.  Select the member whose account you wish to close from the dropdown menu.
+    2.  Click "Calculate Final Payout". The system will calculate the total amount due to the member, including their current savings balance, any accrued interest, and a full refund of all their paid-up shares.
+    3.  Review the payout summary.
+    4.  Select the payout method (Cash, Bank, Wallet) and fill in any transaction details if required.
+    5.  Click "Confirm Account Closure and Payout". This action is irreversible. It will create the necessary payout transactions and mark the member's status as `inactive`.
+
+### 4.6 System Configuration
 -   **Location:** `Configuration` section in the sidebar.
 -   This is where you define the financial products of the Saccos.
 -   You can create, edit, or delete types for:
@@ -158,12 +196,12 @@ All recorded financial transactions must be approved to take effect.
     -   **Service Charge Types:** (e.g., Annual Fee, Loan Processing Fee).
 -   **Note:** You cannot delete a type if it is currently being used by any member or transaction to maintain data integrity.
 
-### 4.6 Reports & Calculations
+### 4.7 Reports & Calculations
 -   **Interest Calculation:** Navigate to `Calculate Savings Interest` or `Calculate Loan Interest` to run calculations for a specific period and scope. The system will show a preview, and you can then post the calculated amounts as pending transactions for approval.
 -   **Account Statement:** Generate a detailed PDF statement for any member's savings account for a specific date range.
 -   **Reports:** The `Reports` page allows you to generate and export various financial reports in Excel format.
 
-### 4.7 Website Management
+### 4.8 Website Management
 -   **Location:** `Website Management` section in the sidebar.
 -   **Website Settings:** From here, you can update the content that appears on the public-facing website. This includes:
     -   The SACCO's name and logo.
@@ -173,7 +211,7 @@ All recorded financial transactions must be approved to take effect.
     -   Social media links.
 -   **Manage News:** Create, edit, publish, and delete news posts that will be displayed on the website's "News" page.
 
-### 4.8 User & Role Management
+### 4.9 User & Role Management
 -   **Location:** `Administration > Settings`
 -   **Users Tab:** View all admin/staff users. You can register a new user or manage the roles of an existing user.
 -   **Roles Tab:** Create or edit roles. For each role, you can assign granular permissions that control what actions a user with that role can perform.
