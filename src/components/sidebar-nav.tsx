@@ -52,7 +52,7 @@ export function SidebarNav({ navItems, className }: SidebarNavProps) {
               return null;
           }
           
-          const isActive = item.href === '/' ? pathname === item.href : pathname.startsWith(item.href);
+          const isActive = pathname === item.href;
           return (
             <SidebarMenuItem key={index}>
               <SidebarMenuButton

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -32,7 +33,7 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
   }
 }
 
-export async function addSchool(data: Omit<School, '_count'>): Promise<School> {
+export async function addSchool(data: Omit<School, 'id' | '_count'>): Promise<School> {
   const newSchool = await prisma.school.create({
     data,
   });

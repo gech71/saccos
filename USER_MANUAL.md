@@ -48,28 +48,95 @@ The dashboard provides a high-level overview of the Saccos's health, including:
 -   **View/Update:** The main table lists all members. You can search by name/ID or filter by school. Click the actions menu on any member's row to edit their details or transfer them to another school.
 -   **Import:** Use the "Import Members" feature to bulk-upload new members from a pre-formatted Excel file.
 
-### 4.3 Financial Transactions
+### 4.3 Financial Transactions: A Detailed Walkthrough
 
-#### 4.3.1 Transaction Approval
--   **Location:** `Administration > Approve Transactions`
--   All financial transactions (savings, loan applications, share payments, dividends, service charges) that are recorded in the system appear here first with a `pending` status.
--   Review each transaction and click **Approve** to confirm it or **Reject** to cancel it. You can also approve or reject multiple transactions in bulk by selecting them with the checkboxes.
+This section provides step-by-step instructions for common financial workflows. The core principle is that most transactions are a two-step process: **Recording** and **Approval**.
 
-#### 4.3.2 Savings
--   **Location:** `Savings > Savings Transactions`
--   Record a new deposit or withdrawal for a member. Select the member, their specific savings account, and enter the transaction details. The transaction will then go to the approval queue.
+#### Step 1: Recording a Transaction
 
-#### 4.3.3 Loans
--   **Location:** `Loans > Loans`
--   Create a new loan application for a member. Select the member, loan type, and enter all required details like principal amount, term, and collateral (guarantors, title deeds). The system performs validation checks based on the loan type's rules.
--   **Location:** `Loans > Loan Repayments`
--   Record a repayment for an active loan. The system automatically calculates the interest and principal allocation based on the remaining balance.
+First, you record the transaction that has occurred (e.g., a member makes a cash deposit). This creates a `pending` record in the system.
 
-#### 4.3.4 Shares & Dividends
--   **Location:** `Shares & Dividends > Share Payments`
--   Record payments made by members towards their share commitments.
--   **Location:** `Shares & Dividends > Dividend Payouts`
--   Record dividend distributions for members. These transactions also require approval.
+#### Step 2: Approving the Transaction
+
+Next, a user with approval permissions (or a different user, for checks and balances) reviews the `pending` transaction and either **approves** or **rejects** it. Once approved, the member's account balances are updated.
+
+---
+
+#### 4.3.1 Workflow: Managing Member Savings
+
+**A. Creating a New Savings Account for a Member**
+
+Before a member can save, they need a saving account.
+
+1.  **Navigate:** Go to `Basic Information > Add Saving Account`.
+2.  **Select Member:** Choose the member from the dropdown list.
+3.  **Select Account Type:** Choose the type of savings account (e.g., "Regular Savings"). The "Expected Monthly Saving" will be calculated automatically based on the account type's rules.
+4.  **Enter Initial Balance:** If the member is opening the account with an initial deposit, enter the amount in the "Initial Savings Balance" field. Otherwise, leave it at 0.
+5.  **Create Account:** Click the "Create Account" button. The account is now active and ready for transactions.
+
+**B. Recording a Savings Deposit**
+
+1.  **Navigate:** Go to `Savings > Savings Transactions`.
+2.  **Add Transaction:** Click the "Add Transaction" button.
+3.  **Select Member & Account:** Choose the member and then select their specific savings account from the dropdowns.
+4.  **Set Transaction Type:** Ensure "Deposit" is selected.
+5.  **Enter Details:** Fill in the deposit amount, date, and payment method (e.g., Cash, Bank). If using Bank or Wallet, provide the transaction reference.
+6.  **Submit:** Click "Submit for Approval". The transaction is now in the approval queue.
+
+**C. Recording a Savings Withdrawal**
+
+1.  **Navigate:** Go to `Savings > Savings Transactions`.
+2.  **Add Transaction:** Click "Add Transaction".
+3.  **Select Member & Account:** Choose the member and their account. The current balance will be shown for reference.
+4.  **Set Transaction Type:** Select "Withdrawal".
+5.  **Enter Amount:** Enter the amount to be withdrawn. You cannot withdraw more than the account's balance.
+6.  **Submit:** Click "Submit for Approval".
+
+---
+
+#### 4.3.2 Workflow: Managing Loans
+
+**A. Creating a New Loan Application**
+
+1.  **Navigate:** Go to `Loans > Loans`.
+2.  **New Application:** Click the "New Loan Application" button.
+3.  **Select Member & Loan Type:** Choose the member and the type of loan they are applying for. The form will dynamically show rules and limits based on the selected loan type.
+4.  **Enter Loan Details:** Input the `Principal Amount` and `Repayment Period (Months)`. The system will validate these against the loan type's rules.
+5.  **Add Collateral:**
+    *   **Guarantors:** Select eligible members from the dropdown to add as guarantors.
+    *   **Title Deeds:** If required, use the "Add Title Deed" button to upload the document and provide a description.
+6.  **Submit:** Review the estimated repayment details and click "Submit Application". The loan is now pending approval.
+
+**B. Approving a Loan to Make it Active**
+
+1.  **Navigate:** Go to `Administration > Approve Transactions`.
+2.  **Find Loan:** Locate the pending loan application in the table. It will be labeled "Loan Application".
+3.  **Approve:** Review the details and click the "Approve" button.
+4.  **Result:** The loan's status changes from `pending` to `active`. The principal amount is now considered disbursed, and it will appear in the member's loan history.
+
+**C. Recording a Loan Repayment**
+
+1.  **Navigate:** Go to `Loans > Loan Repayments`.
+2.  **Record Repayment:** Click "Record Repayment".
+3.  **Select Loan:** Choose the member's active loan from the dropdown. The system will display the minimum payment and the final settlement amount for that period.
+4.  **Enter Amount:** Input the amount the member has paid. The system will automatically calculate how much goes to interest and how much to principal.
+5.  **Enter Details:** Fill in the payment date and method.
+6.  **Submit:** Click "Submit for Approval".
+
+---
+
+#### 4.3.3 Workflow: The Approval Process
+
+All recorded financial transactions must be approved to take effect.
+
+1.  **Navigate:** Go to `Administration > Approve Transactions`. This page shows a consolidated list of all pending transactions.
+2.  **Review:** Examine each transaction's details: the member, the type, and the amount.
+3.  **Take Action:**
+    *   **Approve:** Click the "Approve" button to confirm a single transaction. Its status will change to `approved`, and the relevant account balances (savings, loan balance, etc.) will be updated.
+    *   **Reject:** Click the "Reject" button. You will be prompted to provide a reason for the rejection. The transaction status will change to `rejected`, and no balances will be affected.
+    *   **Bulk Actions:** Select multiple transactions using the checkboxes and use the "Approve (x)" or "Reject (x)" buttons at the top of the table to process them in a batch.
+
+---
 
 ### 4.4 Aggregate Collections
 -   **Location:** `Administration > Aggregate Collections`
