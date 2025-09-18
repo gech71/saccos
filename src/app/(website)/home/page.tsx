@@ -123,7 +123,7 @@ export default async function HomePage() {
                     </Button>
                 </div>
                 <Image
-                    src="https://picsum.photos/seed/team/600/400"
+                    src={content?.aboutUsImageUrl || "https://picsum.photos/seed/team/600/400"}
                     alt="Our Team"
                     width={600}
                     height={400}
