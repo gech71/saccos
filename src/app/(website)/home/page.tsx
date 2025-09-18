@@ -6,13 +6,6 @@ import { ArrowRight, Landmark, PiggyBank, HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-const iconComponents: { [key: string]: React.ElementType } = {
-    PiggyBank,
-    Landmark,
-    HandCoins,
-};
-
-
 export default async function HomePage() {
   const content = await getWebsiteContent();
 
@@ -39,7 +32,7 @@ export default async function HomePage() {
                 {content?.heroSubtitle || 'Your trusted partner in savings and credit for the educational community.'}
               </p>
               <div className="flex flex-col gap-2 min-[400px]:flex-row justify-center">
-                <Button asChild size="lg" variant="secondary">
+                <Button asChild size="lg">
                   <Link href="/about">Learn More</Link>
                 </Button>
               </div>
@@ -62,11 +55,14 @@ export default async function HomePage() {
             <div className="mx-auto grid max-w-5xl items-start gap-6 py-12 lg:grid-cols-3 lg:gap-12">
               {content?.services && content.services.length > 0 ? (
                 content.services.map(service => {
-                  const IconComponent = iconComponents[service.icon];
                   return (
                     <Card key={service.id}>
                       <CardHeader className="flex flex-col items-center text-center">
-                          {IconComponent && <div className="p-4 bg-primary/10 rounded-full mb-2"><IconComponent className="h-8 w-8 text-primary"/></div>}
+                          {service.icon ? (
+                            <Image src={service.icon} alt={service.title} width={40} height={40} className="h-10 w-10 mb-2 rounded-sm object-contain" />
+                          ): (
+                            <div className="p-4 bg-primary/10 rounded-full mb-2"><HandCoins className="h-8 w-8 text-primary"/></div>
+                          )}
                           <CardTitle>{service.title}</CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -113,7 +109,7 @@ export default async function HomePage() {
         {/* About Us Section */}
         <section className="w-full py-12 md:py-24 lg:py-32 bg-muted">
             <div className="container grid items-center gap-6 px-4 md:px-6 lg:grid-cols-2 lg:gap-10">
-                <div className="space-y-4 px-4 sm:px-6 md:px-0 lg:pl-12">
+                <div className="space-y-4 px-4 sm:px-6 md:px-8 lg:pl-12">
                     <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight text-primary">
                         About {content?.saccoName || 'AcademInvest'}
                     </h2>

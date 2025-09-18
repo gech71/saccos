@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Image from 'next/image';
 
 
 const initialSocialLinkFormState: Partial<SocialMediaLink> = {
@@ -29,7 +30,7 @@ const initialSocialLinkFormState: Partial<SocialMediaLink> = {
 const initialServiceFormState: Partial<Service> = {
   title: '',
   description: '',
-  icon: 'PiggyBank',
+  icon: null,
 };
 
 const iconComponents: { [key: string]: React.ElementType } = {
@@ -96,6 +97,10 @@ export default function WebsiteSettingsPage() {
     const { name, value } = e.target;
     setCurrentService(prev => ({...prev, [name]: value}));
   };
+   const handleServiceIconUpload = (url: string) => {
+    setCurrentService(prev => ({ ...prev, icon: url }));
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,8 +158,8 @@ export default function WebsiteSettingsPage() {
 
   const handleServiceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content?.id || !currentService.title || !currentService.description || !currentService.icon) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please fill out all fields for the service.' });
+    if (!content?.id || !currentService.title || !currentService.description) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please fill out title and description for the service.' });
       return;
     }
     setIsSubmitting(true);
@@ -278,10 +283,17 @@ export default function WebsiteSettingsPage() {
                         </TableHeader>
                         <TableBody>
                             {content.services?.length ? content.services.map(service => {
-                                const IconComponent = iconComponents[service.icon];
                                 return (
                                     <TableRow key={service.id}>
-                                        <TableCell>{IconComponent && <IconComponent className="h-6 w-6 text-primary"/>}</TableCell>
+                                        <TableCell>
+                                          {service.icon ? (
+                                            <Image src={service.icon} alt={service.title} width={32} height={32} className="rounded-sm object-cover" />
+                                          ) : (
+                                            <div className="h-8 w-8 bg-muted rounded-sm flex items-center justify-center">
+                                                <HandCoins className="h-5 w-5 text-muted-foreground" />
+                                            </div>
+                                          )}
+                                        </TableCell>
                                         <TableCell className="font-medium">{service.title}</TableCell>
                                         <TableCell className="text-sm text-muted-foreground">{service.description}</TableCell>
                                         <TableCell className="text-right">
@@ -415,15 +427,13 @@ export default function WebsiteSettingsPage() {
                     <Textarea id="serviceDescription" name="description" value={currentService.description || ''} onChange={handleServiceInputChange} required />
                 </div>
                 <div>
-                  <Label htmlFor="serviceIcon">Icon</Label>
-                  <Select name="icon" value={currentService.icon || 'PiggyBank'} onValueChange={(value) => setCurrentService(p => ({...p, icon: value}))}>
-                      <SelectTrigger><SelectValue/></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PiggyBank"><div className="flex items-center gap-2"><PiggyBank className="h-5 w-5"/> Savings</div></SelectItem>
-                        <SelectItem value="Landmark"><div className="flex items-center gap-2"><Landmark className="h-5 w-5"/> Loans</div></SelectItem>
-                        <SelectItem value="HandCoins"><div className="flex items-center gap-2"><HandCoins className="h-5 w-5"/> Dividends</div></SelectItem>
-                      </SelectContent>
-                  </Select>
+                  <Label htmlFor="serviceIcon">Icon (Optional)</Label>
+                  <FileUpload
+                      id="serviceIcon"
+                      label="Upload a custom icon"
+                      value={currentService.icon || ''}
+                      onValueChange={handleServiceIconUpload}
+                  />
                 </div>
                  <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
