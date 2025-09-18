@@ -244,6 +244,15 @@ export default function WebsiteSettingsPage() {
                   <Label htmlFor="heroTitle">Homepage Hero Title</Label>
                   <Input id="heroTitle" name="heroTitle" value={content.heroTitle || ''} onChange={handleInputChange} disabled={!canEdit} />
                 </div>
+                 <div>
+                  <Label htmlFor="heroImageUrl">Hero Background Image</Label>
+                   <FileUpload
+                        id="heroImageUrl"
+                        label="Upload a background image for the hero section"
+                        value={content.heroImageUrl || ''}
+                        onValueChange={(url) => handleFileUploadChange('heroImageUrl', url)}
+                    />
+                </div>
                 <div>
                   <Label htmlFor="heroSubtitle">Homepage Hero Subtitle</Label>
                   <Textarea id="heroSubtitle" name="heroSubtitle" value={content.heroSubtitle || ''} onChange={handleInputChange} disabled={!canEdit} />

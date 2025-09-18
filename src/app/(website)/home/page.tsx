@@ -15,7 +15,7 @@ export default async function HomePage() {
         {/* Hero Section */}
         <section className="relative w-full h-[60vh] flex items-center justify-center text-center text-white bg-accent/80">
            <Image
-            src="https://picsum.photos/seed/finance/1200/800"
+            src={content?.heroImageUrl || "https://picsum.photos/seed/finance/1200/800"}
             alt="Community finance"
             layout="fill"
             objectFit="cover"
