@@ -187,6 +187,32 @@ export default function AggregateCollectionsPage() {
       const memberCollections = collectionData[memberId] || {};
       return Object.values(memberCollections).reduce((sum, amount) => sum + amount, 0);
   };
+
+  const columnTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    if (!membersData || !collectionData) return totals;
+
+    // Initialize totals for all possible columns
+    dynamicColumns.savings.forEach(c => { totals[`saving_${c.id}`] = 0; });
+    dynamicColumns.loans.forEach(c => {
+        totals[`loan_${c.id}-principal`] = 0;
+        totals[`loan_${c.id}-interest`] = 0;
+    });
+    dynamicColumns.shares.forEach(c => { totals[`share_${c.id}`] = 0; });
+    dynamicColumns.serviceCharges.forEach(c => { totals[`service_${c.id}`] = 0; });
+
+    // Sum up the values
+    for (const member of membersData) {
+        if (collectionData[member.id]) {
+            for (const key in collectionData[member.id]) {
+                if (Object.prototype.hasOwnProperty.call(totals, key)) {
+                    totals[key] += collectionData[member.id][key];
+                }
+            }
+        }
+    }
+    return totals;
+  }, [membersData, collectionData, dynamicColumns]);
   
   const grandTotal = useMemo(() => {
     return membersData.reduce((total, member) => total + getRowTotal(member.id), 0);
@@ -556,9 +582,24 @@ export default function AggregateCollectionsPage() {
                             ))}
                         </TableBody>
                         <TableFooter>
-                            <TableRow className="bg-muted font-bold">
-                            <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right text-lg">Grand Total</TableCell>
-                            <TableCell className="text-right text-lg sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                            <TableRow className="bg-muted/60 font-bold">
+                                <TableCell colSpan={2} className="text-right">Column Totals</TableCell>
+                                {dynamicColumns.savings.map(c => <TableCell key={`total_saving_${c.id}`} className="text-right">{(columnTotals[`saving_${c.id}`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>)}
+                                {dynamicColumns.loans.map(c => (
+                                    <React.Fragment key={`total_loan_${c.id}`}>
+                                        <TableCell className="text-right">{(columnTotals[`loan_${c.id}-principal`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                        <TableCell className="text-right">{(columnTotals[`loan_${c.id}-interest`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                    </React.Fragment>
+                                ))}
+                                {dynamicColumns.shares.map(c => <TableCell key={`total_share_${c.id}`} className="text-right">{(columnTotals[`share_${c.id}`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>)}
+                                {dynamicColumns.serviceCharges.map(c => <TableCell key={`total_service_${c.id}`} className="text-right">{(columnTotals[`service_${c.id}`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>)}
+                                <TableCell className="text-right sticky right-0 bg-muted/60 z-10">
+                                    {grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </TableCell>
+                            </TableRow>
+                            <TableRow className="bg-muted font-bold text-lg">
+                                <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right">Grand Total</TableCell>
+                                <TableCell className="text-right sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                             </TableRow>
                         </TableFooter>
                         </Table>
