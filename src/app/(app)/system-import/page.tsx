@@ -448,20 +448,21 @@ export default function SystemImportPage() {
                                         </TableCell>
                                     })}
                                 </TableRow>
+                                <TableRow className="bg-muted/60 font-bold text-lg">
+                                  <TableCell colSpan={fileHeaders.length} className="text-right">
+                                    Grand Total
+                                  </TableCell>
+                                   <TableCell className="text-right">
+                                        {totalImportAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr
+                                   </TableCell>
+                                </TableRow>
                             </TableFooter>
                         </Table>
                     </div>
                 </CardContent>
             )}
 
-            <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                {totalImportAmount > 0 && (
-                    <div className="text-lg font-semibold text-primary flex items-center gap-2">
-                        <DollarSign className="h-6 w-6" />
-                        <span>Total Import Amount:</span>
-                        <span>{totalImportAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
-                    </div>
-                )}
+            <CardFooter>
                 <Button onClick={handleSubmit} disabled={isSubmitting || !validationSummary || validationSummary.valid === 0} className="ml-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Submit ({validationSummary?.valid || 0}) Valid Records for Approval
