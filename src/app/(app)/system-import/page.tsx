@@ -440,7 +440,8 @@ export default function SystemImportPage() {
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-muted/80 font-bold">
-                                    <TableCell colSpan={2} className="text-right">Totals</TableCell>
+                                    <TableCell>Totals</TableCell>
+                                    <TableCell></TableCell>
                                     {fileHeaders.slice(2).map(header => {
                                         const total = columnTotals[header] || 0;
                                         return <TableCell key={`total-${header}`} className="text-right">
@@ -449,7 +450,7 @@ export default function SystemImportPage() {
                                     })}
                                 </TableRow>
                                 <TableRow className="bg-muted/60 font-bold text-lg">
-                                  <TableCell colSpan={fileHeaders.length} className="text-right">
+                                  <TableCell colSpan={fileHeaders.length}>
                                     Grand Total
                                   </TableCell>
                                    <TableCell className="text-right">

@@ -584,7 +584,8 @@ export default function AggregateCollectionsPage() {
                         </TableBody>
                         <TableFooter>
                             <TableRow className="bg-muted/60 font-bold">
-                                <TableCell colSpan={2} className="text-right">Totals</TableCell>
+                                <TableCell className="text-right sticky left-0 bg-muted/60 z-10 w-[150px]">Totals</TableCell>
+                                <TableCell className="w-[200px]"></TableCell>
                                 {dynamicColumns.savings.map(c => <TableCell key={`total_saving_${c.id}`} className="text-right">{(columnTotals[`saving_${c.id}`] || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>)}
                                 {dynamicColumns.loans.map(c => (
                                     <React.Fragment key={`total_loan_${c.id}`}>
