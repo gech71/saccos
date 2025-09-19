@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -332,7 +333,7 @@ export default function SystemImportPage() {
     validatedRows.forEach(row => {
         if (row.status === 'Valid') {
             for (const headerKey in row.originalRow) {
-                if (headerKey !== 'Member ID' && headerKey !== 'Full Name' && headerKey.toLowerCase().includes('period')) {
+                if (headerKey !== 'Member ID' && headerKey !== 'Full Name' && !headerKey.toLowerCase().includes('period')) {
                     const value = parseFloat(row.originalRow[headerKey]);
                     if (!isNaN(value)) {
                         totals[headerKey] = (totals[headerKey] || 0) + value;
@@ -439,14 +440,11 @@ export default function SystemImportPage() {
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-muted/80 font-bold">
-                                    <TableCell colSpan={1} className="text-right">Totals</TableCell>
-                                    {fileHeaders.map(header => {
-                                        if (header.toLowerCase() === 'member id' || header.toLowerCase() === 'full name') {
-                                            return <TableCell key={`total-${header}`}></TableCell>;
-                                        }
+                                    <TableCell colSpan={2} className="text-right">Totals</TableCell>
+                                    {fileHeaders.slice(2).map(header => {
                                         const total = columnTotals[header] || 0;
                                         return <TableCell key={`total-${header}`} className="text-right">
-                                            {total > 0 ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                            {!header.toLowerCase().includes('period') && total > 0 ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                                         </TableCell>
                                     })}
                                 </TableRow>

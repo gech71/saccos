@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -215,8 +216,8 @@ export default function AggregateCollectionsPage() {
   }, [membersData, collectionData, dynamicColumns]);
   
   const grandTotal = useMemo(() => {
-    return membersData.reduce((total, member) => total + getRowTotal(member.id), 0);
-  }, [collectionData, membersData]);
+    return Object.values(columnTotals).reduce((sum, amount) => sum + amount, 0);
+  }, [columnTotals]);
 
   const handleSubmit = async () => {
     const payload: CollectionPayload = {
@@ -596,10 +597,6 @@ export default function AggregateCollectionsPage() {
                                 <TableCell className="text-right sticky right-0 bg-muted/60 z-10">
                                     {grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </TableCell>
-                            </TableRow>
-                            <TableRow className="bg-muted font-bold text-lg">
-                                <TableCell colSpan={2 + dynamicColumns.savings.length + (dynamicColumns.loans.length*2) + dynamicColumns.shares.length + dynamicColumns.serviceCharges.length} className="text-right">Grand Total</TableCell>
-                                <TableCell className="text-right sticky right-0 bg-muted z-10">{grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                             </TableRow>
                         </TableFooter>
                         </Table>
