@@ -222,9 +222,9 @@ export default function WebsiteSettingsPage() {
     const hexColor = e.target.value;
     const hslColor = hexToHsl(hexColor);
     if (hslColor) {
-      setContent(prev => ({...prev, [colorType]: hslColor, [`themeColor${colorType}`]: hexColor }));
+      setContent(prev => ({...prev, [colorType]: hslColor, [colorType === 'primary' ? 'themeColor' : `themeColor${colorType}`]: hexColor }));
     } else {
-      setContent(prev => ({...prev, [`themeColor${colorType}`]: hexColor }));
+      setContent(prev => ({...prev, [colorType === 'primary' ? 'themeColor' : `themeColor${colorType}`]: hexColor }));
     }
   };
 
@@ -443,18 +443,18 @@ export default function WebsiteSettingsPage() {
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="themeColorprimary">Primary Color (for buttons, active items)</Label>
+                  <Label htmlFor="themeColor">Primary Color (for buttons, active items)</Label>
                   <div className="flex items-center gap-4 mt-2">
                     <Input
-                      id="themeColorprimary"
-                      name="themeColorprimary"
+                      id="themeColor"
+                      name="themeColor"
                       type="color"
-                      value={(content as any).themeColorprimary || '#FBBF24'}
+                      value={content.themeColor || '#FBBF24'}
                       onChange={(e) => handleColorChange(e, 'primary')}
                       className="w-16 h-10 p-1"
                       disabled={!canEdit}
                     />
-                    <div className="p-2 rounded-md" style={{ backgroundColor: (content as any).themeColorprimary || '#FBBF24' }}>
+                    <div className="p-2 rounded-md" style={{ backgroundColor: content.themeColor || '#FBBF24' }}>
                       <p className="text-sm font-medium" style={{ color: 'hsl(var(--primary-foreground))' }}>
                         Primary Button
                       </p>
@@ -462,11 +462,11 @@ export default function WebsiteSettingsPage() {
                   </div>
                 </div>
                  <div>
-                  <Label htmlFor="themeColoraccent">Accent Color (for backgrounds)</Label>
+                  <Label htmlFor="accent">Accent Color (for backgrounds)</Label>
                   <div className="flex items-center gap-4 mt-2">
                     <Input
-                      id="themeColoraccent"
-                      name="themeColoraccent"
+                      id="accent"
+                      name="accent"
                       type="color"
                       value={(content as any).themeColoraccent || '#4A2E2A'}
                       onChange={(e) => handleColorChange(e, 'accent')}
