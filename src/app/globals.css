@@ -35,14 +35,14 @@ body {
     --radius: 0.5rem;
 
     /* Sidebar specific variables, can be customized if needed */
-    --sidebar-background: 27 38% 15%; /* Dark Brown */
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 0 0% 98%; 
-    --sidebar-primary-foreground: 27 38% 15%; /* Dark Brown text on light bg */
-    --sidebar-accent: 48 96% 53%; /* Yellow */
-    --sidebar-accent-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
+    --sidebar-background: var(--accent); /* Dark Brown */
+    --sidebar-foreground: var(--accent-foreground);
+    --sidebar-primary: var(--accent-foreground); 
+    --sidebar-primary-foreground: var(--accent); /* Dark Brown text on light bg */
+    --sidebar-accent: var(--primary); /* Yellow */
+    --sidebar-accent-foreground: var(--primary-foreground); /* Dark text for yellow bg */
     --sidebar-border: 27 38% 25%; /* Slightly lighter brown */
-    --sidebar-ring: 48 96% 53%; /* Yellow */
+    --sidebar-ring: var(--primary); /* Yellow */
   }
 
   .dark {
@@ -71,14 +71,14 @@ body {
     --chart-4: 220 70% 50%;
     --chart-5: 30 80% 55%;
 
-    --sidebar-background: 27 38% 15%; /* Dark Brown */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 27 38% 15%; /* Dark Brown text on light bg */
-    --sidebar-accent: 48 96% 53%; /* Yellow */
-    --sidebar-accent-foreground: 240 10% 3.9%; /* Dark text for yellow bg */
+    --sidebar-background: var(--accent);
+    --sidebar-foreground: var(--accent-foreground);
+    --sidebar-primary: var(--accent-foreground);
+    --sidebar-primary-foreground: var(--accent);
+    --sidebar-accent: var(--primary);
+    --sidebar-accent-foreground: var(--primary-foreground);
     --sidebar-border: 27 38% 25%; /* Slightly lighter brown */
-    --sidebar-ring: 48 96% 53%; /* Yellow */
+    --sidebar-ring: var(--primary);
   }
 }
 

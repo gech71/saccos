@@ -218,13 +218,13 @@ export default function WebsiteSettingsPage() {
     setCurrentService((prev) => ({ ...prev, icon: url }));
   };
   
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>, colorType: 'primary' | 'accent') => {
     const hexColor = e.target.value;
     const hslColor = hexToHsl(hexColor);
     if (hslColor) {
-      setContent(prev => ({...prev, primary: hslColor, themeColor: hexColor }));
+      setContent(prev => ({...prev, [colorType]: hslColor, [`themeColor${colorType}`]: hexColor }));
     } else {
-      setContent(prev => ({...prev, themeColor: hexColor }));
+      setContent(prev => ({...prev, [`themeColor${colorType}`]: hexColor }));
     }
   };
 
@@ -441,23 +441,44 @@ export default function WebsiteSettingsPage() {
                 </CardTitle>
                  <CardDescription>Customize the look and feel of your application.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Label htmlFor="themeColor">Primary Color</Label>
-                <div className="flex items-center gap-4">
-                   <Input
-                    id="themeColor"
-                    name="themeColor"
-                    type="color"
-                    value={content.themeColor || '#FBBF24'}
-                    onChange={handleColorChange}
-                    className="w-16 h-10 p-1"
-                    disabled={!canEdit}
-                  />
-                  <div className="p-2 rounded-md" style={{ backgroundColor: content.themeColor || '#FBBF24' }}>
-                     <p className="text-sm font-medium" style={{ color: 'hsl(var(--primary-foreground))' }}>
-                       This is how primary buttons will look.
-                     </p>
-                   </div>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="themeColorprimary">Primary Color (for buttons, active items)</Label>
+                  <div className="flex items-center gap-4 mt-2">
+                    <Input
+                      id="themeColorprimary"
+                      name="themeColorprimary"
+                      type="color"
+                      value={(content as any).themeColorprimary || '#FBBF24'}
+                      onChange={(e) => handleColorChange(e, 'primary')}
+                      className="w-16 h-10 p-1"
+                      disabled={!canEdit}
+                    />
+                    <div className="p-2 rounded-md" style={{ backgroundColor: (content as any).themeColorprimary || '#FBBF24' }}>
+                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--primary-foreground))' }}>
+                        Primary Button
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                 <div>
+                  <Label htmlFor="themeColoraccent">Accent Color (for backgrounds)</Label>
+                  <div className="flex items-center gap-4 mt-2">
+                    <Input
+                      id="themeColoraccent"
+                      name="themeColoraccent"
+                      type="color"
+                      value={(content as any).themeColoraccent || '#4A2E2A'}
+                      onChange={(e) => handleColorChange(e, 'accent')}
+                      className="w-16 h-10 p-1"
+                      disabled={!canEdit}
+                    />
+                    <div className="p-2 rounded-md" style={{ backgroundColor: (content as any).themeColoraccent || '#4A2E2A' }}>
+                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--accent-foreground))' }}>
+                        Accent Background
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

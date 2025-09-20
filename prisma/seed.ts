@@ -79,6 +79,8 @@ async function main() {
       email: 'contact@academinvest.com',
       logoUrl: '',
       primary: '48 96% 53%',
+      accent: '27 38% 15%',
+      themeColor: '#FBBF24',
     }
   });
 

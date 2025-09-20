@@ -23,6 +23,7 @@ export default async function RootLayout({
 }>) {
   const content = await getWebsiteContent();
   const primaryColor = content?.primary || '48 96% 53%'; // Fallback to default yellow
+  const accentColor = content?.accent || '27 38% 15%'; // Fallback to default dark brown
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -35,6 +36,7 @@ export default async function RootLayout({
             __html: `
               :root {
                 --primary: ${primaryColor};
+                --accent: ${accentColor};
               }
             `,
           }}
