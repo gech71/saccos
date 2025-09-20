@@ -68,7 +68,7 @@ export function Header({
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2">
           <SidebarTrigger className="md:hidden" />
-          <Logo className="hidden md:flex" logoUrl={content?.logoUrl} />
+          <Logo className="hidden md:flex" logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
         </div>
 
         <div className="flex items-center gap-3">

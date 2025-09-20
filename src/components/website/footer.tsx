@@ -13,7 +13,7 @@ export function Footer({ content }: { content: (WebsiteContent & { socialLinks: 
           
           {/* Logo and Sacco Name */}
           <div className="md:col-span-1 space-y-4">
-            <Logo />
+            <Logo saccoName={content?.saccoName} logoUrl={content?.logoUrl} />
             <p className="text-sm text-accent-foreground/80">
               Your trusted partner in savings and credit for the educational community.
             </p>

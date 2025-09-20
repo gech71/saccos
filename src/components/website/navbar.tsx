@@ -25,7 +25,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="group">
-          <Logo logoUrl={content?.logoUrl} />
+          <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
         </div>
 
         {/* Desktop Navigation */}
@@ -61,7 +61,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
             <SheetContent side="left">
               <nav className="grid gap-6 text-lg font-medium p-6">
                 <div className="group">
-                  <Logo logoUrl={content?.logoUrl} />
+                  <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
                 </div>
                 {navLinks.map((link) => (
                   <Link

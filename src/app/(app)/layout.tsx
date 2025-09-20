@@ -318,7 +318,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Logo logoUrl={content?.logoUrl}/>
+          <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-lg text-muted-foreground">
             Verifying your session...
@@ -343,7 +343,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="border-r"
             >
               <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
-                <Logo logoUrl={content?.logoUrl}/>
+                <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
               </SidebarHeader>
               <SidebarNav navItems={filteredNavItems} />
             </Sidebar>
