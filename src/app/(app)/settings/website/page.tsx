@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -225,23 +226,12 @@ export default function WebsiteSettingsPage() {
                     </div>
                     <div>
                         <Label htmlFor="logoUrl">Logo</Label>
-                         <Card>
-                            <CardContent className="p-4 flex items-center gap-4">
-                                {content.logoUrl && (
-                                    <div className="relative h-16 w-16 flex-shrink-0">
-                                        <Image src={content.logoUrl} alt="Logo Preview" layout="fill" objectFit="contain" />
-                                    </div>
-                                )}
-                                <div className="flex-grow">
-                                    <FileUpload
-                                        id="logoUrl"
-                                        label=""
-                                        value={content.logoUrl || ''}
-                                        onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <FileUpload
+                            id="logoUrl"
+                            label="Upload Logo"
+                            value={content.logoUrl || ''}
+                            onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
+                        />
                     </div>
                 </div>
               </CardContent>
