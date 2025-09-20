@@ -12,110 +12,299 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { Header } from '@/components/header';
 import { Logo } from '@/components/logo';
 import type { NavItem } from '@/types';
-import { LayoutDashboard, PiggyBank, PieChart, Landmark, FileText, School, Users, Shapes, WalletCards, Library, ListChecks, ReceiptText, ClipboardList, CheckSquare, Percent, ClipboardPaste, Banknote, AlertCircle, Calculator, CalendarCheck, UserX, Archive, Settings, UserPlus, Combine, UploadCloud, Newspaper, Settings2 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  PiggyBank,
+  PieChart,
+  Landmark,
+  FileText,
+  School,
+  Users,
+  Shapes,
+  WalletCards,
+  Library,
+  ListChecks,
+  ReceiptText,
+  ClipboardList,
+  CheckSquare,
+  Percent,
+  ClipboardPaste,
+  Banknote,
+  AlertCircle,
+  Calculator,
+  CalendarCheck,
+  UserX,
+  Archive,
+  Settings,
+  UserPlus,
+  Combine,
+  UploadCloud,
+  Newspaper,
+  Settings2,
+} from 'lucide-react';
 import React, { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { getWebsiteContent } from '@/lib/website-actions';
+import type { WebsiteContent } from '@prisma/client';
 
 const navItems: NavItem[] = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
+  {
+    title: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+    permission: 'dashboard:view',
+  },
 
   { title: 'Basic Information', isGroupLabel: true },
-  { title: 'Schools', href: '/schools', icon: School, permission: 'school:view' },
-  { title: 'Members', href: '/members', icon: Users, permission: 'member:view' },
-  { title: 'Add Saving Account', href: '/add-saving-account', icon: UserPlus, permission: 'savingAccount:create' },
-  
+  {
+    title: 'Schools',
+    href: '/schools',
+    icon: School,
+    permission: 'school:view',
+  },
+  {
+    title: 'Members',
+    href: '/members',
+    icon: Users,
+    permission: 'member:view',
+  },
+  {
+    title: 'Add Saving Account',
+    href: '/add-saving-account',
+    icon: UserPlus,
+    permission: 'savingAccount:create',
+  },
+
   { title: 'Savings', isGroupLabel: true },
-  { title: 'Savings Transactions', href: '/savings', icon: PiggyBank, permission: 'saving:view' },
-  { title: 'Savings Accounts', href: '/savings-accounts', icon: WalletCards, permission: 'savingAccount:view' },
-  { title: 'Calculate Savings Interest', href: '/calculate-interest', icon: Percent, permission: 'savingsInterestCalculation:view' },
-  { title: 'Account Statement', href: '/account-statement', icon: ClipboardPaste, permission: 'accountStatement:view' },
-  { title: 'Close Account', href: '/close-account', icon: UserX, permission: 'accountClosure:view' },
-  { title: 'Closed Accounts', href: '/closed-accounts', icon: Archive, permission: 'closedAccount:view' },
+  {
+    title: 'Savings Transactions',
+    href: '/savings',
+    icon: PiggyBank,
+    permission: 'saving:view',
+  },
+  {
+    title: 'Savings Accounts',
+    href: '/savings-accounts',
+    icon: WalletCards,
+    permission: 'savingAccount:view',
+  },
+  {
+    title: 'Calculate Savings Interest',
+    href: '/calculate-interest',
+    icon: Percent,
+    permission: 'savingsInterestCalculation:view',
+  },
+  {
+    title: 'Account Statement',
+    href: '/account-statement',
+    icon: ClipboardPaste,
+    permission: 'accountStatement:view',
+  },
+  {
+    title: 'Close Account',
+    href: '/close-account',
+    icon: UserX,
+    permission: 'accountClosure:view',
+  },
+  {
+    title: 'Closed Accounts',
+    href: '/closed-accounts',
+    icon: Archive,
+    permission: 'closedAccount:view',
+  },
 
   { title: 'Loans', isGroupLabel: true },
   { title: 'Loans', href: '/loans', icon: Banknote, permission: 'loan:view' },
-  { title: 'Loan Repayments', href: '/loan-repayments', icon: ClipboardPaste, permission: 'loanRepayment:view' },
-  { title: 'Calculate Loan Interest', href: '/calculate-loan-interest', icon: Calculator, permission: 'loanInterestCalculation:view' },
-  { title: 'Overdue Loans', href: '/overdue-loans', icon: AlertCircle, permission: 'overdueLoan:view' },
-  
+  {
+    title: 'Loan Repayments',
+    href: '/loan-repayments',
+    icon: ClipboardPaste,
+    permission: 'loanRepayment:view',
+  },
+  {
+    title: 'Calculate Loan Interest',
+    href: '/calculate-loan-interest',
+    icon: Calculator,
+    permission: 'loanInterestCalculation:view',
+  },
+  {
+    title: 'Overdue Loans',
+    href: '/overdue-loans',
+    icon: AlertCircle,
+    permission: 'overdueLoan:view',
+  },
+
   { title: 'Shares & Dividends', isGroupLabel: true },
-  { title: 'Share Payments', href: '/shares', icon: PieChart, permission: 'share:view' },
-  { title: 'Dividend Payouts', href: '/dividends', icon: Landmark, permission: 'dividend:view' },
-  
+  {
+    title: 'Share Payments',
+    href: '/shares',
+    icon: PieChart,
+    permission: 'share:view',
+  },
+  {
+    title: 'Dividend Payouts',
+    href: '/dividends',
+    icon: Landmark,
+    permission: 'dividend:view',
+  },
+
   { title: 'Administration', isGroupLabel: true },
-  { title: 'Approve Transactions', href: '/approve-transactions', icon: CheckSquare, permission: 'transactionApproval:view' },
-  { title: 'Aggregate Collections', href: '/aggregate-collections', icon: Combine, permission: 'groupCollection:view' },
-  { title: 'System Import', href: '/system-import', icon: UploadCloud, permission: 'systemImport:view' },
-  { title: 'Applied Service Charges', href: '/applied-service-charges', icon: ClipboardList, permission: 'serviceCharge:view' },
-  { title: 'Overdue Payments', href: '/overdue-payments', icon: ListChecks, permission: 'overduePayment:view' },
-  { title: 'Collection Forecast', href: '/collection-forecast', icon: CalendarCheck, permission: 'collectionForecast:view' },
-  { title: 'Reports', href: '/reports', icon: FileText, permission: 'report:view' },
-  
+  {
+    title: 'Approve Transactions',
+    href: '/approve-transactions',
+    icon: CheckSquare,
+    permission: 'transactionApproval:view',
+  },
+  {
+    title: 'Aggregate Collections',
+    href: '/aggregate-collections',
+    icon: Combine,
+    permission: 'groupCollection:view',
+  },
+  {
+    title: 'System Import',
+    href: '/system-import',
+    icon: UploadCloud,
+    permission: 'systemImport:view',
+  },
+  {
+    title: 'Applied Service Charges',
+    href: '/applied-service-charges',
+    icon: ClipboardList,
+    permission: 'serviceCharge:view',
+  },
+  {
+    title: 'Overdue Payments',
+    href: '/overdue-payments',
+    icon: ListChecks,
+    permission: 'overduePayment:view',
+  },
+  {
+    title: 'Collection Forecast',
+    href: '/collection-forecast',
+    icon: CalendarCheck,
+    permission: 'collectionForecast:view',
+  },
+  {
+    title: 'Reports',
+    href: '/reports',
+    icon: FileText,
+    permission: 'report:view',
+  },
+
   { title: 'Website Management', isGroupLabel: true },
-  { title: 'Website Settings', href: '/settings/website', icon: Settings2, permission: 'website:view' },
-  { title: 'Manage News', href: '/settings/news', icon: Newspaper, permission: 'news:view' },
+  {
+    title: 'Website Settings',
+    href: '/settings/website',
+    icon: Settings2,
+    permission: 'website:view',
+  },
+  {
+    title: 'Manage News',
+    href: '/settings/news',
+    icon: Newspaper,
+    permission: 'news:view',
+  },
 
   { title: 'Configuration', isGroupLabel: true },
-  { title: 'Application Settings', href: '/settings', icon: Settings, permission: 'setting:view' },
-  { title: 'Saving Acct. Types', href: '/saving-account-types', icon: WalletCards, permission: 'configuration:view' },
-  { title: 'Share Types', href: '/share-types', icon: Shapes, permission: 'configuration:view' },
-  { title: 'Loan Types', href: '/loan-types', icon: Banknote, permission: 'configuration:view' },
-  { title: 'Service Charge Types', href: '/service-charge-types', icon: ReceiptText, permission: 'configuration:view' },
+  {
+    title: 'Application Settings',
+    href: '/settings',
+    icon: Settings,
+    permission: 'setting:view',
+  },
+  {
+    title: 'Saving Acct. Types',
+    href: '/saving-account-types',
+    icon: WalletCards,
+    permission: 'configuration:view',
+  },
+  {
+    title: 'Share Types',
+    href: '/share-types',
+    icon: Shapes,
+    permission: 'configuration:view',
+  },
+  {
+    title: 'Loan Types',
+    href: '/loan-types',
+    icon: Banknote,
+    permission: 'configuration:view',
+  },
+  {
+    title: 'Service Charge Types',
+    href: '/service-charge-types',
+    icon: ReceiptText,
+    permission: 'configuration:view',
+  },
 ];
-
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading, user, member } = useAuth();
   const pathname = usePathname();
+  const [content, setContent] = React.useState<WebsiteContent | null>(null);
+
+  React.useEffect(() => {
+    getWebsiteContent().then(setContent);
+  }, []);
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];
-    
-    return navItems.reduce((acc, item) => {
-        if (item.isGroupLabel) {
-            const groupIndex = navItems.indexOf(item);
-            let nextGroupIndex = navItems.findIndex((it, idx) => idx > groupIndex && it.isGroupLabel);
-            if (nextGroupIndex === -1) nextGroupIndex = navItems.length;
-            
-            const itemsInGroup = navItems.slice(groupIndex + 1, nextGroupIndex);
-            const isGroupVisible = itemsInGroup.some(groupItem => user.permissions.includes(groupItem.permission!));
 
-            if (isGroupVisible) {
-                acc.push(item);
-            }
-        } else if (!item.permission || user.permissions.includes(item.permission)) {
-            acc.push(item);
+    return navItems.reduce((acc, item) => {
+      if (item.isGroupLabel) {
+        const groupIndex = navItems.indexOf(item);
+        let nextGroupIndex = navItems.findIndex(
+          (it, idx) => idx > groupIndex && it.isGroupLabel
+        );
+        if (nextGroupIndex === -1) nextGroupIndex = navItems.length;
+
+        const itemsInGroup = navItems.slice(groupIndex + 1, nextGroupIndex);
+        const isGroupVisible = itemsInGroup.some((groupItem) =>
+          user.permissions.includes(groupItem.permission!)
+        );
+
+        if (isGroupVisible) {
+          acc.push(item);
         }
-        return acc;
+      } else if (!item.permission || user.permissions.includes(item.permission)) {
+        acc.push(item);
+      }
+      return acc;
     }, [] as NavItem[]);
   }, [user]);
 
   useEffect(() => {
     if (isLoading) {
-      return; 
+      return;
     }
-    
+
     if (!isAuthenticated) {
       router.replace('/login');
       return;
     }
-    
-    if (member && member.mustChangePassword && !pathname.startsWith('/member-login/change-password')) {
-        router.replace(`/member-login/change-password?memberId=${member.id}`);
-        return;
+
+    if (
+      member &&
+      member.mustChangePassword &&
+      !pathname.startsWith('/member-login/change-password')
+    ) {
+      router.replace(`/member-login/change-password?memberId=${member.id}`);
+      return;
     }
-    
-    if (user) { // Admin user is logged in
+
+    if (user) {
+      // Admin user is logged in
       if (pathname === '/dashboard') {
         return;
       }
       const navItem = [...navItems]
-        .filter(item => item.href && item.href !== '/')
+        .filter((item) => item.href && item.href !== '/')
         .sort((a, b) => b.href!.length - a.href!.length)
-        .find(item => pathname.startsWith(item.href!));
+        .find((item) => pathname.startsWith(item.href!));
 
       if (navItem && navItem.permission) {
         if (!user.permissions.includes(navItem.permission)) {
@@ -125,32 +314,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, user, member, isLoading, isAuthenticated, router]);
 
-
   if (isLoading || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Logo />
+          <Logo logoUrl={content?.logoUrl}/>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">Verifying your session...</p>
+          <p className="text-lg text-muted-foreground">
+            Verifying your session...
+          </p>
         </div>
       </div>
     );
   }
-  
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full flex-col">
         <div className="no-print">
-            <Header />
+          <Header content={content} />
         </div>
         <div className="flex flex-1">
           <div className="no-print flex-shrink-0">
-            <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r">
-                <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
-                <Logo />
-                </SidebarHeader>
-                <SidebarNav navItems={filteredNavItems} />
+            <Sidebar
+              collapsible="icon"
+              side="left"
+              variant="sidebar"
+              className="border-r"
+            >
+              <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
+                <Logo logoUrl={content?.logoUrl}/>
+              </SidebarHeader>
+              <SidebarNav navItems={filteredNavItems} />
             </Sidebar>
             <SidebarRail />
           </div>

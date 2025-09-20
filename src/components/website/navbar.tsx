@@ -25,7 +25,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="group">
-            <Logo />
+          <Logo logoUrl={content?.logoUrl} />
         </div>
 
         {/* Desktop Navigation */}
@@ -36,7 +36,9 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
               href={link.href}
               className={cn(
                 'text-sm font-medium transition-colors hover:text-primary',
-                pathname === link.href ? 'text-primary' : 'text-muted-foreground'
+                pathname === link.href
+                  ? 'text-primary'
+                  : 'text-muted-foreground'
               )}
             >
               {link.label}
@@ -59,7 +61,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
             <SheetContent side="left">
               <nav className="grid gap-6 text-lg font-medium p-6">
                 <div className="group">
-                    <Logo />
+                  <Logo logoUrl={content?.logoUrl} />
                 </div>
                 {navLinks.map((link) => (
                   <Link
@@ -67,14 +69,16 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
                     href={link.href}
                     className={cn(
                       'hover:text-primary',
-                      pathname === link.href ? 'text-primary' : 'text-muted-foreground'
+                      pathname === link.href
+                        ? 'text-primary'
+                        : 'text-muted-foreground'
                     )}
                   >
                     {link.label}
                   </Link>
                 ))}
-                 <Button asChild className="mt-4">
-                    <Link href="/login">Login</Link>
+                <Button asChild className="mt-4">
+                  <Link href="/login">Login</Link>
                 </Button>
               </nav>
             </SheetContent>
