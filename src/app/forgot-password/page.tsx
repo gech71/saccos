@@ -9,9 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import React, { useState, FormEvent, useEffect } from 'react';
 import { Logo } from '@/components/logo';
-import { Mail } from 'lucide-react';
+import { Mail, Loader2 } from 'lucide-react';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
+import { requestPasswordReset } from './actions';
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
@@ -28,15 +29,22 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call to an external auth provider for admins
-    // and a future internal one for members.
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const result = await requestPasswordReset(email);
+    
+    if (result.success) {
+      toast({
+        title: 'Password Reset Requested',
+        description: result.message,
+      });
+      setIsSubmitted(true);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: result.message,
+      });
+    }
 
-    toast({
-      title: 'Password Reset Email Sent',
-      description: `If an account exists for ${email}, you will receive an email with password reset instructions.`,
-    });
-    setIsSubmitted(true);
     setIsLoading(false);
   };
 
@@ -77,7 +85,7 @@ export default function ForgotPasswordPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Sending Link...' : 'Send Reset Link'}
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Sending Link...</> : 'Send Reset Link'}
               </Button>
             </form>
           )}
