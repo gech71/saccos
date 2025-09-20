@@ -59,6 +59,14 @@ const nextConfig: NextConfig = {
         hostname: 'picsum.photos',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'nibsaccos.nibbank.com.et',
+      },
+       {
+        protocol: 'https',
+        hostname: 'nibsaccos.nibbank.com.et',
       }
     ],
   },
