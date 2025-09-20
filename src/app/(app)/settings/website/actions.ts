@@ -26,6 +26,7 @@ export async function getWebsiteContentForAdmin() {
                 saccoName: 'AcademInvest',
                 heroTitle: 'Empowering Your Financial Future, Together.',
                 heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
+                 primary: 'hsl(48, 96%, 53%)',
             },
             include: {
                 socialLinks: true,

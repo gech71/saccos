@@ -78,6 +78,7 @@ async function main() {
       phone: '+251-911-123-456',
       email: 'contact@academinvest.com',
       logoUrl: '',
+      primary: '48 96% 53%',
     }
   });
 

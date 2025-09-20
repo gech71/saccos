@@ -29,6 +29,7 @@ import {
   HandCoins,
   Landmark,
   PiggyBank,
+  Palette
 } from 'lucide-react';
 import {
   getWebsiteContentForAdmin,
@@ -94,6 +95,38 @@ const iconComponents: { [key: string]: React.ElementType } = {
   Landmark,
   HandCoins,
 };
+
+function hexToHsl(hex: string): string | null {
+    if (!hex) return null;
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!result) return null;
+
+    let r = parseInt(result[1], 16) / 255;
+    let g = parseInt(result[2], 16) / 255;
+    let b = parseInt(result[3], 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    h = Math.round(h * 360);
+    s = Math.round(s * 100);
+    l = Math.round(l * 100);
+
+    return `${h} ${s}% ${l}%`;
+}
+
 
 export default function WebsiteSettingsPage() {
   const { toast } = useToast();
@@ -184,6 +217,17 @@ export default function WebsiteSettingsPage() {
   const handleServiceIconUpload = (url: string) => {
     setCurrentService((prev) => ({ ...prev, icon: url }));
   };
+  
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const hexColor = e.target.value;
+    const hslColor = hexToHsl(hexColor);
+    if (hslColor) {
+      setContent(prev => ({...prev, primary: hslColor, themeColor: hexColor }));
+    } else {
+      setContent(prev => ({...prev, themeColor: hexColor }));
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,14 +239,16 @@ export default function WebsiteSettingsPage() {
         title: 'Success',
         description: 'Website content has been updated successfully.',
       });
+      // Force a reload to apply the new theme color globally
+      window.location.reload();
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to update website content.',
       });
+       setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const openSocialLinkModal = (link?: SocialMediaLink) => {
@@ -360,12 +406,12 @@ export default function WebsiteSettingsPage() {
                     disabled={!canEdit}
                   />
                 </div>
-                <div>
+                 <div>
                   <Label>Logo</Label>
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                    <Card>
+                     <Card>
                       <CardContent className="p-2">
-                        <FileUpload
+                         <FileUpload
                           id="logoUrl"
                           label="Upload Logo"
                           value={content.logoUrl || ''}
@@ -374,7 +420,7 @@ export default function WebsiteSettingsPage() {
                         />
                       </CardContent>
                     </Card>
-                    {content.logoUrl && (
+                     {content.logoUrl && (
                       <div className="relative w-32 h-32 mx-auto border rounded-md p-2">
                         <Image
                           src={content.logoUrl}
@@ -385,6 +431,33 @@ export default function WebsiteSettingsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-primary" /> Theme Customization
+                </CardTitle>
+                 <CardDescription>Customize the look and feel of your application.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Label htmlFor="themeColor">Primary Color</Label>
+                <div className="flex items-center gap-4">
+                   <Input
+                    id="themeColor"
+                    name="themeColor"
+                    type="color"
+                    value={content.themeColor || '#FBBF24'}
+                    onChange={handleColorChange}
+                    className="w-16 h-10 p-1"
+                    disabled={!canEdit}
+                  />
+                  <div className="p-2 rounded-md" style={{ backgroundColor: content.themeColor || '#FBBF24' }}>
+                     <p className="text-sm font-medium" style={{ color: 'hsl(var(--primary-foreground))' }}>
+                       This is how primary buttons will look.
+                     </p>
+                   </div>
                 </div>
               </CardContent>
             </Card>
