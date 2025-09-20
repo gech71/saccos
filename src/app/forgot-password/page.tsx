@@ -28,12 +28,13 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call to an external auth provider
+    // Simulate API call to an external auth provider for admins
+    // and a future internal one for members.
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
       title: 'Password Reset Email Sent',
-      description: `If an admin account exists for ${email}, you will receive an email with password reset instructions from your identity provider.`,
+      description: `If an account exists for ${email}, you will receive an email with password reset instructions.`,
     });
     setIsSubmitted(true);
     setIsLoading(false);
@@ -46,11 +47,11 @@ export default function ForgotPasswordPage() {
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Reset Admin Password</CardTitle>
+          <CardTitle className="font-headline text-3xl text-primary">Reset Your Password</CardTitle>
           <CardDescription>
             {isSubmitted 
               ? "Check your email for the reset link." 
-              : "Enter your admin email address and we'll send you a link to reset your password."}
+              : "Enter your account email address and we'll send you a link to reset your password."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -64,11 +65,11 @@ export default function ForgotPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Admin Email Address</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@example.com"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -82,9 +83,9 @@ export default function ForgotPasswordPage() {
           )}
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Link href="/login" passHref>
-            <Button variant="link" className="text-primary">Back to Sign In</Button>
-          </Link>
+            <Button variant="link" asChild>
+                <Link href="/login">Back to Sign In</Link>
+            </Button>
         </CardFooter>
       </Card>
     </div>
