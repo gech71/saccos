@@ -218,18 +218,31 @@ export default function WebsiteSettingsPage() {
                 <CardDescription>Basic details about your SACCO.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="saccoName">SACCO Name</Label>
-                  <Input id="saccoName" name="saccoName" value={content.saccoName || ''} onChange={handleInputChange} disabled={!canEdit} />
-                </div>
-                <div>
-                  <Label htmlFor="logoUrl">Logo</Label>
-                   <FileUpload
-                        id="logoUrl"
-                        label="Upload your SACCO's logo"
-                        value={content.logoUrl || ''}
-                        onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <Label htmlFor="saccoName">SACCO Name</Label>
+                        <Input id="saccoName" name="saccoName" value={content.saccoName || ''} onChange={handleInputChange} disabled={!canEdit} />
+                    </div>
+                    <div>
+                        <Label htmlFor="logoUrl">Logo</Label>
+                         <Card>
+                            <CardContent className="p-4 flex items-center gap-4">
+                                {content.logoUrl && (
+                                    <div className="relative h-16 w-16 flex-shrink-0">
+                                        <Image src={content.logoUrl} alt="Logo Preview" layout="fill" objectFit="contain" />
+                                    </div>
+                                )}
+                                <div className="flex-grow">
+                                    <FileUpload
+                                        id="logoUrl"
+                                        label=""
+                                        value={content.logoUrl || ''}
+                                        onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
               </CardContent>
             </Card>
