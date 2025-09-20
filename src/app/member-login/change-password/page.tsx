@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/logo';
 import { Loader2, KeyRound } from 'lucide-react';
 import { changeMemberPassword } from '@/app/(app)/members/actions';
+import { getWebsiteContent } from '@/lib/website-actions';
+import type { WebsiteContent } from '@prisma/client';
 
 function ChangePasswordForm() {
   const router = useRouter();
@@ -21,8 +23,10 @@ function ChangePasswordForm() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [content, setContent] = useState<WebsiteContent | null>(null);
 
   useEffect(() => {
+    getWebsiteContent().then(setContent);
     const id = searchParams.get('memberId');
     if (!id) {
         toast({ variant: 'destructive', title: 'Error', description: 'No member specified. Redirecting to login.' });
@@ -67,7 +71,7 @@ function ChangePasswordForm() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="absolute top-8 left-8">
-        <Logo />
+        <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">

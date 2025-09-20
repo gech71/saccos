@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -8,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { Logo } from '@/components/logo';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { findMemberByPhoneNumber } from './actions';
+import { getWebsiteContent } from '@/lib/website-actions';
+import type { WebsiteContent } from '@prisma/client';
 
 export default function LoginPage() {
   const { login, memberLogin } = useAuth();
@@ -29,6 +29,12 @@ export default function LoginPage() {
   const [memberPhoneNumber, setMemberPhoneNumber] = useState('');
   const [memberPassword, setMemberPassword] = useState('');
   const [isMemberLoading, setIsMemberLoading] = useState(false);
+
+  const [content, setContent] = useState<WebsiteContent | null>(null);
+
+  useEffect(() => {
+    getWebsiteContent().then(setContent);
+  }, []);
 
   const handleAdminSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -122,30 +128,35 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="absolute top-8 left-8">
-        <Logo />
+        <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Sign In</CardTitle>
           <CardDescription>
-            {authMode === 'admin' ? 'Sign in to manage your AcademInvest system.' : 'Sign in to view your member profile.'}
+            {authMode === 'admin' ? `Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.` : 'Sign in to view your member profile.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {authMode === 'admin' ? renderAdminForm() : renderMemberForm()}
         </CardContent>
-        <CardFooter className="flex justify-center">
-          {authMode === 'admin' ? (
-            <p className="text-sm text-muted-foreground">
-              Are you a member?{' '}
-              <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('member')}>Sign in here</Button>
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Are you an admin?{' '}
-              <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('admin')}>Sign in here</Button>
-            </p>
-          )}
+        <CardFooter className="flex-col gap-4">
+          <div className="text-sm">
+            <Link href="/forgot-password" passHref className="text-primary underline-offset-4 hover:underline">
+              Forgot your password?
+            </Link>
+          </div>
+          <div className="text-sm text-muted-foreground">
+              {authMode === 'admin' ? (
+                <span>Are you a member?{' '}
+                  <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('member')}>Sign in here</Button>
+                </span>
+              ) : (
+                <span>Are you an admin?{' '}
+                  <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('admin')}>Sign in here</Button>
+                </span>
+              )}
+          </div>
         </CardFooter>
       </Card>
     </div>

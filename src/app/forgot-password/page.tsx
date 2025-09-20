@@ -7,15 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { Logo } from '@/components/logo';
 import { Mail } from 'lucide-react';
+import { getWebsiteContent } from '@/lib/website-actions';
+import type { WebsiteContent } from '@prisma/client';
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [content, setContent] = useState<WebsiteContent | null>(null);
+
+  useEffect(() => {
+    getWebsiteContent().then(setContent);
+  }, []);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -35,7 +42,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="absolute top-8 left-8">
-        <Logo />
+        <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
