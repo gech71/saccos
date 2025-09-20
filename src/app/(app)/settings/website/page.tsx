@@ -222,9 +222,16 @@ export default function WebsiteSettingsPage() {
     const hexColor = e.target.value;
     const hslColor = hexToHsl(hexColor);
     if (hslColor) {
-      setContent(prev => ({...prev, [colorType]: hslColor, [colorType === 'primary' ? 'themeColor' : `themeColor${colorType}`]: hexColor }));
+      setContent(prev => ({
+        ...prev, 
+        [colorType]: hslColor, 
+        [colorType === 'primary' ? 'themeColor' : 'accentColor']: hexColor 
+      }));
     } else {
-      setContent(prev => ({...prev, [colorType === 'primary' ? 'themeColor' : `themeColor${colorType}`]: hexColor }));
+      setContent(prev => ({
+        ...prev, 
+        [colorType === 'primary' ? 'themeColor' : 'accentColor']: hexColor 
+      }));
     }
   };
 
@@ -462,18 +469,18 @@ export default function WebsiteSettingsPage() {
                   </div>
                 </div>
                  <div>
-                  <Label htmlFor="accent">Accent Color (for backgrounds)</Label>
+                  <Label htmlFor="accentColor">Accent Color (for backgrounds)</Label>
                   <div className="flex items-center gap-4 mt-2">
                     <Input
-                      id="accent"
-                      name="accent"
+                      id="accentColor"
+                      name="accentColor"
                       type="color"
-                      value={(content as any).themeColoraccent || '#4A2E2A'}
+                      value={content.accentColor || '#4A2E2A'}
                       onChange={(e) => handleColorChange(e, 'accent')}
                       className="w-16 h-10 p-1"
                       disabled={!canEdit}
                     />
-                    <div className="p-2 rounded-md" style={{ backgroundColor: (content as any).themeColoraccent || '#4A2E2A' }}>
+                    <div className="p-2 rounded-md" style={{ backgroundColor: content.accentColor || '#4A2E2A' }}>
                       <p className="text-sm font-medium" style={{ color: 'hsl(var(--accent-foreground))' }}>
                         Accent Background
                       </p>
