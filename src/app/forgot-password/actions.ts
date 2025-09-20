@@ -1,6 +1,8 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
+import { sendPasswordResetEmail } from '@/lib/email-service';
 
 export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
   if (!email) {
@@ -13,9 +15,12 @@ export async function requestPasswordReset(email: string): Promise<{ success: bo
 
   if (member) {
     // In a real application, you would generate a secure, single-use token,
-    // save its hash to the database with an expiry date, and then email
-    // a link containing the token to the user.
-    // e.g., sendPasswordResetEmail(member.email, resetToken);
+    // save its hash to the database with an expiry date.
+    const resetToken = `reset-token-${Date.now()}`; // Placeholder token
+    
+    // Simulate sending the email. This will now log to the console.
+    await sendPasswordResetEmail(member.email, resetToken);
+    
     console.log(`Password reset requested for existing member: ${member.email}`);
   } else {
     // To prevent email enumeration attacks, do not reveal that the user does not exist.
