@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function LoginPage() {
   const { login, memberLogin } = useAuth();
@@ -133,29 +134,29 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Sign In</CardTitle>
-          <CardDescription>
+           <CardDescription>
             {authMode === 'admin' ? `Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.` : 'Sign in to view your member profile.'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {authMode === 'admin' ? renderAdminForm() : renderMemberForm()}
+        <CardContent className="px-3">
+          <Tabs defaultValue="admin" value={authMode} onValueChange={(value) => setAuthMode(value as 'admin' | 'member')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="admin">Admin/Staff</TabsTrigger>
+              <TabsTrigger value="member">Member</TabsTrigger>
+            </TabsList>
+            <TabsContent value="admin" className="pt-6">
+              {renderAdminForm()}
+            </TabsContent>
+            <TabsContent value="member" className="pt-6">
+              {renderMemberForm()}
+            </TabsContent>
+          </Tabs>
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <div className="text-sm">
             <Link href="/forgot-password" passHref className="text-primary underline-offset-4 hover:underline">
               Forgot your password?
             </Link>
-          </div>
-          <div className="text-sm text-muted-foreground">
-              {authMode === 'admin' ? (
-                <span>Are you a member?{' '}
-                  <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('member')}>Sign in here</Button>
-                </span>
-              ) : (
-                <span>Are you an admin?{' '}
-                  <Button variant="link" className="text-primary p-0 h-auto" onClick={() => setAuthMode('admin')}>Sign in here</Button>
-                </span>
-              )}
           </div>
         </CardFooter>
       </Card>
