@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -219,19 +218,33 @@ export default function WebsiteSettingsPage() {
                 <CardDescription>Basic details about your SACCO.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <Label htmlFor="saccoName">SACCO Name</Label>
-                        <Input id="saccoName" name="saccoName" value={content.saccoName || ''} onChange={handleInputChange} disabled={!canEdit} />
-                    </div>
-                    <div>
-                        <Label htmlFor="logoUrl">Logo</Label>
-                        <FileUpload
-                            id="logoUrl"
-                            label="Upload Logo"
-                            value={content.logoUrl || ''}
-                            onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
-                        />
+                 <div>
+                    <Label htmlFor="saccoName">SACCO Name</Label>
+                    <Input id="saccoName" name="saccoName" value={content.saccoName || ''} onChange={handleInputChange} disabled={!canEdit} />
+                </div>
+                <div>
+                    <Label>Logo</Label>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <Card>
+                          <CardContent className="p-2">
+                             <FileUpload
+                                id="logoUrl"
+                                label="Upload Logo"
+                                value={content.logoUrl || ''}
+                                onValueChange={(url) => handleFileUploadChange('logoUrl', url)}
+                            />
+                          </CardContent>
+                        </Card>
+                        {content.logoUrl && (
+                            <div className="relative w-32 h-32 mx-auto border rounded-md p-2">
+                                <Image
+                                    src={content.logoUrl}
+                                    alt="Logo Preview"
+                                    layout="fill"
+                                    objectFit="contain"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
               </CardContent>
