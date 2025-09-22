@@ -1,4 +1,3 @@
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -12,6 +11,7 @@ export const getWebsiteContent = unstable_cache(
         include: {
             socialLinks: true,
             services: true,
+            heroSlides: true,
         }
     });
     return content;

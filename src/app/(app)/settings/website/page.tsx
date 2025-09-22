@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -29,7 +28,8 @@ import {
   HandCoins,
   Landmark,
   PiggyBank,
-  Palette
+  Palette,
+  Image as ImageIcon
 } from 'lucide-react';
 import {
   getWebsiteContentForAdmin,
@@ -38,8 +38,10 @@ import {
   deleteSocialMediaLink,
   createOrUpdateService,
   deleteService,
+  createOrUpdateHeroSlide,
+  deleteHeroSlide,
 } from './actions';
-import type { WebsiteContent, SocialMediaLink, Service } from '@prisma/client';
+import type { WebsiteContent, SocialMediaLink, Service, HeroSlide } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 import { FileUpload } from '@/components/file-upload';
 import {
@@ -90,6 +92,16 @@ const initialServiceFormState: Partial<Service> = {
   icon: null,
 };
 
+const initialHeroSlideFormState: Partial<HeroSlide> = {
+    title: '',
+    subtitle: '',
+    imageUrl: '',
+    imageHint: '',
+    link: '/',
+    linkText: 'Learn More',
+    order: 0,
+};
+
 const iconComponents: { [key: string]: React.ElementType } = {
   PiggyBank,
   Landmark,
@@ -136,7 +148,7 @@ export default function WebsiteSettingsPage() {
     content,
     setContent,
   ] = useState<
-    Partial<WebsiteContent & { socialLinks: SocialMediaLink[]; services: Service[] }>
+    Partial<WebsiteContent & { socialLinks: SocialMediaLink[]; services: Service[], heroSlides: HeroSlide[] }>
   >({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,13 +164,17 @@ export default function WebsiteSettingsPage() {
   const [
     itemToDelete,
     setItemToDelete,
-  ] = useState<{ id: string; type: 'social' | 'service' } | null>(null);
+  ] = useState<{ id: string; type: 'social' | 'service' | 'hero' } | null>(null);
 
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [currentService, setCurrentService] = useState<Partial<Service>>(
     initialServiceFormState
   );
   const [isEditingService, setIsEditingService] = useState(false);
+
+  const [isHeroSlideModalOpen, setIsHeroSlideModalOpen] = useState(false);
+  const [currentHeroSlide, setCurrentHeroSlide] = useState<Partial<HeroSlide>>(initialHeroSlideFormState);
+  const [isEditingHeroSlide, setIsEditingHeroSlide] = useState(false);
 
   const canEdit = useMemo(() => user?.permissions.includes('website:edit'), [
     user,
@@ -218,6 +234,17 @@ export default function WebsiteSettingsPage() {
     setCurrentService((prev) => ({ ...prev, icon: url }));
   };
   
+   const handleHeroSlideInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = e.target;
+    setCurrentHeroSlide((prev) => ({ ...prev, [name]: name === 'order' ? parseInt(value) : value }));
+  };
+  
+  const handleHeroSlideImageUpload = (url: string) => {
+      setCurrentHeroSlide((prev) => ({ ...prev, imageUrl: url }));
+  }
+
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>, colorType: 'primary' | 'accent') => {
     const hexColor = e.target.value;
     const hslColor = hexToHsl(hexColor);
@@ -317,6 +344,17 @@ export default function WebsiteSettingsPage() {
     }
     setIsServiceModalOpen(true);
   };
+  
+  const openHeroSlideModal = (slide?: HeroSlide) => {
+      if (slide) {
+          setCurrentHeroSlide(slide);
+          setIsEditingHeroSlide(true);
+      } else {
+          setCurrentHeroSlide({...initialHeroSlideFormState, order: content.heroSlides?.length || 0 });
+          setIsEditingHeroSlide(false);
+      }
+      setIsHeroSlideModalOpen(true);
+  }
 
   const handleServiceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,8 +385,27 @@ export default function WebsiteSettingsPage() {
       setIsSubmitting(false);
     }
   };
+  
+   const handleHeroSlideSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content?.id || !currentHeroSlide.title || !currentHeroSlide.subtitle || !currentHeroSlide.imageUrl || !currentHeroSlide.link || !currentHeroSlide.linkText) {
+        toast({ variant: 'destructive', title: 'Error', description: 'All fields for the hero slide are required.' });
+        return;
+    }
+    setIsSubmitting(true);
+    try {
+        await createOrUpdateHeroSlide({ ...currentHeroSlide, contentId: content.id } as HeroSlide);
+        toast({ title: 'Success', description: `Hero slide '${currentHeroSlide.title}' saved.` });
+        await fetchContent();
+        setIsHeroSlideModalOpen(false);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save hero slide.' });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
-  const openDeleteAlert = (id: string, type: 'social' | 'service') => {
+  const openDeleteAlert = (id: string, type: 'social' | 'service' | 'hero') => {
     setItemToDelete({ id, type });
     setIsDeleteAlertOpen(true);
   };
@@ -363,6 +420,9 @@ export default function WebsiteSettingsPage() {
       } else if (itemToDelete.type === 'service') {
         await deleteService(itemToDelete.id);
         toast({ title: 'Success', description: 'Service deleted.' });
+      } else if (itemToDelete.type === 'hero') {
+        await deleteHeroSlide(itemToDelete.id);
+        toast({ title: 'Success', description: 'Hero slide deleted.' });
       }
       await fetchContent();
     } catch (error) {
@@ -469,7 +529,7 @@ export default function WebsiteSettingsPage() {
                   </div>
                 </div>
                  <div>
-                  <Label htmlFor="accentColor">Accent Color (for backgrounds)</Label>
+                  <Label htmlFor="accentColor">Accent Color (for sidebar, backgrounds)</Label>
                   <div className="flex items-center gap-4 mt-2">
                     <Input
                       id="accentColor"
@@ -490,6 +550,38 @@ export default function WebsiteSettingsPage() {
               </CardContent>
             </Card>
 
+             <Card>
+                <CardHeader className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary"/> Homepage Hero Carousel</CardTitle>
+                        <CardDescription>Manage the rotating slides on your homepage.</CardDescription>
+                    </div>
+                    {canEdit && (<Button type="button" size="sm" onClick={() => openHeroSlideModal()}><PlusCircle className="mr-2 h-4 w-4"/> Add Slide</Button>)}
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Title</TableHead><TableHead>Image</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                            {content.heroSlides && content.heroSlides.length > 0 ? (
+                                content.heroSlides.sort((a,b) => a.order - b.order).map(slide => (
+                                    <TableRow key={slide.id}>
+                                        <TableCell>{slide.order}</TableCell>
+                                        <TableCell className="font-medium">{slide.title}</TableCell>
+                                        <TableCell><Image src={slide.imageUrl} alt={slide.title} width={80} height={45} className="rounded-md object-cover aspect-video"/></TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHeroSlideModal(slide)} disabled={!canEdit}><Edit className="h-4 w-4"/></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDeleteAlert(slide.id, 'hero')} disabled={!canEdit}><Trash2 className="h-4 w-4"/></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow><TableCell colSpan={4} className="text-center h-24">No hero slides configured.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -501,36 +593,6 @@ export default function WebsiteSettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="heroTitle">Homepage Hero Title</Label>
-                  <Input
-                    id="heroTitle"
-                    name="heroTitle"
-                    value={content.heroTitle || ''}
-                    onChange={handleInputChange}
-                    disabled={!canEdit}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="heroImageUrl">Hero Background Image</Label>
-                  <FileUpload
-                    id="heroImageUrl"
-                    label="Upload a background image for the hero section"
-                    value={content.heroImageUrl || ''}
-                    onValueChange={(url) =>
-                      handleFileUploadChange('heroImageUrl', url)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="heroSubtitle">Homepage Hero Subtitle</Label>
-                  <Textarea
-                    id="heroSubtitle"
-                    name="heroSubtitle"
-                    value={content.heroSubtitle || ''}
-                    onChange={handleInputChange}
-                    disabled={!canEdit}
-                  />
-                </div>
                 <div>
                   <Label htmlFor="aboutUs">About Us Section Content</Label>
                   <Textarea
@@ -780,6 +842,29 @@ export default function WebsiteSettingsPage() {
           </div>
         )}
       </form>
+      
+      {/* Hero Slide Modal */}
+      <Dialog open={isHeroSlideModalOpen} onOpenChange={setIsHeroSlideModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{isEditingHeroSlide ? 'Edit' : 'Add'} Hero Slide</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleHeroSlideSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
+            <div><Label htmlFor="slideTitle">Title</Label><Input id="slideTitle" name="title" value={currentHeroSlide.title || ''} onChange={handleHeroSlideInputChange} required /></div>
+            <div><Label htmlFor="slideSubtitle">Subtitle</Label><Input id="slideSubtitle" name="subtitle" value={currentHeroSlide.subtitle || ''} onChange={handleHeroSlideInputChange} required /></div>
+            <div><Label htmlFor="slideImageUrl">Image</Label><FileUpload id="slideImageUrl" label="Upload slide image" value={currentHeroSlide.imageUrl || ''} onValueChange={handleHeroSlideImageUpload} /></div>
+            <div><Label htmlFor="slideImageHint">Image Hint (for AI)</Label><Input id="slideImageHint" name="imageHint" value={currentHeroSlide.imageHint || ''} onChange={handleHeroSlideInputChange} placeholder="e.g., community finance"/></div>
+            <div><Label htmlFor="slideLink">Link URL</Label><Input id="slideLink" name="link" value={currentHeroSlide.link || ''} onChange={handleHeroSlideInputChange} required /></div>
+            <div><Label htmlFor="slideLinkText">Link Button Text</Label><Input id="slideLinkText" name="linkText" value={currentHeroSlide.linkText || ''} onChange={handleHeroSlideInputChange} required /></div>
+            <div><Label htmlFor="slideOrder">Order</Label><Input id="slideOrder" name="order" type="number" value={currentHeroSlide.order ?? 0} onChange={handleHeroSlideInputChange} required /></div>
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Slide</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Social Link Modal */}
       <Dialog

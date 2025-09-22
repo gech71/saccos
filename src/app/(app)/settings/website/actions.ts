@@ -1,8 +1,7 @@
-
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { WebsiteContent, Post, SocialMediaLink, Service } from '@prisma/client';
+import type { WebsiteContent, Post, SocialMediaLink, Service, HeroSlide } from '@prisma/client';
 import { revalidateTag } from 'next/cache';
 
 export async function getWebsiteContentForAdmin() {
@@ -16,6 +15,11 @@ export async function getWebsiteContentForAdmin() {
             services: {
                 orderBy: {
                     title: 'asc'
+                }
+            },
+            heroSlides: {
+                orderBy: {
+                    order: 'asc'
                 }
             }
         }
@@ -31,6 +35,7 @@ export async function getWebsiteContentForAdmin() {
             include: {
                 socialLinks: true,
                 services: true,
+                heroSlides: true,
             }
         });
     }
@@ -42,7 +47,7 @@ export async function updateWebsiteContent(data: Partial<WebsiteContent>): Promi
     
     // Exclude relation fields from the data payload for the update.
     // These are handled by their own dedicated create/update/delete functions.
-    const { socialLinks, services, ...contentData } = data;
+    const { socialLinks, services, heroSlides, ...contentData } = data;
 
     let updatedContent;
     if (currentContent) {
@@ -130,6 +135,47 @@ export async function deleteService(id: string): Promise<{ success: boolean }> {
   });
   revalidateTag('website-content');
   return { success: true };
+}
+
+// HERO SLIDE ACTIONS
+export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id' | 'content'>> & { id?: string; contentId: string }): Promise<HeroSlide> {
+    const { id, contentId, ...slideData } = data;
+    
+    const dataToSave = {
+        title: slideData.title!,
+        subtitle: slideData.subtitle!,
+        imageUrl: slideData.imageUrl!,
+        imageHint: slideData.imageHint,
+        link: slideData.link!,
+        linkText: slideData.linkText!,
+        order: slideData.order || 0,
+        content: { connect: { id: contentId } },
+    };
+
+    if (id) {
+        // Update
+        const updatedSlide = await prisma.heroSlide.update({
+            where: { id },
+            data: dataToSave,
+        });
+        revalidateTag('website-content');
+        return updatedSlide;
+    } else {
+        // Create
+        const newSlide = await prisma.heroSlide.create({
+            data: dataToSave,
+        });
+        revalidateTag('website-content');
+        return newSlide;
+    }
+}
+
+export async function deleteHeroSlide(id: string): Promise<{ success: boolean }> {
+    await prisma.heroSlide.delete({
+        where: { id },
+    });
+    revalidateTag('website-content');
+    return { success: true };
 }
 
 
