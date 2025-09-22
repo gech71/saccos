@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -138,7 +139,7 @@ export async function deleteService(id: string): Promise<{ success: boolean }> {
 }
 
 // HERO SLIDE ACTIONS
-export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id' | 'content'>> & { id?: string; contentId: string }): Promise<HeroSlide> {
+export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id' | 'websiteContent'>> & { id?: string; contentId: string }): Promise<HeroSlide> {
     const { id, contentId, ...slideData } = data;
     
     const dataToSave = {
@@ -149,7 +150,7 @@ export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id'
         link: slideData.link!,
         linkText: slideData.linkText!,
         order: slideData.order || 0,
-        content: { connect: { id: contentId } },
+        websiteContent: { connect: { id: contentId } },
     };
 
     if (id) {
