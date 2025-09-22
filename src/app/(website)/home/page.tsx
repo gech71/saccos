@@ -5,40 +5,44 @@ import { getWebsiteContent } from '@/lib/website-actions';
 import { ArrowRight, Landmark, PiggyBank, HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { HeroCarousel } from '@/components/website/hero-carousel';
 
 export default async function HomePage() {
   const content = await getWebsiteContent();
+
+  const heroSlides = [
+    {
+      title: content?.heroTitle || 'Empowering Your Financial Future, Together.',
+      subtitle: content?.heroSubtitle || 'Your trusted partner in savings and credit for the educational community.',
+      imageUrl: content?.heroImageUrl || "https://picsum.photos/seed/finance/1200/800",
+      imageHint: 'finance currency',
+      link: '/about',
+      linkText: 'Learn More',
+    },
+    {
+      title: 'Secure Savings, Brighter Future',
+      subtitle: 'Grow your funds with our competitive savings products designed for stability and growth.',
+      imageUrl: 'https://picsum.photos/seed/savings/1200/800',
+      imageHint: 'savings piggy-bank',
+      link: '/home#services',
+      linkText: 'Our Services',
+    },
+    {
+      title: 'Achieve Your Goals with Our Loans',
+      subtitle: 'Access capital for your personal and professional needs with our fair and transparent loan products.',
+      imageUrl: 'https://picsum.photos/seed/loan/1200/800',
+      imageHint: 'loan key house',
+      link: '/home#services',
+      linkText: 'Explore Loans',
+    },
+  ];
+
 
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative w-full h-[60vh] flex items-center justify-center text-center text-white bg-accent/80">
-           <Image
-            src={content?.heroImageUrl || "https://picsum.photos/seed/finance/1200/800"}
-            alt="Community finance"
-            layout="fill"
-            objectFit="cover"
-            className="absolute inset-0 z-[-1] object-cover w-full h-full"
-            data-ai-hint="finance currency"
-          />
-          <div className="absolute inset-0 bg-black/50 z-[-1]"></div>
-          <div className="container px-4 md:px-6 z-10">
-            <div className="max-w-3xl mx-auto space-y-4">
-              <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
-                {content?.heroTitle || 'Empowering Your Financial Future, Together.'}
-              </h1>
-              <p className="text-lg md:text-xl text-gray-200">
-                {content?.heroSubtitle || 'Your trusted partner in savings and credit for the educational community.'}
-              </p>
-              <div className="flex flex-col gap-2 min-[400px]:flex-row justify-center">
-                <Button asChild size="lg">
-                  <Link href="/about">Learn More</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
+        <HeroCarousel slides={heroSlides} />
 
         {/* Services Section */}
         <section id="services" className="w-full py-12 md:py-24 lg:py-32 bg-background">
