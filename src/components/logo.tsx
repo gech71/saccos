@@ -4,13 +4,15 @@ import Link from 'next/link';
 
 export function Logo({
   className,
-  logoUrl,
+  logo,
   saccoName,
 }: {
   className?: string;
-  logoUrl?: string | null;
+  logo?: string | null;
   saccoName?: string | null;
 }) {
+  const isBase64 = logo && logo.startsWith('data:image');
+  
   return (
     <Link
       href="/"
@@ -18,13 +20,14 @@ export function Logo({
     >
       <Image
         src={
-          logoUrl ||
+          logo ||
           'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
         }
         alt={`${saccoName || 'Sacco'} Logo`}
         width={32}
         height={32}
         className="rounded-md transition-transform duration-300 group-hover:rotate-12"
+        unoptimized={isBase64}
       />
       <span className="font-headline">{saccoName || 'NIB Saccos'}</span>
     </Link>

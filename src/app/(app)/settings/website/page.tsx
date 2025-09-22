@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -394,7 +395,7 @@ export default function WebsiteSettingsPage() {
     }
     setIsSubmitting(true);
     try {
-        await createOrUpdateHeroSlide({ ...currentHeroSlide, contentId: content.id } as HeroSlide);
+        await createOrUpdateHeroSlide({ ...currentHeroSlide, contentId: content.id } as Omit<HeroSlide, 'websiteContent'>);
         toast({ title: 'Success', description: `Hero slide '${currentHeroSlide.title}' saved.` });
         await fetchContent();
         setIsHeroSlideModalOpen(false);
@@ -479,21 +480,22 @@ export default function WebsiteSettingsPage() {
                      <Card>
                       <CardContent className="p-2">
                          <FileUpload
-                          id="logoUrl"
+                          id="logo"
                           label="Upload Logo"
-                          value={content.logoUrl || ''}
+                          value={content.logo || ''}
                           onValueChange={(url) =>
-                            handleFileUploadChange('logoUrl', url)}
+                            handleFileUploadChange('logo', url)}
                         />
                       </CardContent>
                     </Card>
-                     {content.logoUrl && (
+                     {content.logo && (
                       <div className="relative w-32 h-32 mx-auto border rounded-md p-2">
                         <Image
-                          src={content.logoUrl}
+                          src={content.logo}
                           alt="Logo Preview"
                           layout="fill"
                           objectFit="contain"
+                          unoptimized={content.logo.startsWith('data:image')}
                         />
                       </div>
                     )}
@@ -658,6 +660,7 @@ export default function WebsiteSettingsPage() {
                                   width={32}
                                   height={32}
                                   className="rounded-sm object-cover"
+                                  unoptimized={service.icon.startsWith('data:image')}
                                 />
                               ) : (
                                 <div className="h-8 w-8 bg-muted rounded-sm flex items-center justify-center">

@@ -32,6 +32,8 @@ async function main() {
   await prisma.role.deleteMany();
   await prisma.post.deleteMany();
   await prisma.socialMediaLink.deleteMany();
+  await prisma.heroSlide.deleteMany();
+  await prisma.service.deleteMany();
   await prisma.websiteContent.deleteMany();
   console.log('Database cleaned.');
 
@@ -77,7 +79,7 @@ async function main() {
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
       email: 'contact@academinvest.com',
-      logoUrl: '',
+      logo: '',
       primary: '48 96% 53%',
       accent: '27 38% 15%',
       themeColor: '#FBBF24',

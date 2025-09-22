@@ -129,7 +129,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <div className="absolute top-8 left-8">
-        <Logo logoUrl={content?.logoUrl} saccoName={content?.saccoName} />
+        <Logo logo={content?.logo} saccoName={content?.saccoName} />
       </div>
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
