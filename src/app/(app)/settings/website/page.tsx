@@ -72,13 +72,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import Image from 'next/image';
 
 const initialSocialLinkFormState: Partial<SocialMediaLink> = {
@@ -102,44 +95,6 @@ const initialHeroSlideFormState: Partial<HeroSlide> = {
     linkText: 'Learn More',
     order: 0,
 };
-
-const iconComponents: { [key: string]: React.ElementType } = {
-  PiggyBank,
-  Landmark,
-  HandCoins,
-};
-
-function hexToHsl(hex: string): string | null {
-    if (!hex) return null;
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!result) return null;
-
-    let r = parseInt(result[1], 16) / 255;
-    let g = parseInt(result[2], 16) / 255;
-    let b = parseInt(result[3], 16) / 255;
-
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0, s = 0, l = (max + min) / 2;
-
-    if (max !== min) {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-
-    h = Math.round(h * 360);
-    s = Math.round(s * 100);
-    l = Math.round(l * 100);
-
-    return `${h} ${s}% ${l}%`;
-}
-
 
 export default function WebsiteSettingsPage() {
   const { toast } = useToast();
@@ -245,24 +200,6 @@ export default function WebsiteSettingsPage() {
   const handleHeroSlideImageUpload = (url: string) => {
       setCurrentHeroSlide((prev) => ({ ...prev, imageUrl: url }));
   }
-
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>, colorType: 'primary' | 'accent') => {
-    const hexColor = e.target.value;
-    const hslColor = hexToHsl(hexColor);
-    if (hslColor) {
-      setContent(prev => ({
-        ...prev, 
-        [colorType]: hslColor, 
-        [colorType === 'primary' ? 'themeColor' : 'accentColor']: hexColor 
-      }));
-    } else {
-      setContent(prev => ({
-        ...prev, 
-        [colorType === 'primary' ? 'themeColor' : 'accentColor']: hexColor 
-      }));
-    }
-  };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -499,54 +436,6 @@ export default function WebsiteSettingsPage() {
                         />
                       </div>
                     )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5 text-primary" /> Theme Customization
-                </CardTitle>
-                 <CardDescription>Customize the look and feel of your application.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="themeColor">Primary Color (for buttons, active items)</Label>
-                  <div className="flex items-center gap-4 mt-2">
-                    <Input
-                      id="themeColor"
-                      name="themeColor"
-                      type="color"
-                      value={content.themeColor || '#FBBF24'}
-                      onChange={(e) => handleColorChange(e, 'primary')}
-                      className="w-16 h-10 p-1"
-                      disabled={!canEdit}
-                    />
-                    <div className="p-2 rounded-md" style={{ backgroundColor: content.themeColor || '#FBBF24' }}>
-                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--primary-foreground))' }}>
-                        Primary Button
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                 <div>
-                  <Label htmlFor="accentColor">Accent Color (for sidebar, backgrounds)</Label>
-                  <div className="flex items-center gap-4 mt-2">
-                    <Input
-                      id="accentColor"
-                      name="accentColor"
-                      type="color"
-                      value={content.accentColor || '#4A2E2A'}
-                      onChange={(e) => handleColorChange(e, 'accent')}
-                      className="w-16 h-10 p-1"
-                      disabled={!canEdit}
-                    />
-                    <div className="p-2 rounded-md" style={{ backgroundColor: content.accentColor || '#4A2E2A' }}>
-                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--accent-foreground))' }}>
-                        Accent Background
-                      </p>
-                    </div>
                   </div>
                 </div>
               </CardContent>
