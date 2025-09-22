@@ -1,3 +1,4 @@
+
 'use server';
 
 import axios from 'axios';
@@ -20,9 +21,9 @@ export async function requestPasswordReset(
 
   try {
     // Call the external authentication server's forgot-password endpoint
+    // The external API expects the email as a query parameter
     const response = await axios.post(
-      `${authApiBaseUrl}/api/Auth/forgot-password`,
-      { email }
+      `${authApiBaseUrl}/api/Auth/forgot-password?email=${encodeURIComponent(email)}`
     );
 
     // The external API should ideally always return a generic success message
