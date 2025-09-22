@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -11,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
     icons: {
-      icon: content?.logoUrl || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh',
+      icon: content?.logo || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh',
     }
   };
 }
