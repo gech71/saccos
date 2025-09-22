@@ -569,5 +569,5 @@ export default function SharePaymentsPage() {
     </div>
   );
 
-    
+}
 
