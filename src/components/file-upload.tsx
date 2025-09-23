@@ -14,7 +14,7 @@ interface FileUploadProps {
   id: string;
 }
 
-const ACCEPTED_FILE_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/jfif,.pdf,.doc,.docx";
+const ACCEPTED_FILE_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/jfif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 
 export function FileUpload({value, onValueChange, label, id}: FileUploadProps) {

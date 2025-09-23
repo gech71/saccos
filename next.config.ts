@@ -67,11 +67,12 @@ const nextConfig: NextConfig = {
        {
         protocol: 'https',
         hostname: 'nibsaccos.nibbank.com.et',
-      }
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
     ],
-    // This allows the Next.js Image component to optimize images from the local filesystem.
-    // It's required for images served from the `/public` directory.
-    unoptimized: false, 
   },
   async headers() {
     return [

@@ -11,7 +11,10 @@ const ALLOWED_MIME_TYPES = [
   'image/webp',
   'image/svg+xml',
   'image/avif',
-  'image/jfif', 
+  'image/jfif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
 // This function handles POST requests to /api/upload
@@ -61,3 +64,4 @@ export async function POST(request: NextRequest) {
     });
   }
 }
+
