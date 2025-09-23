@@ -32,6 +32,7 @@ export async function getWebsiteContentForAdmin() {
                 heroTitle: 'Empowering Your Financial Future, Together.',
                 heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
                  primary: 'hsl(48, 96%, 53%)',
+                 logo: '',
             },
             include: {
                 socialLinks: true,
@@ -87,7 +88,7 @@ export async function createOrUpdateSocialMediaLink(data: Partial<Omit<SocialMed
         name: linkData.name!,
         url: linkData.url!,
         iconUrl: linkData.iconUrl!,
-        content: { connect: { id: contentId } },
+        websiteContent: { connect: { id: contentId } },
       },
     });
     revalidateTag('website-content');
@@ -122,7 +123,7 @@ export async function createOrUpdateService(data: Partial<Omit<Service, 'id'>> &
         title: serviceData.title!,
         description: serviceData.description!,
         icon: serviceData.icon!,
-        content: { connect: { id: contentId } },
+        websiteContent: { connect: { id: contentId } },
       },
     });
     revalidateTag('website-content');
