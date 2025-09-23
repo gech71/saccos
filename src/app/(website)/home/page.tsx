@@ -1,3 +1,4 @@
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getWebsiteContent } from '@/lib/website-actions';
@@ -121,7 +122,7 @@ export default async function HomePage() {
         </section>
 
         {/* About Us Section */}
-        <section className="w-full py-12 md:py-16 lg:py-20 bg-muted">
+        <section className="w-full py-12 md:py-16 bg-muted">
             <div className="container grid items-center gap-6 px-4 md:px-6 lg:grid-cols-2 lg:gap-10">
                 <div className="space-y-4 px-4 sm:px-6 md:px-8 lg:pl-12">
                     <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight text-primary">
