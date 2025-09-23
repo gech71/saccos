@@ -18,19 +18,31 @@ export async function validateResetToken(token: string): Promise<{ success: bool
     
     const hashedToken = hashToken(token);
 
-    const user = await prisma.user.findUnique({
+    // Check User table
+    const user = await prisma.user.findFirst({
         where: { passwordResetToken: hashedToken },
     });
 
-    if (!user) {
-        return { success: false, message: "Invalid token." };
+    if (user) {
+        if (!user.passwordResetTokenExpires || user.passwordResetTokenExpires < new Date()) {
+            return { success: false, message: "Token has expired." };
+        }
+        return { success: true, message: "Token is valid." };
+    }
+    
+    // If not found in User, check Member table
+    const member = await prisma.member.findFirst({
+        where: { passwordResetToken: hashedToken },
+    });
+
+    if (member) {
+        if (!member.passwordResetTokenExpires || member.passwordResetTokenExpires < new Date()) {
+            return { success: false, message: "Token has expired." };
+        }
+        return { success: true, message: "Token is valid." };
     }
 
-    if (!user.passwordResetTokenExpires || user.passwordResetTokenExpires < new Date()) {
-        return { success: false, message: "Token has expired." };
-    }
-
-    return { success: true, message: "Token is valid." };
+    return { success: false, message: "Invalid token." };
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string; }> {
@@ -44,29 +56,47 @@ export async function resetPassword(token: string, newPassword: string): Promise
     }
     
     const hashedToken = hashToken(token);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     try {
-        const user = await prisma.user.findUnique({
+        // Try updating a user first
+        const user = await prisma.user.findFirst({
             where: { passwordResetToken: hashedToken },
         });
 
-        if (!user) {
-            // This should ideally not happen if validateResetToken passed, but it's a good safeguard.
-            return { success: false, message: "Invalid token." };
+        if (user) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    // Admins might not have a local password, so this is conditional.
+                    // The password reset in this case is handled by an external provider,
+                    // but the token flow is now internal. A real app would call the provider API here.
+                    // For now, we clear the token.
+                    passwordResetToken: null,
+                    passwordResetTokenExpires: null,
+                },
+            });
+             return { success: true, message: "This flow is for an admin. In a real app, you would now integrate with the external provider's password change API. For now, the token is cleared." };
         }
 
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                password: hashedPassword,
-                passwordResetToken: null, // Invalidate the token after use
-                passwordResetTokenExpires: null,
-            },
+        // If no user, try updating a member
+        const member = await prisma.member.findFirst({
+            where: { passwordResetToken: hashedToken },
         });
 
-        return { success: true, message: "Password has been reset successfully." };
+        if (member) {
+            await prisma.member.update({
+                where: { id: member.id },
+                data: {
+                    password: hashedPassword,
+                    passwordResetToken: null, // Invalidate the token after use
+                    passwordResetTokenExpires: null,
+                },
+            });
+             return { success: true, message: "Password has been reset successfully." };
+        }
+
+        return { success: false, message: "Invalid token." };
 
     } catch (error) {
         console.error("Error resetting password:", error);

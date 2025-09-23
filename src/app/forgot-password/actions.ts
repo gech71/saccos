@@ -17,48 +17,69 @@ export async function requestPasswordReset(
     return { success: false, message: 'Email address is required.' };
   }
 
-  // Use findFirst with a case-insensitive search for the email.
-  const user = await prisma.user.findFirst({
-    where: { 
-        email: {
-            equals: email,
-            mode: 'insensitive'
-        }
-     },
-  });
-
-  // IMPORTANT: Always return a generic success message to prevent email enumeration attacks.
-  const genericSuccessMessage = `If an account exists for ${email}, a password reset link has been sent.`;
-
-  if (!user) {
-    console.log(`Password reset requested for non-existent user: ${email}`);
-    return { success: true, message: genericSuccessMessage };
-  }
-
+  const normalizedEmail = email.toLowerCase();
+  const genericSuccessMessage = `If an account exists for ${normalizedEmail}, a password reset link has been sent.`;
+  
   try {
     // 1. Generate a secure, URL-safe random token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    // 2. Hash the token for database storage
     const passwordResetToken = hashToken(resetToken);
-    
-    // 3. Set an expiration date (e.g., 1 hour from now)
     const passwordResetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
-    // 4. Update the user record in the database
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordResetToken,
-        passwordResetTokenExpires,
-      },
+    // Try to find an admin/staff user first
+    const user = await prisma.user.findFirst({
+        where: { 
+            email: {
+                equals: normalizedEmail,
+                mode: 'insensitive'
+            }
+        },
     });
+
+    if (user) {
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordResetToken,
+                passwordResetTokenExpires,
+            },
+        });
+    } else {
+        // If not an admin, try to find a member
+        const member = await prisma.member.findFirst({
+            where: {
+                email: {
+                    equals: normalizedEmail,
+                    mode: 'insensitive'
+                }
+            }
+        });
+
+        if (member) {
+             if (!member.password) {
+                // This member account doesn't have a password set up for local login.
+                console.log(`Password reset requested for member ${member.email} without a local password.`);
+                return { success: true, message: genericSuccessMessage };
+            }
+            await prisma.member.update({
+                where: { id: member.id },
+                data: {
+                    passwordResetToken,
+                    passwordResetTokenExpires,
+                },
+            });
+        } else {
+            console.log(`Password reset requested for non-existent user/member: ${email}`);
+            return { success: true, message: genericSuccessMessage };
+        }
+    }
 
     // 5. Send the email with the *unhashed* token
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
-    await sendPasswordResetEmail(user.email, resetUrl);
+    await sendPasswordResetEmail(normalizedEmail, resetUrl);
 
     return { success: true, message: genericSuccessMessage };
+
   } catch (error) {
     console.error('Error during password reset request:', error);
     // Even if sending fails, return the generic message to the user for security.
