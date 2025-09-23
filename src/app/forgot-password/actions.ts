@@ -29,13 +29,14 @@ export async function requestPasswordReset(
     console.log(`Password reset requested for non-existent user: ${email}`);
     return { success: true, message: genericSuccessMessage };
   }
-  
-  if (!user.password) {
-      console.log(`Password reset requested for user without a password set: ${email}`);
-      return { success: true, message: "This account is not configured for password-based login and cannot be reset." };
-  }
 
   try {
+    // If the user is a member (has no userId) and has no password, they can't reset.
+    // This check is now correctly placed to only affect non-admin users.
+    if (!user.userId && !user.password) {
+        return { success: true, message: "This account is not configured for password-based login and cannot be reset." };
+    }
+      
     // 1. Generate a secure, URL-safe random token
     const resetToken = crypto.randomBytes(32).toString('hex');
     
