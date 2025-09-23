@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -201,8 +202,8 @@ export default function WebsiteSettingsPage() {
       setCurrentHeroSlide((prev) => ({ ...prev, imageUrl: url }));
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!canEdit) return;
     setIsSubmitting(true);
     try {
@@ -390,7 +391,7 @@ export default function WebsiteSettingsPage() {
         subtitle="Manage the content displayed on your public-facing website."
       />
 
-      <form onSubmit={handleSubmit}>
+      <form>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <Card>
@@ -460,8 +461,8 @@ export default function WebsiteSettingsPage() {
                                         <TableCell className="font-medium">{slide.title}</TableCell>
                                         <TableCell><Image src={slide.imageUrl} alt={slide.title} width={80} height={45} className="rounded-md object-cover aspect-video"/></TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHeroSlideModal(slide)} disabled={!canEdit}><Edit className="h-4 w-4"/></Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDeleteAlert(slide.id, 'hero')} disabled={!canEdit}><Trash2 className="h-4 w-4"/></Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHeroSlideModal(slide)} disabled={!canEdit}><Edit className="h-4 w-4"/></Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDeleteAlert(slide.id, 'hero')} disabled={!canEdit}><Trash2 className="h-4 w-4"/></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -565,6 +566,7 @@ export default function WebsiteSettingsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
@@ -574,6 +576,7 @@ export default function WebsiteSettingsPage() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
+                                type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive"
@@ -687,6 +690,7 @@ export default function WebsiteSettingsPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
@@ -696,6 +700,7 @@ export default function WebsiteSettingsPage() {
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive"
@@ -723,7 +728,7 @@ export default function WebsiteSettingsPage() {
 
         {canEdit && (
           <div className="flex justify-end mt-8">
-            <Button type="submit" disabled={isSubmitting || isLoading}>
+            <Button type="button" onClick={handleSubmit} disabled={isSubmitting || isLoading}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -904,3 +909,4 @@ export default function WebsiteSettingsPage() {
     </div>
   );
 }
+
