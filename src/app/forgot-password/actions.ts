@@ -1,7 +1,14 @@
 
 'use server';
 
-import axios from 'axios';
+import prisma from '@/lib/prisma';
+import { sendPasswordResetEmail } from '@/lib/email-service';
+import crypto from 'crypto';
+
+// Hash the token before storing it in the database
+const hashToken = (token: string) => {
+  return crypto.createHash('sha256').update(token).digest('hex');
+};
 
 export async function requestPasswordReset(
   email: string
@@ -10,53 +17,52 @@ export async function requestPasswordReset(
     return { success: false, message: 'Email address is required.' };
   }
 
-  const authApiBaseUrl = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL;
-  if (!authApiBaseUrl) {
-    console.error('NEXT_PUBLIC_AUTH_API_BASE_URL is not set.');
-    return {
-      success: false,
-      message: 'The system is not configured for password resets.',
-    };
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  // IMPORTANT: Always return a generic success message to prevent email enumeration attacks.
+  // This means we don't reveal whether an account with that email actually exists.
+  const genericSuccessMessage = `If an account exists for ${email}, a password reset link has been sent.`;
+
+  if (!user) {
+    console.log(`Password reset requested for non-existent user: ${email}`);
+    return { success: true, message: genericSuccessMessage };
+  }
+  
+  if (!user.password) {
+      console.log(`Password reset requested for user without a password set: ${email}`);
+      return { success: true, message: "This account is not configured for password-based login and cannot be reset." };
   }
 
   try {
-    // Call the external authentication server's forgot-password endpoint
-    // The external API expects the email as a query parameter and an empty JSON body.
-    const response = await axios.post(
-      `${authApiBaseUrl}/api/Auth/forgot-password?email=${encodeURIComponent(email)}`,
-      {}, // Send an empty JSON body
-      {
-        headers: {
-          'Content-Type': 'application/json', // Specify the content type
-        },
-      }
-    );
+    // 1. Generate a secure, URL-safe random token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // 2. Hash the token for database storage
+    const passwordResetToken = hashToken(resetToken);
+    
+    // 3. Set an expiration date (e.g., 1 hour from now)
+    const passwordResetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
-    // The external API should ideally always return a generic success message
-    // to prevent email enumeration. We will trust its response.
-    if (response.data && response.data.isSuccess) {
-      return {
-        success: true,
-        message:
-          response.data.message ||
-          `If an account exists for ${email}, a password reset link has been sent.`,
-      };
-    } else {
-      // If the API call itself succeeds but the operation fails (e.g., validation error)
-      const errorMessage =
-        response.data?.errors?.join(' ') ||
-        response.data?.message ||
-        'An error occurred.';
-      return { success: false, message: errorMessage };
-    }
+    // 4. Update the user record in the database
+    await prisma.user.update({
+      where: { email },
+      data: {
+        passwordResetToken,
+        passwordResetTokenExpires,
+      },
+    });
+
+    // 5. Send the email with the *unhashed* token
+    // We construct the full URL here
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+    await sendPasswordResetEmail(user.email, resetUrl);
+
+    return { success: true, message: genericSuccessMessage };
   } catch (error) {
-    // Handle network errors or cases where the auth server is down
-    console.error('Forgot password API call failed:', error);
-    // To prevent leaking information, we can still return a generic "success" message to the user
-    // while logging the actual error on the server.
-    return {
-      success: true,
-      message: `If an account exists for ${email}, a password reset link has been sent.`,
-    };
+    console.error('Error during password reset request:', error);
+    // Even if sending fails, return the generic message to the user for security.
+    return { success: true, message: genericSuccessMessage };
   }
 }
