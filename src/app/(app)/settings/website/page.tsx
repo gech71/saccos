@@ -211,15 +211,15 @@ export default function WebsiteSettingsPage() {
         title: 'Success',
         description: 'Website content has been updated successfully.',
       });
-      // Force a reload to apply the new theme color globally
-      window.location.reload();
+      await fetchContent();
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to update website content.',
       });
-       setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
