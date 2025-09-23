@@ -17,12 +17,17 @@ export async function requestPasswordReset(
     return { success: false, message: 'Email address is required.' };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  // Use findFirst with a case-insensitive search for the email.
+  const user = await prisma.user.findFirst({
+    where: { 
+        email: {
+            equals: email,
+            mode: 'insensitive'
+        }
+     },
   });
 
   // IMPORTANT: Always return a generic success message to prevent email enumeration attacks.
-  // This means we don't reveal whether an account with that email actually exists.
   const genericSuccessMessage = `If an account exists for ${email}, a password reset link has been sent.`;
 
   if (!user) {
@@ -42,7 +47,7 @@ export async function requestPasswordReset(
 
     // 4. Update the user record in the database
     await prisma.user.update({
-      where: { email },
+      where: { id: user.id },
       data: {
         passwordResetToken,
         passwordResetTokenExpires,
@@ -50,7 +55,6 @@ export async function requestPasswordReset(
     });
 
     // 5. Send the email with the *unhashed* token
-    // We construct the full URL here
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(user.email, resetUrl);
 

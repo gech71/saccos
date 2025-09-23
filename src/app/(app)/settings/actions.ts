@@ -78,64 +78,57 @@ export async function syncUserOnLogin(
   name: string,
   email: string
 ) {
+  const normalizedEmail = email.toLowerCase();
+  
   const userByUserId = await prisma.user.findUnique({
     where: { userId },
     include: { roles: true },
   });
 
   if (userByUserId) {
-    // User found by their auth ID. Check if the email from the token creates a conflict.
     const potentialConflict = await prisma.user.findFirst({
       where: {
-        email: email,
-        NOT: { userId: userId }, // Look for other users with this email
+        email: normalizedEmail,
+        NOT: { userId: userId },
       },
     });
 
     if (potentialConflict) {
-      // The email from the token is already used by another user in the DB.
-      // This is a conflict. We log it and only update the name to avoid a crash.
       console.warn(
-        `Login attempt for userId ${userId} with email ${email}, but this email is already registered to user ${potentialConflict.id}. Only updating name.`
+        `Login attempt for userId ${userId} with email ${normalizedEmail}, but this email is already registered to user ${potentialConflict.id}. Only updating name.`
       );
       return prisma.user.update({
         where: { userId },
-        data: { name }, // Only update name to prevent unique constraint violation
+        data: { name },
         include: { roles: true },
       });
     }
 
-    // No email conflict, it's safe to update both name and email.
     return prisma.user.update({
       where: { userId },
-      data: { name, email },
+      data: { name, email: normalizedEmail },
       include: { roles: true },
     });
   }
 
-  // If no user is found by userId, check if a user exists with that email.
-  // This handles cases where the userId might have changed or there's a data mismatch (e.g., seed vs. live auth).
   const userByEmail = await prisma.user.findUnique({
-    where: { email },
+    where: { email: normalizedEmail },
     include: { roles: true },
   });
 
   if (userByEmail) {
-    // A user with this email exists, but with a different userId.
-    // We'll update their userId to the new one from the auth token, linking the accounts.
     return prisma.user.update({
-      where: { email },
-      data: { userId, name }, // Update their userId and name
+      where: { email: normalizedEmail },
+      data: { userId, name },
       include: { roles: true },
     });
   }
 
-  // If no user is found by either userId or email, create a new one.
   return prisma.user.create({
     data: {
       userId,
       name,
-      email,
+      email: normalizedEmail,
       roles: {
         connectOrCreate: {
           where: { name: "Staff" },
@@ -172,7 +165,6 @@ export async function registerUserByAdmin(
   const authApiBaseUrl = process.env.AUTH_API_BASE_URL;
 
   try {
-    // Step 1: Register user with the external auth provider
     const registerResponse = await axios.post(
       `${authApiBaseUrl}/api/Auth/register`,
       {
@@ -189,7 +181,6 @@ export async function registerUserByAdmin(
       }
     );
 
-    // Step 2: Validate the response from the auth service
     const responseData = registerResponse.data;
 
     if (!responseData || !responseData.isSuccess) {
@@ -200,8 +191,6 @@ export async function registerUserByAdmin(
       throw new Error(errorMessage);
     }
 
-    // Step 3: Extract the new user's ID from the response.
-    // It might be in a token or directly in the response body.
     let externalUserId: string | undefined;
 
     if (responseData.accessToken) {
@@ -218,7 +207,6 @@ export async function registerUserByAdmin(
         );
       }
     } else {
-      // Fallback to checking direct properties if no token is present
       externalUserId =
         responseData.userId || responseData.id || responseData.sub;
     }
@@ -234,12 +222,11 @@ export async function registerUserByAdmin(
       throw new Error(errorMessage);
     }
 
-    // Step 4: Save the new user to the local application database
     const newUser = await prisma.user.create({
       data: {
         userId: externalUserId,
         name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
+        email: data.email.toLowerCase(),
         firstName: data.firstName,
         lastName: data.lastName,
         phoneNumber: data.phoneNumber,
@@ -252,7 +239,6 @@ export async function registerUserByAdmin(
     revalidatePath("/settings");
     return newUser;
   } catch (error) {
-    // Step 5: Provide detailed error handling
     if (axios.isAxiosError(error)) {
       const responseData = error.response?.data;
       const message =
@@ -274,14 +260,11 @@ export async function registerUserByAdmin(
       }
     }
 
-    // Fallback for any other type of error
     console.error("Generic Error during registration:", error);
     if (error instanceof Error) {
-      // Re-throw the specific error message to be displayed to the user.
       throw new Error(error.message);
     }
 
-    // Fallback for non-Error objects
     throw new Error("An unexpected error occurred during registration.");
   }
 }
@@ -294,7 +277,6 @@ export async function createOrUpdateRole(
 ): Promise<Role> {
   const { id, ...roleData } = data;
   
-  // Ensure permissions are always a string, joining if it's an array.
   const permissionsString = Array.isArray(roleData.permissions)
     ? roleData.permissions.join(',')
     : roleData.permissions || '';
@@ -305,7 +287,6 @@ export async function createOrUpdateRole(
   };
 
   if (id) {
-    // Update
     const updatedRole = await prisma.role.update({
       where: { id },
       data: dataToSave,
@@ -313,7 +294,6 @@ export async function createOrUpdateRole(
     revalidatePath("/settings");
     return updatedRole;
   } else {
-    // Create
     const newRole = await prisma.role.create({
       data: dataToSave as RoleInput,
     });
@@ -359,7 +339,6 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
 
   const permissions = new Set<string>();
   user.roles.forEach((role) => {
-    // Ensure role.permissions is treated as a string before splitting
     if (typeof role.permissions === 'string') {
         role.permissions.split(',').forEach((permission) => {
             if (permission) permissions.add(permission);
@@ -367,7 +346,6 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
     }
   });
   
-  // If user has 'Admin' role, give all permissions by default for safety.
   if (user.roles.some((role) => role.name === "Admin")) {
     permissionsList.forEach((p) => permissions.add(p.id));
   }
