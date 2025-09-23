@@ -69,6 +69,9 @@ const nextConfig: NextConfig = {
         hostname: 'nibsaccos.nibbank.com.et',
       }
     ],
+    // This allows the Next.js Image component to optimize images from the local filesystem.
+    // It's required for images served from the `/public` directory.
+    unoptimized: false, 
   },
   async headers() {
     return [

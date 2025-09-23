@@ -14,6 +14,9 @@ interface FileUploadProps {
   id: string;
 }
 
+const ACCEPTED_FILE_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/jfif,.pdf,.doc,.docx";
+
+
 export function FileUpload({value, onValueChange, label, id}: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,7 +103,7 @@ export function FileUpload({value, onValueChange, label, id}: FileUploadProps) {
             onChange={handleFileChange}
             className="hidden"
             id={id}
-            accept="image/*,.pdf,.doc,.docx"
+            accept={ACCEPTED_FILE_TYPES}
             disabled={isLoading}
           />
           <Button

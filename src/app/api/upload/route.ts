@@ -4,6 +4,16 @@ import {writeFile} from 'fs/promises';
 import {join} from 'path';
 import {mkdir} from 'fs/promises';
 
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/avif',
+  'image/jfif', 
+];
+
 // This function handles POST requests to /api/upload
 export async function POST(request: NextRequest) {
   const data = await request.formData();
@@ -11,6 +21,10 @@ export async function POST(request: NextRequest) {
 
   if (!file) {
     return NextResponse.json({success: false, error: 'No file provided.'});
+  }
+  
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return NextResponse.json({ success: false, error: `Invalid file type. Only ${ALLOWED_MIME_TYPES.join(', ')} are allowed.` }, { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
