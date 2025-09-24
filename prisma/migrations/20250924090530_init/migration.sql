@@ -33,6 +33,8 @@ CREATE TABLE "School" (
     "name" TEXT NOT NULL,
     "address" TEXT,
     "contactPerson" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "School_pkey" PRIMARY KEY ("id")
 );
@@ -42,17 +44,18 @@ CREATE TABLE "Member" (
     "id" TEXT NOT NULL,
     "fullName" TEXT NOT NULL,
     "email" TEXT,
-    "password" TEXT,
-    "mustChangePassword" BOOLEAN DEFAULT false,
     "sex" TEXT NOT NULL,
     "phoneNumber" TEXT,
+    "password" TEXT,
+    "mustChangePassword" BOOLEAN DEFAULT false,
     "passwordResetToken" TEXT,
     "passwordResetTokenExpires" TIMESTAMP(3),
-    "schoolId" TEXT NOT NULL,
-    "joinDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "joinDate" TIMESTAMP(3) NOT NULL,
     "salary" DOUBLE PRECISION,
     "status" TEXT NOT NULL DEFAULT 'active',
     "closureDate" TIMESTAMP(3),
+    "schoolId" TEXT NOT NULL,
+    "userId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -62,12 +65,13 @@ CREATE TABLE "Member" (
 -- CreateTable
 CREATE TABLE "Address" (
     "id" TEXT NOT NULL,
-    "city" TEXT NOT NULL,
+    "city" TEXT,
     "subCity" TEXT,
     "wereda" TEXT,
     "kebele" TEXT,
     "houseNumber" TEXT,
     "memberId" TEXT,
+    "collateralId" TEXT,
 
     CONSTRAINT "Address_pkey" PRIMARY KEY ("id")
 );
@@ -99,10 +103,10 @@ CREATE TABLE "SchoolHistory" (
 CREATE TABLE "SavingAccountType" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "description" TEXT,
     "interestRate" DOUBLE PRECISION NOT NULL,
-    "contributionType" TEXT NOT NULL,
-    "contributionValue" DOUBLE PRECISION NOT NULL,
+    "description" TEXT,
+    "contributionType" TEXT NOT NULL DEFAULT 'FIXED',
+    "contributionValue" DOUBLE PRECISION NOT NULL DEFAULT 0,
 
     CONSTRAINT "SavingAccountType_pkey" PRIMARY KEY ("id")
 );
@@ -126,20 +130,20 @@ CREATE TABLE "LoanType" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "interestRate" DOUBLE PRECISION NOT NULL,
-    "minLoanAmount" DOUBLE PRECISION NOT NULL DEFAULT 1000,
-    "maxLoanAmount" DOUBLE PRECISION NOT NULL DEFAULT 50000,
-    "minRepaymentPeriod" INTEGER NOT NULL DEFAULT 1,
-    "maxRepaymentPeriod" INTEGER NOT NULL DEFAULT 12,
+    "minLoanAmount" DOUBLE PRECISION NOT NULL,
+    "maxLoanAmount" DOUBLE PRECISION NOT NULL,
+    "minRepaymentPeriod" INTEGER NOT NULL,
+    "maxRepaymentPeriod" INTEGER NOT NULL,
     "repaymentFrequency" TEXT NOT NULL DEFAULT 'monthly',
-    "nplInterestRate" DOUBLE PRECISION,
-    "nplGracePeriodDays" INTEGER,
+    "nplInterestRate" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "nplGracePeriodDays" INTEGER NOT NULL DEFAULT 30,
+    "minSavingMonths" INTEGER NOT NULL DEFAULT 0,
+    "minSavingBalance" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "allowConcurrent" BOOLEAN NOT NULL DEFAULT false,
     "serviceFee" DOUBLE PRECISION,
     "insuranceFeePercentage" DOUBLE PRECISION,
     "collateralLogic" TEXT NOT NULL DEFAULT 'GUARANTOR',
     "collateralThresholdAmount" DOUBLE PRECISION,
-    "minSavingMonths" INTEGER,
-    "minSavingBalance" DOUBLE PRECISION,
     "purposes" TEXT[],
 
     CONSTRAINT "LoanType_pkey" PRIMARY KEY ("id")
@@ -151,7 +155,7 @@ CREATE TABLE "ServiceChargeType" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "amount" DOUBLE PRECISION NOT NULL,
-    "frequency" TEXT NOT NULL,
+    "frequency" TEXT NOT NULL DEFAULT 'once',
 
     CONSTRAINT "ServiceChargeType_pkey" PRIMARY KEY ("id")
 );
@@ -164,8 +168,9 @@ CREATE TABLE "MemberSavingAccount" (
     "accountNumber" TEXT NOT NULL,
     "balance" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "initialBalance" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "expectedMonthlySaving" DOUBLE PRECISION,
+    "expectedMonthlySaving" DOUBLE PRECISION DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "MemberSavingAccount_pkey" PRIMARY KEY ("id")
 );
@@ -174,7 +179,7 @@ CREATE TABLE "MemberSavingAccount" (
 CREATE TABLE "Saving" (
     "id" TEXT NOT NULL,
     "memberId" TEXT NOT NULL,
-    "memberSavingAccountId" TEXT,
+    "memberSavingAccountId" TEXT NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
     "month" TEXT NOT NULL,
@@ -185,6 +190,8 @@ CREATE TABLE "Saving" (
     "sourceName" TEXT,
     "transactionReference" TEXT,
     "evidenceUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Saving_pkey" PRIMARY KEY ("id")
 );
@@ -198,6 +205,8 @@ CREATE TABLE "MemberShareCommitment" (
     "amountPaid" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "joinDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "MemberShareCommitment_pkey" PRIMARY KEY ("id")
 );
@@ -214,8 +223,25 @@ CREATE TABLE "SharePayment" (
     "sourceName" TEXT,
     "transactionReference" TEXT,
     "evidenceUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "SharePayment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Dividend" (
+    "id" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "amount" DOUBLE PRECISION NOT NULL,
+    "distributionDate" TIMESTAMP(3) NOT NULL,
+    "shareCountAtDistribution" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Dividend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -229,14 +255,16 @@ CREATE TABLE "Loan" (
     "loanTerm" INTEGER NOT NULL,
     "repaymentFrequency" TEXT NOT NULL,
     "disbursementDate" TIMESTAMP(3) NOT NULL,
-    "status" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
     "remainingBalance" DOUBLE PRECISION NOT NULL,
     "nextDueDate" TIMESTAMP(3),
-    "monthlyRepaymentAmount" DOUBLE PRECISION,
     "serviceFee" DOUBLE PRECISION,
     "insuranceFee" DOUBLE PRECISION,
-    "purpose" TEXT,
     "notes" TEXT,
+    "purpose" TEXT,
+    "monthlyRepaymentAmount" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Loan_pkey" PRIMARY KEY ("id")
 );
@@ -244,11 +272,12 @@ CREATE TABLE "Loan" (
 -- CreateTable
 CREATE TABLE "Collateral" (
     "id" TEXT NOT NULL,
+    "loanId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "description" TEXT,
     "documentUrl" TEXT,
-    "loanId" TEXT NOT NULL,
-    "addressId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Collateral_pkey" PRIMARY KEY ("id")
 );
@@ -271,27 +300,16 @@ CREATE TABLE "LoanRepayment" (
     "principalPaid" DOUBLE PRECISION NOT NULL,
     "interestPaid" DOUBLE PRECISION NOT NULL,
     "paymentDate" TIMESTAMP(3) NOT NULL,
-    "notes" TEXT,
     "status" TEXT NOT NULL DEFAULT 'approved',
+    "notes" TEXT,
     "depositMode" TEXT,
     "sourceName" TEXT,
     "transactionReference" TEXT,
     "evidenceUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "LoanRepayment_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Dividend" (
-    "id" TEXT NOT NULL,
-    "memberId" TEXT NOT NULL,
-    "amount" DOUBLE PRECISION NOT NULL,
-    "distributionDate" TIMESTAMP(3) NOT NULL,
-    "shareCountAtDistribution" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'pending',
-    "notes" TEXT,
-
-    CONSTRAINT "Dividend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -303,6 +321,8 @@ CREATE TABLE "AppliedServiceCharge" (
     "dateApplied" TIMESTAMP(3) NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AppliedServiceCharge_pkey" PRIMARY KEY ("id")
 );
@@ -310,7 +330,7 @@ CREATE TABLE "AppliedServiceCharge" (
 -- CreateTable
 CREATE TABLE "WebsiteContent" (
     "id" TEXT NOT NULL,
-    "saccoName" TEXT,
+    "saccoName" TEXT NOT NULL,
     "logo" TEXT,
     "primary" TEXT,
     "accent" TEXT,
@@ -323,45 +343,10 @@ CREATE TABLE "WebsiteContent" (
     "address" TEXT,
     "phone" TEXT,
     "email" TEXT,
-
-    CONSTRAINT "WebsiteContent_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Post" (
-    "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "slug" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
-    "imageUrl" TEXT,
-    "isPublished" BOOLEAN NOT NULL DEFAULT false,
-    "websiteContentId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SocialMediaLink" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "url" TEXT NOT NULL,
-    "iconUrl" TEXT,
-    "websiteContentId" TEXT,
-
-    CONSTRAINT "SocialMediaLink_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Service" (
-    "id" TEXT NOT NULL,
-    "icon" TEXT,
-    "title" TEXT NOT NULL,
-    "description" TEXT NOT NULL,
-    "websiteContentId" TEXT,
-
-    CONSTRAINT "Service_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "WebsiteContent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -380,6 +365,42 @@ CREATE TABLE "HeroSlide" (
 );
 
 -- CreateTable
+CREATE TABLE "Post" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "imageUrl" TEXT,
+    "isPublished" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SocialMediaLink" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "iconUrl" TEXT NOT NULL,
+    "websiteContentId" TEXT,
+
+    CONSTRAINT "SocialMediaLink_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Service" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "icon" TEXT,
+    "websiteContentId" TEXT,
+
+    CONSTRAINT "Service_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_RoleToUser" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL
@@ -392,9 +413,6 @@ CREATE UNIQUE INDEX "User_userId_key" ON "User"("userId");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_passwordResetToken_key" ON "User"("passwordResetToken");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 
 -- CreateIndex
@@ -404,10 +422,13 @@ CREATE UNIQUE INDEX "School_name_key" ON "School"("name");
 CREATE UNIQUE INDEX "Member_email_key" ON "Member"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Member_passwordResetToken_key" ON "Member"("passwordResetToken");
+CREATE UNIQUE INDEX "Member_userId_key" ON "Member"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Address_memberId_key" ON "Address"("memberId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Address_collateralId_key" ON "Address"("collateralId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "EmergencyContact_memberId_key" ON "EmergencyContact"("memberId");
@@ -428,19 +449,13 @@ CREATE UNIQUE INDEX "ServiceChargeType_name_key" ON "ServiceChargeType"("name");
 CREATE UNIQUE INDEX "MemberSavingAccount_accountNumber_key" ON "MemberSavingAccount"("accountNumber");
 
 -- CreateIndex
-CREATE INDEX "MemberSavingAccount_memberId_savingAccountTypeId_idx" ON "MemberSavingAccount"("memberId", "savingAccountTypeId");
+CREATE UNIQUE INDEX "MemberSavingAccount_memberId_savingAccountTypeId_key" ON "MemberSavingAccount"("memberId", "savingAccountTypeId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "MemberShareCommitment_memberId_shareTypeId_key" ON "MemberShareCommitment"("memberId", "shareTypeId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Loan_loanAccountNumber_key" ON "Loan"("loanAccountNumber");
-
--- CreateIndex
-CREATE INDEX "Loan_memberId_loanTypeId_idx" ON "Loan"("memberId", "loanTypeId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Collateral_addressId_key" ON "Collateral"("addressId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LoanGuarantor_loanId_guarantorId_key" ON "LoanGuarantor"("loanId", "guarantorId");
@@ -455,10 +470,16 @@ CREATE UNIQUE INDEX "_RoleToUser_AB_unique" ON "_RoleToUser"("A", "B");
 CREATE INDEX "_RoleToUser_B_index" ON "_RoleToUser"("B");
 
 -- AddForeignKey
-ALTER TABLE "Member" ADD CONSTRAINT "Member_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Member" ADD CONSTRAINT "Member_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Member" ADD CONSTRAINT "Member_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Address" ADD CONSTRAINT "Address_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Address" ADD CONSTRAINT "Address_collateralId_fkey" FOREIGN KEY ("collateralId") REFERENCES "Collateral"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmergencyContact" ADD CONSTRAINT "EmergencyContact_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -467,28 +488,31 @@ ALTER TABLE "EmergencyContact" ADD CONSTRAINT "EmergencyContact_memberId_fkey" F
 ALTER TABLE "SchoolHistory" ADD CONSTRAINT "SchoolHistory_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SchoolHistory" ADD CONSTRAINT "SchoolHistory_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SchoolHistory" ADD CONSTRAINT "SchoolHistory_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MemberSavingAccount" ADD CONSTRAINT "MemberSavingAccount_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MemberSavingAccount" ADD CONSTRAINT "MemberSavingAccount_savingAccountTypeId_fkey" FOREIGN KEY ("savingAccountTypeId") REFERENCES "SavingAccountType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "MemberSavingAccount" ADD CONSTRAINT "MemberSavingAccount_savingAccountTypeId_fkey" FOREIGN KEY ("savingAccountTypeId") REFERENCES "SavingAccountType"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Saving" ADD CONSTRAINT "Saving_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Saving" ADD CONSTRAINT "Saving_memberSavingAccountId_fkey" FOREIGN KEY ("memberSavingAccountId") REFERENCES "MemberSavingAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Saving" ADD CONSTRAINT "Saving_memberSavingAccountId_fkey" FOREIGN KEY ("memberSavingAccountId") REFERENCES "MemberSavingAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MemberShareCommitment" ADD CONSTRAINT "MemberShareCommitment_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MemberShareCommitment" ADD CONSTRAINT "MemberShareCommitment_shareTypeId_fkey" FOREIGN KEY ("shareTypeId") REFERENCES "ShareType"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "MemberShareCommitment" ADD CONSTRAINT "MemberShareCommitment_shareTypeId_fkey" FOREIGN KEY ("shareTypeId") REFERENCES "ShareType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SharePayment" ADD CONSTRAINT "SharePayment_commitmentId_fkey" FOREIGN KEY ("commitmentId") REFERENCES "MemberShareCommitment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Dividend" ADD CONSTRAINT "Dividend_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Loan" ADD CONSTRAINT "Loan_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -500,9 +524,6 @@ ALTER TABLE "Loan" ADD CONSTRAINT "Loan_loanTypeId_fkey" FOREIGN KEY ("loanTypeI
 ALTER TABLE "Collateral" ADD CONSTRAINT "Collateral_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Collateral" ADD CONSTRAINT "Collateral_addressId_fkey" FOREIGN KEY ("addressId") REFERENCES "Address"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "LoanGuarantor" ADD CONSTRAINT "LoanGuarantor_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -512,10 +533,7 @@ ALTER TABLE "LoanGuarantor" ADD CONSTRAINT "LoanGuarantor_guarantorId_fkey" FORE
 ALTER TABLE "LoanRepayment" ADD CONSTRAINT "LoanRepayment_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "LoanRepayment" ADD CONSTRAINT "LoanRepayment_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-
--- AddForeignKey
-ALTER TABLE "Dividend" ADD CONSTRAINT "Dividend_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LoanRepayment" ADD CONSTRAINT "LoanRepayment_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AppliedServiceCharge" ADD CONSTRAINT "AppliedServiceCharge_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -524,16 +542,13 @@ ALTER TABLE "AppliedServiceCharge" ADD CONSTRAINT "AppliedServiceCharge_memberId
 ALTER TABLE "AppliedServiceCharge" ADD CONSTRAINT "AppliedServiceCharge_serviceChargeTypeId_fkey" FOREIGN KEY ("serviceChargeTypeId") REFERENCES "ServiceChargeType"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "HeroSlide" ADD CONSTRAINT "HeroSlide_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SocialMediaLink" ADD CONSTRAINT "SocialMediaLink_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SocialMediaLink" ADD CONSTRAINT "SocialMediaLink_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Service" ADD CONSTRAINT "Service_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "HeroSlide" ADD CONSTRAINT "HeroSlide_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Service" ADD CONSTRAINT "Service_websiteContentId_fkey" FOREIGN KEY ("websiteContentId") REFERENCES "WebsiteContent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_RoleToUser" ADD CONSTRAINT "_RoleToUser_A_fkey" FOREIGN KEY ("A") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
