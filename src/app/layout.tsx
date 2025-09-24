@@ -68,6 +68,15 @@ export default async function RootLayout({
   const content = await getWebsiteContent();
   const primaryHsl = hexToHsl(content?.primary || '#FBBF24') || '48 96% 53%';
   const accentHsl = hexToHsl(content?.accent || '#4A2E19') || '27 38% 15%';
+  
+  // Clone children to pass props
+  const childrenWithProps = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      // @ts-ignore
+      return React.cloneElement(child, { content });
+    }
+    return child;
+  });
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -88,7 +97,7 @@ export default async function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          {children}
+          {childrenWithProps}
           <Toaster />
         </AuthProvider>
       </body>
