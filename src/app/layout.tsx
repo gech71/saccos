@@ -67,8 +67,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const content = await getWebsiteContent();
-  const primaryHsl = hexToHsl(content?.primary || '#FBBF24') || '48 96% 53%';
-  const accentHsl = hexToHsl(content?.accent || '#4A2E19') || '27 38% 15%';
+  const primaryHsl = content?.primary ? hexToHsl(content.primary) : null;
+  const accentHsl = content?.accent ? hexToHsl(content.accent) : null;
   
   // Clone children to pass props
   const childrenWithProps = React.Children.map(children, child => {
@@ -89,8 +89,8 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               :root {
-                --primary: ${primaryHsl};
-                --accent: ${accentHsl};
+                ${primaryHsl ? `--primary: ${primaryHsl};` : ''}
+                ${accentHsl ? `--accent: ${accentHsl};` : ''}
               }
             `,
           }}
