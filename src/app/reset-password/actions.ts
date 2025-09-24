@@ -65,7 +65,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
         });
 
         if (user) {
-            await prisma.user.update({
+             await prisma.user.update({
                 where: { id: user.id },
                 data: {
                     // Admins might not have a local password, so this is conditional.
@@ -91,6 +91,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
                     password: hashedPassword,
                     passwordResetToken: null, // Invalidate the token after use
                     passwordResetTokenExpires: null,
+                    mustChangePassword: false, // Ensure this is reset as well
                 },
             });
              return { success: true, message: "Password has been reset successfully." };

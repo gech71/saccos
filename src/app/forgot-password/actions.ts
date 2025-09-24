@@ -21,7 +21,6 @@ export async function requestPasswordReset(
   const genericSuccessMessage = `If an account exists for ${normalizedEmail}, a password reset link has been sent.`;
   
   try {
-    // 1. Generate a secure, URL-safe random token
     const resetToken = crypto.randomBytes(32).toString('hex');
     const passwordResetToken = hashToken(resetToken);
     const passwordResetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
@@ -74,7 +73,6 @@ export async function requestPasswordReset(
         }
     }
 
-    // 5. Send the email with the *unhashed* token
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(normalizedEmail, resetUrl);
 
@@ -82,7 +80,6 @@ export async function requestPasswordReset(
 
   } catch (error) {
     console.error('Error during password reset request:', error);
-    // Even if sending fails, return the generic message to the user for security.
     return { success: true, message: genericSuccessMessage };
   }
 }
