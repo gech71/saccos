@@ -42,10 +42,11 @@ import {
   Newspaper,
   Settings2,
 } from 'lucide-react';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 
 const navItems: NavItem[] = [
@@ -240,10 +241,16 @@ const navItems: NavItem[] = [
   },
 ];
 
-export default function AppLayout({ children, content }: { children: React.ReactNode, content: WebsiteContent | null }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const [content, setContent] = useState<WebsiteContent | null>(null);
   const router = useRouter();
-  const { isAuthenticated, isLoading, user, member } = useAuth();
   const pathname = usePathname();
+  const { isAuthenticated, isLoading, user, member } = useAuth();
+
+  // Fetch website content client-side
+  useEffect(() => {
+    getWebsiteContent().then((res) => setContent(res));
+  }, []);
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];

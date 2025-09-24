@@ -1,10 +1,13 @@
 
+import React from "react";
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
 import React from 'react';
+
+
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getWebsiteContent();
