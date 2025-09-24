@@ -1,15 +1,15 @@
 
 import { Footer } from '@/components/website/footer';
 import { Navbar } from '@/components/website/navbar';
-import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 
-export default async function WebsiteLayout({
+export default function WebsiteLayout({
   children,
+  content,
 }: {
   children: React.ReactNode;
+  content: WebsiteContent | null;
 }) {
-  const content = await getWebsiteContent();
 
   return (
     <div className="flex min-h-screen flex-col">
