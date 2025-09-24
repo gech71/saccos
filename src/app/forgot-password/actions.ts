@@ -69,10 +69,12 @@ export async function requestPasswordReset(
             });
         } else {
             console.log(`Password reset requested for non-existent user/member: ${email}`);
+            // Still return success to prevent email enumeration
             return { success: true, message: genericSuccessMessage };
         }
     }
 
+    // If we found a user or member, send the email
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(normalizedEmail, resetUrl);
 
@@ -80,6 +82,7 @@ export async function requestPasswordReset(
 
   } catch (error) {
     console.error('Error during password reset request:', error);
+    // Always return a generic message to prevent leaking information
     return { success: true, message: genericSuccessMessage };
   }
 }
