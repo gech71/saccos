@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -611,38 +610,42 @@ export default function WebsiteSettingsPage() {
 
           <div className="space-y-8">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5 text-primary" /> Theme & Colors
-                </CardTitle>
-                <CardDescription>
-                  Enter HSL values (e.g., "222.2 47.4% 11.2%").
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="primary">Primary Color</Label>
-                  <Input
-                    id="primary"
-                    name="primary"
-                    value={content.primary || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 48 96% 53%"
-                    disabled={!canEdit}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="accent">Accent Color</Label>
-                  <Input
-                    id="accent"
-                    name="accent"
-                    value={content.accent || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 27 50% 40%"
-                    disabled={!canEdit}
-                  />
-                </div>
-              </CardContent>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary"/> Theme Customization</CardTitle>
+                    <CardDescription>Customize the look and feel of your application.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div>
+                        <Label htmlFor="primaryColor">Primary Color (for buttons, active items)</Label>
+                        <div className="flex items-center gap-4 mt-2">
+                            <Input
+                                id="primaryColor"
+                                name="primary"
+                                type="color"
+                                value={content.primary || '#FBBF24'}
+                                onChange={handleInputChange}
+                                className="w-16 h-10 p-1"
+                                disabled={!canEdit}
+                            />
+                            <Button style={{ backgroundColor: content.primary || '#FBBF24' }}>Primary Button</Button>
+                        </div>
+                    </div>
+                     <div>
+                        <Label htmlFor="accentColor">Accent Color (for backgrounds)</Label>
+                        <div className="flex items-center gap-4 mt-2">
+                             <Input
+                                id="accentColor"
+                                name="accent"
+                                type="color"
+                                value={content.accent || '#4A2E19'}
+                                onChange={handleInputChange}
+                                className="w-16 h-10 p-1"
+                                disabled={!canEdit}
+                            />
+                            <Button style={{ backgroundColor: content.accent || '#4A2E19' }}>Accent Background</Button>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
             <Card>
               <CardHeader>
