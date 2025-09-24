@@ -426,6 +426,11 @@ export default function WebsiteSettingsPage() {
                           onValueChange={(url) =>
                             handleFileUploadChange('logo', url)}
                         />
+						{content.logo && (
+						  <div className="relative w-32 h-32 border rounded-md p-2">
+							<Image src={content.logo} alt="Logo" fill style={{ objectFit: 'contain' }} unoptimized />
+						  </div>
+						)}
                       </CardContent>
                     </Card>
                      {content.logo && (
