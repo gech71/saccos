@@ -1,16 +1,15 @@
 
 import { Footer } from '@/components/website/footer';
 import { Navbar } from '@/components/website/navbar';
-import type { WebsiteContent } from '@prisma/client';
+import type { WebsiteContent, SocialMediaLink } from '@prisma/client';
 
 export default function WebsiteLayout({
   children,
   content,
 }: {
   children: React.ReactNode;
-  content: WebsiteContent | null;
+  content: (WebsiteContent & { socialLinks: SocialMediaLink[] }) | null;
 }) {
-
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar content={content} />
