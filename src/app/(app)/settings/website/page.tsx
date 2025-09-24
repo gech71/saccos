@@ -213,6 +213,8 @@ export default function WebsiteSettingsPage() {
         description: 'Website content has been updated successfully.',
       });
       await fetchContent();
+      // Force a page reload to apply new theme colors globally
+      window.location.reload();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -606,6 +608,40 @@ export default function WebsiteSettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-primary" /> Theme & Colors
+                </CardTitle>
+                <CardDescription>
+                  Enter HSL values (e.g., "222.2 47.4% 11.2%").
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="primary">Primary Color</Label>
+                  <Input
+                    id="primary"
+                    name="primary"
+                    value={content.primary || ''}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 48 96% 53%"
+                    disabled={!canEdit}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="accent">Accent Color</Label>
+                  <Input
+                    id="accent"
+                    name="accent"
+                    value={content.accent || ''}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 27 50% 40%"
+                    disabled={!canEdit}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                   <Phone className="h-5 w-5 text-primary" /> Contact Details
                 </CardTitle>
               </CardHeader>
@@ -909,4 +945,3 @@ export default function WebsiteSettingsPage() {
     </div>
   );
 }
-
