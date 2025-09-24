@@ -134,7 +134,7 @@ function ResetPasswordComponent() {
                     <CardTitle className="font-headline text-3xl text-primary">Set a New Password</CardTitle>
                     <CardDescription>
                         {tokenState === 'valid' ? 'Please enter and confirm your new password below.' : 'Validating your reset link...'}
-                    </Description>
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {renderContent()}
@@ -155,5 +155,5 @@ export default function ResetPasswordPage() {
         <Suspense fallback={<div>Loading...</div>}>
             <ResetPasswordComponent />
         </Suspense>
-    )
+    );
 }
