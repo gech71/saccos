@@ -122,11 +122,11 @@ export default async function HomePage({ content }: { content: any }) {
         {/* About Us Section */}
         <section className="w-full py-8 md:py-10 bg-muted">
             <div className="container grid items-center justify-center gap-6 px-4 md:px-6 lg:grid-cols-2 lg:gap-12">
-                <div className="space-y-4 text-center md:text-left">
+                <div className="space-y-4">
                     <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight text-primary">
                         About {content?.saccoName || 'AcademInvest'}
                     </h2>
-                    <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed mx-auto md:mx-0">
+                    <p className="max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
                         {(content?.aboutUs || 'We are a member-owned financial cooperative dedicated to providing quality financial services to the educational community. Our mission is to promote thrift, provide access to credit, and support the financial well-being of our members.').substring(0, 250) + '...'}
                     </p>
                      <Button asChild>
