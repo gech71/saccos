@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-export async function GET(req: Request, { params }: { params: { filename: string } }) {
-  const { filename } = params;
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ filename: string }> }
+) {
+  const { filename } = await context.params;
   if (!filename) return new NextResponse('Invalid filename', { status: 400 });
 
   const filePath = path.join(process.cwd(), 'uploads', filename);
@@ -19,7 +22,9 @@ export async function GET(req: Request, { params }: { params: { filename: string
     else if (ext === 'webp') contentType = 'image/webp';
     else if (ext === 'svg') contentType = 'image/svg+xml';
 
-    return new NextResponse(data, { headers: { 'Content-Type': contentType } });
+    return new NextResponse(data, {
+      headers: { 'Content-Type': contentType },
+    });
   } catch {
     return new NextResponse('File not found', { status: 404 });
   }
