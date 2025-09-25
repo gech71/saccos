@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -25,43 +26,48 @@ export interface AppliedChargesPageData {
 }
 
 export async function getAppliedChargesPageData(): Promise<AppliedChargesPageData> {
-  const [members, serviceChargeTypes, schools, appliedCharges] = await Promise.all([
-    prisma.member.findMany({ 
-        where: { status: 'active' },
-        include: { school: { select: { name: true } } },
-    }),
-    prisma.serviceChargeType.findMany({ orderBy: { name: 'asc' } }),
-    prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-    prisma.appliedServiceCharge.findMany(),
-  ]);
+  try {
+    const [members, serviceChargeTypes, schools, appliedCharges] = await Promise.all([
+      prisma.member.findMany({ 
+          where: { status: 'active' },
+          include: { school: { select: { name: true } } },
+      }),
+      prisma.serviceChargeType.findMany({ orderBy: { name: 'asc' } }),
+      prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+      prisma.appliedServiceCharge.findMany(),
+    ]);
 
-  const summaries: MemberServiceChargeSummary[] = members.map(member => {
-    const memberCharges = appliedCharges.filter(asc => asc.memberId === member.id);
-    const totalApplied = memberCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
-    const totalPaid = memberCharges
-      .filter(asc => asc.status === 'paid')
-      .reduce((sum, asc) => sum + asc.amountCharged, 0);
-    const totalPending = totalApplied - totalPaid;
-    const fulfillmentPercentage = totalApplied > 0 ? (totalPaid / totalApplied) * 100 : 100;
+    const summaries: MemberServiceChargeSummary[] = members.map(member => {
+      const memberCharges = appliedCharges.filter(asc => asc.memberId === member.id);
+      const totalApplied = memberCharges.reduce((sum, asc) => sum + asc.amountCharged, 0);
+      const totalPaid = memberCharges
+        .filter(asc => asc.status === 'paid')
+        .reduce((sum, asc) => sum + asc.amountCharged, 0);
+      const totalPending = totalApplied - totalPaid;
+      const fulfillmentPercentage = totalApplied > 0 ? (totalPaid / totalApplied) * 100 : 100;
+
+      return {
+        memberId: member.id,
+        fullName: member.fullName,
+        schoolName: member.school?.name || 'N/A',
+        schoolId: member.schoolId,
+        totalApplied,
+        totalPaid,
+        totalPending,
+        fulfillmentPercentage,
+      };
+    });
 
     return {
-      memberId: member.id,
-      fullName: member.fullName,
-      schoolName: member.school?.name || 'N/A',
-      schoolId: member.schoolId,
-      totalApplied,
-      totalPaid,
-      totalPending,
-      fulfillmentPercentage,
+      summaries,
+      members: members.map(m => ({ id: m.id, fullName: m.fullName, savingsAccountNumber: m.savingsAccountNumber })),
+      serviceChargeTypes,
+      schools,
     };
-  });
-
-  return {
-    summaries,
-    members: members.map(m => ({ id: m.id, fullName: m.fullName, savingsAccountNumber: m.savingsAccountNumber })),
-    serviceChargeTypes,
-    schools,
-  };
+  } catch (error) {
+    console.error('Failed to get applied charges data:', error);
+    throw new Error('Could not load page data. Please try again later.');
+  }
 }
 
 export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'serviceChargeTypeName' | 'status'> & {
@@ -69,67 +75,31 @@ export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'serviceCharg
 };
 
 export async function applyServiceCharge(data: AppliedChargeInput): Promise<AppliedServiceCharge> {
-  const [member, serviceChargeType] = await Promise.all([
-    prisma.member.findUnique({ where: { id: data.memberId } }),
-    prisma.serviceChargeType.findUnique({ where: { id: data.serviceChargeTypeId } }),
-  ]);
-
-  if (!member || !serviceChargeType) {
-    throw new Error('Invalid member or service charge type. Please ensure both are selected.');
-  }
-
-  const newCharge = await prisma.appliedServiceCharge.create({
-    data: {
-      ...data,
-      dateApplied: new Date(data.dateApplied),
-      status: 'pending',
-    },
-  });
-
-  revalidatePath('/applied-service-charges');
-  return newCharge;
-}
-
-export async function recordServiceChargePayment(memberId: string, amountPaid: number, paymentDate: string, depositMode: string): Promise<{ success: boolean; message: string }> {
   try {
-    const pendingCharges = await prisma.appliedServiceCharge.findMany({
-      where: {
-        memberId,
-        status: 'pending',
-      },
-      orderBy: {
-        dateApplied: 'asc', // Pay oldest charges first
-      },
-    });
+    const [member, serviceChargeType] = await Promise.all([
+      prisma.member.findUnique({ where: { id: data.memberId } }),
+      prisma.serviceChargeType.findUnique({ where: { id: data.serviceChargeTypeId } }),
+    ]);
 
-    if (pendingCharges.length === 0) {
-      return { success: false, message: 'No pending charges found for this member.' };
+    if (!member || !serviceChargeType) {
+      throw new Error('Invalid member or service charge type. Please ensure both are selected.');
     }
 
-    let remainingPayment = amountPaid;
-
-    await prisma.$transaction(async (tx) => {
-        for (const charge of pendingCharges) {
-            if (remainingPayment <= 0) break;
-
-            if (remainingPayment >= charge.amountCharged) {
-                await tx.appliedServiceCharge.update({
-                    where: { id: charge.id },
-                    data: { status: 'paid', notes: `Paid on ${paymentDate} via ${depositMode}` },
-                });
-                remainingPayment -= charge.amountCharged;
-            } else {
-                 // Partial payment not supported in this simplified logic.
-                 // A real app might create a partial payment record.
-                 // Here, we just stop if the amount doesn't cover the full charge.
-            }
-        }
+    const newCharge = await prisma.appliedServiceCharge.create({
+      data: {
+        ...data,
+        dateApplied: new Date(data.dateApplied),
+        status: 'pending',
+      },
     });
 
     revalidatePath('/applied-service-charges');
-    return { success: true, message: `Payment of ${amountPaid.toFixed(2)} Birr applied successfully.` };
+    return newCharge;
   } catch (error) {
-    console.error('Failed to record service charge payment:', error);
-    return { success: false, message: 'An unexpected error occurred while recording the payment.' };
+    console.error('Failed to apply service charge:', error);
+    if (error instanceof Error) {
+        throw new Error(error.message);
+    }
+    throw new Error('An unexpected error occurred while applying the charge.');
   }
 }

@@ -1,4 +1,5 @@
 
+
 "use server";
 
 import prisma from "@/lib/prisma";
@@ -36,24 +37,29 @@ export interface SettingsPageData {
 }
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
-  const [users, roles] = await Promise.all([
-    prisma.user.findMany({
-      include: {
-        roles: true,
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.role.findMany({
-      include: {
-        _count: {
-          select: { users: true },
+  try {
+    const [users, roles] = await Promise.all([
+      prisma.user.findMany({
+        include: {
+          roles: true,
         },
-      },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+        orderBy: { name: "asc" },
+      }),
+      prisma.role.findMany({
+        include: {
+          _count: {
+            select: { users: true },
+          },
+        },
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
-  return { users, roles };
+    return { users, roles };
+  } catch (error) {
+      console.error("Failed to get settings page data:", error);
+      throw new Error("Could not load settings. Please try again later.");
+  }
 }
 
 // User-related actions
@@ -61,16 +67,21 @@ export async function updateUserRoles(
   userId: string,
   roleIds: string[]
 ): Promise<User> {
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      roles: {
-        set: roleIds.map((id) => ({ id })),
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        roles: {
+          set: roleIds.map((id) => ({ id })),
+        },
       },
-    },
-  });
-  revalidatePath("/settings");
-  return updatedUser;
+    });
+    revalidatePath("/settings");
+    return updatedUser;
+  } catch (error) {
+      console.error("Failed to update user roles:", error);
+      throw new Error("An unexpected error occurred while updating roles.");
+  }
 }
 
 export async function syncUserOnLogin(
@@ -78,77 +89,82 @@ export async function syncUserOnLogin(
   name: string,
   email: string
 ) {
-  const normalizedEmail = email.toLowerCase();
-  
-  const userByUserId = await prisma.user.findUnique({
-    where: { userId },
-    include: { roles: true },
-  });
-
-  if (userByUserId) {
-    const potentialConflict = await prisma.user.findFirst({
-      where: {
-        email: normalizedEmail,
-        NOT: { userId: userId },
-      },
+  try {
+    const normalizedEmail = email.toLowerCase();
+    
+    const userByUserId = await prisma.user.findUnique({
+      where: { userId },
+      include: { roles: true },
     });
 
-    if (potentialConflict) {
-      console.warn(
-        `Login attempt for userId ${userId} with email ${normalizedEmail}, but this email is already registered to user ${potentialConflict.id}. Only updating name.`
-      );
+    if (userByUserId) {
+      const potentialConflict = await prisma.user.findFirst({
+        where: {
+          email: normalizedEmail,
+          NOT: { userId: userId },
+        },
+      });
+
+      if (potentialConflict) {
+        console.warn(
+          `Login attempt for userId ${userId} with email ${normalizedEmail}, but this email is already registered to user ${potentialConflict.id}. Only updating name.`
+        );
+        return prisma.user.update({
+          where: { userId },
+          data: { name },
+          include: { roles: true },
+        });
+      }
+
       return prisma.user.update({
         where: { userId },
-        data: { name },
+        data: { name, email: normalizedEmail },
         include: { roles: true },
       });
     }
 
-    return prisma.user.update({
-      where: { userId },
-      data: { name, email: normalizedEmail },
-      include: { roles: true },
-    });
-  }
-
-  const userByEmail = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    include: { roles: true },
-  });
-
-  if (userByEmail) {
-    return prisma.user.update({
+    const userByEmail = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      data: { userId, name },
       include: { roles: true },
     });
-  }
 
-  return prisma.user.create({
-    data: {
-      userId,
-      name,
-      email: normalizedEmail,
-      roles: {
-        connectOrCreate: {
-          where: { name: "Staff" },
-          create: {
-            name: "Staff",
-            description: "Regular staff member",
-            permissions: [
-              "dashboard:view",
-              "school:view",
-              "member:view",
-              "saving:view",
-            ].join(','),
+    if (userByEmail) {
+      return prisma.user.update({
+        where: { email: normalizedEmail },
+        data: { userId, name },
+        include: { roles: true },
+      });
+    }
+
+    return prisma.user.create({
+      data: {
+        userId,
+        name,
+        email: normalizedEmail,
+        roles: {
+          connectOrCreate: {
+            where: { name: "Staff" },
+            create: {
+              name: "Staff",
+              description: "Regular staff member",
+              permissions: [
+                "dashboard:view",
+                "school:view",
+                "member:view",
+                "saving:view",
+              ].join(','),
+            },
           },
         },
       },
-    },
-    include: {
-      roles: true,
-    },
-  });
+      include: {
+        roles: true,
+      },
+    });
+  } catch (error) {
+      console.error("Failed to sync user on login:", error);
+      throw new Error("An error occurred during user synchronization.");
+  }
 }
 
 export async function registerUserByAdmin(
@@ -275,30 +291,35 @@ export type RoleInput = Omit<Role, "id">;
 export async function createOrUpdateRole(
   data: Partial<RoleInput> & { id?: string }
 ): Promise<Role> {
-  const { id, ...roleData } = data;
-  
-  const permissionsString = Array.isArray(roleData.permissions)
-    ? roleData.permissions.join(',')
-    : roleData.permissions || '';
+  try {
+    const { id, ...roleData } = data;
+    
+    const permissionsString = Array.isArray(roleData.permissions)
+      ? roleData.permissions.join(',')
+      : roleData.permissions || '';
 
-  const dataToSave = {
-    ...roleData,
-    permissions: permissionsString,
-  };
+    const dataToSave = {
+      ...roleData,
+      permissions: permissionsString,
+    };
 
-  if (id) {
-    const updatedRole = await prisma.role.update({
-      where: { id },
-      data: dataToSave,
-    });
-    revalidatePath("/settings");
-    return updatedRole;
-  } else {
-    const newRole = await prisma.role.create({
-      data: dataToSave as RoleInput,
-    });
-    revalidatePath("/settings");
-    return newRole;
+    if (id) {
+      const updatedRole = await prisma.role.update({
+        where: { id },
+        data: dataToSave,
+      });
+      revalidatePath("/settings");
+      return updatedRole;
+    } else {
+      const newRole = await prisma.role.create({
+        data: dataToSave as RoleInput,
+      });
+      revalidatePath("/settings");
+      return newRole;
+    }
+  } catch (error) {
+    console.error('Failed to create or update role:', error);
+    throw new Error('An unexpected error occurred while saving the role.');
   }
 }
 
@@ -306,50 +327,55 @@ export async function createOrUpdateRole(
 export async function deleteRole(
   roleId: string
 ): Promise<{ success: boolean; message: string }> {
-  const usersWithRole = await prisma.user.count({
-    where: { roles: { some: { id: roleId } } },
-  });
-
-  if (usersWithRole > 0) {
-    return {
-      success: false,
-      message:
-        "Cannot delete role. It is currently assigned to one or more users.",
-    };
-  }
-
   try {
+    const usersWithRole = await prisma.user.count({
+      where: { roles: { some: { id: roleId } } },
+    });
+
+    if (usersWithRole > 0) {
+      return {
+        success: false,
+        message:
+          "Cannot delete role. It is currently assigned to one or more users.",
+      };
+    }
+
     await prisma.role.delete({ where: { id: roleId } });
     revalidatePath("/settings");
     return { success: true, message: "Role deleted successfully." };
   } catch (error) {
     console.error("Failed to delete role:", error);
-    return { success: false, message: "An unexpected error occurred." };
+    return { success: false, message: "An unexpected error occurred while deleting the role." };
   }
 }
 
 // Permission-related actions
 export async function getUserPermissions(userId: string): Promise<string[]> {
-  const user = await prisma.user.findUnique({
-    where: { userId },
-    include: { roles: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      include: { roles: true },
+    });
 
-  if (!user) return [];
+    if (!user) return [];
 
-  const permissions = new Set<string>();
-  user.roles.forEach((role) => {
-    if (typeof role.permissions === 'string') {
-        role.permissions.split(',').forEach((permission) => {
-            if (permission) permissions.add(permission);
-        });
+    const permissions = new Set<string>();
+    user.roles.forEach((role) => {
+      if (typeof role.permissions === 'string') {
+          role.permissions.split(',').forEach((permission) => {
+              if (permission) permissions.add(permission);
+          });
+      }
+    });
+    
+    if (user.roles.some((role) => role.name === "Admin")) {
+      permissionsList.forEach((p) => permissions.add(p.id));
     }
-  });
-  
-  if (user.roles.some((role) => role.name === "Admin")) {
-    permissionsList.forEach((p) => permissions.add(p.id));
+
+
+    return Array.from(permissions);
+  } catch (error) {
+      console.error('Failed to get user permissions:', error);
+      return [];
   }
-
-
-  return Array.from(permissions);
 }

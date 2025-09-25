@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -25,7 +26,6 @@ export async function requestPasswordReset(
     const passwordResetToken = hashToken(resetToken);
     const passwordResetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
-    // Try to find an admin/staff user first
     const user = await prisma.user.findFirst({
         where: { 
             email: {
@@ -44,7 +44,6 @@ export async function requestPasswordReset(
             },
         });
     } else {
-        // If not an admin, try to find a member
         const member = await prisma.member.findFirst({
             where: {
                 email: {
@@ -56,8 +55,7 @@ export async function requestPasswordReset(
 
         if (member) {
              if (!member.password) {
-                // This member account doesn't have a password set up for local login.
-                console.log(`Password reset requested for member ${member.email} without a local password.`);
+                console.log(`Password reset requested for member ${member.email} without a local password setup.`);
                 return { success: true, message: genericSuccessMessage };
             }
             await prisma.member.update({
@@ -69,12 +67,10 @@ export async function requestPasswordReset(
             });
         } else {
             console.log(`Password reset requested for non-existent user/member: ${email}`);
-            // Still return success to prevent email enumeration
             return { success: true, message: genericSuccessMessage };
         }
     }
 
-    // If we found a user or member, send the email
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(normalizedEmail, resetUrl);
 
@@ -82,7 +78,6 @@ export async function requestPasswordReset(
 
   } catch (error) {
     console.error('Error during password reset request:', error);
-    // Always return a generic message to prevent leaking information
-    return { success: true, message: genericSuccessMessage };
+    return { success: false, message: 'An unexpected error occurred. Please try again later.' };
   }
 }

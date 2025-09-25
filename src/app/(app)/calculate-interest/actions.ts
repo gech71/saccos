@@ -15,7 +15,7 @@ function roundToTwo(num: number) {
 
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
-    schools: Pick<School, 'id', 'name'>[];
+    schools: Pick<School, 'id' | 'name'>[];
     savingAccountTypes: Pick<SavingAccountType, 'id' | 'name' | 'interestRate'>[];
 }
 
@@ -30,16 +30,21 @@ export interface InterestCalculationResult {
 }
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
-    const [members, schools, savingAccountTypes] = await Promise.all([
-        prisma.member.findMany({
-            where: { status: 'active' },
-            select: { id: true, fullName: true },
-            orderBy: { fullName: 'asc' }
-        }),
-        prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-        prisma.savingAccountType.findMany({ where: { interestRate: { gt: 0 } }, select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
-    ]);
-    return { members, schools, savingAccountTypes };
+    try {
+        const [members, schools, savingAccountTypes] = await Promise.all([
+            prisma.member.findMany({
+                where: { status: 'active' },
+                select: { id: true, fullName: true },
+                orderBy: { fullName: 'asc' }
+            }),
+            prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+            prisma.savingAccountType.findMany({ where: { interestRate: { gt: 0 } }, select: { id: true, name: true, interestRate: true }, orderBy: { name: 'asc' } }),
+        ]);
+        return { members, schools, savingAccountTypes };
+    } catch (error) {
+        console.error("Failed to get calculation page data:", error);
+        throw new Error("Could not load required data for calculation. Please try again.");
+    }
 }
 
 export async function calculateInterest(criteria: {
@@ -76,80 +81,85 @@ export async function calculateInterest(criteria: {
     whereClause.savingAccountTypeId = accountTypeId;
   }
 
-  const accountsToProcess = await prisma.memberSavingAccount.findMany({
-    where: whereClause,
-    include: { 
-        member: { select: { fullName: true, id: true } }, 
-        savingAccountType: true,
-        savings: {
-            where: { status: 'approved' },
-            orderBy: { date: 'asc' }
-        }
-    },
-  });
-
-  const results: InterestCalculationResult[] = accountsToProcess
-    .map(account => {
-    if (!account.savingAccountType) return null;
-    
-    // 1. Calculate balance at the beginning of the period
-    let balanceAtPeriodStart = account.initialBalance;
-    const transactionsBeforePeriod = account.savings.filter(tx => new Date(tx.date) < periodStart);
-    transactionsBeforePeriod.forEach(tx => {
-        balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
-    });
-    
-    // 2. Create a map of transactions by date for efficient lookup within the period
-    const transactionsByDate = new Map<string, Saving[]>();
-    account.savings
-        .filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate >= periodStart && txDate <= periodEnd;
-        })
-        .forEach(tx => {
-            const txDateString = format(new Date(tx.date), 'yyyy-MM-dd');
-            if (!transactionsByDate.has(txDateString)) {
-                transactionsByDate.set(txDateString, []);
-            }
-            transactionsByDate.get(txDateString)!.push(tx);
-        });
-
-    // 3. Calculate sum of daily CLOSING balances for the period
-    let sumOfDailyBalances = 0;
-    let runningBalance = balanceAtPeriodStart;
-    
-    const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
-    
-    intervalDays.forEach(day => {
-        const dayString = format(day, 'yyyy-MM-dd');
-        const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
-        transactionsOnThisDay.forEach(tx => {
-            runningBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
-        });
-        sumOfDailyBalances += runningBalance;
+  try {
+    const accountsToProcess = await prisma.memberSavingAccount.findMany({
+      where: whereClause,
+      include: { 
+          member: { select: { fullName: true, id: true } }, 
+          savingAccountType: true,
+          savings: {
+              where: { status: 'approved' },
+              orderBy: { date: 'asc' }
+          }
+      },
     });
 
-    // 4. Calculate Average Daily Balance and Interest
-    const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
-    if (daysInPeriod <= 0) return null;
-    const averageDailyBalance = sumOfDailyBalances / daysInPeriod;
-    
-    const annualRate = account.savingAccountType.interestRate;
-    // The correct formula: ADB * (annual rate / 365) * number of days in the period
-    const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
+    const results: InterestCalculationResult[] = accountsToProcess
+      .map(account => {
+      if (!account.savingAccountType) return null;
+      
+      // 1. Calculate balance at the beginning of the period
+      let balanceAtPeriodStart = account.initialBalance;
+      const transactionsBeforePeriod = account.savings.filter(tx => new Date(tx.date) < periodStart);
+      transactionsBeforePeriod.forEach(tx => {
+          balanceAtPeriodStart += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+      });
+      
+      // 2. Create a map of transactions by date for efficient lookup within the period
+      const transactionsByDate = new Map<string, Saving[]>();
+      account.savings
+          .filter(tx => {
+              const txDate = new Date(tx.date);
+              return txDate >= periodStart && txDate <= periodEnd;
+          })
+          .forEach(tx => {
+              const txDateString = format(new Date(tx.date), 'yyyy-MM-dd');
+              if (!transactionsByDate.has(txDateString)) {
+                  transactionsByDate.set(txDateString, []);
+              }
+              transactionsByDate.get(txDateString)!.push(tx);
+          });
 
-    return {
-      memberId: account.memberId,
-      memberSavingAccountId: account.id,
-      fullName: account.member.fullName,
-      savingsAccountNumber: account.accountNumber,
-      savingsBalance: account.balance,
-      interestRate: account.savingAccountType.interestRate,
-      calculatedInterest,
-    };
-  }).filter((res): res is InterestCalculationResult => res !== null && res.calculatedInterest > 0);
+      // 3. Calculate sum of daily CLOSING balances for the period
+      let sumOfDailyBalances = 0;
+      let runningBalance = balanceAtPeriodStart;
+      
+      const intervalDays = eachDayOfInterval({ start: periodStart, end: periodEnd });
+      
+      intervalDays.forEach(day => {
+          const dayString = format(day, 'yyyy-MM-dd');
+          const transactionsOnThisDay = transactionsByDate.get(dayString) || [];
+          transactionsOnThisDay.forEach(tx => {
+              runningBalance += tx.transactionType === 'deposit' ? tx.amount : -tx.amount;
+          });
+          sumOfDailyBalances += runningBalance;
+      });
 
-  return results;
+      // 4. Calculate Average Daily Balance and Interest
+      const daysInPeriod = differenceInDays(periodEnd, periodStart) + 1;
+      if (daysInPeriod <= 0) return null;
+      const averageDailyBalance = sumOfDailyBalances / daysInPeriod;
+      
+      const annualRate = account.savingAccountType.interestRate;
+      // The correct formula: ADB * (annual rate / 365) * number of days in the period
+      const calculatedInterest = roundToTwo(averageDailyBalance * (annualRate / 365) * daysInPeriod);
+
+      return {
+        memberId: account.memberId,
+        memberSavingAccountId: account.id,
+        fullName: account.member.fullName,
+        savingsAccountNumber: account.accountNumber,
+        savingsBalance: account.balance,
+        interestRate: account.savingAccountType.interestRate,
+        calculatedInterest,
+      };
+    }).filter((res): res is InterestCalculationResult => res !== null && res.calculatedInterest > 0);
+
+    return results;
+  } catch (error) {
+    console.error('Failed to calculate interest:', error);
+    throw new Error('An unexpected error occurred during interest calculation.');
+  }
 }
 
 
@@ -169,55 +179,59 @@ export async function postInterestTransactions(
     const postingDate = endOfDay(period.to);
     const monthName = format(postingDate, 'MMMM yyyy');
 
-    const existingTransactions = await prisma.saving.findMany({
-        where: {
-            memberSavingAccountId: {
-                in: transactions.map(t => t.memberSavingAccountId)
-            },
-            notes: {
-                contains: `Savings Interest posting for period ending`
-            },
-            date: postingDate,
-        }
-    });
+    try {
+      const existingTransactions = await prisma.saving.findMany({
+          where: {
+              memberSavingAccountId: {
+                  in: transactions.map(t => t.memberSavingAccountId)
+              },
+              notes: {
+                  contains: `Savings Interest posting for period ending`
+              },
+              date: postingDate,
+          }
+      });
 
-    const newTransactionsData: Prisma.SavingCreateManyInput[] = transactions
-        .filter(result => !existingTransactions.some(et => et.memberSavingAccountId === result.memberSavingAccountId))
-        .map(result => ({
-            memberId: result.memberId,
-            memberSavingAccountId: result.memberSavingAccountId,
-            amount: result.calculatedInterest,
-            date: postingDate,
-            month: monthName,
-            transactionType: 'deposit',
-            status: 'pending',
-            notes: `Savings Interest posting for period ending ${format(postingDate, 'PPP')}`,
-            depositMode: 'Bank',
-            sourceName: 'Internal System Posting',
-            transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
-            evidenceUrl: null
-        }));
-    
-    if (newTransactionsData.length === 0) {
-        const skippedCount = transactions.length;
-        return { success: true, message: `All ${skippedCount} interest transaction(s) have already been posted for this period and were skipped.` };
+      const newTransactionsData: Prisma.SavingCreateManyInput[] = transactions
+          .filter(result => !existingTransactions.some(et => et.memberSavingAccountId === result.memberSavingAccountId))
+          .map(result => ({
+              memberId: result.memberId,
+              memberSavingAccountId: result.memberSavingAccountId,
+              amount: result.calculatedInterest,
+              date: postingDate,
+              month: monthName,
+              transactionType: 'deposit',
+              status: 'pending',
+              notes: `Savings Interest posting for period ending ${format(postingDate, 'PPP')}`,
+              depositMode: 'Bank',
+              sourceName: 'Internal System Posting',
+              transactionReference: `INT-${format(postingDate, 'yyyyMMdd')}-${result.memberId.slice(-6)}`,
+              evidenceUrl: null
+          }));
+      
+      if (newTransactionsData.length === 0) {
+          const skippedCount = transactions.length;
+          return { success: true, message: `All ${skippedCount} interest transaction(s) have already been posted for this period and were skipped.` };
+      }
+
+      await prisma.saving.createMany({
+          data: newTransactionsData,
+          skipDuplicates: true,
+      });
+
+      revalidatePath('/savings');
+      revalidatePath('/approve-transactions');
+      
+      const postedCount = newTransactionsData.length;
+      const skippedCount = transactions.length - postedCount;
+      let message = `${postedCount} interest transaction(s) submitted for approval.`;
+      if (skippedCount > 0) {
+          message += ` ${skippedCount} transaction(s) were skipped as they were already posted for this period.`
+      }
+
+      return { success: true, message };
+    } catch (error) {
+      console.error('Failed to post interest transactions:', error);
+      throw new Error('An unexpected error occurred while posting interest transactions.');
     }
-
-    await prisma.saving.createMany({
-        data: newTransactionsData,
-        skipDuplicates: true,
-    });
-
-    revalidatePath('/savings');
-    revalidatePath('/approve-transactions');
-    
-    const postedCount = newTransactionsData.length;
-    const skippedCount = transactions.length - postedCount;
-    let message = `${postedCount} interest transaction(s) submitted for approval.`;
-    if (skippedCount > 0) {
-        message += ` ${skippedCount} transaction(s) were skipped as they were already posted for this period.`
-    }
-
-    return { success: true, message };
 }
-

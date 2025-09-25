@@ -12,8 +12,8 @@ function roundToTwo(num: number) {
 
 export interface CalculationPageData {
     members: Pick<Member, 'id' | 'fullName'>[];
-    schools: Pick<School, 'id', 'name'>[];
-    loanTypes: Pick<LoanType, 'id', 'name'>[];
+    schools: Pick<School, 'id' | 'name'>[];
+    loanTypes: Pick<LoanType, 'id' | 'name'>[];
     serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name'>[];
 }
 
@@ -28,13 +28,18 @@ export interface InterestCalculationResult {
 }
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
-    const [members, schools, loanTypes, serviceChargeTypes] = await Promise.all([
-        prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
-        prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-        prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-        prisma.serviceChargeType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-    ]);
-    return { members, schools, loanTypes, serviceChargeTypes };
+    try {
+        const [members, schools, loanTypes, serviceChargeTypes] = await Promise.all([
+            prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
+            prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+            prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+            prisma.serviceChargeType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+        ]);
+        return { members, schools, loanTypes, serviceChargeTypes };
+    } catch (error) {
+        console.error("Failed to get calculation page data:", error);
+        throw new Error("Could not load required data for calculation. Please try again.");
+    }
 }
 
 export async function calculateInterest(criteria: {
@@ -62,27 +67,32 @@ export async function calculateInterest(criteria: {
     whereClause.loanTypeId = loanTypeId;
   }
 
-  const loansToProcess = await prisma.loan.findMany({
-    where: whereClause,
-    include: { member: { select: { fullName: true } } },
-  });
+  try {
+    const loansToProcess = await prisma.loan.findMany({
+      where: whereClause,
+      include: { member: { select: { fullName: true } } },
+    });
 
-  const results: InterestCalculationResult[] = loansToProcess.map(loan => {
-    const monthlyRate = loan.interestRate / 12;
-    const calculatedInterest = roundToTwo(loan.remainingBalance * monthlyRate);
+    const results: InterestCalculationResult[] = loansToProcess.map(loan => {
+      const monthlyRate = loan.interestRate / 12;
+      const calculatedInterest = roundToTwo(loan.remainingBalance * monthlyRate);
 
-    return {
-      loanId: loan.id,
-      memberId: loan.memberId,
-      fullName: loan.member.fullName,
-      loanAccountNumber: loan.loanAccountNumber,
-      remainingBalance: loan.remainingBalance,
-      interestRate: loan.interestRate,
-      calculatedInterest,
-    };
-  }).filter(res => res.calculatedInterest > 0);
+      return {
+        loanId: loan.id,
+        memberId: loan.memberId,
+        fullName: loan.member.fullName,
+        loanAccountNumber: loan.loanAccountNumber,
+        remainingBalance: loan.remainingBalance,
+        interestRate: loan.interestRate,
+        calculatedInterest,
+      };
+    }).filter(res => res.calculatedInterest > 0);
 
-  return results;
+    return results;
+  } catch (error) {
+      console.error('Failed to calculate loan interest:', error);
+      throw new Error('An unexpected error occurred during loan interest calculation.');
+  }
 }
 
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -129,9 +139,10 @@ export async function postInterestCharges(
     });
 
     revalidatePath('/applied-service-charges');
+    revalidatePath('/approve-transactions');
     return { success: true, message: `${charges.length} loan interest charges have been submitted as service charges.` };
   } catch (error) {
     console.error("Failed to post interest charges:", error);
-    return { success: false, message: "An error occurred while posting charges." };
+    throw new Error("An unexpected error occurred while posting interest charges.");
   }
 }

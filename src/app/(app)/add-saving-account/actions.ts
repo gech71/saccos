@@ -10,15 +10,20 @@ export async function getAccountCreationData(): Promise<{
   members: Pick<Member, 'id' | 'fullName' | 'salary'>[];
   savingAccountTypes: SavingAccountType[];
 }> {
-  const [members, savingAccountTypes] = await Promise.all([
-    prisma.member.findMany({
-      where: { status: 'active' },
-      select: { id: true, fullName: true, salary: true },
-      orderBy: { fullName: 'asc' },
-    }),
-    prisma.savingAccountType.findMany({ orderBy: { name: 'asc' } }),
-  ]);
-  return { members, savingAccountTypes };
+  try {
+    const [members, savingAccountTypes] = await Promise.all([
+      prisma.member.findMany({
+        where: { status: 'active' },
+        select: { id: true, fullName: true, salary: true },
+        orderBy: { fullName: 'asc' },
+      }),
+      prisma.savingAccountType.findMany({ orderBy: { name: 'asc' } }),
+    ]);
+    return { members, savingAccountTypes };
+  } catch (error) {
+    console.error('Failed to get account creation data:', error);
+    throw new Error('Could not load required data. Please try again later.');
+  }
 }
 
 interface AccountCreationData {
@@ -30,52 +35,60 @@ interface AccountCreationData {
 }
 
 export async function createSavingAccount(data: AccountCreationData) {
-  const { memberId, savingAccountTypeId, initialBalance, expectedMonthlySaving, accountNumber } = data;
+  try {
+    const { memberId, savingAccountTypeId, initialBalance, expectedMonthlySaving, accountNumber } = data;
 
-  const savingAccountType = await prisma.savingAccountType.findUnique({
-      where: { id: savingAccountTypeId },
-  });
-  if (!savingAccountType) {
-      throw new Error('Selected saving account type not found.');
-  }
-
-  const existingAccount = await prisma.memberSavingAccount.findFirst({
-      where: { memberId, savingAccountTypeId }
-  });
-
-  if (existingAccount) {
-      throw new Error(`This member already has a '${savingAccountType.name}' account.`);
-  }
-
-  const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
-  
-  if (accountNumber) {
-    const existingByAcctNo = await prisma.memberSavingAccount.findFirst({
-        where: { accountNumber: accountNumber }
+    const savingAccountType = await prisma.savingAccountType.findUnique({
+        where: { id: savingAccountTypeId },
     });
-    if (existingByAcctNo) {
-        throw new Error(`Account number ${accountNumber} is already in use.`);
+    if (!savingAccountType) {
+        throw new Error('Selected saving account type not found.');
     }
-  }
-  
-  if (initialBalance < 0) {
-      throw new Error(`Initial balance cannot be negative.`);
-  }
 
-  // Create the new MemberSavingAccount with the initial balance set directly.
-  await prisma.memberSavingAccount.create({
-    data: {
-      memberId,
-      savingAccountTypeId,
-      accountNumber: finalAccountNumber,
-      expectedMonthlySaving,
-      initialBalance: initialBalance,
-      balance: initialBalance, // Set the current balance to the initial balance
+    const existingAccount = await prisma.memberSavingAccount.findFirst({
+        where: { memberId, savingAccountTypeId }
+    });
+
+    if (existingAccount) {
+        throw new Error(`This member already has a '${savingAccountType.name}' account.`);
     }
-  });
+
+    const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
+    
+    if (accountNumber) {
+      const existingByAcctNo = await prisma.memberSavingAccount.findFirst({
+          where: { accountNumber: accountNumber }
+      });
+      if (existingByAcctNo) {
+          throw new Error(`Account number ${accountNumber} is already in use.`);
+      }
+    }
+    
+    if (initialBalance < 0) {
+        throw new Error(`Initial balance cannot be negative.`);
+    }
+
+    // Create the new MemberSavingAccount with the initial balance set directly.
+    await prisma.memberSavingAccount.create({
+      data: {
+        memberId,
+        savingAccountTypeId,
+        accountNumber: finalAccountNumber,
+        expectedMonthlySaving,
+        initialBalance: initialBalance,
+        balance: initialBalance, // Set the current balance to the initial balance
+      }
+    });
 
 
-  revalidatePath('/members');
-  revalidatePath('/savings-accounts');
-  revalidatePath('/savings');
+    revalidatePath('/members');
+    revalidatePath('/savings-accounts');
+    revalidatePath('/savings');
+  } catch (error) {
+      console.error('Failed to create saving account:', error);
+      if (error instanceof Error) {
+          throw new Error(error.message);
+      }
+      throw new Error('An unexpected error occurred while creating the account.');
+  }
 }
