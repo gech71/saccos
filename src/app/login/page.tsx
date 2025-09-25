@@ -2,14 +2,20 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import Link from 'next/link';
 import React, { useState, FormEvent, useEffect } from 'react';
-import { Logo } from '@/components/logo';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
@@ -21,13 +27,13 @@ export default function LoginPage() {
   const { login, memberLogin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  
+
   const [authMode, setAuthMode] = useState<'admin' | 'member'>('admin');
-  
+
   const [adminPhoneNumber, setAdminPhoneNumber] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminLoading, setIsAdminLoading] = useState(false);
-  
+
   const [memberPhoneNumber, setMemberPhoneNumber] = useState('');
   const [memberPassword, setMemberPassword] = useState('');
   const [isMemberLoading, setIsMemberLoading] = useState(false);
@@ -49,12 +55,15 @@ export default function LoginPage() {
       setIsAdminLoading(false);
     }
   };
-  
+
   const handleMemberSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsMemberLoading(true);
     try {
-      await memberLogin({ phoneNumber: memberPhoneNumber, password: memberPassword });
+      await memberLogin({
+        phoneNumber: memberPhoneNumber,
+        password: memberPassword,
+      });
       // Redirect is handled by the auth context
     } catch (error) {
       // Error is handled in auth context
@@ -77,7 +86,7 @@ export default function LoginPage() {
           aria-label="Phone Number"
         />
       </div>
-       <div className="space-y-2">
+      <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
         <Input
           id="password"
@@ -90,13 +99,19 @@ export default function LoginPage() {
         />
       </div>
       <Button type="submit" className="w-full" disabled={isAdminLoading}>
-        {isAdminLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Signing In...</> : 'Sign In as Admin'}
+        {isAdminLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
+          </>
+        ) : (
+          'Sign In as Admin'
+        )}
       </Button>
     </form>
   );
 
   const renderMemberForm = () => (
-     <form onSubmit={handleMemberSubmit} className="space-y-4">
+    <form onSubmit={handleMemberSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="memberPhoneNumber">Member Phone Number</Label>
         <Input
@@ -121,9 +136,20 @@ export default function LoginPage() {
           aria-label="Member Password"
         />
       </div>
-       <Button type="submit" variant="default" className="w-full" disabled={isMemberLoading}>
-          {isMemberLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Signing In...</> : 'Sign In as Member'}
-       </Button>
+      <Button
+        type="submit"
+        variant="default"
+        className="w-full"
+        disabled={isMemberLoading}
+      >
+        {isMemberLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
+          </>
+        ) : (
+          'Sign In as Member'
+        )}
+      </Button>
     </form>
   );
 
@@ -131,23 +157,35 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
-           <div className="flex flex-col items-center justify-center gap-4 mb-4">
-                <Image
-                    src={content?.logo || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'}
-                    alt={`${content?.saccoName || 'Sacco'} Logo`}
-                    width={80}
-                    height={80}
-                    className="h-20 w-20 rounded-full object-cover"
-                    unoptimized={content?.logo?.startsWith('data:image')}
-                />
-                <span className="text-2xl font-bold text-primary font-headline">{content?.saccoName || 'AcademInvest Saccos'}</span>
-            </div>
-           <CardDescription>
-            {`Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.`}
+          <div className="flex flex-col items-center justify-center gap-4 mb-4">
+            <Image
+              src={
+                content?.logo ||
+                'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
+              }
+              alt={`${content?.saccoName || 'Sacco'} Logo`}
+              width={80}
+              height={80}
+              className="h-20 w-20 rounded-full object-cover"
+              unoptimized={content?.logo?.startsWith('data:image')}
+            />
+            <span className="text-2xl font-bold text-primary font-headline">
+              {content?.saccoName || 'AcademInvest Saccos'}
+            </span>
+          </div>
+          <CardDescription>
+            {`Sign in to manage your ${
+              content?.saccoName || 'AcademInvest'
+            } system.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-3">
-          <Tabs defaultValue="admin" value={authMode} onValueChange={(value) => setAuthMode(value as 'admin' | 'member')} className="w-full">
+          <Tabs
+            defaultValue="admin"
+            value={authMode}
+            onValueChange={(value) => setAuthMode(value as 'admin' | 'member')}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="admin">Admin/Staff</TabsTrigger>
               <TabsTrigger value="member">Member</TabsTrigger>
@@ -162,7 +200,11 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <div className="text-sm">
-            <Link href="/forgot-password" passHref className="text-primary underline-offset-4 hover:underline">
+            <Link
+              href="/forgot-password"
+              passHref
+              className="text-primary underline-offset-4 hover:underline"
+            >
               Forgot your password?
             </Link>
           </div>
