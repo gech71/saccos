@@ -9,8 +9,8 @@ export default async function AboutPage() {
   return (
     <div className="bg-background">
       <div className="container mx-auto px-4 py-12 md:py-20">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-12 items-center justify-center">
+          <div className="space-y-6 text-center md:text-left">
             <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               About {content?.saccoName || 'AcademInvest'}
             </h1>
