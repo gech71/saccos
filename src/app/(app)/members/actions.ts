@@ -91,7 +91,7 @@ function validateMemberData(data: MemberInput) {
 
     const phoneRegex = /^(09|\+2519)\d{8}$/;
     if (data.phoneNumber && !phoneRegex.test(data.phoneNumber)) {
-        throw new Error('Invalid phone number format. Use 09xxxxxxxx or +2519xxxxxxxx.');
+        throw new Error('Invalid phone number format');
     }
 }
 

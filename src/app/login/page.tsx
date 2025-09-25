@@ -167,6 +167,9 @@ export default function LoginPage() {
               width={80}
               height={80}
               className="h-20 w-20 rounded-full object-cover"
+              //make the logo redirect to the home page when get clicked
+              onClick={() => router.push('/')}
+              style={{ cursor: 'pointer' }}
               unoptimized={content?.logo?.startsWith('data:image')}
             />
             <span className="text-2xl font-bold text-primary font-headline">

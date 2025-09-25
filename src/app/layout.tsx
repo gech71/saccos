@@ -5,7 +5,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
-import React from 'react';
 
 
 
