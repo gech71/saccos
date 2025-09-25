@@ -129,11 +129,10 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
-        <div className="flex justify-center pt-8">
-            <Logo logo={content?.logo} saccoName={content?.saccoName} />
-        </div>
-        <CardHeader className="text-center">
-          <CardTitle className="font-headline text-3xl text-primary">Sign In</CardTitle>
+        <CardHeader className="text-center space-y-4 pt-8">
+           <div className="flex justify-center">
+              <Logo logo={content?.logo} saccoName={content?.saccoName} isCircular={true} />
+            </div>
            <CardDescription>
             {authMode === 'admin' ? `Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.` : 'Sign in to view your member profile.'}
           </CardDescription>
