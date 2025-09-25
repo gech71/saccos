@@ -19,7 +19,7 @@ export function Logo({
   return (
     <Link
       href="/"
-      className={cn("flex flex-col items-center gap-2 text-xl font-bold text-primary group", className)}
+      className={cn("flex flex-col items-center gap-3 text-xl font-bold text-primary group", className)}
     >
       <Image
         src={
@@ -27,15 +27,15 @@ export function Logo({
           'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
         }
         alt={`${saccoName || 'Sacco'} Logo`}
-        width={isCircular ? 64 : 32}
-        height={isCircular ? 64 : 32}
+        width={isCircular ? 80 : 32}
+        height={isCircular ? 80 : 32}
         className={cn(
             "transition-transform duration-300 group-hover:rotate-12",
-            isCircular ? "rounded-full h-16 w-16 object-cover" : "rounded-md"
+            isCircular ? "rounded-full h-20 w-20 object-cover" : "rounded-md"
         )}
         unoptimized={isBase64}
       />
-      <span className="font-headline text-2xl">{saccoName || 'NIB Saccos'}</span>
+      <span className="font-headline text-3xl">{saccoName || 'NIB Saccos'}</span>
     </Link>
   );
 }

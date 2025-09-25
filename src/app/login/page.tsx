@@ -130,7 +130,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
-           <div className="flex justify-center">
+           <div className="flex justify-center mb-4">
               <Logo logo={content?.logo} saccoName={content?.saccoName} isCircular={true} />
             </div>
            <CardDescription>
