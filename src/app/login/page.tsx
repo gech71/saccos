@@ -2,7 +2,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const { login, memberLogin } = useAuth();
@@ -130,11 +131,19 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
-           <div className="flex justify-center mb-4">
-              <Logo logo={content?.logo} saccoName={content?.saccoName} isCircular={true} />
+           <div className="flex flex-col items-center justify-center gap-4 mb-4">
+                <Image
+                    src={content?.logo || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'}
+                    alt={`${content?.saccoName || 'Sacco'} Logo`}
+                    width={80}
+                    height={80}
+                    className="h-20 w-20 rounded-full object-cover"
+                    unoptimized={content?.logo?.startsWith('data:image')}
+                />
+                <span className="text-2xl font-bold text-primary font-headline">{content?.saccoName || 'AcademInvest Saccos'}</span>
             </div>
            <CardDescription>
-            {authMode === 'admin' ? `Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.` : 'Sign in to view your member profile.'}
+            {`Sign in to manage your ${content?.saccoName || 'AcademInvest'} system.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-3">
