@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -7,14 +8,19 @@ import { unstable_cache } from 'next/cache';
 // This acts like a server-side cache that can be revalidated.
 export const getWebsiteContent = unstable_cache(
   async () => {
-    const content = await prisma.websiteContent.findFirst({
-        include: {
-            socialLinks: true,
-            services: true,
-            heroSlides: true,
-        }
-    });
-    return content;
+    try {
+      const content = await prisma.websiteContent.findFirst({
+          include: {
+              socialLinks: true,
+              services: true,
+              heroSlides: true,
+          }
+      });
+      return content;
+    } catch (error) {
+      console.error("Failed to fetch website content, returning null.", error);
+      return null;
+    }
   },
   ['website-content'], // Cache key
   {
@@ -24,11 +30,16 @@ export const getWebsiteContent = unstable_cache(
 
 export const getPublishedPosts = unstable_cache(
   async () => {
-    const posts = await prisma.post.findMany({
-      where: { isPublished: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    return posts;
+    try {
+      const posts = await prisma.post.findMany({
+        where: { isPublished: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return posts;
+    } catch (error) {
+       console.error("Failed to fetch published posts, returning empty array.", error);
+       return [];
+    }
   },
   ['published-posts'],
   {
@@ -40,10 +51,15 @@ export const getPublishedPosts = unstable_cache(
 export const getPostById = unstable_cache(
   async (postId: string) => {
     if (!postId) return null;
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-    });
-    return post;
+    try {
+      const post = await prisma.post.findUnique({
+        where: { id: postId },
+      });
+      return post;
+    } catch (error) {
+      console.error(`Failed to fetch post by ID ${postId}, returning null.`, error);
+      return null;
+    }
   },
   ['post-by-id'],
   {
