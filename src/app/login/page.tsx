@@ -20,23 +20,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const { login, memberLogin } = useAuth();
+  const { unifiedLogin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [authMode, setAuthMode] = useState<'admin' | 'member'>('admin');
-
-  const [adminPhoneNumber, setAdminPhoneNumber] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [isAdminLoading, setIsAdminLoading] = useState(false);
-
-  const [memberPhoneNumber, setMemberPhoneNumber] = useState('');
-  const [memberPassword, setMemberPassword] = useState('');
-  const [isMemberLoading, setIsMemberLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const [content, setContent] = useState<WebsiteContent | null>(null);
 
@@ -44,121 +37,25 @@ export default function LoginPage() {
     getWebsiteContent().then(setContent);
   }, []);
 
-  const handleAdminSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setIsAdminLoading(true);
+    setIsLoading(true);
     try {
-      await login({ phoneNumber: adminPhoneNumber, password: adminPassword });
+      await unifiedLogin({ phoneNumber, password });
       // Redirect is handled by the auth context
     } catch (error) {
       // Error toast is handled by the auth context
-      setIsAdminLoading(false);
-    }
-  };
-
-  const handleMemberSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setIsMemberLoading(true);
-    try {
-      await memberLogin({
-        phoneNumber: memberPhoneNumber,
-        password: memberPassword,
-      });
-      // Redirect is handled by the auth context
-    } catch (error) {
-      // Error is handled in auth context
     } finally {
-      setIsMemberLoading(false);
+      setIsLoading(false);
     }
   };
-
-  const renderAdminForm = () => (
-    <form onSubmit={handleAdminSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="phoneNumber">Phone Number</Label>
-        <Input
-          id="phoneNumber"
-          type="tel"
-          placeholder="0911223344"
-          value={adminPhoneNumber}
-          onChange={(e) => setAdminPhoneNumber(e.target.value)}
-          required
-          aria-label="Phone Number"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          placeholder="Enter your Password"
-          value={adminPassword}
-          onChange={(e) => setAdminPassword(e.target.value)}
-          required
-          aria-label="Password"
-        />
-      </div>
-      <Button type="submit" className="w-full" disabled={isAdminLoading}>
-        {isAdminLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
-          </>
-        ) : (
-          'Sign In as Admin'
-        )}
-      </Button>
-    </form>
-  );
-
-  const renderMemberForm = () => (
-    <form onSubmit={handleMemberSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="memberPhoneNumber">Member Phone Number</Label>
-        <Input
-          id="memberPhoneNumber"
-          type="tel"
-          placeholder="Enter your registered phone number"
-          value={memberPhoneNumber}
-          onChange={(e) => setMemberPhoneNumber(e.target.value)}
-          required
-          aria-label="Member Phone Number"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="memberPassword">Password</Label>
-        <Input
-          id="memberPassword"
-          type="password"
-          placeholder="Enter your Password"
-          value={memberPassword}
-          onChange={(e) => setMemberPassword(e.target.value)}
-          required
-          aria-label="Member Password"
-        />
-      </div>
-      <Button
-        type="submit"
-        variant="default"
-        className="w-full"
-        disabled={isMemberLoading}
-      >
-        {isMemberLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
-          </>
-        ) : (
-          'Sign In as Member'
-        )}
-      </Button>
-    </form>
-  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
-          <div className="flex flex-col items-center justify-center gap-4 mb-4">
-            <Image
+          <div className="flex flex-col items-center justify-center gap-4">
+             <Image
               src={
                 content?.logo ||
                 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
@@ -167,41 +64,58 @@ export default function LoginPage() {
               width={80}
               height={80}
               className="h-20 w-20 rounded-full object-cover"
-              //make the logo redirect to the home page when get clicked
               onClick={() => router.push('/')}
               style={{ cursor: 'pointer' }}
               unoptimized={content?.logo?.startsWith('data:image')}
             />
-            <span className="text-2xl font-bold text-primary font-headline">
+             <span className="text-2xl font-bold text-primary font-headline">
               {content?.saccoName || 'AcademInvest Saccos'}
             </span>
           </div>
           <CardDescription>
-            {`Sign in to manage your ${
+            {`Sign in to the ${
               content?.saccoName || 'AcademInvest'
             } system.`}
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-3">
-          <Tabs
-            defaultValue="admin"
-            value={authMode}
-            onValueChange={(value) => setAuthMode(value as 'admin' | 'member')}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="admin">Admin/Staff</TabsTrigger>
-              <TabsTrigger value="member">Member</TabsTrigger>
-            </TabsList>
-            <TabsContent value="admin" className="pt-6">
-              {renderAdminForm()}
-            </TabsContent>
-            <TabsContent value="member" className="pt-6">
-              {renderMemberForm()}
-            </TabsContent>
-          </Tabs>
+        <CardContent className="px-6 pt-6">
+           <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                    id="phoneNumber"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    required
+                    aria-label="Phone Number"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    aria-label="Password"
+                    />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
+                    </>
+                    ) : (
+                    'Sign In'
+                    )}
+                </Button>
+            </form>
         </CardContent>
-        <CardFooter className="flex-col gap-4">
+         <CardFooter className="flex-col gap-4">
           <div className="text-sm">
             <Link
               href="/forgot-password"

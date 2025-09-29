@@ -1,10 +1,36 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Member } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+
+export async function findUserOrMember(phoneNumber: string): Promise<{ userType: 'admin' | 'member' | 'none' }> {
+  if (!phoneNumber) {
+    return { userType: 'none' };
+  }
+
+  const trimmedPhone = phoneNumber.trim();
+
+  const adminUser = await prisma.user.findFirst({
+    where: { phoneNumber: trimmedPhone },
+  });
+
+  if (adminUser) {
+    return { userType: 'admin' };
+  }
+
+  const memberUser = await prisma.member.findFirst({
+    where: { phoneNumber: trimmedPhone },
+  });
+
+  if (memberUser) {
+    return { userType: 'member' };
+  }
+
+  return { userType: 'none' };
+}
+
 
 export async function findMemberByPhoneNumber(phoneNumber: string): Promise<Member | null> {
   if (!phoneNumber) {
@@ -40,4 +66,3 @@ export async function verifyMemberCredentials(data: {phoneNumber: string, passwo
 
     return { success: true, member: memberResult };
 }
-

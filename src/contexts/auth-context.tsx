@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -9,8 +8,7 @@ import { jwtDecode } from 'jwt-decode';
 import type { AuthResponse, AuthUser, MemberAuthUser } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/actions';
-import { verifyMemberCredentials } from '@/app/login/actions';
-import bcrypt from 'bcryptjs';
+import { findUserOrMember, verifyMemberCredentials } from '@/app/login/actions';
 import type { Member } from '@prisma/client';
 
 interface AuthContextType {
@@ -22,6 +20,7 @@ interface AuthContextType {
   login: (data: any) => Promise<void>;
   register: (data: any) => Promise<void>;
   memberLogin: (data: any) => Promise<void>;
+  unifiedLogin: (data: any) => Promise<void>;
   logout: () => void;
 }
 
@@ -138,7 +137,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.errors?.[0] || error.message || 'An unknown error occurred.';
-      toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
+      // Don't toast here, let the unified login handle it
       throw new Error(errorMessage);
     }
   };
@@ -160,6 +159,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           mustChangePassword: memberResult.mustChangePassword ?? undefined,
       });
       localStorage.setItem('memberId', memberResult.id);
+      
+      toast({ title: 'Login Successful', description: `Welcome back, ${memberResult.fullName}!` });
 
       if (memberResult.mustChangePassword) {
           router.push(`/member-login/change-password?memberId=${memberResult.id}`);
@@ -167,6 +168,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           router.push(`/member-profile/${memberResult.id}`);
       }
   }
+
+  const unifiedLogin = async (data: {phoneNumber: string, password?: string}) => {
+    try {
+      // Check if this phone number exists in the admin user table first.
+      const userTypeResult = await findUserOrMember(data.phoneNumber);
+
+      if (userTypeResult.userType === 'admin') {
+        // If it's an admin, use the existing admin login flow.
+        await login(data);
+      } else if (userTypeResult.userType === 'member') {
+        // If it's a member, use the member login flow.
+        await memberLogin(data);
+      } else {
+        // If the user doesn't exist in either table.
+        toast({ variant: 'destructive', title: 'Login Failed', description: 'Phone number not found.' });
+        throw new Error('Phone number not found.');
+      }
+    } catch (error: any) {
+      // The specific login functions (admin or member) will throw errors on failure (e.g., wrong password).
+      // We'll display those specific errors here.
+      // If the error doesn't come from our specific checks, show a generic one.
+      const errorMessage = error.message || 'An unknown login error occurred.';
+      if (!errorMessage.includes('not found')) { // Avoid double "not found" messages
+        toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
+      }
+      // Re-throw to ensure isLoading is set to false in the calling component.
+      throw error;
+    }
+  };
+  
 
   const register = async (data: any) => {
     try {
@@ -200,6 +231,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     login,
     register,
     memberLogin,
+    unifiedLogin,
     logout,
   };
 
