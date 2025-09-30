@@ -51,7 +51,7 @@ async function main() {
   console.log('Seeding admin user...');
   await prisma.user.create({
     data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', // Hardcoded ID from external auth
+      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', 
       email: 'admin@academinvest.com',
       name: 'Academ Admin',
       firstName: 'Academ',

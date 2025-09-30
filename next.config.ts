@@ -26,7 +26,7 @@ const securityHeaders = [
 
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  poweredByHeader: false,
   typescript: {
     ignoreBuildErrors: true,
   },
