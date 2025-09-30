@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
+import { headers } from 'next/headers';
 
 
 
@@ -71,6 +72,7 @@ export default async function RootLayout({
   const content = await getWebsiteContent();
   const primaryHsl = content?.primary ? hexToHsl(content.primary) : null;
   const accentHsl = content?.accent ? hexToHsl(content.accent) : null;
+  const nonce = headers().get('x-nonce') || '';
   
   // Clone children to pass props
   const childrenWithProps = React.Children.map(children, child => {
