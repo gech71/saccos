@@ -72,7 +72,6 @@ export default async function RootLayout({
   const content = await getWebsiteContent();
   const primaryHsl = content?.primary ? hexToHsl(content.primary) : null;
   const accentHsl = content?.accent ? hexToHsl(content.accent) : null;
-  const nonce = headers().get('x-nonce') || '';
   
   // Clone children to pass props
   const childrenWithProps = React.Children.map(children, child => {
@@ -90,7 +89,6 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <style
-          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               :root {
