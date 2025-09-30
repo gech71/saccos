@@ -33,6 +33,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import type { Member, School, AppliedServiceCharge, ServiceChargeType } from '@prisma/client';
 import { useToast } from '@/hooks/use-toast';
@@ -357,7 +367,7 @@ export default function AppliedServiceChargesPage() {
                 <TableCell className="text-center">
                   {summary.totalPending > 0 && canRecordPayment && (
                      <Button asChild variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">
-                        <Link href={`/applied-service-charges/${summary.memberId}/record-payment?pending=${summary.totalPending.toFixed(2)}&name=${encodeURIComponent(summary.fullName)}`}>
+                        <Link href={`/applied-service-charges/${summary.memberId}/record-payment`}>
                           <DollarSign className="mr-1.5 h-3.5 w-3.5" />
                           Record Payment
                         </Link>
