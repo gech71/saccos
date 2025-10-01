@@ -1,79 +1,61 @@
-
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const securityHeaders = [
   {
-    key: 'X-Content-Type-Options',
-    value: 'nosniff',
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'strict-dynamic'",   
+      "style-src 'self' https://fonts.googleapis.com",
+      "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et http://localhost:9002",
+      "font-src 'self' https://fonts.gstatic.com",
+      `connect-src 'self' https://generativelanguage.googleapis.com ${process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || ''}`,
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'"   
+    ].join('; ')
   },
   {
     key: 'X-Frame-Options',
-    value: 'SAMEORIGIN', // Or 'DENY' if no framing is ever needed
+    value: 'DENY'   
+  },
+  {
+    key: 'X-Content-Type-Options',
+    value: 'nosniff'
   },
   {
     key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin',
+    value: 'strict-origin-when-cross-origin'
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), payment=()', // Deny common sensitive APIs if not used
+    value: 'camera=(), microphone=(), geolocation=(), payment=()'
   },
+  {
+    key: 'Strict-Transport-Security',
+    value: 'max-age=31536000; includeSubDomains; preload'
+  }
 ];
-
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'play-lh.googleusercontent.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'upload.wikimedia.org',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
-        hostname: 'nibsaccos.nibbank.com.et',
-      },
-       {
-        protocol: 'https',
-        hostname: 'nibsaccos.nibbank.com.et',
-      },
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '9002',
-      },
+      { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'play-lh.googleusercontent.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org', pathname: '/**' },
+      { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
+      { protocol: 'http', hostname: 'nibsaccos.nibbank.com.et' },
+      { protocol: 'https', hostname: 'nibsaccos.nibbank.com.et' },
+      { protocol: 'http', hostname: 'localhost', port: '9002' },
     ],
   },
   async headers() {
     return [
       {
-        // Apply these headers to all routes in your application.
         source: '/:path*',
         headers: securityHeaders,
       },
@@ -81,12 +63,8 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: '/',
-        destination: '/home',
-        permanent: true,
-      },
-    ]
+      { source: '/', destination: '/home', permanent: true },
+    ];
   },
 };
 

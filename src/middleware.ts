@@ -1,51 +1,27 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+export async function middleware(request: NextRequest) {
+  // Use Web Crypto API (Edge Runtime safe)
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  const nonce = Buffer.from(array).toString('base64');
 
-  // Note: 'unsafe-eval' is required for Next.js in development mode.
-  // It is conditionally removed for production builds to enhance security.
-  const scriptSrc = `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${process.env.NODE_ENV === 'development' ? "'unsafe-eval'" : ''}`;
-
-  const cspHeader = [
-    "default-src 'self'",
-    scriptSrc,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et http://localhost:9002",
-    "font-src 'self' https://fonts.gstatic.com",
-    `connect-src 'self' https://generativelanguage.googleapis.com ${process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || ''}`,
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-  ].join('; ');
-
+  // Forward the nonce in a request header
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
-  requestHeaders.set('Content-Security-Policy', cspHeader);
 
   const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+    request: { headers: requestHeaders },
   });
 
-  // Also set the CSP header on the response
-  response.headers.set('Content-Security-Policy', cspHeader);
+  // Attach nonce so frontend can inject it into <script nonce="...">
+  response.headers.set('x-nonce', nonce);
 
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     {
       source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
       missing: [
