@@ -1,6 +1,12 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 
+export async function middleware(request: NextRequest) {
+  // Use Web Crypto API (Edge Runtime safe)
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  const nonce = Buffer.from(array).toString('base64');
+
+  // Forward the nonce in a request header
 export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
 
@@ -23,29 +29,19 @@ export function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
-  requestHeaders.set('Content-Security-Policy', cspHeader);
 
   const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+    request: { headers: requestHeaders },
   });
 
-  // Also set the CSP header on the response
-  response.headers.set('Content-Security-Policy', cspHeader);
+  // Attach nonce so frontend can inject it into <script nonce="...">
+  response.headers.set('x-nonce', nonce);
 
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     {
       source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
       missing: [
