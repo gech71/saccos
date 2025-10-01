@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
 
   // Note: 'unsafe-eval' is required for Next.js in development mode.
-  // In production, this should be removed if possible.
+  // It is conditionally removed for production builds to enhance security.
   const scriptSrc = `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${process.env.NODE_ENV === 'development' ? "'unsafe-eval'" : ''}`;
 
   const cspHeader = [
