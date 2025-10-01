@@ -1,3 +1,4 @@
+
 import type { NextConfig } from 'next';
 
 const securityHeaders = [
@@ -49,7 +50,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'upload.wikimedia.org', pathname: '/**' },
       { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
       { protocol: 'http', hostname: 'nibsaccos.nibbank.com.et' },
-      { protocol: 'https', hostname: 'nibsaccos.nibbank.com.et' },
+      { protocol: 'https//nibsaccos.nibbank.com.et' },
     ],
   },
   async headers() {
