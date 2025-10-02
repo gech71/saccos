@@ -1,4 +1,3 @@
-
 import type { NextConfig } from 'next';
 
 const securityHeaders = [
@@ -6,20 +5,20 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      `script-src 'self' 'strict-dynamic' ${process.env.NODE_ENV === 'development' ? "'unsafe-eval'" : ''}`,   
-      "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
-      "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et",
+      "script-src 'self' 'strict-dynamic'",
+      "style-src 'self' https://fonts.googleapis.com",
+      "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et http://localhost:9002",
       "font-src 'self' https://fonts.gstatic.com",
       `connect-src 'self' https://generativelanguage.googleapis.com ${process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || ''}`,
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "frame-ancestors 'none'"   
+      "frame-ancestors 'self'"
     ].join('; ')
   },
   {
     key: 'X-Frame-Options',
-    value: 'DENY'   
+    value: 'SAMEORIGIN'
   },
   {
     key: 'X-Content-Type-Options',
@@ -50,13 +49,26 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'upload.wikimedia.org', pathname: '/**' },
       { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
       { protocol: 'http', hostname: 'nibsaccos.nibbank.com.et' },
-      { protocol: 'https//nibsaccos.nibbank.com.et' },
+      { protocol: 'https', hostname: 'nibsaccos.nibbank.com.et' },
+      { protocol: 'http', hostname: 'localhost', port: '9002' },
     ],
   },
   async headers() {
     return [
       {
         source: '/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/api/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/_next/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/static/:path*',
         headers: securityHeaders,
       },
     ];
