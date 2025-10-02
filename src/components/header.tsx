@@ -18,7 +18,6 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import React, { useState, useEffect } from 'react';
 import type { WebsiteContent } from '@prisma/client';
-import placeholderImages from '@/lib/placeholder-images.json';
 
 export function Header({
   content,
@@ -93,7 +92,7 @@ export function Header({
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={placeholderImages.userAvatar}
+                    src="/images/user-avatar.png"
                     alt="User avatar"
                     data-ai-hint="user avatar"
                   />

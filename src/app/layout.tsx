@@ -6,8 +6,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
 import { headers } from 'next/headers';
-import placeholderImages from '@/lib/placeholder-images.json';
-
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getWebsiteContent();
@@ -16,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
     icons: {
-      icon: content?.logo || placeholderImages.logo,
+      icon: content?.logo || '/images/logo.png',
     }
   };
 }

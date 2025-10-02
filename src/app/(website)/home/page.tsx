@@ -6,12 +6,48 @@ import { ArrowRight, Landmark, PiggyBank, HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { HeroCarousel } from '@/components/website/hero-carousel';
-import placeholderImages from '@/lib/placeholder-images.json';
+import type { HeroSlide } from '@prisma/client';
+
+const defaultHeroSlides: HeroSlide[] = [
+    {
+      id: "default-1",
+      title: "Empowering Your Financial Future, Together.",
+      subtitle: "Your trusted partner in savings and credit for the educational community.",
+      imageUrl: "/images/hero-1.png",
+      imageHint: "finance currency",
+      link: "/about",
+      linkText: "Learn More",
+      order: 0,
+      websiteContentId: ''
+    },
+    {
+      id: "default-2",
+      title: "Secure Savings, Brighter Future",
+      subtitle: "Grow your funds with our competitive savings products designed for stability and growth.",
+      imageUrl: "/images/hero-2.png",
+      imageHint: "savings piggy-bank",
+      link: "/home#services",
+      linkText: "Our Services",
+      order: 1,
+      websiteContentId: ''
+    },
+    {
+      id: "default-3",
+      title: "Achieve Your Goals with Our Loans",
+      subtitle: "Access capital for your personal and professional needs with our fair and transparent loan products.",
+      imageUrl: "/images/hero-3.png",
+      imageHint: "loan key house",
+      link: "/home#services",
+      linkText: "Explore Loans",
+      order: 2,
+      websiteContentId: ''
+    }
+  ];
 
 export default async function HomePage({ content }: { content: any }) {
   const heroSlides = content?.heroSlides && content.heroSlides.length > 0
     ? content.heroSlides.sort((a,b) => a.order - b.order)
-    : placeholderImages.heroSlides;
+    : defaultHeroSlides;
 
 
   return (
@@ -103,7 +139,7 @@ export default async function HomePage({ content }: { content: any }) {
                     </Button>
                 </div>
                 <Image
-                    src={content?.aboutUsImageUrl || placeholderImages.aboutUs}
+                    src={content?.aboutUsImageUrl || '/images/about-us.png'}
                     alt="Our Team"
                     width={600}
                     height={400}

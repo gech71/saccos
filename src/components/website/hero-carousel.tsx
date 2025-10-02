@@ -6,15 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-interface HeroSlide {
-  title: string;
-  subtitle: string;
-  imageUrl: string;
-  imageHint: string;
-  link: string;
-  linkText: string;
-}
+import type { HeroSlide } from '@prisma/client';
 
 interface HeroCarouselProps {
   slides: HeroSlide[];
@@ -37,7 +29,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
       {/* Slides */}
       {slides.map((slide, index) => (
         <div
-          key={index}
+          key={slide.id || index}
           className={cn(
             'absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out',
             index === currentIndex ? 'opacity-100' : 'opacity-0'
@@ -50,6 +42,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
             objectFit="cover"
             className="z-[-2]"
             data-ai-hint={slide.imageHint}
+            priority={index === 0}
           />
           <div className="absolute inset-0 bg-black/40 z-[-1]"></div>
           <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center text-center text-white z-10">

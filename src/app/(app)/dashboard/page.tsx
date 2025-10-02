@@ -22,7 +22,6 @@ import {
   Line,
 } from 'recharts';
 import { getAdminDashboardData, type AdminDashboardData } from './actions';
-import placeholderImages from '@/lib/placeholder-images.json';
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -152,7 +151,7 @@ export default function DashboardPage() {
         
         <Card className="shadow-xl overflow-hidden">
           <Image 
-            src={placeholderImages.communityFinanceBanner}
+            src="/images/community-finance.png"
             alt="Community finance banner"
             data-ai-hint="community finance collaboration"
             width={1200}
