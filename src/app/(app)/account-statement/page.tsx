@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import Script from 'next/script';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -175,6 +176,10 @@ function AccountStatementContent() {
 
   return (
     <div className="space-y-8">
+        <Script
+            src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+            strategy="lazyOnload"
+        />
         <div className="no-print">
             <PageTitle title="Account Statement" subtitle="Generate a detailed savings account statement for any member." />
 
@@ -390,8 +395,8 @@ function AccountStatementContent() {
                             <p className="font-semibold text-red-600">- {statementData.totalWithdrawals.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-muted-foreground">Closing Balance</p>
-                            <p className="font-bold text-primary">{statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
+                            <p className="font-bold text-primary">Closing Balance</p>
+                            <p className="font-extrabold text-lg text-primary">{statementData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</p>
                         </div>
                     </CardContent>
                 </Card>
