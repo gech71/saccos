@@ -59,7 +59,7 @@ export default async function RootLayout({
   const primaryHsl = content?.primary ? hexToHsl(content.primary) : null;
   const accentHsl = content?.accent ? hexToHsl(content.accent) : null;
 
-  // ✅ read nonce from middleware
+  // Read the nonce from the request headers
   const nonce = headers().get("x-nonce") || "";
 
   const childrenWithProps = React.Children.map(children, (child) =>
@@ -69,13 +69,14 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="csp-nonce" content={nonce} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        {/* ✅ style with nonce */}
+        {/* The style tag now gets the nonce automatically via Next.js internals */}
         <style
           nonce={nonce}
           dangerouslySetInnerHTML={{
@@ -94,11 +95,11 @@ export default async function RootLayout({
           <Toaster />
         </AuthProvider>
 
-        {/* ✅ inline script with nonce */}
+        {/* Any inline scripts also need the nonce */}
         <script
           nonce={nonce}
           dangerouslySetInnerHTML={{
-            __html: `console.log("App loaded with CSP + nonce protection");`,
+            __html: `console.log("App loaded with nonce-based CSP");`,
           }}
         />
       </body>

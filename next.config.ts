@@ -23,14 +23,15 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         headers: [
-          // CSP will be set dynamically with nonce in middleware
+          // These headers are still valuable as a fallback for older browsers
+          // and for defense in depth. The CSP is the primary modern protection.
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN', // Clickjacking protection
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff', // Anti-MIME sniffing
+            value: 'nosniff',
           },
           {
             key: 'Referrer-Policy',

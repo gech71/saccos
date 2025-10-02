@@ -16,22 +16,22 @@ export function middleware(request: NextRequest) {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://fonts.googleapis.com`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // 'unsafe-inline' is needed for many UI libraries
     "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et",
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://generativelanguage.googleapis.com ${process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || ''}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'self'",   // ✅ CSP modern protection
+    "frame-ancestors 'none'",
   ].join('; ');
 
   response.headers.set('Content-Security-Policy', csp);
+  // Also set the nonce in the response headers for easier access if needed, although reading from request is preferred for RSCs
   response.headers.set('x-nonce', nonce);
-
-  // ✅ Legacy clickjacking protection for older browsers
-  response.headers.set('X-Frame-Options', 'SAMEORIGIN'); // or "DENY"
+  
+  // Other security headers are in next.config.ts and are still applied
 
   return response;
 }
