@@ -92,9 +92,7 @@ export function Header({
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={`https://placehold.co/100x100.png?text=${
-                      user?.name?.[0] || 'A'
-                    }`}
+                    src="/images/user-avatar.png"
                     alt="User avatar"
                     data-ai-hint="user avatar"
                   />

@@ -18,7 +18,7 @@ export default function ProfileSettingsPage() {
     lastName: 'User',
     email: 'user@example.com',
     bio: 'Dedicated member of the AcademInvest community.',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: '/images/user-avatar.png',
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

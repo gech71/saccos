@@ -151,7 +151,7 @@ export default function DashboardPage() {
         
         <Card className="shadow-xl overflow-hidden">
           <Image 
-            src="https://placehold.co/1200x300.png"
+            src="/images/community-finance.png"
             alt="Community finance banner"
             data-ai-hint="community finance collaboration"
             width={1200}

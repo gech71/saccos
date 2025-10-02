@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Start seeding ...');
 
-  // 1. Clean up existing data in the correct order to avoid constraint violations
   console.log('Cleaning database...');
   await prisma.schoolHistory.deleteMany();
   await prisma.loanGuarantor.deleteMany();
@@ -37,7 +36,6 @@ async function main() {
   await prisma.websiteContent.deleteMany();
   console.log('Database cleaned.');
 
-  // 2. Seed Admin Role
   console.log('Seeding admin role...');
   const adminPermissions = permissionsList.map(p => p.id);
   const adminRole = await prisma.role.create({
@@ -50,11 +48,10 @@ async function main() {
     },
   });
 
-  // 3. Seed Admin User
   console.log('Seeding admin user...');
   await prisma.user.create({
     data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', // Hardcoded ID from external auth
+      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', 
       email: 'admin@academinvest.com',
       name: 'Academ Admin',
       firstName: 'Academ',
@@ -66,22 +63,21 @@ async function main() {
     },
   });
 
-  // 4. Seed Website Content
   console.log('Seeding default website content...');
   await prisma.websiteContent.create({
     data: {
       saccoName: 'AcademInvest',
       heroTitle: 'Empowering Your Financial Future, Together.',
       heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
-      heroImageUrl: 'https://picsum.photos/seed/finance/1200/800',
+      heroImageUrl: '/images/hero-1.png',
       aboutUs: 'We are a member-owned financial cooperative dedicated to providing quality financial services to the educational community. Our mission is to promote thrift, provide access to credit, and support the financial well-being of our members.\n\nFounded on the principles of cooperation and mutual support, we strive to be a trusted partner for all our members, helping them achieve their financial goals through ethical and transparent practices.',
-      aboutUsImageUrl: 'https://picsum.photos/seed/community/800/600',
+      aboutUsImageUrl: '/images/about-us.png',
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
       email: 'contact@academinvest.com',
-      logo: '',
-      primary: '48 96% 53%',
-      accent: '27 38% 15%',
+      logo: '/images/logo.png',
+      primary: '#FBBF24',
+      accent: '#4A2E19',
       themeColor: '#FBBF24',
     }
   });

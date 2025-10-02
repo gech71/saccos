@@ -7,8 +7,6 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
 import { headers } from 'next/headers';
 
-
-
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getWebsiteContent();
   const saccoName = content?.saccoName || 'AcademInvest';
@@ -16,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
     icons: {
-      icon: content?.logo || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh',
+      icon: content?.logo || '/images/logo.png',
     }
   };
 }
