@@ -1,4 +1,3 @@
-
 import type { NextConfig } from 'next';
 
 const securityHeaders = [
@@ -14,12 +13,12 @@ const securityHeaders = [
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "frame-ancestors 'none'"   
+      "frame-ancestors 'self'"
     ].join('; ')
   },
   {
     key: 'X-Frame-Options',
-    value: 'DENY'   
+    value: 'SAMEORIGIN'
   },
   {
     key: 'X-Content-Type-Options',
@@ -50,13 +49,26 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'upload.wikimedia.org', pathname: '/**' },
       { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
       { protocol: 'http', hostname: 'nibsaccos.nibbank.com.et' },
-      { protocol: 'https//nibsaccos.nibbank.com.et' },
+      { protocol: 'https', hostname: 'nibsaccos.nibbank.com.et' },
+      { protocol: 'http', hostname: 'localhost', port: '9002' },
     ],
   },
   async headers() {
     return [
       {
         source: '/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/api/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/_next/:path*',
+        headers: securityHeaders,
+      },
+      {
+        source: '/static/:path*',
         headers: securityHeaders,
       },
     ];
