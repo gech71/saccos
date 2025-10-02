@@ -56,7 +56,7 @@ export default function LoginPage() {
         <CardHeader className="text-center space-y-4 pt-8">
           <div className="flex flex-col items-center justify-center gap-4">
              <Image
-              src={content?.logo || '/images/logo.png'}
+              src={content?.logo || '/images/logo.jpg'}
               alt={`${content?.saccoName || 'Sacco'} Logo`}
               width={80}
               height={80}

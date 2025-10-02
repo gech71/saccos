@@ -75,7 +75,7 @@ async function main() {
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
       email: 'contact@academinvest.com',
-      logo: '/images/logo.png',
+      logo: '/images/logo.jpg',
       primary: '#FBBF24',
       accent: '#4A2E19',
       themeColor: '#FBBF24',

@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
     icons: {
-      icon: content?.logo || '/images/logo.png',
+      icon: content?.logo || '/images/logo.jpg',
     }
   };
 }

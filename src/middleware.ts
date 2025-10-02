@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
   const nonce = Buffer.from(array).toString('base64');
@@ -12,6 +12,20 @@ export async function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
 
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self'`,
+    "style-src 'self' https://fonts.googleapis.com",
+    "img-src 'self' data: https://placehold.co https://play-lh.googleusercontent.com https://upload.wikimedia.org https://picsum.photos http://nibsaccos.nibbank.com.et https://nibsaccos.nibbank.com.et",
+    "font-src 'self' https://fonts.gstatic.com",
+    `connect-src 'self' https://generativelanguage.googleapis.com ${process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || ''}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'", 
+  ].join('; ');
+
+  response.headers.set('Content-Security-Policy', csp);
   response.headers.set('x-nonce', nonce);
 
   return response;
@@ -19,12 +33,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    {
-      source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
-      missing: [
-        { type: 'header', key: 'next-router-prefetch' },
-        { type: 'header', key: 'purpose', value: 'prefetch' },
-      ],
-    },
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
