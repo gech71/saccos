@@ -1,8 +1,8 @@
 // src/app/api/contact/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import nodemailer from 'nodemailer';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { firstName, lastName, email, message } = await req.json();
 
