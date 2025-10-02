@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import { getWebsiteContent } from '@/lib/website-actions';
 import { headers } from 'next/headers';
-
+import placeholderImages from '@/lib/placeholder-images.json';
 
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
     icons: {
-      icon: content?.logo || 'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh',
+      icon: content?.logo || placeholderImages.logo,
     }
   };
 }

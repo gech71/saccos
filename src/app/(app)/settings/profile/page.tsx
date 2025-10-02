@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import React, { useState } from 'react';
 import { UserCircle, Camera } from 'lucide-react';
+import placeholderImages from '@/lib/placeholder-images.json';
 
 export default function ProfileSettingsPage() {
   const { toast } = useToast();
@@ -18,7 +19,7 @@ export default function ProfileSettingsPage() {
     lastName: 'User',
     email: 'user@example.com',
     bio: 'Dedicated member of the AcademInvest community.',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: placeholderImages.userAvatar,
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

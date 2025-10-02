@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import Image from 'next/image';
+import placeholderImages from '@/lib/placeholder-images.json';
 
 export default function LoginPage() {
   const { unifiedLogin } = useAuth();
@@ -56,10 +57,7 @@ export default function LoginPage() {
         <CardHeader className="text-center space-y-4 pt-8">
           <div className="flex flex-col items-center justify-center gap-4">
              <Image
-              src={
-                content?.logo ||
-                'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
-              }
+              src={content?.logo || placeholderImages.logo}
               alt={`${content?.saccoName || 'Sacco'} Logo`}
               width={80}
               height={80}

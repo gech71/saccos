@@ -2,6 +2,7 @@
 import { getWebsiteContent } from '@/lib/website-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
+import placeholderImages from '@/lib/placeholder-images.json';
 
 export default async function AboutPage() {
   const content = await getWebsiteContent();
@@ -29,7 +30,7 @@ export default async function AboutPage() {
           </div>
           <div className="relative h-80 w-full overflow-hidden rounded-xl shadow-lg">
              <Image
-                src={content?.aboutUsImageUrl || "https://picsum.photos/seed/community/800/600"}
+                src={content?.aboutUsImageUrl || placeholderImages.aboutUs}
                 alt="Community"
                 layout="fill"
                 objectFit="cover"
