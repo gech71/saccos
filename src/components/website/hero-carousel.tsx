@@ -28,7 +28,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
     <section className="relative w-full h-[60vh] overflow-hidden">
       {/* Slides */}
       {slides.map((slide, index) => {
-        const isUnoptimized = slide.imageUrl.startsWith('/') || slide.imageUrl.startsWith('data:');
+        const isUnoptimized = slide.imageUrl.startsWith('data:');
         return (
           <div
             key={slide.id || index}
@@ -37,16 +37,20 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
               index === currentIndex ? 'opacity-100' : 'opacity-0'
             )}
           >
-            <Image
-              src={slide.imageUrl}
-              alt={slide.title}
-              layout="fill"
-              objectFit="cover"
-              className="z-[-2]"
-              data-ai-hint={slide.imageHint}
-              priority={index === 0}
-              unoptimized={isUnoptimized}
-            />
+            {slide.imageUrl ? (
+                <Image
+                src={slide.imageUrl}
+                alt={slide.title}
+                layout="fill"
+                objectFit="cover"
+                className="z-[-2]"
+                data-ai-hint={slide.imageHint}
+                priority={index === 0}
+                unoptimized={isUnoptimized}
+                />
+            ) : (
+                <div className="absolute inset-0 bg-muted z-[-2]"></div>
+            )}
             <div className="absolute inset-0 bg-black/40 z-[-1]"></div>
             <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center text-center text-white z-10">
               <div className="max-w-3xl space-y-4 animate-in fade-in-50 duration-1000">

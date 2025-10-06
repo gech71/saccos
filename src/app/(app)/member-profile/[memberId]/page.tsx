@@ -152,7 +152,7 @@ export default function MemberProfilePage() {
             <Card className="overflow-hidden shadow-lg rounded-xl">
                 <div className="p-6 flex flex-col md:flex-row items-center gap-6 bg-card">
                     <Avatar className="h-24 w-24 border-4 border-muted shadow-lg flex-shrink-0">
-                        <AvatarImage src="/images/user-avatar.png" alt={member.fullName} data-ai-hint="user avatar"/>
+                        <AvatarImage src={''} alt={member.fullName} />
                         <AvatarFallback className="text-muted-foreground"><User className="h-12 w-12" /></AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-center md:text-left">

@@ -148,24 +148,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-        
-        <Card className="shadow-xl overflow-hidden">
-          <Image 
-            src="/images/community-finance.png"
-            alt="Community finance banner"
-            data-ai-hint="community finance collaboration"
-            width={1200}
-            height={300}
-            className="w-full h-auto object-cover"
-          />
-          <CardContent className="p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground">
-            <h3 className="text-2xl font-semibold mb-2">Strengthen Your School Community</h3>
-            <p className="mb-4">AcademInvest helps foster financial literacy and collaboration within your school. Empower members and build a stronger future together.</p>
-            <Button variant="secondary" asChild>
-              <Link href="/schools">Learn More About School Programs <ArrowRight className="ml-2 h-4 w-4"/></Link>
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }

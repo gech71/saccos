@@ -18,7 +18,7 @@ export default function ProfileSettingsPage() {
     lastName: 'User',
     email: 'user@example.com',
     bio: 'Dedicated member of the AcademInvest community.',
-    avatarUrl: '/images/user-avatar.png',
+    avatarUrl: '', // Removed default image
   });
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,7 +58,7 @@ export default function ProfileSettingsPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center space-x-6">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={userProfile.avatarUrl} alt="User avatar" data-ai-hint="user avatar" />
+              <AvatarImage src={userProfile.avatarUrl} alt="User avatar" />
               <AvatarFallback>
                 <UserCircle className="h-12 w-12" />
               </AvatarFallback>

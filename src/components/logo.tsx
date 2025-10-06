@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { School } from 'lucide-react';
 
 export function Logo({
   className,
@@ -21,20 +22,24 @@ export function Logo({
       href="/"
       className={cn("flex items-center gap-2 text-xl font-bold text-primary group", className)}
     >
-      <Image
-        src={
-          logo || '/images/logo.png'
-        }
-        alt={`${saccoName || 'Sacco'} Logo`}
-        width={32}
-        height={32}
-        className={cn(
-            "transition-transform duration-300 group-hover:rotate-12",
-            isCircular ? "rounded-full h-20 w-20 object-cover" : "rounded-md"
+        {logo ? (
+             <Image
+                src={logo}
+                alt={`${saccoName || 'Sacco'} Logo`}
+                width={32}
+                height={32}
+                className={cn(
+                    "transition-transform duration-300 group-hover:rotate-12",
+                    isCircular ? "rounded-full h-20 w-20 object-cover" : "rounded-md"
+                )}
+                unoptimized={isBase64}
+            />
+        ) : (
+            <div className="p-2 bg-primary/10 rounded-md">
+                <School className="h-5 w-5 text-primary"/>
+            </div>
         )}
-        unoptimized={isBase64}
-      />
-      <span className="font-headline">{saccoName || 'NIB Saccos'}</span>
+      <span className="font-headline">{saccoName || 'AcademInvest'}</span>
     </Link>
   );
 }

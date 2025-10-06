@@ -7,46 +7,25 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { HeroCarousel } from '@/components/website/hero-carousel';
 import type { HeroSlide } from '@prisma/client';
+import { Building2 } from 'lucide-react';
 
 const defaultHeroSlides: HeroSlide[] = [
     {
       id: "default-1",
       title: "Empowering Your Financial Future, Together.",
       subtitle: "Your trusted partner in savings and credit for the educational community.",
-      imageUrl: "/images/hero-1.png",
+      imageUrl: "",
       imageHint: "finance currency",
       link: "/about",
       linkText: "Learn More",
       order: 0,
       websiteContentId: ''
     },
-    {
-      id: "default-2",
-      title: "Secure Savings, Brighter Future",
-      subtitle: "Grow your funds with our competitive savings products designed for stability and growth.",
-      imageUrl: "/images/hero-2.png",
-      imageHint: "savings piggy-bank",
-      link: "/home#services",
-      linkText: "Our Services",
-      order: 1,
-      websiteContentId: ''
-    },
-    {
-      id: "default-3",
-      title: "Achieve Your Goals with Our Loans",
-      subtitle: "Access capital for your personal and professional needs with our fair and transparent loan products.",
-      imageUrl: "/images/hero-3.png",
-      imageHint: "loan key house",
-      link: "/home#services",
-      linkText: "Explore Loans",
-      order: 2,
-      websiteContentId: ''
-    }
-  ];
+];
 
 export default async function HomePage({ content }: { content: any }) {
   const heroSlides = content?.heroSlides && content.heroSlides.length > 0
-    ? content.heroSlides.sort((a,b) => a.order - b.order)
+    ? content.heroSlides.sort((a: HeroSlide, b: HeroSlide) => a.order - b.order)
     : defaultHeroSlides;
 
 
@@ -70,7 +49,7 @@ export default async function HomePage({ content }: { content: any }) {
             </div>
             <div className="mx-auto grid max-w-5xl items-start gap-6 py-12 lg:grid-cols-3 lg:gap-12">
               {content?.services && content.services.length > 0 ? (
-                content.services.map(service => {
+                content.services.map((service: any) => {
                   return (
                     <Card key={service.id}>
                       <CardHeader className="flex flex-col items-center text-center">
@@ -138,14 +117,19 @@ export default async function HomePage({ content }: { content: any }) {
                       </Link>
                     </Button>
                 </div>
-                <Image
-                    src={content?.aboutUsImageUrl || '/images/about-us.png'}
-                    alt="Our Team"
-                    width={600}
-                    height={400}
-                    className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full"
-                    data-ai-hint="team collaboration"
-                />
+                <div className="mx-auto aspect-video overflow-hidden rounded-xl bg-background flex items-center justify-center w-full">
+                {content?.aboutUsImageUrl ? (
+                    <Image
+                        src={content.aboutUsImageUrl}
+                        alt="Our Team"
+                        width={600}
+                        height={400}
+                        className="w-full h-full object-cover object-center"
+                    />
+                ) : (
+                    <Building2 className="h-24 w-24 text-muted-foreground"/>
+                )}
+                </div>
             </div>
         </section>
       </main>

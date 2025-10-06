@@ -91,10 +91,10 @@ export function Header({
                 className="relative h-10 w-10 rounded-full"
               >
                 <Avatar className="h-10 w-10">
+                  {/* The avatar can stay as a default visual representation */}
                   <AvatarImage
                     src="/images/user-avatar.png"
                     alt="User avatar"
-                    data-ai-hint="user avatar"
                   />
                   <AvatarFallback>
                     <UserCircle className="h-6 w-6" />

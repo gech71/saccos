@@ -39,10 +39,8 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'https', hostname: 'play-lh.googleusercontent.com' },
       { protocol: 'https', hostname: 'upload.wikimedia.org' },
-      { protocol: 'https', hostname: 'picsum.photos' },
       { protocol: 'http', hostname: 'nibsaccos.nibbank.com.et' },
       { protocol: 'https', hostname: 'nibsaccos.nibbank.com.et' },
       { protocol: 'http', hostname: 'localhost' },

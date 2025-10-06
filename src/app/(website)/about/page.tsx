@@ -2,6 +2,7 @@
 import { getWebsiteContent } from '@/lib/website-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
+import { Building2 } from 'lucide-react';
 
 export default async function AboutPage() {
   const content = await getWebsiteContent();
@@ -27,14 +28,17 @@ export default async function AboutPage() {
               )}
             </div>
           </div>
-          <div className="relative h-80 w-full overflow-hidden rounded-xl shadow-lg">
-             <Image
-                src={content?.aboutUsImageUrl || '/images/about-us.png'}
-                alt="Community"
-                layout="fill"
-                objectFit="cover"
-                data-ai-hint="community people smiling"
-            />
+          <div className="relative h-80 w-full overflow-hidden rounded-xl shadow-lg bg-muted flex items-center justify-center">
+             {content?.aboutUsImageUrl ? (
+                <Image
+                    src={content.aboutUsImageUrl}
+                    alt="Community"
+                    layout="fill"
+                    objectFit="cover"
+                />
+             ) : (
+                <Building2 className="h-24 w-24 text-muted-foreground" />
+             )}
           </div>
         </div>
       </div>
