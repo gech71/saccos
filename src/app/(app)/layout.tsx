@@ -328,20 +328,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
-  // Member View (no sidebar)
-  if (member) {
-      return (
-         <div className="flex min-h-screen w-full flex-col">
-            <div className="no-print">
-                <Header content={content} />
-            </div>
-            <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
-        </div>
-      )
-  }
 
-  // Admin View (with sidebar)
+  // Unified layout with conditional sidebar
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full flex-col">
@@ -349,20 +337,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Header content={content} />
         </div>
         <div className="flex flex-1">
-          <div className="no-print flex-shrink-0">
-            <Sidebar
-              collapsible="icon"
-              side="left"
-              variant="sidebar"
-              className="border-r"
-            >
-              <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
-                <Logo logo={content?.logo} saccoName={content?.saccoName} />
-              </SidebarHeader>
-              <SidebarNav navItems={filteredNavItems} />
-            </Sidebar>
-            <SidebarRail />
-          </div>
+          {user && ( // Only render sidebar for admin users
+            <div className="no-print flex-shrink-0">
+              <Sidebar
+                collapsible="icon"
+                side="left"
+                variant="sidebar"
+                className="border-r"
+              >
+                <SidebarHeader className="p-4 hidden md:flex items-center justify-center">
+                  <Logo logo={content?.logo} saccoName={content?.saccoName} />
+                </SidebarHeader>
+                <SidebarNav navItems={filteredNavItems} />
+              </Sidebar>
+              <SidebarRail />
+            </div>
+          )}
           <SidebarInset className="flex-1 overflow-y-auto">
             <main className="p-4 sm:p-6 lg:p-8">{children}</main>
           </SidebarInset>
