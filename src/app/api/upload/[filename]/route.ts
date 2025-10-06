@@ -4,28 +4,41 @@ import path from 'path';
 
 export async function GET(
   req: Request,
-  context: { params: Promise<{ filename: string }> }
+  { params }: { params: { filename: string } }
 ) {
-  const { filename } = await context.params;
-  if (!filename) return new NextResponse('Invalid filename', { status: 400 });
-
-  const filePath = path.join(process.cwd(), 'uploads', filename);
-
   try {
+    const { filename } = params;
+
+    // 🛡️ Validate filename (prevent injection attempts)
+    if (!filename || !/^[a-zA-Z0-9_.-]+$/.test(filename)) {
+      // Instead of crashing, respond with 404 (quiet ignore)
+      return new NextResponse('Not found', { status: 404 });
+    }
+
+    const filePath = path.join(process.cwd(), 'uploads', filename);
+
+    // Read file safely
     const data = await fs.readFile(filePath);
-    const ext = filename.split('.').pop()?.toLowerCase();
+
+    // Detect MIME type based on extension
+    const ext = path.extname(filename).toLowerCase();
     let contentType = 'application/octet-stream';
+    if (ext === '.png') contentType = 'image/png';
+    else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+    else if (ext === '.gif') contentType = 'image/gif';
+    else if (ext === '.webp') contentType = 'image/webp';
+    else if (ext === '.svg') contentType = 'image/svg+xml';
 
-    if (ext === 'png') contentType = 'image/png';
-    else if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
-    else if (ext === 'gif') contentType = 'image/gif';
-    else if (ext === 'webp') contentType = 'image/webp';
-    else if (ext === 'svg') contentType = 'image/svg+xml';
+    return new NextResponse(data, { headers: { 'Content-Type': contentType } });
 
-    return new NextResponse(data, {
-      headers: { 'Content-Type': contentType },
-    });
-  } catch {
-    return new NextResponse('File not found', { status: 404 });
+  } catch (error: any) {
+    // 🧹 Catch all errors safely
+    if (error.code === 'ENOENT') {
+      // File doesn’t exist – safe to ignore
+      return new NextResponse('Not found', { status: 404 });
+    }
+
+    console.error('Error reading uploaded file:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

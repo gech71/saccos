@@ -19,45 +19,47 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
   }, [slides.length]);
 
   useEffect(() => {
-    const interval = setInterval(nextSlide, 5000); // Rotate every 5 seconds
+    const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
   }, [nextSlide]);
 
   return (
     <section className="relative w-full h-[60vh] overflow-hidden">
-      {/* Slides */}
       {slides.map((slide, index) => {
+        const isVisible = index === currentIndex;
         const isUnoptimized = slide.imageUrl?.startsWith('data:');
+
         return (
           <div
             key={slide.id || index}
             className={cn(
               'absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out',
-              index === currentIndex ? 'opacity-100' : 'opacity-0'
+              isVisible ? 'opacity-100' : 'opacity-0'
             )}
           >
             {slide.imageUrl ? (
+              <div className="absolute inset-0">
                 <Image
-                src={slide.imageUrl}
-                alt={slide.title}
-                fill={true}
-                className="object-cover z-[-2]"
-                data-ai-hint={slide.imageHint}
-                priority={index === 0}
-                unoptimized={isUnoptimized}
+                  src={slide.imageUrl}
+                  alt={slide.title}
+                  fill
+                  priority={index === 0}
+                  unoptimized={isUnoptimized}
+                  className="object-cover object-center w-full h-full"
                 />
+              </div>
             ) : (
-                <div className="absolute inset-0 bg-muted z-[-2]"></div>
+              <div className="absolute inset-0 bg-muted"></div>
             )}
-            <div className="absolute inset-0 bg-black/40 z-[-1]"></div>
-            <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center text-center text-white z-10">
+
+            <div className="absolute inset-0 bg-black/40"></div>
+
+            <div className="container mx-auto px-4 md:px-6 h-full flex flex-col items-center justify-center text-center text-white">
               <div className="max-w-3xl space-y-4 animate-in fade-in-50 duration-1000">
                 <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
                   {slide.title}
                 </h1>
-                <p className="text-lg md:text-xl text-gray-200">
-                  {slide.subtitle}
-                </p>
+                <p className="text-lg md:text-xl text-gray-200">{slide.subtitle}</p>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row justify-center">
                   <Button asChild size="lg">
                     <Link href={slide.link}>{slide.linkText}</Link>
@@ -66,9 +68,9 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
               </div>
             </div>
           </div>
-        )
+        );
       })}
-      
+
       {/* Navigation Dots */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         {slides.map((_, index) => (
