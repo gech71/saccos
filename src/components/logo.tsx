@@ -23,8 +23,7 @@ export function Logo({
     >
       <Image
         src={
-          logo ||
-          'https://play-lh.googleusercontent.com/bXqMt9ROsGd0H9vPhib5hG-0NB-EJcAwZy6UUDhvlP-ykE595IMQtzr14R6IRWtJiGTh'
+          logo || '/images/logo.png'
         }
         alt={`${saccoName || 'Sacco'} Logo`}
         width={32}

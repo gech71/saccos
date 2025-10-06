@@ -20,31 +20,30 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // ✅ Apply headers to all routes
       {
         source: '/:path*',
         headers: [
-          // These headers are still valuable as a fallback for older browsers
-          // and for defense in depth. The CSP is the primary modern protection.
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=()',
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
+        ],
+      },
+
+      // ✅ Apply same headers to static files too (images, JS, CSS, etc.)
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/public/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
         ],
       },
     ];
