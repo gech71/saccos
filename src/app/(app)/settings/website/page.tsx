@@ -27,10 +27,8 @@ import {
   Trash2,
   Edit,
   HandCoins,
-  Landmark,
-  PiggyBank,
   Palette,
-  Image as ImageIcon
+  ImageIcon
 } from 'lucide-react';
 import {
   getWebsiteContentForAdmin,
@@ -415,32 +413,17 @@ export default function WebsiteSettingsPage() {
                 </div>
                  <div>
                   <Label>Logo</Label>
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                     <Card>
-                      <CardContent className="p-2">
-                         <FileUpload
-                          id="logo"
-                          label="Upload Logo"
-                          value={content.logo || ''}
-                          onValueChange={(url) =>
-                            handleFileUploadChange('logo', url)}
-                        />
-						{content.logo && (
-						  <div className="relative w-32 h-32 border rounded-md p-2">
-							<Image src={content.logo} alt="Logo" fill style={{ objectFit: 'contain' }} unoptimized />
-						  </div>
-						)}
-                      </CardContent>
-                    </Card>
-                     {content.logo && (
-                      <div className="relative w-32 h-32 mx-auto border rounded-md p-2">
-                        <Image
-                          src={content.logo}
-                          alt="Logo Preview"
-                          layout="fill"
-                          objectFit="contain"
-                          unoptimized={content.logo.startsWith('data:image')}
-                        />
+                  <div className="mt-2 flex items-center gap-4">
+                     <FileUpload
+                      id="logo"
+                      label="Upload Logo"
+                      value={content.logo || ''}
+                      onValueChange={(url) =>
+                        handleFileUploadChange('logo', url)}
+                    />
+                    {content.logo && (
+                      <div className="relative w-20 h-20 border rounded-md p-2 bg-muted">
+                        <Image src={content.logo} alt="Logo Preview" fill style={{ objectFit: 'contain' }} unoptimized />
                       </div>
                     )}
                   </div>
@@ -449,7 +432,7 @@ export default function WebsiteSettingsPage() {
             </Card>
 
              <Card>
-                <CardHeader className="flex justify-between items-center">
+                <CardHeader className="flex flex-row justify-between items-center">
                     <div>
                         <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary"/> Homepage Hero Carousel</CardTitle>
                         <CardDescription>Manage the rotating slides on your homepage.</CardDescription>
@@ -504,19 +487,26 @@ export default function WebsiteSettingsPage() {
                 </div>
                 <div>
                   <Label htmlFor="aboutUsImageUrl">About Us Image</Label>
-                  <FileUpload
-                    id="aboutUsImageUrl"
-                    label="Upload an image for the About Us page"
-                    value={content.aboutUsImageUrl || ''}
-                    onValueChange={(url) =>
-                      handleFileUploadChange('aboutUsImageUrl', url)}
-                  />
+                   <div className="mt-2 flex items-center gap-4">
+                      <FileUpload
+                        id="aboutUsImageUrl"
+                        label="Upload an image for the About Us page"
+                        value={content.aboutUsImageUrl || ''}
+                        onValueChange={(url) =>
+                          handleFileUploadChange('aboutUsImageUrl', url)}
+                      />
+                      {content.aboutUsImageUrl && (
+                        <div className="relative w-32 h-20 border rounded-md p-1 bg-muted">
+                           <Image src={content.aboutUsImageUrl} alt="About Us Preview" fill style={{ objectFit: 'cover' }} unoptimized />
+                        </div>
+                      )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex justify-between items-center">
+              <CardHeader className="flex flex-row justify-between items-center">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <HandCoins className="h-5 w-5 text-primary" /> Homepage
@@ -689,7 +679,7 @@ export default function WebsiteSettingsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex justify-between items-center">
+              <CardHeader className="flex flex-row justify-between items-center">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <LinkIcon className="h-5 w-5 text-primary" /> Social Media
@@ -793,7 +783,17 @@ export default function WebsiteSettingsPage() {
           <form onSubmit={handleHeroSlideSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div><Label htmlFor="slideTitle">Title</Label><Input id="slideTitle" name="title" value={currentHeroSlide.title || ''} onChange={handleHeroSlideInputChange} required /></div>
             <div><Label htmlFor="slideSubtitle">Subtitle</Label><Input id="slideSubtitle" name="subtitle" value={currentHeroSlide.subtitle || ''} onChange={handleHeroSlideInputChange} required /></div>
-            <div><Label htmlFor="slideImageUrl">Image</Label><FileUpload id="slideImageUrl" label="Upload slide image" value={currentHeroSlide.imageUrl || ''} onValueChange={handleHeroSlideImageUpload} /></div>
+            <div>
+                <Label htmlFor="slideImageUrl">Image</Label>
+                <div className="mt-2 flex items-center gap-4">
+                    <FileUpload id="slideImageUrl" label="Upload slide image" value={currentHeroSlide.imageUrl || ''} onValueChange={handleHeroSlideImageUpload} />
+                     {currentHeroSlide.imageUrl && (
+                        <div className="relative w-32 h-20 border rounded-md p-1 bg-muted">
+                           <Image src={currentHeroSlide.imageUrl} alt="Hero Slide Preview" fill style={{ objectFit: 'cover' }} unoptimized />
+                        </div>
+                      )}
+                </div>
+            </div>
             <div><Label htmlFor="slideImageHint">Image Hint (for AI)</Label><Input id="slideImageHint" name="imageHint" value={currentHeroSlide.imageHint || ''} onChange={handleHeroSlideInputChange} placeholder="e.g., community finance"/></div>
             <div><Label htmlFor="slideLink">Link URL</Label><Input id="slideLink" name="link" value={currentHeroSlide.link || ''} onChange={handleHeroSlideInputChange} required /></div>
             <div><Label htmlFor="slideLinkText">Link Button Text</Label><Input id="slideLinkText" name="linkText" value={currentHeroSlide.linkText || ''} onChange={handleHeroSlideInputChange} required /></div>

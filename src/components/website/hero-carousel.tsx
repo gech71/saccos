@@ -28,7 +28,7 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
     <section className="relative w-full h-[60vh] overflow-hidden">
       {/* Slides */}
       {slides.map((slide, index) => {
-        const isUnoptimized = slide.imageUrl.startsWith('data:');
+        const isUnoptimized = slide.imageUrl?.startsWith('data:');
         return (
           <div
             key={slide.id || index}

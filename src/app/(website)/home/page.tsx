@@ -23,7 +23,8 @@ const defaultHeroSlides: HeroSlide[] = [
     },
 ];
 
-export default async function HomePage({ content }: { content: any }) {
+export default async function HomePage() {
+  const content = await getWebsiteContent();
   const heroSlides = content?.heroSlides && content.heroSlides.length > 0
     ? content.heroSlides.sort((a: HeroSlide, b: HeroSlide) => a.order - b.order)
     : defaultHeroSlides;
@@ -54,7 +55,7 @@ export default async function HomePage({ content }: { content: any }) {
                     <Card key={service.id}>
                       <CardHeader className="flex flex-col items-center text-center">
                           {service.icon ? (
-                            <Image src={service.icon} alt={service.title} width={40} height={40} className="h-10 w-10 mb-2 rounded-sm object-contain" />
+                            <Image src={service.icon} alt={service.title} width={40} height={40} className="h-10 w-10 mb-2 rounded-sm object-contain" unoptimized={service.icon.startsWith('data:image')} />
                           ): (
                             <div className="p-4 bg-primary/10 rounded-full mb-2"><HandCoins className="h-8 w-8 text-primary"/></div>
                           )}
@@ -125,6 +126,7 @@ export default async function HomePage({ content }: { content: any }) {
                         width={600}
                         height={400}
                         className="w-full h-full object-cover object-center"
+                        unoptimized={content.aboutUsImageUrl.startsWith('data:image')}
                     />
                 ) : (
                     <Building2 className="h-24 w-24 text-muted-foreground"/>

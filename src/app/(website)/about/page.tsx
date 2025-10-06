@@ -35,6 +35,7 @@ export default async function AboutPage() {
                     alt="Community"
                     layout="fill"
                     objectFit="cover"
+                    unoptimized={content.aboutUsImageUrl.startsWith('data:image')}
                 />
              ) : (
                 <Building2 className="h-24 w-24 text-muted-foreground" />
