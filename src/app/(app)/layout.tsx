@@ -328,7 +328,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  // Member View (no sidebar)
+  if (member) {
+      return (
+         <div className="flex min-h-screen w-full flex-col">
+            <div className="no-print">
+                <Header content={content} />
+            </div>
+            <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        </div>
+      )
+  }
 
+  // Admin View (with sidebar)
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full flex-col">
