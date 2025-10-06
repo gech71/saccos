@@ -41,9 +41,8 @@ export function HeroCarousel({ slides }: HeroCarouselProps) {
                 <Image
                 src={slide.imageUrl}
                 alt={slide.title}
-                layout="fill"
-                objectFit="cover"
-                className="z-[-2]"
+                fill={true}
+                className="object-cover z-[-2]"
                 data-ai-hint={slide.imageHint}
                 priority={index === 0}
                 unoptimized={isUnoptimized}
