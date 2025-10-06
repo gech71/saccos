@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/auth-context';
 
 const StatInfo = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: React.ReactNode, subValue?: string }) => (
     <div className="flex items-start gap-4">
@@ -56,6 +57,7 @@ const SectionCard = ({ title, description, children, actionButton }: { title: st
 export default function MemberProfilePage() {
     const params = useParams();
     const memberId = params.memberId as string;
+    const { user } = useAuth(); // Get current user type
     const [details, setDetails] = useState<MemberDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -172,7 +174,7 @@ export default function MemberProfilePage() {
                     <TabsTrigger value="loans">Loans</TabsTrigger>
                     <TabsTrigger value="guaranteed">Guaranteed</TabsTrigger>
                     <TabsTrigger value="dividends">Dividends</TabsTrigger>
-                    <TabsTrigger value="service-charges">Service Charges</TabsTrigger>
+                    {user && <TabsTrigger value="service-charges">Service Charges</TabsTrigger>}
                     <TabsTrigger value="history">School History</TabsTrigger>
                 </TabsList>
                 
