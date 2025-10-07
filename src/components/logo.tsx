@@ -9,11 +9,13 @@ export function Logo({
   logo,
   saccoName,
   isCircular = false,
+  hideName = false,
 }: {
   className?: string;
   logo?: string | null;
   saccoName?: string | null;
   isCircular?: boolean;
+  hideName?: boolean;
 }) {
   const isBase64 = logo && logo.startsWith('data:image');
   
@@ -39,7 +41,7 @@ export function Logo({
                 <School className="h-5 w-5 text-primary"/>
             </div>
         )}
-      <span className="font-headline">{saccoName || 'SACCO System'}</span>
+      {!hideName && <span className="font-headline">{saccoName || 'SACCO System'}</span>}
     </Link>
   );
 }

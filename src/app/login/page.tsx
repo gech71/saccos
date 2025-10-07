@@ -61,6 +61,7 @@ export default function LoginPage() {
               saccoName={content?.saccoName}
               className="w-20 h-20"
               isCircular={true}
+              hideName={true}
             />
              <span className="text-2xl font-bold text-primary font-headline">
               {content?.saccoName || 'SACCO System'}
