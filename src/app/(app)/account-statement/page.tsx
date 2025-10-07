@@ -28,6 +28,7 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
+import { Footer } from '@/components/website/footer';
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
@@ -65,7 +66,7 @@ function AccountStatementContent() {
         getWebsiteContent(),
       ]);
       setAllMembers(members);
-      setWebsiteContent(content);
+      setWebsiteContent(content as WebsiteContent);
     }
     fetchData();
 
@@ -446,12 +447,9 @@ function AccountStatementContent() {
                         </TableBody>
                     </Table>
                 </div>
-                 <div className="text-center text-xs text-gray-500 mt-4">
-                    {statementData.member.status === 'inactive'
-                        ? <p>This is the final statement for this closed account.</p>
-                        : <p>Thank you for being a valued member of {websiteContent?.saccoName || 'the Sacco'}.</p>
-                    }
-                </div>
+                 <div className="mt-8">
+                    <Footer content={websiteContent as any} />
+                 </div>
             </div>
           </CardContent>
         </Card>

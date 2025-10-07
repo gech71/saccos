@@ -39,6 +39,7 @@ import html2canvas from 'html2canvas';
 import Script from 'next/script';
 import { Logo } from '@/components/logo';
 import { getWebsiteContent } from '@/lib/website-actions';
+import { Footer } from '@/components/website/footer';
 
 type SchoolForSelect = {
     id: string;
@@ -101,7 +102,7 @@ export default function ReportsPage() {
             setSchools(data.schools);
             setSavingAccountTypes(data.savingAccountTypes);
             setLoanTypes(data.loanTypes);
-            setWebsiteContent(content);
+            setWebsiteContent(content as WebsiteContent);
 
             if (data.schools.length > 0) {
               setSelectedSchoolId(data.schools[0].id);
@@ -536,12 +537,7 @@ export default function ReportsPage() {
           </CardHeader>
            <CardContent>
              <div id="printable-financial-report" className="p-4 bg-background">
-                <div className="text-center mb-6 hidden print:block">
-                    <Logo logo={websiteContent?.logo} saccoName={websiteContent?.saccoName} />
-                    <h2 className="text-2xl font-bold mt-2">{financialReportOutput.title}</h2>
-                    <p className="text-muted-foreground">Generated on {financialReportOutput.reportDate}</p>
-                </div>
-                <div className="text-center mb-6 print:hidden">
+                <div className="text-center mb-6">
                     <Logo logo={websiteContent?.logo} saccoName={websiteContent?.saccoName} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -595,6 +591,9 @@ export default function ReportsPage() {
                             ))}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="mt-8">
+                  <Footer content={websiteContent as any} />
                 </div>
              </div>
           </CardContent>

@@ -249,7 +249,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Fetch website content client-side
   useEffect(() => {
-    getWebsiteContent().then((res) => setContent(res));
+    getWebsiteContent().then((res) => setContent(res as WebsiteContent));
   }, []);
 
   const filteredNavItems = useMemo(() => {
