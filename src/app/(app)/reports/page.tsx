@@ -29,11 +29,15 @@ import {
 import type { SavingAccountType, LoanType } from '@prisma/client';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { startOfYear, endOfYear } from 'date-fns';
+import { startOfYear, endOfYear, format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import Script from 'next/script';
+import { Logo } from '@/components/logo';
 
 type SchoolForSelect = {
     id: string;
@@ -203,10 +207,59 @@ export default function ReportsPage() {
      const fileName = `${financialReportOutput.title.replace(/\s+/g, '_')}`;
     exportToExcel(dataToExport, fileName);
   };
+  
+  const handleFinancialPdfExport = async () => {
+    const reportElement = document.getElementById('printable-financial-report');
+    if (!financialReportOutput || !reportElement) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Report data is not available to download.' });
+        return;
+    }
+
+    setIsLoading(true);
+
+    try {
+        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pdfWidth - 40; // with margin
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let heightLeft = imgHeight;
+        let position = 20; // top margin
+
+        pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - 40);
+
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight + 20; // reset top position for new page
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+            heightLeft -= (pdfHeight - 40);
+        }
+
+        const fileName = `${financialReportOutput.title.replace(/\s+/g, '_')}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+        pdf.save(fileName);
+        
+        toast({ title: 'Download Started', description: 'Your PDF report is being downloaded.' });
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast({ variant: 'destructive', title: 'Download Failed', description: 'An error occurred while generating the PDF.' });
+    } finally {
+        setIsLoading(false);
+    }
+};
+
 
 
   return (
     <div className="space-y-8">
+      <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        strategy="lazyOnload"
+      />
       <PageTitle title="Reports" subtitle="Generate and export detailed reports for various operations." />
 
       <Tabs defaultValue="simple-reports">
@@ -463,68 +516,82 @@ export default function ReportsPage() {
                     <CardTitle className="font-headline text-primary">{financialReportOutput.title}</CardTitle>
                     <CardDescription>Generated on {financialReportOutput.reportDate}</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleFinancialExport}>
-                    <FileDown className="mr-2 h-4 w-4" /> Export to Excel
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleFinancialExport}>
+                        <FileDown className="mr-2 h-4 w-4" /> Export to Excel
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleFinancialPdfExport} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileDown className="mr-2 h-4 w-4" />}
+                        Export to PDF
+                    </Button>
+                </div>
             </div>
           </CardHeader>
-           <CardContent className="space-y-6">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {financialReportOutput.summary.map((item, index) => (
-                    <StatCard 
-                        key={index}
-                        title={item.label}
-                        value={item.value}
-                        description={item.change}
-                        icon={<FileText className="h-6 w-6 text-accent" />}
-                        className="shadow-none border"
-                        valueClassName={item.change?.includes('Increase') ? 'text-green-600' : item.change?.includes('Decrease') ? 'text-destructive' : 'text-primary'}
-                    />
-                ))}
-            </div>
+           <CardContent>
+             <div id="printable-financial-report" className="p-4 bg-background">
+                <div className="text-center mb-6 hidden print:block">
+                    <Logo />
+                    <h2 className="text-2xl font-bold mt-2">{financialReportOutput.title}</h2>
+                    <p className="text-muted-foreground">Generated on {financialReportOutput.reportDate}</p>
+                </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {financialReportOutput.summary.map((item, index) => (
+                        <StatCard 
+                            key={index}
+                            title={item.label}
+                            value={item.value}
+                            description={item.change}
+                            icon={<FileText className="h-6 w-6 text-accent" />}
+                            className="shadow-none border"
+                            valueClassName={item.change?.includes('Increase') ? 'text-green-600' : item.change?.includes('Decrease') ? 'text-destructive' : 'text-primary'}
+                        />
+                    ))}
+                </div>
 
-             <Card>
-                <CardHeader>
-                <CardTitle>Income vs. Expenses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={financialReportOutput.chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="Income" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Expenses" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-                </CardContent>
-            </Card>
+                 <Card>
+                    <CardHeader>
+                    <CardTitle>Income vs. Expenses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={financialReportOutput.chartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="Income" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="Expenses" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                    </CardContent>
+                </Card>
 
-             <div className="overflow-x-auto rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            {financialReportOutput.columns.map(col => <TableHead key={col}>{col}</TableHead>)}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {financialReportOutput.rows.map((row, rowIndex) => (
-                            <TableRow key={rowIndex}>
-                                <TableCell className="font-medium">{row.metric}</TableCell>
-                                <TableCell className="text-right">{typeof row.year1Value === 'number' ? row.year1Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year1Value}</TableCell>
-                                <TableCell className="text-right">{typeof row.year2Value === 'number' ? row.year2Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year2Value}</TableCell>
-                                <TableCell className="text-right font-semibold" style={{color: row.changePercentage > 0 ? 'var(--chart-1)' : 'hsl(var(--destructive))'}}>{row.changePercentage.toFixed(2)}%</TableCell>
+                 <div className="overflow-x-auto rounded-lg border mt-6">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                {financialReportOutput.columns.map(col => <TableHead key={col}>{col}</TableHead>)}
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-
+                        </TableHeader>
+                        <TableBody>
+                            {financialReportOutput.rows.map((row, rowIndex) => (
+                                <TableRow key={rowIndex}>
+                                    <TableCell className={`font-medium ${row.metric.startsWith('  ') ? 'pl-8' : ''}`}>{row.metric}</TableCell>
+                                    <TableCell className="text-right">{typeof row.year1Value === 'number' ? row.year1Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year1Value}</TableCell>
+                                    <TableCell className="text-right">{typeof row.year2Value === 'number' ? row.year2Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year2Value}</TableCell>
+                                    <TableCell className="text-right font-semibold" style={{color: row.changePercentage > 0 ? 'var(--chart-1)' : row.changePercentage < 0 ? 'hsl(var(--destructive))' : 'inherit'}}>{row.changePercentage.toFixed(2)}%</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+             </div>
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
+
+    
