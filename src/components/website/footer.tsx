@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Logo } from '../logo';
 import { Mail, MapPin, Phone } from 'lucide-react';
 
-export function Footer({ content }: { content: (WebsiteContent & { socialLinks: SocialMediaLink[] }) | null }) {
+export function Footer({ content, hideQuickLinks = false }: { content: (WebsiteContent & { socialLinks: SocialMediaLink[] }) | null, hideQuickLinks?: boolean }) {
   return (
     <footer className="bg-accent text-accent-foreground border-t border-primary/20">
       <div className="container mx-auto px-4 py-12">
@@ -34,15 +34,17 @@ export function Footer({ content }: { content: (WebsiteContent & { socialLinks: 
           </div>
 
           {/* Quick Links */}
-          <div className="md:col-span-1">
-            <h3 className="font-semibold text-accent-foreground mb-4">Quick Links</h3>
-            <nav className="flex flex-col gap-2">
-              <Link href="/home" className="hover:text-primary">Home</Link>
-              <Link href="/about" className="hover:text-primary">About Us</Link>
-              <Link href="/news" className="hover:text-primary">News</Link>
-              <Link href="/contact" className="hover:text-primary">Contact</Link>
-            </nav>
-          </div>
+          {!hideQuickLinks && (
+            <div className="md:col-span-1">
+              <h3 className="font-semibold text-accent-foreground mb-4">Quick Links</h3>
+              <nav className="flex flex-col gap-2">
+                <Link href="/home" className="hover:text-primary">Home</Link>
+                <Link href="/about" className="hover:text-primary">About Us</Link>
+                <Link href="/news" className="hover:text-primary">News</Link>
+                <Link href="/contact" className="hover:text-primary">Contact</Link>
+              </nav>
+            </div>
+          )}
           
           {/* Contact Info */}
            <div className="md:col-span-2">

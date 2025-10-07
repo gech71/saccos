@@ -593,7 +593,7 @@ export default function ReportsPage() {
                     </Table>
                 </div>
                 <div className="mt-8">
-                  <Footer content={websiteContent as any} />
+                  <Footer content={websiteContent as any} hideQuickLinks={true} />
                 </div>
              </div>
           </CardContent>
