@@ -13,7 +13,7 @@ export default async function AboutPage() {
         <div className="grid md:grid-cols-2 gap-12 items-center justify-center">
           <div className="space-y-6 text-center md:text-left">
             <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-              About {content?.saccoName || 'AcademInvest'}
+              About {content?.saccoName || 'our SACCO'}
             </h1>
             <div className="prose max-w-none text-muted-foreground text-lg whitespace-pre-line">
               {content?.aboutUs || (

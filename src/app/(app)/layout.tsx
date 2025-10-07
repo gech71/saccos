@@ -242,15 +242,9 @@ const navItems: NavItem[] = [
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [content, setContent] = useState<WebsiteContent | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, user, member } = useAuth();
-
-  // Fetch website content client-side
-  useEffect(() => {
-    getWebsiteContent().then((res) => setContent(res as WebsiteContent));
-  }, []);
+  const { isAuthenticated, isLoading, user, member, content } = useAuth();
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];

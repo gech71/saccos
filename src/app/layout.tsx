@@ -10,7 +10,7 @@ import { headers } from "next/headers";
 // --- Metadata generation ---
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getWebsiteContent();
-  const saccoName = content?.saccoName || "AcademInvest";
+  const saccoName = content?.saccoName || "SACCO Management System";
   return {
     title: saccoName,
     description: `Savings and Credit Management for ${saccoName}`,
@@ -60,10 +60,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // ✅ Nonce passed from middleware
   const nonce = (await headers()).get("x-nonce") || "";
 
-  const childrenWithProps = React.Children.map(children, (child) =>
-    React.isValidElement(child) ? React.cloneElement(child, { content }) : child
-  );
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -88,7 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          {childrenWithProps}
+          {children}
           <Toaster />
         </AuthProvider>
 
@@ -101,5 +97,3 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
-
-    

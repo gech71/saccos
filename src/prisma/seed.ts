@@ -52,9 +52,9 @@ async function main() {
   await prisma.user.create({
     data: {
       userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', 
-      email: 'admin@academinvest.com',
-      name: 'Academ Admin',
-      firstName: 'Academ',
+      email: 'admin@example.com',
+      name: 'Default Admin',
+      firstName: 'Default',
       lastName: 'Admin',
       phoneNumber: '0912345678',
       roles: {
@@ -66,18 +66,18 @@ async function main() {
   console.log('Seeding default website content...');
   await prisma.websiteContent.create({
     data: {
-      saccoName: 'AcademInvest',
+      saccoName: 'My SACCO',
       heroTitle: 'Empowering Your Financial Future, Together.',
       heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
-      heroImageUrl: 'https://picsum.photos/seed/finance/1200/800',
+      heroImageUrl: '',
       aboutUs: 'We are a member-owned financial cooperative dedicated to providing quality financial services to the educational community. Our mission is to promote thrift, provide access to credit, and support the financial well-being of our members.\n\nFounded on the principles of cooperation and mutual support, we strive to be a trusted partner for all our members, helping them achieve their financial goals through ethical and transparent practices.',
-      aboutUsImageUrl: 'https://picsum.photos/seed/community/800/600',
+      aboutUsImageUrl: '',
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
-      email: 'contact@academinvest.com',
+      email: 'contact@example.com',
       logo: '',
-      primary: '48 96% 53%',
-      accent: '27 38% 15%',
+      primary: '#FBBF24',
+      accent: '#4A2E19',
       themeColor: '#FBBF24',
     }
   });

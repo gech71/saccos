@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import Image from 'next/image';
+import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const { unifiedLogin } = useAuth();
@@ -55,23 +56,19 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
           <div className="flex flex-col items-center justify-center gap-4">
-             <Image
-              src={content?.logo || ''}
-              alt={`${content?.saccoName || 'Sacco'} Logo`}
-              width={80}
-              height={80}
-              className="h-20 w-20 rounded-full object-cover"
-              onClick={() => router.push('/')}
-              style={{ cursor: 'pointer' }}
-              unoptimized={content?.logo?.startsWith('data:image')}
+             <Logo
+              logo={content?.logo}
+              saccoName={content?.saccoName}
+              className="w-20 h-20"
+              isCircular={true}
             />
              <span className="text-2xl font-bold text-primary font-headline">
-              {content?.saccoName || 'AcademInvest Saccos'}
+              {content?.saccoName || 'SACCO System'}
             </span>
           </div>
           <CardDescription>
             {`Sign in to the ${
-              content?.saccoName || 'AcademInvest'
+              content?.saccoName || 'SACCO'
             } system.`}
           </CardDescription>
         </CardHeader>
@@ -127,5 +124,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

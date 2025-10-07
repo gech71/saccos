@@ -52,16 +52,16 @@ export function Footer({ content, hideQuickLinks = false }: { content: (WebsiteC
              <div className="space-y-4">
                 <div className="flex items-start gap-3">
                     <MapPin className="h-5 w-5 mt-1 flex-shrink-0" />
-                    <span>{content?.address || '123 Main Street, Addis Ababa, Ethiopia'}</span>
+                    <span>{content?.address || '123 Main Street, City'}</span>
                 </div>
                  <div className="flex items-start gap-3">
                     <Phone className="h-5 w-5 mt-1 flex-shrink-0" />
-                    <span>{content?.phone || '+251-911-123-456'}</span>
+                    <span>{content?.phone || '+251-000-000-000'}</span>
                 </div>
                  <div className="flex items-start gap-3">
                     <Mail className="h-5 w-5 mt-1 flex-shrink-0" />
-                    <a href={`mailto:${content?.email || 'contact@academinvest.com'}`} className="hover:text-primary">
-                        {content?.email || 'contact@academinvest.com'}
+                    <a href={`mailto:${content?.email || 'contact@example.com'}`} className="hover:text-primary">
+                        {content?.email || 'contact@example.com'}
                     </a>
                 </div>
              </div>
@@ -69,7 +69,7 @@ export function Footer({ content, hideQuickLinks = false }: { content: (WebsiteC
 
         </div>
          <div className="mt-8 pt-8 border-t border-accent-foreground/20 text-center text-sm text-accent-foreground/60">
-            <p>&copy; {new Date().getFullYear()} {content?.saccoName || 'AcademInvest'}. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} {content?.saccoName || 'Your SACCO'}. All rights reserved.</p>
         </div>
       </div>
     </footer>

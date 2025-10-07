@@ -25,12 +25,12 @@ export function Logo({
         {logo ? (
              <Image
                 src={logo}
-                alt={`${saccoName || 'Sacco'} Logo`}
+                alt={`${saccoName || 'SACCO'} Logo`}
                 width={32}
                 height={32}
                 className={cn(
                     "transition-transform duration-300 group-hover:rotate-12",
-                    isCircular ? "rounded-full h-20 w-20 object-cover" : "rounded-md"
+                    isCircular ? "rounded-full h-8 w-8 object-cover" : "rounded-md h-8 w-8"
                 )}
                 unoptimized={isBase64}
             />
@@ -39,7 +39,7 @@ export function Logo({
                 <School className="h-5 w-5 text-primary"/>
             </div>
         )}
-      <span className="font-headline">{saccoName || 'AcademInvest'}</span>
+      <span className="font-headline">{saccoName || 'SACCO System'}</span>
     </Link>
   );
 }

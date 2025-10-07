@@ -5,15 +5,18 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import type { AuthResponse, AuthUser, MemberAuthUser } from '@/types';
+import type { AuthResponse, AuthUser, MemberAuthUser, WebsiteContent } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/actions';
 import { findUserOrMember, verifyMemberCredentials } from '@/app/login/actions';
 import type { Member } from '@prisma/client';
+import { getWebsiteContent } from '@/lib/website-actions';
+
 
 interface AuthContextType {
   user: AuthUser | null;
   member: MemberAuthUser | null;
+  content: WebsiteContent | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -40,6 +43,7 @@ interface DecodedToken {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [member, setMember] = useState<MemberAuthUser | null>(null);
+  const [content, setContent] = useState<WebsiteContent | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,9 +102,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const initAuth = async () => {
       setIsLoading(true);
-      const storedAccessToken = localStorage.getItem('accessToken');
-      const storedRefreshToken = localStorage.getItem('refreshToken');
-      const memberId = localStorage.getItem('memberId');
+      
+      const [websiteContent, storedAccessToken, storedRefreshToken, memberId] = await Promise.all([
+          getWebsiteContent(),
+          localStorage.getItem('accessToken'),
+          localStorage.getItem('refreshToken'),
+          localStorage.getItem('memberId'),
+      ]);
+      
+      setContent(websiteContent as WebsiteContent);
       
       if (memberId) {
         // This is a member session
@@ -225,6 +235,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const value = {
     user,
     member,
+    content,
     accessToken,
     isAuthenticated: !!accessToken || !!member,
     isLoading,

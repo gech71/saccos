@@ -22,10 +22,14 @@ import {
   Line,
 } from 'recharts';
 import { getAdminDashboardData, type AdminDashboardData } from './actions';
+import { useAuth } from '@/contexts/auth-context';
+import type { WebsiteContent } from '@prisma/client';
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
+  const { content } = useAuth();
+
 
   useEffect(() => {
     async function fetchData() {
@@ -53,7 +57,7 @@ export default function DashboardPage() {
   if (dashboardData) {
     return (
       <div className="space-y-8">
-        <PageTitle title="Admin Dashboard" subtitle="Welcome to AcademInvest. Here's an overview of your association." />
+        <PageTitle title="Admin Dashboard" subtitle={`Welcome to ${content?.saccoName || 'the SACCO'}. Here's an overview of your association.`} />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <StatCard
