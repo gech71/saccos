@@ -26,6 +26,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
+import { getWebsiteContent } from '@/lib/website-actions';
+import type { WebsiteContent } from '@prisma/client';
 
 function AccountStatementContent() {
   const searchParams = useSearchParams();
@@ -33,6 +35,7 @@ function AccountStatementContent() {
   const { user } = useAuth();
   
   const [allMembers, setAllMembers] = useState<MemberForStatement[]>([]);
+  const [websiteContent, setWebsiteContent] = useState<WebsiteContent | null>(null);
 
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -57,8 +60,12 @@ function AccountStatementContent() {
     if (!user) return; // Wait for user context to be available
     
     async function fetchData() {
-      const members = await getMembersForStatement();
+      const [members, content] = await Promise.all([
+        getMembersForStatement(),
+        getWebsiteContent(),
+      ]);
       setAllMembers(members);
+      setWebsiteContent(content);
     }
     fetchData();
 
@@ -156,7 +163,7 @@ function AccountStatementContent() {
 
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
-      const fileName = `AcademInvest-Statement-${statementData.member.fullName.replace(/\s/g, '_')}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      const fileName = `${websiteContent?.saccoName || 'AcademInvest'}-Statement-${statementData.member.fullName.replace(/\s/g, '_')}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
       pdf.save(fileName);
       
       toast({ title: 'Download Started', description: 'Your statement PDF is being downloaded.' });
@@ -337,7 +344,7 @@ function AccountStatementContent() {
                 {/* Header */}
                 <div className="flex justify-between items-start pb-4 border-b mb-4 border-gray-300">
                     <div>
-                        <Logo />
+                        <Logo logo={websiteContent?.logo} saccoName={websiteContent?.saccoName} />
                         <p className="text-sm text-gray-500 mt-1">Savings & Credit Association</p>
                     </div>
                     <div className="text-right">
@@ -442,7 +449,7 @@ function AccountStatementContent() {
                  <div className="text-center text-xs text-gray-500 mt-4">
                     {statementData.member.status === 'inactive'
                         ? <p>This is the final statement for this closed account.</p>
-                        : <p>Thank you for being a valued member of AcademInvest.</p>
+                        : <p>Thank you for being a valued member of {websiteContent?.saccoName || 'the Sacco'}.</p>
                     }
                 </div>
             </div>
@@ -460,5 +467,7 @@ export default function AccountStatementPage() {
         </Suspense>
     )
 }
+
+    
 
     
