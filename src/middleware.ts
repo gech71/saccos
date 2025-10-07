@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 
 // 🔹 Generate a unique nonce for each request
@@ -84,3 +85,5 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+
+    

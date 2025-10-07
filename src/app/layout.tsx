@@ -1,3 +1,4 @@
+
 import React from "react";
 import type { Metadata } from "next";
 import "./globals.css";
@@ -94,12 +95,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {nonce && (
           <script
             nonce={nonce}
-            dangerouslySetInnerHTML={{
-              __html: `console.log("✅ App loaded with CSP Nonce:", "${nonce}");`,
-            }}
           />
         )}
       </body>
     </html>
   );
 }
+
+    
