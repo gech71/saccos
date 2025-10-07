@@ -26,7 +26,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import type { SavingAccountType, LoanType } from '@prisma/client';
+import type { SavingAccountType, LoanType, WebsiteContent } from '@prisma/client';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { startOfYear, endOfYear, format } from 'date-fns';
@@ -38,6 +38,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Script from 'next/script';
 import { Logo } from '@/components/logo';
+import { getWebsiteContent } from '@/lib/website-actions';
 
 type SchoolForSelect = {
     id: string;
@@ -66,6 +67,7 @@ export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
   const [savingAccountTypes, setSavingAccountTypes] = useState<SavingAccountType[]>([]);
   const [loanTypes, setLoanTypes] = useState<LoanType[]>([]);
+  const [websiteContent, setWebsiteContent] = useState<WebsiteContent | null>(null);
   
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [openSchoolCombobox, setOpenSchoolCombobox] = useState(false);
@@ -92,10 +94,15 @@ export default function ReportsPage() {
     async function fetchData() {
         setIsFetchingData(true);
         try {
-            const data = await getReportPageData();
+            const [data, content] = await Promise.all([
+              getReportPageData(),
+              getWebsiteContent()
+            ]);
             setSchools(data.schools);
             setSavingAccountTypes(data.savingAccountTypes);
             setLoanTypes(data.loanTypes);
+            setWebsiteContent(content);
+
             if (data.schools.length > 0) {
               setSelectedSchoolId(data.schools[0].id);
             }
@@ -530,7 +537,7 @@ export default function ReportsPage() {
            <CardContent>
              <div id="printable-financial-report" className="p-4 bg-background">
                 <div className="text-center mb-6 hidden print:block">
-                    <Logo />
+                    <Logo logo={websiteContent?.logo} saccoName={websiteContent?.saccoName} />
                     <h2 className="text-2xl font-bold mt-2">{financialReportOutput.title}</h2>
                     <p className="text-muted-foreground">Generated on {financialReportOutput.reportDate}</p>
                 </div>
@@ -593,5 +600,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
