@@ -541,6 +541,9 @@ export default function ReportsPage() {
                     <h2 className="text-2xl font-bold mt-2">{financialReportOutput.title}</h2>
                     <p className="text-muted-foreground">Generated on {financialReportOutput.reportDate}</p>
                 </div>
+                <div className="text-center mb-6 print:hidden">
+                    <Logo logo={websiteContent?.logo} saccoName={websiteContent?.saccoName} />
+                </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     {financialReportOutput.summary.map((item, index) => (
                         <StatCard 
