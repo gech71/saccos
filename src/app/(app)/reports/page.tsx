@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileDown, FileText, ChevronsUpDown, Check } from 'lucide-react';
-import { getReportPageData, generateSimpleReport, type ReportData, type ReportType } from './actions';
+import { getReportPageData, generateSimpleReport, generateFinancialReport, type ReportData, type FinancialReportData, type ReportType } from './actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatCard } from '@/components/stat-card';
 import { exportToExcel } from '@/lib/utils';
@@ -33,13 +33,14 @@ import { startOfYear, endOfYear } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type SchoolForSelect = {
     id: string;
     name: string;
 }
 
-const reportTypes: { value: ReportType, label: string }[] = [
+const simpleReportTypes: { value: ReportType, label: string }[] = [
   { value: 'savings', label: 'Saving Report' },
   { value: 'savings-no-interest', label: 'Saving Report (w/o Interest)' },
   { value: 'saving-interest', label: 'Saving Interest Report' },
@@ -53,6 +54,9 @@ const reportTypes: { value: ReportType, label: string }[] = [
 ];
 
 const PIE_CHART_COLORS = ['#3F51B5', '#009688', '#FFC107', '#FF5722', '#607D8B', '#9C27B0'];
+
+const reportYears = Array.from({length: 10}, (_, i) => new Date().getFullYear() - i);
+
 
 export default function ReportsPage() {
   const [schools, setSchools] = useState<SchoolForSelect[]>([]);
@@ -70,10 +74,14 @@ export default function ReportsPage() {
     to: endOfYear(new Date()),
   }
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
+  
+  const [year1, setYear1] = useState(new Date().getFullYear().toString());
+  const [year2, setYear2] = useState((new Date().getFullYear() - 1).toString());
 
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const [reportOutput, setReportOutput] = useState<ReportData | null>(null);
+  const [financialReportOutput, setFinancialReportOutput] = useState<FinancialReportData | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -84,6 +92,9 @@ export default function ReportsPage() {
             setSchools(data.schools);
             setSavingAccountTypes(data.savingAccountTypes);
             setLoanTypes(data.loanTypes);
+            if (data.schools.length > 0) {
+              setSelectedSchoolId(data.schools[0].id);
+            }
             if (data.savingAccountTypes.length > 0) {
               setSelectedSavingAccountTypeId(data.savingAccountTypes[0].id);
             }
@@ -108,8 +119,7 @@ export default function ReportsPage() {
     }
   }, [selectedReportType, savingAccountTypes, selectedSavingAccountTypeId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSimpleSubmit = async () => {
     if (!selectedSchoolId || !selectedReportType || !dateRange?.from || !dateRange?.to) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select a school, report type, and a valid date range.' });
       return;
@@ -138,6 +148,27 @@ export default function ReportsPage() {
     }
   };
   
+   const handleFinancialSubmit = async () => {
+    if (!year1 || !year2 || year1 === year2) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select two different years for comparison.' });
+      return;
+    }
+
+    setIsLoading(true);
+    setFinancialReportOutput(null);
+
+    try {
+      const output = await generateFinancialReport(parseInt(year1), parseInt(year2));
+      setFinancialReportOutput(output);
+      toast({ title: 'Financial Report Generated', description: 'Your comparative financial report is ready.' });
+    } catch (error) {
+      console.error('Error generating financial report:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate financial report. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   const handleExport = () => {
     if (!reportOutput) {
         toast({ variant: 'destructive', title: 'Error', description: 'No data to export.' });
@@ -155,132 +186,182 @@ export default function ReportsPage() {
     const fileName = `${reportOutput.title.replace(/\s+/g, '_')}_${reportOutput.schoolName.replace(/\s+/g, '_')}`;
     exportToExcel(dataToExport, fileName);
   };
+  
+  const handleFinancialExport = () => {
+    if (!financialReportOutput) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No financial data to export.' });
+        return;
+    }
+    const dataToExport = financialReportOutput.rows.map(row => {
+        return {
+            'Metric': row.metric,
+            [`${financialReportOutput.year1}`]: row.year1Value,
+            [`${financialReportOutput.year2}`]: row.year2Value,
+            'Change (%)': row.changePercentage,
+        }
+    });
+     const fileName = `${financialReportOutput.title.replace(/\s+/g, '_')}`;
+    exportToExcel(dataToExport, fileName);
+  };
 
 
   return (
     <div className="space-y-8">
       <PageTitle title="Reports" subtitle="Generate and export detailed reports for various operations." />
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline text-primary">Generate New Report</CardTitle>
-          <CardDescription>Select parameters to generate your financial report.</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
-            <div>
-              <Label htmlFor="schoolId">School Name</Label>
-              <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="schoolId"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={openSchoolCombobox}
-                    className="w-full justify-between"
-                    disabled={isFetchingData}
-                  >
-                    {selectedSchoolId
-                      ? schools.find((s) => s.id === selectedSchoolId)?.name
-                      : "Select school..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search school..." />
-                    <CommandList>
-                      <CommandEmpty>No school found.</CommandEmpty>
-                      <CommandGroup>
-                        {schools.map((school) => (
-                          <CommandItem
-                            key={school.id}
-                            value={`${school.name} ${school.id}`}
-                            onSelect={() => {
-                              setSelectedSchoolId(school.id);
-                              setOpenSchoolCombobox(false);
-                            }}
+      <Tabs defaultValue="simple-reports">
+        <TabsList>
+            <TabsTrigger value="simple-reports">Simple Reports</TabsTrigger>
+            <TabsTrigger value="financial-report">Financial Report</TabsTrigger>
+        </TabsList>
+        <TabsContent value="simple-reports">
+             <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="font-headline text-primary">Generate New Report</CardTitle>
+                  <CardDescription>Select parameters to generate your financial report.</CardDescription>
+                </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
+                    <div>
+                      <Label htmlFor="schoolId">School Name</Label>
+                      <Popover open={openSchoolCombobox} onOpenChange={setOpenSchoolCombobox}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="schoolId"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openSchoolCombobox}
+                            className="w-full justify-between"
+                            disabled={isFetchingData}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedSchoolId === school.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {school.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <Label htmlFor="reportType">Report Type</Label>
-              <Select value={selectedReportType} onValueChange={(value) => setSelectedReportType(value as ReportType)} required>
-                <SelectTrigger id="reportType" aria-label="Select report type">
-                  <SelectValue placeholder="Select report type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {reportTypes.map(rt => (
-                    <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                            {selectedSchoolId
+                              ? schools.find((s) => s.id === selectedSchoolId)?.name
+                              : "Select school..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search school..." />
+                            <CommandList>
+                              <CommandEmpty>No school found.</CommandEmpty>
+                              <CommandGroup>
+                                {schools.map((school) => (
+                                  <CommandItem
+                                    key={school.id}
+                                    value={`${school.name} ${school.id}`}
+                                    onSelect={() => {
+                                      setSelectedSchoolId(school.id);
+                                      setOpenSchoolCombobox(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedSchoolId === school.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {school.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label htmlFor="reportType">Report Type</Label>
+                      <Select value={selectedReportType} onValueChange={(value) => setSelectedReportType(value as ReportType)} required>
+                        <SelectTrigger id="reportType" aria-label="Select report type">
+                          <SelectValue placeholder="Select report type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {simpleReportTypes.map(rt => (
+                            <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-            {(selectedReportType === 'savings' || selectedReportType === 'saving-interest' || selectedReportType === 'savings-no-interest') && (
-                 <div>
-                    <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
-                    <Select value={selectedSavingAccountTypeId} onValueChange={setSelectedSavingAccountTypeId} required disabled={isFetchingData}>
-                        <SelectTrigger id="savingAccountTypeId" aria-label="Select Saving Account Type">
-                        <SelectValue placeholder={isFetchingData ? "Loading..." : "Select an account type"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {savingAccountTypes.map(sat => (
-                            <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                 </div>
-            )}
-            
-            {(selectedReportType === 'loans' || selectedReportType === 'loan-interest' || selectedReportType === 'loan-repayment' || selectedReportType === 'loans-no-interest') && (
-                 <div>
-                    <Label htmlFor="loanTypeId">Loan Type</Label>
-                    <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId} disabled={isFetchingData}>
-                        <SelectTrigger id="loanTypeId" aria-label="Select Loan Type">
-                        <SelectValue placeholder={isFetchingData ? "Loading..." : "All Loan Types"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                           <SelectItem value="all">All Loan Types</SelectItem>
-                           {loanTypes.map(lt => (
-                               <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>
-                           ))}
-                        </SelectContent>
-                    </Select>
-                 </div>
-            )}
-            
-            <div className="lg:col-span-full">
-                <Label htmlFor="dateRange">Date Range</Label>
-                <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={isLoading || isFetchingData || !dateRange?.from || !dateRange?.to} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
-                </>
-              ) : (
-                'Generate Report'
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+                    {(selectedReportType === 'savings' || selectedReportType === 'saving-interest' || selectedReportType === 'savings-no-interest') && (
+                         <div>
+                            <Label htmlFor="savingAccountTypeId">Saving Account Type</Label>
+                            <Select value={selectedSavingAccountTypeId} onValueChange={setSelectedSavingAccountTypeId} required disabled={isFetchingData}>
+                                <SelectTrigger id="savingAccountTypeId" aria-label="Select Saving Account Type">
+                                <SelectValue placeholder={isFetchingData ? "Loading..." : "Select an account type"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {savingAccountTypes.map(sat => (
+                                    <SelectItem key={sat.id} value={sat.id}>{sat.name}</SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                         </div>
+                    )}
+                    
+                    {(selectedReportType === 'loans' || selectedReportType === 'loan-interest' || selectedReportType === 'loan-repayment' || selectedReportType === 'loans-no-interest') && (
+                         <div>
+                            <Label htmlFor="loanTypeId">Loan Type</Label>
+                            <Select value={selectedLoanTypeId} onValueChange={setSelectedLoanTypeId} disabled={isFetchingData}>
+                                <SelectTrigger id="loanTypeId" aria-label="Select Loan Type">
+                                <SelectValue placeholder={isFetchingData ? "Loading..." : "All Loan Types"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                   <SelectItem value="all">All Loan Types</SelectItem>
+                                   {loanTypes.map(lt => (
+                                       <SelectItem key={lt.id} value={lt.id}>{lt.name}</SelectItem>
+                                   ))}
+                                </SelectContent>
+                            </Select>
+                         </div>
+                    )}
+                    
+                    <div className="lg:col-span-full">
+                        <Label htmlFor="dateRange">Date Range</Label>
+                        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button onClick={handleSimpleSubmit} disabled={isLoading || isFetchingData || !dateRange?.from || !dateRange?.to} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
+                        </>
+                      ) : (
+                        'Generate Report'
+                      )}
+                    </Button>
+                  </CardFooter>
+            </Card>
+        </TabsContent>
+        <TabsContent value="financial-report">
+            <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="font-headline text-primary">Generate Financial Report</CardTitle>
+                  <CardDescription>Select two years to generate a comparative financial report.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div>
+                        <Label htmlFor="year1">Compare Year</Label>
+                        <Select value={year1} onValueChange={setYear1} required>
+                            <SelectTrigger id="year1"><SelectValue/></SelectTrigger>
+                            <SelectContent>{reportYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="year2">With Year</Label>
+                         <Select value={year2} onValueChange={setYear2} required>
+                            <SelectTrigger id="year2"><SelectValue/></SelectTrigger>
+                            <SelectContent>{reportYears.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                     <Button onClick={handleFinancialSubmit} disabled={isLoading || isFetchingData} className="w-full md:w-auto shadow-md hover:shadow-lg transition-shadow">
+                        {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : 'Generate Financial Report'}
+                    </Button>
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
 
       {reportOutput && (
         <Card className="shadow-lg mt-8 animate-in fade-in duration-500">
@@ -370,6 +451,77 @@ export default function ReportsPage() {
                     </TableBody>
                 </Table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {financialReportOutput && (
+         <Card className="shadow-lg mt-8 animate-in fade-in duration-500">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <CardTitle className="font-headline text-primary">{financialReportOutput.title}</CardTitle>
+                    <CardDescription>Generated on {financialReportOutput.reportDate}</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleFinancialExport}>
+                    <FileDown className="mr-2 h-4 w-4" /> Export to Excel
+                </Button>
+            </div>
+          </CardHeader>
+           <CardContent className="space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {financialReportOutput.summary.map((item, index) => (
+                    <StatCard 
+                        key={index}
+                        title={item.label}
+                        value={item.value}
+                        description={item.change}
+                        icon={<FileText className="h-6 w-6 text-accent" />}
+                        className="shadow-none border"
+                        valueClassName={item.change?.includes('Increase') ? 'text-green-600' : item.change?.includes('Decrease') ? 'text-destructive' : 'text-primary'}
+                    />
+                ))}
+            </div>
+
+             <Card>
+                <CardHeader>
+                <CardTitle>Income vs. Expenses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={financialReportOutput.chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="Income" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Expenses" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+                </CardContent>
+            </Card>
+
+             <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            {financialReportOutput.columns.map(col => <TableHead key={col}>{col}</TableHead>)}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {financialReportOutput.rows.map((row, rowIndex) => (
+                            <TableRow key={rowIndex}>
+                                <TableCell className="font-medium">{row.metric}</TableCell>
+                                <TableCell className="text-right">{typeof row.year1Value === 'number' ? row.year1Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year1Value}</TableCell>
+                                <TableCell className="text-right">{typeof row.year2Value === 'number' ? row.year2Value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.year2Value}</TableCell>
+                                <TableCell className="text-right font-semibold" style={{color: row.changePercentage > 0 ? 'var(--chart-1)' : 'hsl(var(--destructive))'}}>{row.changePercentage.toFixed(2)}%</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
           </CardContent>
         </Card>
       )}
