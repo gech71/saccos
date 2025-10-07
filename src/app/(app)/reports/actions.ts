@@ -88,9 +88,52 @@ export async function generateSimpleReport(
             throw new Error("Date range is required for generating a report.");
         }
         
-        // Other report types logic remains the same.
-        // ... (share-allocations, dividend-distributions, etc.)
+        const from = startOfDay(dateRange.from);
+        const to = endOfDay(dateRange.to);
 
+        if (reportType === 'savings' || reportType === 'savings-no-interest') {
+            const savingAccountType = await prisma.savingAccountType.findUnique({ where: { id: savingAccountTypeId } });
+            if (!savingAccountType) return null;
+
+            const includeInterest = reportType === 'savings';
+
+            let whereClause: any = {
+                member: { schoolId: schoolId },
+                date: { gte: from, lte: to },
+                status: 'approved',
+                memberSavingAccountId: { not: null },
+                memberSavingAccount: { savingAccountTypeId: savingAccountTypeId },
+            };
+            
+            if (!includeInterest) {
+                whereClause.notes = { not: { contains: 'Savings Interest' } };
+            }
+
+            const savings = await prisma.saving.findMany({
+                where: whereClause,
+                include: { member: { select: { fullName: true } } },
+                orderBy: { date: 'asc' },
+            });
+
+            const totalDeposits = savings.filter(s => s.transactionType === 'deposit').reduce((sum, s) => sum + s.amount, 0);
+            const totalWithdrawals = savings.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
+
+            return {
+                title: `${savingAccountType.name} Report`,
+                schoolName: school.name,
+                reportDate,
+                summary: [
+                    { label: 'Total Deposits', value: `${totalDeposits.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr` },
+                    { label: 'Total Withdrawals', value: `${totalWithdrawals.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr` },
+                    { label: 'Net Savings', value: `${(totalDeposits - totalWithdrawals).toLocaleString(undefined, {minimumFractionDigits: 2})} Birr` },
+                ],
+                columns: ['Date', 'Member Name', 'Transaction Type', 'Amount (Birr)'],
+                rows: savings.map(s => [format(new Date(s.date), 'PPP'), s.member.fullName, s.transactionType, s.amount]),
+                chartData: savings.map(s => ({ name: s.member.fullName, Amount: s.amount })),
+                chartType: 'bar',
+            };
+        }
+        
         return null;
     } catch (error) {
         console.error('Failed to generate report:', error);
