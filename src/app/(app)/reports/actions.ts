@@ -90,27 +90,37 @@ export async function generateSimpleReport(
         
         const from = startOfDay(dateRange.from);
         const to = endOfDay(dateRange.to);
+        
+        let whereClause: any = {
+            member: { schoolId: schoolId },
+            status: 'approved',
+        };
 
-        if (reportType === 'savings' || reportType === 'savings-no-interest') {
+        if (reportType === 'savings' || reportType === 'savings-no-interest' || reportType === 'saving-interest') {
             const savingAccountType = await prisma.savingAccountType.findUnique({ where: { id: savingAccountTypeId } });
             if (!savingAccountType) return null;
 
-            const includeInterest = reportType === 'savings';
-
-            let whereClause: any = {
-                member: { schoolId: schoolId },
+            let title = '';
+            let savingWhereClause: any = {
+                ...whereClause,
                 date: { gte: from, lte: to },
-                status: 'approved',
                 memberSavingAccountId: { not: null },
                 memberSavingAccount: { savingAccountTypeId: savingAccountTypeId },
             };
-            
-            if (!includeInterest) {
-                whereClause.notes = { not: { contains: 'Savings Interest' } };
+
+            if (reportType === 'savings') {
+                title = `${savingAccountType.name} Report`;
+            } else if (reportType === 'savings-no-interest') {
+                title = `${savingAccountType.name} Report (Excluding Interest)`;
+                savingWhereClause.notes = { not: { contains: 'Savings Interest' } };
+            } else if (reportType === 'saving-interest') {
+                title = `${savingAccountType.name} Interest Report`;
+                savingWhereClause.notes = { contains: 'Savings Interest' };
+                savingWhereClause.transactionType = 'deposit';
             }
 
             const savings = await prisma.saving.findMany({
-                where: whereClause,
+                where: savingWhereClause,
                 include: { member: { select: { fullName: true } } },
                 orderBy: { date: 'asc' },
             });
@@ -119,7 +129,7 @@ export async function generateSimpleReport(
             const totalWithdrawals = savings.filter(s => s.transactionType === 'withdrawal').reduce((sum, s) => sum + s.amount, 0);
 
             return {
-                title: `${savingAccountType.name} Report`,
+                title: title,
                 schoolName: school.name,
                 reportDate,
                 summary: [
@@ -132,6 +142,126 @@ export async function generateSimpleReport(
                 chartData: savings.map(s => ({ name: s.member.fullName, Amount: s.amount })),
                 chartType: 'bar',
             };
+        } else if (reportType === 'loans' || reportType === 'loans-no-interest') {
+            const loanType = loanTypeId ? await prisma.loanType.findUnique({ where: { id: loanTypeId } }) : null;
+            let loanWhereClause: any = {
+                member: { schoolId },
+                status: { not: 'rejected' },
+                disbursementDate: { gte: from, lte: to },
+            };
+            if(loanTypeId) loanWhereClause.loanTypeId = loanTypeId;
+            
+            const loans = await prisma.loan.findMany({
+                where: loanWhereClause,
+                include: { member: { select: { fullName: true } }, loanType: { select: { name: true } } },
+                orderBy: { disbursementDate: 'asc' },
+            });
+            const totalDisbursed = loans.reduce((sum, l) => sum + l.principalAmount, 0);
+
+            return {
+                title: `${loanType?.name || 'All'} Loan Disbursement Report`,
+                schoolName: school.name,
+                reportDate,
+                summary: [{ label: 'Total Disbursed', value: `${totalDisbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr` }],
+                columns: ['Disbursement Date', 'Member Name', 'Loan Type', 'Principal Amount (Birr)', 'Term (Months)'],
+                rows: loans.map(l => [format(new Date(l.disbursementDate), 'PPP'), l.member.fullName, l.loanType.name, l.principalAmount, l.loanTerm]),
+                chartType: 'bar',
+                chartData: loans.map(l => ({ name: l.member.fullName, Amount: l.principalAmount })),
+            };
+        } else if (reportType === 'loan-repayment' || reportType === 'loan-interest') {
+             const loanType = loanTypeId ? await prisma.loanType.findUnique({ where: { id: loanTypeId } }) : null;
+             let repaymentWhereClause: any = {
+                member: { schoolId },
+                status: 'approved',
+                paymentDate: { gte: from, lte: to },
+             };
+             if (loanTypeId) repaymentWhereClause.loan = { loanTypeId };
+
+             if (reportType === 'loan-interest') {
+                repaymentWhereClause.interestPaid = { gt: 0 };
+             }
+
+             const repayments = await prisma.loanRepayment.findMany({
+                where: repaymentWhereClause,
+                include: { member: { select: { fullName: true }}, loan: { include: { loanType: { select: { name: true }}}}},
+                orderBy: { paymentDate: 'asc' }
+             });
+
+             const totalRepaid = repayments.reduce((sum, r) => sum + r.amountPaid, 0);
+             const totalPrincipal = repayments.reduce((sum, r) => sum + r.principalPaid, 0);
+             const totalInterest = repayments.reduce((sum, r) => sum + r.interestPaid, 0);
+             
+             return {
+                title: `${reportType === 'loan-interest' ? 'Loan Interest Collected' : 'Loan Repayment'} Report for ${loanType?.name || 'All Loans'}`,
+                schoolName: school.name,
+                reportDate,
+                summary: [
+                    { label: 'Total Repaid', value: `${totalRepaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr` },
+                    { label: 'Total Principal Paid', value: `${totalPrincipal.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr` },
+                    { label: 'Total Interest Paid', value: `${totalInterest.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr` },
+                ],
+                columns: ['Payment Date', 'Member Name', 'Loan Type', 'Amount Paid', 'Principal Paid', 'Interest Paid'],
+                rows: repayments.map(r => [format(new Date(r.paymentDate), 'PPP'), r.member.fullName, r.loan.loanType.name, r.amountPaid, r.principalPaid, r.interestPaid]),
+                chartType: 'bar',
+                chartData: repayments.map(r => ({ name: r.member.fullName, Amount: r.amountPaid })),
+             };
+        } else if (reportType === 'share-allocations') {
+             const sharePayments = await prisma.sharePayment.findMany({
+                where: {
+                    commitment: { member: { schoolId }},
+                    status: 'approved',
+                    paymentDate: { gte: from, lte: to }
+                },
+                include: { commitment: { include: { member: { select: { fullName: true }}, shareType: { select: { name: true } }}}},
+                orderBy: { paymentDate: 'asc' }
+             });
+             const totalPaid = sharePayments.reduce((sum, p) => sum + p.amount, 0);
+
+             return {
+                title: 'Share Payments Report',
+                schoolName: school.name,
+                reportDate,
+                summary: [{ label: 'Total Share Payments', value: `${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr` }],
+                columns: ['Payment Date', 'Member Name', 'Share Type', 'Amount Paid (Birr)'],
+                rows: sharePayments.map(p => [format(new Date(p.paymentDate), 'PPP'), p.commitment.member.fullName, p.commitment.shareType.name, p.amount]),
+                chartType: 'bar',
+                chartData: sharePayments.map(p => ({ name: p.commitment.member.fullName, Amount: p.amount })),
+             };
+        } else if (reportType === 'dividend-distributions') {
+            const dividends = await prisma.dividend.findMany({
+                where: { member: { schoolId }, status: 'approved', distributionDate: { gte: from, lte: to }},
+                include: { member: { select: { fullName: true }}},
+                orderBy: { distributionDate: 'asc' },
+            });
+            const totalDistributed = dividends.reduce((sum, d) => sum + d.amount, 0);
+
+            return {
+                title: 'Dividend Distribution Report',
+                schoolName: school.name,
+                reportDate,
+                summary: [{ label: 'Total Dividends Distributed', value: `${totalDistributed.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr` }],
+                columns: ['Distribution Date', 'Member Name', 'Shares Held', 'Dividend Amount (Birr)'],
+                rows: dividends.map(d => [format(new Date(d.distributionDate), 'PPP'), d.member.fullName, d.shareCountAtDistribution, d.amount]),
+                chartType: 'bar',
+                chartData: dividends.map(d => ({ name: d.member.fullName, Amount: d.amount })),
+            };
+        } else if (reportType === 'service-charges') {
+            const charges = await prisma.appliedServiceCharge.findMany({
+                where: { member: { schoolId }, status: 'paid', dateApplied: { gte: from, lte: to }},
+                include: { member: { select: { fullName: true }}, serviceChargeType: { select: { name: true }}},
+                orderBy: { dateApplied: 'asc' }
+            });
+            const totalCollected = charges.reduce((sum, c) => sum + c.amountCharged, 0);
+            return {
+                title: 'Paid Service Charges Report',
+                schoolName: school.name,
+                reportDate,
+                summary: [{ label: 'Total Service Charges Collected', value: `${totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr`}],
+                columns: ['Date Paid', 'Member Name', 'Charge Type', 'Amount (Birr)'],
+                rows: charges.map(c => [format(new Date(c.dateApplied), 'PPP'), c.member.fullName, c.serviceChargeType.name, c.amountCharged]),
+                chartType: 'bar',
+                chartData: charges.map(c => ({ name: c.serviceChargeType.name, Amount: c.amountCharged })),
+            }
         }
         
         return null;
