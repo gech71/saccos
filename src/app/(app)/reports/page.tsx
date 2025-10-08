@@ -143,6 +143,7 @@ export default function ReportsPage() {
 
     setIsLoading(true);
     setReportOutput(null);
+    setFinancialReportOutput(null);
 
     try {
       const output = await generateSimpleReport(selectedSchoolId, selectedReportType, dateRange, selectedSavingAccountTypeId, selectedLoanTypeId === 'all' ? undefined : selectedLoanTypeId);
@@ -168,6 +169,7 @@ export default function ReportsPage() {
 
     setIsLoading(true);
     setFinancialReportOutput(null);
+    setReportOutput(null);
 
     try {
       const output = await generateFinancialReport(parseInt(year1), parseInt(year2));
