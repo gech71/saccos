@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -29,7 +27,7 @@ import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Downloa
 import { exportToExcel } from '@/lib/utils';
 import { getAggregateData, processAggregateCollection, type AggregatePageData, type MemberDataForAggregate, type CollectionPayload } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -354,7 +352,7 @@ export default function AggregateCollectionsPage() {
     }
   };
 
-  const handleProcessFile = () => {
+  const handleProcessFile = async () => {
     if (!excelFile) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
       return;
@@ -365,77 +363,89 @@ export default function AggregateCollectionsPage() {
     }
 
     setIsParsing(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = e.target?.result;
-            const workbook = XLSX.read(data, { type: 'binary' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const headerRow: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
-            setFileHeaders(headerRow);
-            const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
-
-            const savingTypesMap = new Map(pageData!.savingTypes.map(t => [t.name, `saving_${t.id}`]));
-            const shareTypesMap = new Map(pageData!.shareTypes.map(t => [t.name, `share_${t.id}`]));
-            const loanPrincipalMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Principal`, `loan_${t.id}-principal`]));
-            const loanInterestMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Interest`, `loan_${t.id}-interest`]));
-            const serviceChargeTypesMap = new Map(pageData!.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
-            
-            const validatedData: ValidatedRow[] = dataRows.map(row => {
-                const memberId = row['Member ID']?.toString().trim();
-                const member = membersData.find(m => m.id === memberId);
-                const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
-                
-                if (!member) {
-                    return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
-                }
-
-                const collectionValues: CollectionInputValues = {};
-                for(const header of headerRow) {
-                  if(header === 'Member ID' || header === 'Full Name' || header === 'Total Collected') continue;
-                  
-                  const value = parseFloat(row[header]);
-                  if(isNaN(value) || value <= 0) continue;
-
-                  if(savingTypesMap.has(header)) {
-                      collectionValues[savingTypesMap.get(header)!] = value;
-                  } else if (shareTypesMap.has(header)) {
-                      collectionValues[shareTypesMap.get(header)!] = value;
-                  } else if (loanPrincipalMap.has(header)) {
-                      collectionValues[loanPrincipalMap.get(header)!] = value;
-                  } else if (loanInterestMap.has(header)) {
-                      collectionValues[loanInterestMap.get(header)!] = value;
-                  } else if (serviceChargeTypesMap.has(header)) {
-                      collectionValues[serviceChargeTypesMap.get(header)!] = value;
-                  }
-                }
-                
-                const hasData = Object.keys(collectionValues).length > 0;
-
-                return {
-                    memberId,
-                    fullName,
-                    status: hasData ? 'Valid' : 'No Data to Import',
-                    data: collectionValues,
-                    originalRow: row,
-                };
-            });
-            
-            setValidatedRows(validatedData);
-            const valid = validatedData.filter(v => v.status === 'Valid').length;
-            const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
-            setValidationSummary({ valid, invalid, total: dataRows.length });
-            toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
-
-        } catch (error) {
-             toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
-        } finally {
-            setIsParsing(false);
+    try {
+        const buffer = await excelFile.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (!worksheet) {
+            throw new Error("No worksheet found in the Excel file.");
         }
-    };
-    reader.readAsBinaryString(excelFile);
-  }
+
+        const headerRow = worksheet.getRow(1);
+        const fileHeaders = headerRow.values as string[];
+        setFileHeaders(fileHeaders);
+
+        const dataRows: any[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell((cell, colNumber) => {
+                    rowData[fileHeaders[colNumber]] = cell.value;
+                });
+                dataRows.push(rowData);
+            }
+        });
+        
+        const savingTypesMap = new Map(pageData!.savingTypes.map(t => [t.name, `saving_${t.id}`]));
+        const shareTypesMap = new Map(pageData!.shareTypes.map(t => [t.name, `share_${t.id}`]));
+        const loanPrincipalMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Principal`, `loan_${t.id}-principal`]));
+        const loanInterestMap = new Map(pageData!.loanTypes.map(t => [`${t.name} Interest`, `loan_${t.id}-interest`]));
+        const serviceChargeTypesMap = new Map(pageData!.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
+        
+        const validatedData: ValidatedRow[] = dataRows.map(row => {
+            const memberId = row['Member ID']?.toString().trim();
+            const member = membersData.find(m => m.id === memberId);
+            const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
+            
+            if (!member) {
+                return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
+            }
+
+            const collectionValues: CollectionInputValues = {};
+            for(const header of fileHeaders) {
+              if(header === 'Member ID' || header === 'Full Name' || header === 'Total Collected') continue;
+              
+              const value = parseFloat(row[header]);
+              if(isNaN(value) || value <= 0) continue;
+
+              if(savingTypesMap.has(header)) {
+                  collectionValues[savingTypesMap.get(header)!] = value;
+              } else if (shareTypesMap.has(header)) {
+                  collectionValues[shareTypesMap.get(header)!] = value;
+              } else if (loanPrincipalMap.has(header)) {
+                  collectionValues[loanPrincipalMap.get(header)!] = value;
+              } else if (loanInterestMap.has(header)) {
+                  collectionValues[loanInterestMap.get(header)!] = value;
+              } else if (serviceChargeTypesMap.has(header)) {
+                  collectionValues[serviceChargeTypesMap.get(header)!] = value;
+              }
+            }
+            
+            const hasData = Object.keys(collectionValues).length > 0;
+
+            return {
+                memberId,
+                fullName,
+                status: hasData ? 'Valid' : 'No Data to Import',
+                data: collectionValues,
+                originalRow: row,
+            };
+        });
+        
+        setValidatedRows(validatedData);
+        const valid = validatedData.filter(v => v.status === 'Valid').length;
+        const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
+        setValidationSummary({ valid, invalid, total: dataRows.length });
+        toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
+
+    } catch (error) {
+         toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
+    } finally {
+        setIsParsing(false);
+    }
+  };
 
   const getValidationBadge = (status: ValidatedRow['status']) => {
     switch (status) {

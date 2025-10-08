@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -53,7 +51,7 @@ import {
 import { exportToExcel } from '@/lib/utils';
 import { getSchoolsWithMemberCount, addSchool, updateSchool, deleteSchool, importSchools, type SchoolWithMemberCount } from './actions';
 import { useAuth } from '@/contexts/auth-context';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Badge } from '@/components/ui/badge';
 import type { School } from '@prisma/client';
 
@@ -255,52 +253,65 @@ export default function SchoolsPage() {
     setIsImportModalOpen(true);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setIsParsing(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
-
-          const existingSchoolIds = new Set(schools.map(s => s.id));
-          const seenInFile = new Set<string>();
-
-          const validatedData: ParsedSchool[] = dataRows.map(row => {
-            const id = row['School ID']?.toString().trim();
-            const name = row['School Name']?.toString().trim();
-            const address = row['Address']?.toString().trim();
-            const contactPerson = row['Contact Person']?.toString().trim();
-
-            if (!id || !name) {
-              return { id, name, status: 'Invalid ID or Name' };
-            }
-
-            let status: ParsedSchool['status'] = 'Ready to import';
-            if (existingSchoolIds.has(id)) {
-              status = 'Already exists in DB';
-            } else if (seenInFile.has(id)) {
-              status = 'Duplicate in file';
-            }
-            seenInFile.add(id);
-
-            return { id, name, address, contactPerson, status };
-          });
-          
-          setParsedSchools(validatedData);
-
-        } catch (error) {
-          toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "School ID" and "School Name".' });
-        } finally {
-          setIsParsing(false);
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (!worksheet) {
+            throw new Error("No worksheet found in the file.");
         }
-      };
-      reader.readAsBinaryString(file);
+
+        const headerRow = worksheet.getRow(1);
+        const headers = headerRow.values as string[];
+
+        const dataRows: any[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell((cell, colNumber) => {
+                    rowData[headers[colNumber]] = cell.value;
+                });
+                dataRows.push(rowData);
+            }
+        });
+        
+        const existingSchoolIds = new Set(schools.map(s => s.id));
+        const seenInFile = new Set<string>();
+
+        const validatedData: ParsedSchool[] = dataRows.map(row => {
+          const id = row['School ID']?.toString().trim();
+          const name = row['School Name']?.toString().trim();
+          const address = row['Address']?.toString().trim();
+          const contactPerson = row['Contact Person']?.toString().trim();
+
+          if (!id || !name) {
+            return { id, name, status: 'Invalid ID or Name' };
+          }
+
+          let status: ParsedSchool['status'] = 'Ready to import';
+          if (existingSchoolIds.has(id)) {
+            status = 'Already exists in DB';
+          } else if (seenInFile.has(id)) {
+            status = 'Duplicate in file';
+          }
+          seenInFile.add(id);
+
+          return { id, name, address, contactPerson, status };
+        });
+        
+        setParsedSchools(validatedData);
+
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "School ID" and "School Name".' });
+      } finally {
+        setIsParsing(false);
+      }
     }
   };
 
@@ -604,7 +615,7 @@ export default function SchoolsPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the school.
               This will fail if the school has any members assigned to it.
@@ -621,5 +632,3 @@ export default function SchoolsPage() {
     </div>
   );
 }
-
-

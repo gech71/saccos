@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -28,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Filter, DollarSign, Loader2, UploadCloud, FileCheck2, FileDown, Download, CheckCircle, XCircle, ReceiptText } from 'lucide-react';
 import { exportToExcel } from '@/lib/utils';
 import { getImportPageData, processImport, type ImportPageData, type MemberDataForImport, type ImportPayload } from './actions';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
@@ -172,7 +170,7 @@ export default function SystemImportPage() {
     }
   };
 
-  const handleProcessFile = () => {
+  const handleProcessFile = async () => {
     if (!excelFile) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please select an Excel file.' });
       return;
@@ -183,113 +181,123 @@ export default function SystemImportPage() {
     }
 
     setIsParsing(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = e.target?.result;
-            const workbook = XLSX.read(data, { type: 'binary' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const originalHeaders: string[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
-            setFileHeaders(originalHeaders);
-            
-            // Create a map from original header to its standardized version
-            const headerMap: { [key: string]: string } = {};
-            originalHeaders.forEach(h => headerMap[standardizeHeader(h)] = h);
-            
-            const dataRows = XLSX.utils.sheet_to_json<any>(worksheet);
-
-            // Create standardized maps for system data
-            const savingTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(t.name), `saving_${t.id}`]));
-            const interestTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(`${t.name} Interest`), `interest_${t.id}`]));
-            const shareTypesMap = new Map(pageData.shareTypes.map(t => [standardizeHeader(t.name), `share_${t.id}`]));
-            const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [standardizeHeader(t.name), `service_${t.id}`]));
-            const loanTypesMap = new Map(pageData.loanTypes.map(t => [standardizeHeader(t.name), `loan_${t.id}`]));
-            const loanRepaymentMap = new Map();
-            pageData.loanTypes.forEach(lt => {
-                loanRepaymentMap.set(standardizeHeader(`${lt.name} Principal Repaid`), `loanrepay_${lt.id}`);
-                loanRepaymentMap.set(standardizeHeader(`${lt.name} Interest Repaid`), `loanrepay_${lt.id}`);
-            });
-
-
-            const validatedData: ValidatedRow[] = dataRows.map(row => {
-                const memberIdKey = headerMap[standardizeHeader('Member ID')];
-                const fullNameKey = headerMap[standardizeHeader('Full Name')];
-                const memberIdFromFile = row[memberIdKey];
-                const memberId = memberIdFromFile?.toString().trim();
-                const member = membersData.find(m => m.id === memberId);
-                const fullName = member?.fullName || row[fullNameKey] || 'Unknown Member';
-                
-                if (!member) {
-                    return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
-                }
-
-                const collectionValues: CollectionInputValues = {};
-                for(const standardizedHeader of Object.keys(headerMap)) {
-                  const originalHeader = headerMap[standardizedHeader];
-                  if(standardizedHeader === standardizeHeader('Member ID') || standardizedHeader === standardizeHeader('Full Name')) continue;
-                  
-                  const value = parseFloat(row[originalHeader]);
-                  if(isNaN(value) || value < 0) continue;
-                  if (value === 0 && !standardizedHeader.includes('repaid')) continue;
-                  
-                  if(savingTypesMap.has(standardizedHeader)) {
-                      collectionValues[savingTypesMap.get(standardizedHeader)!] = value;
-                  } else if (interestTypesMap.has(standardizedHeader)) {
-                      collectionValues[interestTypesMap.get(standardizedHeader)!] = value;
-                  } else if (shareTypesMap.has(standardizedHeader)) {
-                      collectionValues[shareTypesMap.get(standardizedHeader)!] = value;
-                  } else if (serviceChargeTypesMap.has(standardizedHeader)) {
-                      collectionValues[serviceChargeTypesMap.get(standardizedHeader)!] = value;
-                  } else if (loanTypesMap.has(standardizedHeader)) {
-                      if (value > 0) {
-                        const termHeaderKey = headerMap[standardizeHeader(`${originalHeader} Repayment Period (Months)`)];
-                        const term = termHeaderKey ? parseInt(row[termHeaderKey], 10) : 0;
-                        const loanKey = loanTypesMap.get(standardizedHeader)!;
-                        collectionValues[loanKey] = { principal: value, term: term };
-                      }
-                  } else if (loanRepaymentMap.has(standardizedHeader)) {
-                      const loanType = pageData.loanTypes.find(lt => standardizedHeader.startsWith(standardizeHeader(lt.name)));
-                      if (loanType) {
-                        const key = `loanrepay_${loanType.id}`;
-                        const principalKey = headerMap[standardizeHeader(`${loanType.name} Principal Repaid`)] || '';
-                        const interestKey = headerMap[standardizeHeader(`${loanType.name} Interest Repaid`)] || '';
-                        
-                        const principalRepaid = parseFloat(row[principalKey]) || 0;
-                        const interestRepaid = parseFloat(row[interestKey]) || 0;
-                        
-                        if (principalRepaid > 0 || interestRepaid > 0) {
-                           collectionValues[key] = { principalRepaid, interestRepaid };
-                        }
-                      }
-                  }
-                }
-                
-                const hasData = Object.keys(collectionValues).length > 0;
-
-                return {
-                    memberId,
-                    fullName,
-                    status: hasData ? 'Valid' : 'No Data to Import',
-                    data: collectionValues,
-                    originalRow: row,
-                };
-            });
-            
-            setValidatedRows(validatedData);
-            const valid = validatedData.filter(v => v.status === 'Valid').length;
-            const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
-            setValidationSummary({ valid, invalid, total: dataRows.length });
-            toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
-
-        } catch (error) {
-             toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
-        } finally {
-            setIsParsing(false);
+    try {
+        const buffer = await excelFile.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (!worksheet) {
+            throw new Error("No worksheet found in the Excel file.");
         }
-    };
-    reader.readAsBinaryString(excelFile);
-  }
+
+        const headerRow = worksheet.getRow(1);
+        const originalHeaders = headerRow.values as string[];
+        setFileHeaders(originalHeaders);
+        
+        const headerMap: { [key: string]: string } = {};
+        originalHeaders.forEach(h => headerMap[standardizeHeader(h)] = h);
+        
+        const dataRows: any[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell((cell, colNumber) => {
+                    rowData[originalHeaders[colNumber]] = cell.value;
+                });
+                dataRows.push(rowData);
+            }
+        });
+
+        // Create standardized maps for system data
+        const savingTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(t.name), `saving_${t.id}`]));
+        const interestTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(`${t.name} Interest`), `interest_${t.id}`]));
+        const shareTypesMap = new Map(pageData.shareTypes.map(t => [standardizeHeader(t.name), `share_${t.id}`]));
+        const serviceChargeTypesMap = new Map(pageData.serviceChargeTypes.map(t => [standardizeHeader(t.name), `service_${t.id}`]));
+        const loanTypesMap = new Map(pageData.loanTypes.map(t => [standardizeHeader(t.name), `loan_${t.id}`]));
+        const loanRepaymentMap = new Map();
+        pageData.loanTypes.forEach(lt => {
+            loanRepaymentMap.set(standardizeHeader(`${lt.name} Principal Repaid`), `loanrepay_${lt.id}`);
+            loanRepaymentMap.set(standardizeHeader(`${lt.name} Interest Repaid`), `loanrepay_${lt.id}`);
+        });
+
+
+        const validatedData: ValidatedRow[] = dataRows.map(row => {
+            const memberIdKey = headerMap[standardizeHeader('Member ID')];
+            const fullNameKey = headerMap[standardizeHeader('Full Name')];
+            const memberIdFromFile = row[memberIdKey];
+            const memberId = memberIdFromFile?.toString().trim();
+            const member = membersData.find(m => m.id === memberId);
+            const fullName = member?.fullName || row[fullNameKey] || 'Unknown Member';
+            
+            if (!member) {
+                return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
+            }
+
+            const collectionValues: CollectionInputValues = {};
+            for(const standardizedHeader of Object.keys(headerMap)) {
+              const originalHeader = headerMap[standardizedHeader];
+              if(standardizedHeader === standardizeHeader('Member ID') || standardizedHeader === standardizeHeader('Full Name')) continue;
+              
+              const value = parseFloat(row[originalHeader]);
+              if(isNaN(value) || value < 0) continue;
+              if (value === 0 && !standardizedHeader.includes('repaid')) continue;
+              
+              if(savingTypesMap.has(standardizedHeader)) {
+                  collectionValues[savingTypesMap.get(standardizedHeader)!] = value;
+              } else if (interestTypesMap.has(standardizedHeader)) {
+                  collectionValues[interestTypesMap.get(standardizedHeader)!] = value;
+              } else if (shareTypesMap.has(standardizedHeader)) {
+                  collectionValues[shareTypesMap.get(standardizedHeader)!] = value;
+              } else if (serviceChargeTypesMap.has(standardizedHeader)) {
+                  collectionValues[serviceChargeTypesMap.get(standardizedHeader)!] = value;
+              } else if (loanTypesMap.has(standardizedHeader)) {
+                  if (value > 0) {
+                    const termHeaderKey = headerMap[standardizeHeader(`${originalHeader} Repayment Period (Months)`)];
+                    const term = termHeaderKey ? parseInt(row[termHeaderKey], 10) : 0;
+                    const loanKey = loanTypesMap.get(standardizedHeader)!;
+                    collectionValues[loanKey] = { principal: value, term: term };
+                  }
+              } else if (loanRepaymentMap.has(standardizedHeader)) {
+                  const loanType = pageData.loanTypes.find(lt => standardizedHeader.startsWith(standardizeHeader(lt.name)));
+                  if (loanType) {
+                    const key = `loanrepay_${loanType.id}`;
+                    const principalKey = headerMap[standardizeHeader(`${loanType.name} Principal Repaid`)] || '';
+                    const interestKey = headerMap[standardizeHeader(`${loanType.name} Interest Repaid`)] || '';
+                    
+                    const principalRepaid = parseFloat(row[principalKey]) || 0;
+                    const interestRepaid = parseFloat(row[interestKey]) || 0;
+                    
+                    if (principalRepaid > 0 || interestRepaid > 0) {
+                       collectionValues[key] = { principalRepaid, interestRepaid };
+                    }
+                  }
+              }
+            }
+            
+            const hasData = Object.keys(collectionValues).length > 0;
+
+            return {
+                memberId,
+                fullName,
+                status: hasData ? 'Valid' : 'No Data to Import',
+                data: collectionValues,
+                originalRow: row,
+            };
+        });
+        
+        setValidatedRows(validatedData);
+        const valid = validatedData.filter(v => v.status === 'Valid').length;
+        const invalid = validatedData.filter(v => v.status === 'Invalid Member ID').length;
+        setValidationSummary({ valid, invalid, total: dataRows.length });
+        toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
+
+    } catch (error) {
+         toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
+    } finally {
+        setIsParsing(false);
+    }
+  };
 
   const getValidationBadge = (status: ValidatedRow['status']) => {
     switch (status) {
