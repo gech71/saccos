@@ -9,14 +9,14 @@ import type { AuthResponse, AuthUser, MemberAuthUser, WebsiteContent } from '@/t
 import { useToast } from '@/hooks/use-toast';
 import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/actions';
 import { findUserOrMember, verifyMemberCredentials } from '@/app/login/actions';
-import type { Member } from '@prisma/client';
+import type { Member, SocialMediaLink } from '@prisma/client';
 import { getWebsiteContent } from '@/lib/website-actions';
 
 
 interface AuthContextType {
   user: AuthUser | null;
   member: MemberAuthUser | null;
-  content: WebsiteContent | null;
+  content: (WebsiteContent & { socialLinks: SocialMediaLink[] }) | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -30,20 +30,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 interface DecodedToken {
-  nameid?: string; // Corresponds to User ID (sub) in some .NET configs
-  sub?: string; // Standard JWT subject claim, often the User ID
+  nameid?: string;
+  sub?: string; 
   email: string;
-  unique_name: string; // Corresponds to User Name
-  role: string | string[]; // Can be single or multiple roles
+  unique_name: string;
+  role: string | string[];
   nbf: number;
   exp: number;
   iat: number;
 }
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({ children, initialContent }: { children: React.ReactNode, initialContent: (WebsiteContent & { socialLinks: SocialMediaLink[] }) | null }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [member, setMember] = useState<MemberAuthUser | null>(null);
-  const [content, setContent] = useState<WebsiteContent | null>(null);
+  const [content, setContent] = useState((initialContent));
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
         const decoded = jwtDecode<DecodedToken>(data.accessToken);
-        const userId = decoded.sub || decoded.nameid; // Prioritize 'sub', fallback to 'nameid'
+        const userId = decoded.sub || decoded.nameid;
 
         if (!userId) {
           console.error("Token is invalid: does not contain 'sub' or 'nameid' claim for user ID.");
@@ -102,19 +102,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const initAuth = async () => {
       setIsLoading(true);
+
+      if (!content) {
+        const fetchedContent = await getWebsiteContent();
+        setContent(fetchedContent as (WebsiteContent & { socialLinks: SocialMediaLink[] }));
+      }
       
-      const [websiteContent, storedAccessToken, storedRefreshToken, memberId] = await Promise.all([
-          getWebsiteContent(),
-          localStorage.getItem('accessToken'),
-          localStorage.getItem('refreshToken'),
-          localStorage.getItem('memberId'),
-      ]);
-      
-      setContent(websiteContent as WebsiteContent);
+      const storedAccessToken = localStorage.getItem('accessToken');
+      const storedRefreshToken = localStorage.getItem('refreshToken');
+      const memberId = localStorage.getItem('memberId');
       
       if (memberId) {
-        // This is a member session
-        // For simplicity, we just set the memberId. The profile page will fetch full details.
         setMember({ id: memberId, fullName: 'Member', mustChangePassword: false });
       } else if (storedAccessToken && storedRefreshToken) {
         try {
@@ -122,18 +120,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (decoded.exp * 1000 > Date.now()) {
             await handleAuthSuccess({ accessToken: storedAccessToken, refreshToken: storedRefreshToken });
           } else {
-            console.log("Access token expired. Implement refresh logic.");
             handleLogout();
           }
         } catch (error) {
-            console.error("Invalid token found:", error);
             handleLogout();
         }
       }
       setIsLoading(false);
     };
     initAuth();
-  }, [handleAuthSuccess, handleLogout]);
+  }, [handleAuthSuccess, handleLogout, content]);
 
   const login = async (data: any) => {
     try {
@@ -147,7 +143,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.errors?.[0] || error.message || 'An unknown error occurred.';
-      // Don't toast here, let the unified login handle it
       throw new Error(errorMessage);
     }
   };
@@ -162,7 +157,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const memberResult = result.member as Member;
       
-      // Login success
       setMember({
           id: memberResult.id,
           fullName: memberResult.fullName,
@@ -181,29 +175,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const unifiedLogin = async (data: {phoneNumber: string, password?: string}) => {
     try {
-      // Check if this phone number exists in the admin user table first.
       const userTypeResult = await findUserOrMember(data.phoneNumber);
 
       if (userTypeResult.userType === 'admin') {
-        // If it's an admin, use the existing admin login flow.
         await login(data);
       } else if (userTypeResult.userType === 'member') {
-        // If it's a member, use the member login flow.
         await memberLogin(data);
       } else {
-        // If the user doesn't exist in either table.
         toast({ variant: 'destructive', title: 'Login Failed', description: 'Phone number not found.' });
         throw new Error('Phone number not found.');
       }
     } catch (error: any) {
-      // The specific login functions (admin or member) will throw errors on failure (e.g., wrong password).
-      // We'll display those specific errors here.
-      // If the error doesn't come from our specific checks, show a generic one.
       const errorMessage = error.message || 'An unknown login error occurred.';
-      if (!errorMessage.includes('not found')) { // Avoid double "not found" messages
+      if (!errorMessage.includes('not found')) {
         toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
       }
-      // Re-throw to ensure isLoading is set to false in the calling component.
       throw error;
     }
   };

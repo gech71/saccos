@@ -83,16 +83,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
+        <AuthProvider initialContent={content}>
           {children}
           <Toaster />
         </AuthProvider>
-
-        {nonce && (
-          <script
-            nonce={nonce}
-          />
-        )}
       </body>
     </html>
   );

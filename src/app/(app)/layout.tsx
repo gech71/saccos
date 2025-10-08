@@ -42,12 +42,10 @@ import {
   Newspaper,
   Settings2,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
-import { getWebsiteContent } from '@/lib/website-actions';
-import type { WebsiteContent } from '@prisma/client';
 
 const navItems: NavItem[] = [
   {
@@ -238,6 +236,12 @@ const navItems: NavItem[] = [
     href: '/service-charge-types',
     icon: ReceiptText,
     permission: 'configuration:view',
+  },
+  {
+    title: 'SMS Notifications',
+    href: '/settings/sms',
+    icon: ReceiptText, // Using existing icon, can be changed
+    permission: 'setting:view',
   },
 ];
 
