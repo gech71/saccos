@@ -9,32 +9,33 @@ export async function GET(
   try {
     const { filename } = params;
 
-    // 🛡️ Validate filename (prevent injection attempts)
     if (!filename || !/^[a-zA-Z0-9_.-]+$/.test(filename)) {
-      // Instead of crashing, respond with 404 (quiet ignore)
       return new NextResponse('Not found', { status: 404 });
     }
 
     const filePath = path.join(process.cwd(), 'uploads', filename);
-
-    // Read file safely
     const data = await fs.readFile(filePath);
 
     // Detect MIME type based on extension
     const ext = path.extname(filename).toLowerCase();
     let contentType = 'application/octet-stream';
+
     if (ext === '.png') contentType = 'image/png';
     else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
     else if (ext === '.gif') contentType = 'image/gif';
     else if (ext === '.webp') contentType = 'image/webp';
     else if (ext === '.svg') contentType = 'image/svg+xml';
+    else if (ext === '.bmp') contentType = 'image/bmp';
+    else if (ext === '.tiff') contentType = 'image/tiff';
+    else if (ext === '.ico') contentType = 'image/x-icon';
+    else if (ext === '.heif') contentType = 'image/heif';
+    else if (ext === '.heic') contentType = 'image/heic';
+    else if (ext === '.avif') contentType = 'image/avif';
 
     return new NextResponse(data, { headers: { 'Content-Type': contentType } });
 
   } catch (error: any) {
-    // 🧹 Catch all errors safely
     if (error.code === 'ENOENT') {
-      // File doesn’t exist – safe to ignore
       return new NextResponse('Not found', { status: 404 });
     }
 

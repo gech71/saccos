@@ -1,14 +1,20 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
+  'image/jpg',
   'image/png',
   'image/gif',
   'image/webp',
   'image/svg+xml',
+  'image/bmp',
+  'image/tiff',
+  'image/x-icon',
+  'image/heif',
+  'image/heic',
+  'image/avif',
 ];
 
 export async function POST(req: NextRequest) {
@@ -37,6 +43,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, url });
   } catch (error) {
     console.error('File upload error:', error);
-    return NextResponse.json({ success: false, error: 'An unexpected error occurred during file upload.' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'An unexpected error occurred during file upload.' },
+      { status: 500 }
+    );
   }
 }
