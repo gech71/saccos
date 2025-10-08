@@ -11,6 +11,7 @@ import { syncUserOnLogin, getUserPermissions } from '@/app/(app)/settings/action
 import { findUserOrMember, verifyMemberCredentials } from '@/app/login/actions';
 import type { Member, SocialMediaLink } from '@prisma/client';
 import { getWebsiteContent } from '@/lib/website-actions';
+import { DynamicTheme } from '@/components/DynamicTheme';
 
 
 interface AuthContextType {
@@ -232,7 +233,7 @@ export const AuthProvider = ({ children, initialContent }: { children: React.Rea
     logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}><DynamicTheme />{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
