@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -196,6 +195,9 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         return { member: newMember };
     } catch (error) {
         console.error('Failed to add member:', error);
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          return { error: 'A member with this ID or email already exists.' };
+        }
         return { error: 'An unexpected server error occurred.' };
     }
 }
@@ -364,62 +366,62 @@ export interface ImportedMember {
 }
 
 export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
-    let createdCount = 0;
-    const schools = await prisma.school.findMany({ select: { id: true, name: true }});
+    if (members.length === 0) {
+        return { success: true, message: 'No new members to import.' };
+    }
+    
+    const schools = await prisma.school.findMany({ select: { id: true, name: true } });
     const schoolMap = new Map(schools.map(s => [s.id, s.name]));
+    const temporaryPassword = '123456';
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const joinDate = new Date();
+
+    const membersToCreate: Prisma.MemberCreateManyInput[] = members.map(m => {
+        const timestamp = Date.now() + Math.random(); // Add randomness to avoid collision in fast loops
+        return {
+            id: m.MemberID,
+            fullName: m.MemberFullName,
+            email: `${timestamp}-${m.MemberID}@academinvest.com`, // Unique placeholder email
+            password: hashedPassword,
+            mustChangePassword: true,
+            sex: 'Male', // Default value
+            phoneNumber: `09${Math.floor(10000000 + Math.random() * 90000000)}`, // Random placeholder phone
+            schoolId: m.SchoolID,
+            joinDate: joinDate,
+            status: 'active',
+            salary: m.Salary,
+        };
+    });
+
+    const schoolHistoryToCreate: Prisma.SchoolHistoryCreateManyInput[] = members.map(m => ({
+        memberId: m.MemberID,
+        schoolId: m.SchoolID,
+        schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
+        startDate: joinDate,
+        endDate: null,
+    }));
 
     try {
-        for (const m of members) {
-            const temporaryPassword = '123456';
-            const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-            const timestamp = Date.now();
-            
-            try {
-                await prisma.member.create({
-                    data: {
-                        id: m.MemberID,
-                        fullName: m.MemberFullName,
-                        email: `${timestamp}-${m.MemberID}@academinvest.com`, // Create a unique placeholder email
-                        password: hashedPassword,
-                        mustChangePassword: true,
-                        sex: 'Male', // Default value
-                        phoneNumber: `09${timestamp.toString().slice(-8)}`, // Create a unique placeholder phone number
-                        schoolId: m.SchoolID,
-                        joinDate: new Date(),
-                        status: 'active',
-                        salary: m.Salary,
-                        schoolHistory: {
-                            create: {
-                                schoolId: m.SchoolID,
-                                schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
-                                startDate: new Date(),
-                                endDate: null,
-                            }
-                        }
-                    }
-                });
-                createdCount++;
-            } catch(e) {
-                if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-                    console.log(`Skipping member with ID ${m.MemberID} as they already exist.`);
-                } else {
-                    throw e; // Re-throw other errors to be caught by outer catch
-                }
-            }
-        }
+        const createdMembersResult = await prisma.member.createMany({
+            data: membersToCreate,
+            skipDuplicates: true, // This will skip any members that already exist
+        });
+
+        const createdMemberIds = members.slice(0, createdMembersResult.count).map(m => m.MemberID);
         
+        await prisma.schoolHistory.createMany({
+            data: schoolHistoryToCreate.filter(sh => createdMemberIds.includes(sh.memberId)),
+            skipDuplicates: true,
+        });
+
         revalidatePath('/members');
 
-        const skippedCount = members.length - createdCount;
-        let message = `Successfully imported ${createdCount} new members.`;
-        if (skippedCount > 0) {
-            message += ` ${skippedCount} member(s) were skipped as they already exist.`;
-        }
+        const message = `Successfully imported ${createdMembersResult.count} new members. ${members.length - createdMembersResult.count} member(s) were skipped as duplicates.`;
         return { success: true, message };
 
     } catch (error) {
         console.error("Failed during member import:", error);
-        return { success: false, message: 'A critical error occurred during the import process.' };
+        return { success: false, message: 'A critical error occurred during the import process. Check for invalid data.' };
     }
 }
 
@@ -439,3 +441,5 @@ export async function changeMemberPassword(memberId: string, newPassword: string
         return { success: false, error: 'An unexpected error occurred.' };
     }
 }
+
+    
