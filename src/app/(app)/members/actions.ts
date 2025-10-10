@@ -96,99 +96,104 @@ function validateMemberData(data: MemberInput) {
 }
 
 
-export async function addMember(data: MemberInput): Promise<{ member: Member }> {
-    const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
+export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; }> {
+    try {
+        const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
 
-    validateMemberData(data);
+        validateMemberData(data);
 
-    const existingMemberById = await prisma.member.findUnique({
-        where: { id: id },
-    });
-    if (existingMemberById) {
-        throw new Error(`The member id already existed`);
-    }
-
-    if (memberData.email) {
-        const existingMemberByEmail = await prisma.member.findUnique({
-            where: { email: memberData.email },
+        const existingMemberById = await prisma.member.findUnique({
+            where: { id: id },
         });
-        if (existingMemberByEmail) {
-            throw new Error(`A member with email '${memberData.email}' already exists.`);
+        if (existingMemberById) {
+            return { error: `The member id already existed` };
         }
-    }
-    
-    let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
-    if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
-        const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
-        cleanAddressPayload = restOfAddress;
-    }
 
-    let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
-    if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
-        const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
-        cleanEmergencyContactPayload = restOfContact;
-    }
-
-    const serviceChargesToApply = await prisma.serviceChargeType.findMany({
-        where: {
-            id: { in: serviceChargeIds }
-        }
-    });
-
-    const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
-    const shareTypesToCommit = await prisma.shareType.findMany({
-        where: { id: { in: validShareCommitmentIds } }
-    });
-
-    // Use a static temporary password
-    const temporaryPassword = '123456';
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-
-    const newMember = await prisma.member.create({
-        data: {
-            id,
-            ...memberData,
-            password: hashedPassword,
-            mustChangePassword: true,
-            status: 'active',
-            joinDate: new Date(memberData.joinDate),
-            address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
-            emergencyContact: cleanEmergencyContactPayload ? { create: cleanEmergencyContactPayload } : undefined,
-            memberShareCommitments: {
-                create: shareTypesToCommit.map(st => ({
-                    shareTypeId: st.id,
-                    totalCommittedAmount: st.totalAmount
-                }))
-            },
-            appliedServiceCharges: {
-                create: serviceChargesToApply.map(sc => ({
-                    serviceChargeTypeId: sc.id,
-                    amountCharged: sc.amount,
-                    dateApplied: new Date(),
-                    status: 'pending',
-                    notes: 'Registration Charge'
-                }))
+        if (memberData.email) {
+            const existingMemberByEmail = await prisma.member.findUnique({
+                where: { email: memberData.email },
+            });
+            if (existingMemberByEmail) {
+                return { error: `A member with email '${memberData.email}' already exists.` };
             }
-        },
-    });
-    
-    const school = await prisma.school.findUnique({ where: {id: newMember.schoolId }});
-    if (school) {
-        await prisma.schoolHistory.create({
+        }
+        
+        let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
+        if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
+            const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
+            cleanAddressPayload = restOfAddress;
+        }
+
+        let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
+        if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
+            const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
+            cleanEmergencyContactPayload = restOfContact;
+        }
+
+        const serviceChargesToApply = await prisma.serviceChargeType.findMany({
+            where: {
+                id: { in: serviceChargeIds }
+            }
+        });
+
+        const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
+        const shareTypesToCommit = await prisma.shareType.findMany({
+            where: { id: { in: validShareCommitmentIds } }
+        });
+
+        // Use a static temporary password
+        const temporaryPassword = '123456';
+        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+        const newMember = await prisma.member.create({
             data: {
-                memberId: newMember.id,
-                schoolId: school.id,
-                schoolName: school.name,
-                startDate: newMember.joinDate,
-                endDate: null,
-            }
+                id,
+                ...memberData,
+                password: hashedPassword,
+                mustChangePassword: true,
+                status: 'active',
+                joinDate: new Date(memberData.joinDate),
+                address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
+                emergencyContact: cleanEmergencyContactPayload ? { create: cleanEmergencyContactPayload } : undefined,
+                memberShareCommitments: {
+                    create: shareTypesToCommit.map(st => ({
+                        shareTypeId: st.id,
+                        totalCommittedAmount: st.totalAmount
+                    }))
+                },
+                appliedServiceCharges: {
+                    create: serviceChargesToApply.map(sc => ({
+                        serviceChargeTypeId: sc.id,
+                        amountCharged: sc.amount,
+                        dateApplied: new Date(),
+                        status: 'pending',
+                        notes: 'Registration Charge'
+                    }))
+                }
+            },
         });
-    }
+        
+        const school = await prisma.school.findUnique({ where: {id: newMember.schoolId }});
+        if (school) {
+            await prisma.schoolHistory.create({
+                data: {
+                    memberId: newMember.id,
+                    schoolId: school.id,
+                    schoolName: school.name,
+                    startDate: newMember.joinDate,
+                    endDate: null,
+                }
+            });
+        }
 
-    revalidatePath('/members');
-    revalidatePath('/applied-service-charges');
-    revalidatePath('/shares');
-    return { member: newMember };
+        revalidatePath('/members');
+        revalidatePath('/applied-service-charges');
+        revalidatePath('/shares');
+        return { member: newMember };
+    } catch (error) {
+        console.error('Failed to add member:', error);
+        return { error: 'An unexpected server error occurred.' };
+    }
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<Member> {

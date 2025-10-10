@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -225,46 +226,51 @@ export default function MembersPage() {
     }
 
     setIsSubmitting(true);
-    try {
-        const memberInputData: MemberInput = {
-            id: currentMember.id!,
-            fullName: currentMember.fullName!,
-            email: currentMember.email!,
-            sex: currentMember.sex as 'Male' | 'Female',
-            phoneNumber: currentMember.phoneNumber!,
-            address: currentMember.address,
-            emergencyContact: currentMember.emergencyContact,
-            schoolId: currentMember.schoolId!,
-            joinDate: currentMember.joinDate!,
-            salary: currentMember.salary,
-            shareCommitmentIds: currentMember.shareCommitmentIds,
-            serviceChargeIds: currentMember.serviceChargeIds || [],
-        };
+    
+    const memberInputData: MemberInput = {
+        id: currentMember.id!,
+        fullName: currentMember.fullName!,
+        email: currentMember.email!,
+        sex: currentMember.sex as 'Male' | 'Female',
+        phoneNumber: currentMember.phoneNumber!,
+        address: currentMember.address,
+        emergencyContact: currentMember.emergencyContact,
+        schoolId: currentMember.schoolId!,
+        joinDate: currentMember.joinDate!,
+        salary: currentMember.salary,
+        shareCommitmentIds: currentMember.shareCommitmentIds,
+        serviceChargeIds: currentMember.serviceChargeIds || [],
+    };
 
-        if (isEditingMember && currentMember.id) {
-          await updateMember(currentMember.id, memberInputData);
-          toast({ title: 'Success', description: 'Member updated successfully.' });
-        } else {
-          await addMember(memberInputData);
-          toast({ 
-            title: 'Success', 
-            description: (
-              <div>
-                <p>Member added successfully.</p>
-                <p className="font-semibold">The temporary password is "123456". The member will be required to change it on first login.</p>
-              </div>
-            )
-          });
+    if (isEditingMember && currentMember.id) {
+        try {
+            await updateMember(currentMember.id, memberInputData);
+            toast({ title: 'Success', description: 'Member updated successfully.' });
+            setIsMemberModalOpen(false);
+            await fetchPageData();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`});
         }
-
-        setIsMemberModalOpen(false);
-        await fetchPageData();
-
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`});
-    } finally {
-        setIsSubmitting(false);
+    } else {
+        const result = await addMember(memberInputData);
+        if (result.error) {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        } else {
+            toast({ 
+                title: 'Success', 
+                description: (
+                    <div>
+                        <p>Member added successfully.</p>
+                        <p className="font-semibold">The temporary password is "123456". The member will be required to change it on first login.</p>
+                    </div>
+                )
+            });
+            setIsMemberModalOpen(false);
+            await fetchPageData();
+        }
     }
+
+    setIsSubmitting(false);
   };
   
   const prepMemberForModal = (member: MemberWithDetails) => {
