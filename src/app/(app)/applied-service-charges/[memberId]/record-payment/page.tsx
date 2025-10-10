@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -95,14 +96,14 @@ function RecordPaymentFormComponent() {
     }
 
     setIsSubmitting(true);
-    try {
-        await recordChargePayment(memberId, recordPaymentForm);
+    const result = await recordChargePayment(memberId, recordPaymentForm);
+    if (result.success) {
         toast({ title: 'Payment Recorded', description: 'The member\'s service charges have been updated.' });
         router.push(`/applied-service-charges`);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to record payment.' });
-        setIsSubmitting(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
+    setIsSubmitting(false);
   };
 
   if (isLoading) {

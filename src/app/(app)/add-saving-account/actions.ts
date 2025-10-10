@@ -34,7 +34,7 @@ interface AccountCreationData {
   accountNumber: string;
 }
 
-export async function createSavingAccount(data: AccountCreationData) {
+export async function createSavingAccount(data: AccountCreationData): Promise<{ success: boolean, error?: string }> {
   try {
     const { memberId, savingAccountTypeId, initialBalance, expectedMonthlySaving, accountNumber } = data;
 
@@ -42,7 +42,7 @@ export async function createSavingAccount(data: AccountCreationData) {
         where: { id: savingAccountTypeId },
     });
     if (!savingAccountType) {
-        throw new Error('Selected saving account type not found.');
+        return { success: false, error: 'Selected saving account type not found.' };
     }
 
     const existingAccount = await prisma.memberSavingAccount.findFirst({
@@ -50,7 +50,7 @@ export async function createSavingAccount(data: AccountCreationData) {
     });
 
     if (existingAccount) {
-        throw new Error(`This member already has a '${savingAccountType.name}' account.`);
+        return { success: false, error: `This member already has a '${savingAccountType.name}' account.` };
     }
 
     const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
@@ -60,12 +60,12 @@ export async function createSavingAccount(data: AccountCreationData) {
           where: { accountNumber: accountNumber }
       });
       if (existingByAcctNo) {
-          throw new Error(`Account number ${accountNumber} is already in use.`);
+          return { success: false, error: `Account number ${accountNumber} is already in use.` };
       }
     }
     
     if (initialBalance < 0) {
-        throw new Error(`Initial balance cannot be negative.`);
+        return { success: false, error: `Initial balance cannot be negative.` };
     }
 
     // Create the new MemberSavingAccount with the initial balance set directly.
@@ -80,15 +80,15 @@ export async function createSavingAccount(data: AccountCreationData) {
       }
     });
 
-
     revalidatePath('/members');
     revalidatePath('/savings-accounts');
     revalidatePath('/savings');
+    return { success: true };
   } catch (error) {
       console.error('Failed to create saving account:', error);
       if (error instanceof Error) {
-          throw new Error(error.message);
+          return { success: false, error: error.message };
       }
-      throw new Error('An unexpected error occurred while creating the account.');
+      return { success: false, error: 'An unexpected error occurred while creating the account.' };
   }
 }

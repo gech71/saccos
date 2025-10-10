@@ -189,18 +189,16 @@ export default function AppliedServiceChargesPage() {
     }
     
     setIsSubmitting(true);
-    try {
-        await applyServiceCharge(applyChargeForm as AppliedChargeInput);
+    const result = await applyServiceCharge(applyChargeForm as AppliedChargeInput);
+    if (result.success) {
         const memberName = pageData.members.find(m => m.id === applyChargeForm.memberId)?.fullName || '';
         toast({ title: 'Service Charge Applied', description: `Charge applied to ${memberName}.` });
         setIsApplyChargeModalOpen(false);
         await fetchPageData();
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to apply service charge.';
-        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
-    } finally {
-        setIsSubmitting(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
+    setIsSubmitting(false);
   };
 
   const handleExport = () => {

@@ -39,12 +39,12 @@ export async function recordChargePayment(memberId: string, data: {
     sourceName?: string;
     transactionReference?: string;
     evidenceUrl?: string;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
     try {
         const { amount, paymentDate, depositMode, sourceName, transactionReference, evidenceUrl } = data;
         
         if (amount <= 0) {
-            throw new Error("Payment amount must be greater than zero.");
+            return { success: false, error: "Payment amount must be greater than zero." };
         }
 
         const pendingCharges = await prisma.appliedServiceCharge.findMany({
@@ -55,11 +55,11 @@ export async function recordChargePayment(memberId: string, data: {
         const totalPending = pendingCharges.reduce((sum, charge) => sum + charge.amountCharged, 0);
 
         if (pendingCharges.length === 0) {
-            throw new Error('No pending charges found for this member.');
+            return { success: false, error: 'No pending charges found for this member.' };
         }
         
         if (amount > totalPending) {
-            throw new Error(`Payment amount cannot exceed the total pending amount of ${totalPending.toFixed(2)} Birr.`);
+            return { success: false, error: `Payment amount cannot exceed the total pending amount of ${totalPending.toFixed(2)} Birr.` };
         }
 
         let remainingAmountToApply = amount;
@@ -89,11 +89,12 @@ export async function recordChargePayment(memberId: string, data: {
 
         // Revalidate the path to update the UI on the main page
         revalidatePath('/applied-service-charges');
+        return { success: true };
     } catch (error) {
         console.error('Failed to record charge payment:', error);
         if (error instanceof Error) {
-            throw new Error(error.message);
+            return { success: false, error: error.message };
         }
-        throw new Error('An unexpected error occurred while recording the payment.');
+        return { success: false, error: 'An unexpected error occurred while recording the payment.' };
     }
 }

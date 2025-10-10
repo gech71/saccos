@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -141,17 +142,16 @@ export default function SharePaymentsPage() {
     }
     
     setIsSubmitting(true);
-    try {
-        await addSharePayment(currentPayment as SharePaymentInput);
+    const result = await addSharePayment(currentPayment as SharePaymentInput);
+
+    if(result.success) {
         toast({ title: 'Submitted for Approval', description: `Share payment submitted.` });
         await fetchPageData();
         setIsModalOpen(false);
-    } catch(error) {
-        const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
-        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
-    } finally {
-        setIsSubmitting(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
+    setIsSubmitting(false);
   };
 
   const openAddModal = () => {
@@ -570,4 +570,3 @@ export default function SharePaymentsPage() {
   );
 
 }
-

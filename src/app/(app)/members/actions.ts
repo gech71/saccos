@@ -83,24 +83,28 @@ export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'c
     emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
 };
 
-function validateMemberData(data: MemberInput) {
+function validateMemberData(data: MemberInput): string | null {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (data.email && !emailRegex.test(data.email)) {
-        throw new Error('Invalid email format.');
+        return 'Invalid email format.';
     }
 
     const phoneRegex = /^(09|\+2519)\d{8}$/;
     if (data.phoneNumber && !phoneRegex.test(data.phoneNumber)) {
-        throw new Error('Invalid phone number format');
+        return 'Invalid phone number format. Must be in 09xxxxxxxx or +2519xxxxxxxx format.';
     }
+    return null;
 }
 
 
 export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; }> {
+    const validationError = validateMemberData(data);
+    if (validationError) {
+        return { error: validationError };
+    }
+
     try {
         const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
-
-        validateMemberData(data);
 
         const existingMemberById = await prisma.member.findUnique({
             where: { id: id },
@@ -196,93 +200,102 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     }
 }
 
-export async function updateMember(id: string, data: MemberInput): Promise<Member> {
-    const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = data;
-
-    validateMemberData(data);
-
-    if (memberData.email) {
-        const existingMemberByEmail = await prisma.member.findUnique({
-            where: { email: memberData.email },
-        });
-        if (existingMemberByEmail && existingMemberByEmail.id !== id) {
-            throw new Error(`Email '${memberData.email}' is already in use by another member.`);
-        }
-    }
-    
-    const existingMember = await prisma.member.findUnique({
-      where: { id },
-      select: { address: true, emergencyContact: true, memberShareCommitments: { select: { shareTypeId: true }} },
-    });
-
-    if (!existingMember) throw new Error("Member not found");
-    
-    let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
-    if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
-        const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
-        cleanAddressPayload = restOfAddress;
+export async function updateMember(id: string, data: MemberInput): Promise<{ success: boolean; error?: string }> {
+    const validationError = validateMemberData(data);
+    if (validationError) {
+        return { success: false, error: validationError };
     }
 
-    let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
-    if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
-        const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
-        cleanEmergencyContactPayload = restOfContact;
-    }
+    try {
+        const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = data;
 
-    const addressUpdate = cleanAddressPayload
-        ? { upsert: { create: cleanAddressPayload, update: cleanAddressPayload } }
-        : (existingMember?.address ? { delete: true } : undefined);
-
-    const emergencyContactUpdate = cleanEmergencyContactPayload
-        ? { upsert: { create: cleanEmergencyContactPayload, update: cleanEmergencyContactPayload } }
-        : (existingMember?.emergencyContact ? { delete: true } : undefined);
-        
-    // **FIX**: Filter out null/undefined values from shareCommitmentIds
-    const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
-    
-    const shareTypesToCommit = await prisma.shareType.findMany({
-        where: { id: { in: validShareCommitmentIds } }
-    });
-    
-    const existingCommitmentIds = new Set(existingMember.memberShareCommitments.map(c => c.shareTypeId).filter((id): id is string => !!id));
-    const newCommitmentIds = new Set(validShareCommitmentIds);
-
-    const commitmentsToAdd = shareTypesToCommit.filter(st => !existingCommitmentIds.has(st.id));
-    const commitmentsToRemove = Array.from(existingCommitmentIds).filter(id => !newCommitmentIds.has(id));
-
-    const updatedMember = await prisma.member.update({
-        where: { id },
-        data: {
-            ...memberData,
-            salary,
-            joinDate: new Date(memberData.joinDate),
-            address: addressUpdate,
-            emergencyContact: emergencyContactUpdate,
-            memberShareCommitments: {
-                 deleteMany: {
-                     shareTypeId: { in: commitmentsToRemove }
-                 },
-                 create: commitmentsToAdd.map(st => ({
-                    shareTypeId: st.id,
-                    totalCommittedAmount: st.totalAmount,
-                }))
+        if (memberData.email) {
+            const existingMemberByEmail = await prisma.member.findUnique({
+                where: { email: memberData.email },
+            });
+            if (existingMemberByEmail && existingMemberByEmail.id !== id) {
+                 return { success: false, error: `Email '${memberData.email}' is already in use by another member.` };
             }
-        },
-    });
+        }
+        
+        const existingMember = await prisma.member.findUnique({
+          where: { id },
+          select: { address: true, emergencyContact: true, memberShareCommitments: { select: { shareTypeId: true }} },
+        });
 
-    revalidatePath('/members');
-    revalidatePath('/shares');
-    return updatedMember;
+        if (!existingMember) {
+             return { success: false, error: "Member not found." };
+        }
+        
+        let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
+        if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
+            const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
+            cleanAddressPayload = restOfAddress;
+        }
+
+        let cleanEmergencyContactPayload: Prisma.EmergencyContactCreateWithoutMemberInput | undefined;
+        if (emergencyContact && Object.values(emergencyContact).some(val => val !== '' && val !== null && val !== undefined)) {
+            const { id: contactId, memberId, ...restOfContact } = emergencyContact as any;
+            cleanEmergencyContactPayload = restOfContact;
+        }
+
+        const addressUpdate = cleanAddressPayload
+            ? { upsert: { create: cleanAddressPayload, update: cleanAddressPayload } }
+            : (existingMember?.address ? { delete: true } : undefined);
+
+        const emergencyContactUpdate = cleanEmergencyContactPayload
+            ? { upsert: { create: cleanEmergencyContactPayload, update: cleanEmergencyContactPayload } }
+            : (existingMember?.emergencyContact ? { delete: true } : undefined);
+            
+        const validShareCommitmentIds = (shareCommitmentIds || []).filter((id): id is string => !!id);
+        
+        const shareTypesToCommit = await prisma.shareType.findMany({
+            where: { id: { in: validShareCommitmentIds } }
+        });
+        
+        const existingCommitmentIds = new Set(existingMember.memberShareCommitments.map(c => c.shareTypeId).filter((id): id is string => !!id));
+        const newCommitmentIds = new Set(validShareCommitmentIds);
+
+        const commitmentsToAdd = shareTypesToCommit.filter(st => !existingCommitmentIds.has(st.id));
+        const commitmentsToRemove = Array.from(existingCommitmentIds).filter(id => !newCommitmentIds.has(id));
+
+        await prisma.member.update({
+            where: { id },
+            data: {
+                ...memberData,
+                salary,
+                joinDate: new Date(memberData.joinDate),
+                address: addressUpdate,
+                emergencyContact: emergencyContactUpdate,
+                memberShareCommitments: {
+                     deleteMany: {
+                         shareTypeId: { in: commitmentsToRemove }
+                     },
+                     create: commitmentsToAdd.map(st => ({
+                        shareTypeId: st.id,
+                        totalCommittedAmount: st.totalAmount,
+                    }))
+                }
+            },
+        });
+
+        revalidatePath('/members');
+        revalidatePath('/shares');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update member:', error);
+        return { success: false, error: 'An unexpected error occurred during update.' };
+    }
 }
 
 
 export async function deleteMember(id: string): Promise<{ success: boolean; message: string }> {
-    const loanCount = await prisma.loan.count({ where: { memberId: id, status: { in: ['active', 'overdue'] } } });
-    if (loanCount > 0) {
-        return { success: false, message: 'Cannot delete member with active or overdue loans. Please resolve loans first.' };
-    }
-
     try {
+        const loanCount = await prisma.loan.count({ where: { memberId: id, status: { in: ['active', 'overdue'] } } });
+        if (loanCount > 0) {
+            return { success: false, message: 'Cannot delete member with active or overdue loans. Please resolve loans first.' };
+        }
+
         await prisma.member.delete({
             where: { id },
         });
@@ -291,7 +304,6 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
     } catch (error) {
         console.error("Failed to delete member:", error);
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            // Provide a more specific error if a known constraint is violated
             return { success: false, message: 'Failed to delete member. They may have related records (like historical share payments or school history) that could not be deleted.' };
         }
         return { success: false, message: 'An unexpected error occurred while deleting the member.' };
@@ -310,18 +322,15 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
         if (!newSchool) return { success: false, message: 'New school not found.' };
 
         await prisma.$transaction(async (tx) => {
-            // 1. End date the current school history record
             await tx.schoolHistory.updateMany({
                 where: {
                     memberId: memberId,
-                    endDate: null, // Find the current active record
+                    endDate: null,
                 },
                 data: {
                     endDate: transferDate,
                 }
             });
-
-            // 2. Create the new school history record
             await tx.schoolHistory.create({
                 data: {
                     memberId: memberId,
@@ -331,8 +340,6 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
                     reason: reason,
                 }
             });
-
-            // 3. Update the member's current school
             await tx.member.update({
                 where: { id: memberId },
                 data: { schoolId: newSchoolId }
@@ -361,66 +368,74 @@ export async function importMembers(members: ImportedMember[]): Promise<{ succes
     const schools = await prisma.school.findMany({ select: { id: true, name: true }});
     const schoolMap = new Map(schools.map(s => [s.id, s.name]));
 
-    for (const m of members) {
-        const temporaryPassword = '123456';
-        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-        const timestamp = Date.now();
-        
-        try {
-            await prisma.member.create({
-                data: {
-                    id: m.MemberID,
-                    fullName: m.MemberFullName,
-                    email: `${timestamp}-${m.MemberID}@academinvest.com`, // Create a unique placeholder email
-                    password: hashedPassword,
-                    mustChangePassword: true,
-                    sex: 'Male', // Default value
-                    phoneNumber: `09${timestamp.toString().slice(-8)}`, // Create a unique placeholder phone number
-                    schoolId: m.SchoolID,
-                    joinDate: new Date(),
-                    status: 'active',
-                    salary: m.Salary,
-                    schoolHistory: {
-                        create: {
-                            schoolId: m.SchoolID,
-                            schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
-                            startDate: new Date(),
-                            endDate: null,
+    try {
+        for (const m of members) {
+            const temporaryPassword = '123456';
+            const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+            const timestamp = Date.now();
+            
+            try {
+                await prisma.member.create({
+                    data: {
+                        id: m.MemberID,
+                        fullName: m.MemberFullName,
+                        email: `${timestamp}-${m.MemberID}@academinvest.com`, // Create a unique placeholder email
+                        password: hashedPassword,
+                        mustChangePassword: true,
+                        sex: 'Male', // Default value
+                        phoneNumber: `09${timestamp.toString().slice(-8)}`, // Create a unique placeholder phone number
+                        schoolId: m.SchoolID,
+                        joinDate: new Date(),
+                        status: 'active',
+                        salary: m.Salary,
+                        schoolHistory: {
+                            create: {
+                                schoolId: m.SchoolID,
+                                schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
+                                startDate: new Date(),
+                                endDate: null,
+                            }
                         }
                     }
+                });
+                createdCount++;
+            } catch(e) {
+                if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+                    console.log(`Skipping member with ID ${m.MemberID} as they already exist.`);
+                } else {
+                    throw e; // Re-throw other errors to be caught by outer catch
                 }
-            });
-            createdCount++;
-        } catch(e) {
-            // This will catch unique constraint violations (e.g., duplicate ID) and skip the member.
-            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-                console.log(`Skipping member with ID ${m.MemberID} as they already exist.`);
-            } else {
-                // Re-throw other errors
-                throw e;
             }
         }
-    }
-    
-    revalidatePath('/members');
+        
+        revalidatePath('/members');
 
-    const skippedCount = members.length - createdCount;
-    let message = `Successfully imported ${createdCount} new members.`;
-    if (skippedCount > 0) {
-        message += ` ${skippedCount} member(s) were skipped as they already exist.`;
-    }
+        const skippedCount = members.length - createdCount;
+        let message = `Successfully imported ${createdCount} new members.`;
+        if (skippedCount > 0) {
+            message += ` ${skippedCount} member(s) were skipped as they already exist.`;
+        }
+        return { success: true, message };
 
-    return { success: true, message };
+    } catch (error) {
+        console.error("Failed during member import:", error);
+        return { success: false, message: 'A critical error occurred during the import process.' };
+    }
 }
 
-export async function changeMemberPassword(memberId: string, newPassword: string):Promise<{success: boolean}> {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.member.update({
-        where: { id: memberId },
-        data: {
-            password: hashedPassword,
-            mustChangePassword: false,
-        }
-    });
-    return { success: true };
+export async function changeMemberPassword(memberId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.member.update({
+            where: { id: memberId },
+            data: {
+                password: hashedPassword,
+                mustChangePassword: false,
+            }
+        });
+        return { success: true };
+    } catch(error) {
+        console.error("Failed to change member password:", error);
+        return { success: false, error: 'An unexpected error occurred.' };
+    }
 }

@@ -127,32 +127,32 @@ export default function SchoolsPage() {
     }
     
     setIsSubmitting(true);
-    try {
-      if (isEditing && currentSchool.id) {
-        await updateSchool(currentSchool.id, {
-          name: currentSchool.name,
-          address: currentSchool.address,
-          contactPerson: currentSchool.contactPerson,
+    let result;
+    if (isEditing && currentSchool.id) {
+        result = await updateSchool(currentSchool.id, {
+        name: currentSchool.name,
+        address: currentSchool.address,
+        contactPerson: currentSchool.contactPerson,
         });
-        toast({ title: 'Success', description: 'School updated successfully.' });
-      } else {
-        await addSchool({
-          id: currentSchool.id,
-          name: currentSchool.name,
-          address: currentSchool.address,
-          contactPerson: currentSchool.contactPerson,
+    } else {
+        result = await addSchool({
+        id: currentSchool.id,
+        name: currentSchool.name,
+        address: currentSchool.address,
+        contactPerson: currentSchool.contactPerson,
         });
-        toast({ title: 'Success', description: 'School added successfully.' });
-      }
-      await fetchSchools(); // Refresh data
-      setIsModalOpen(false);
-      setCurrentSchool(initialSchoolFormState);
-      setIsEditing(false);
-    } catch (error) {
-       toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. The School ID might already exist.' });
-    } finally {
-        setIsSubmitting(false);
     }
+    
+    if (result.success) {
+        toast({ title: 'Success', description: `School ${isEditing ? 'updated' : 'added'} successfully.` });
+        await fetchSchools(); // Refresh data
+        setIsModalOpen(false);
+        setCurrentSchool(initialSchoolFormState);
+        setIsEditing(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
+    }
+    setIsSubmitting(false);
   };
 
   const openAddModal = () => {
@@ -326,20 +326,15 @@ export default function SchoolsPage() {
     }
     
     setIsSubmitting(true);
-    try {
-      const result = await importSchools(schoolsToImport);
-      if (result.success) {
-        toast({ title: 'Import Complete', description: result.message });
-        await fetchSchools();
-        setIsImportModalOpen(false);
-      } else {
-        toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
-    } finally {
-      setIsSubmitting(false);
+    const result = await importSchools(schoolsToImport);
+    if (result.success) {
+      toast({ title: 'Import Complete', description: result.message });
+      await fetchSchools();
+      setIsImportModalOpen(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
     }
+    setIsSubmitting(false);
   };
 
   const getValidationBadge = (status: ParsedSchool['status']) => {

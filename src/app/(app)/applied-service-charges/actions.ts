@@ -74,7 +74,7 @@ export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'serviceCharg
     dateApplied: string;
 };
 
-export async function applyServiceCharge(data: AppliedChargeInput): Promise<AppliedServiceCharge> {
+export async function applyServiceCharge(data: AppliedChargeInput): Promise<{ success: boolean; error?: string }> {
   try {
     const [member, serviceChargeType] = await Promise.all([
       prisma.member.findUnique({ where: { id: data.memberId } }),
@@ -82,10 +82,10 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<Appl
     ]);
 
     if (!member || !serviceChargeType) {
-      throw new Error('Invalid member or service charge type. Please ensure both are selected.');
+      return { success: false, error: 'Invalid member or service charge type. Please ensure both are selected.'};
     }
 
-    const newCharge = await prisma.appliedServiceCharge.create({
+    await prisma.appliedServiceCharge.create({
       data: {
         ...data,
         dateApplied: new Date(data.dateApplied),
@@ -94,12 +94,12 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<Appl
     });
 
     revalidatePath('/applied-service-charges');
-    return newCharge;
+    return { success: true };
   } catch (error) {
     console.error('Failed to apply service charge:', error);
     if (error instanceof Error) {
-        throw new Error(error.message);
+        return { success: false, error: error.message };
     }
-    throw new Error('An unexpected error occurred while applying the charge.');
+    return { success: false, error: 'An unexpected error occurred while applying the charge.' };
   }
 }

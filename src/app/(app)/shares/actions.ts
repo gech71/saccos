@@ -39,41 +39,28 @@ export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData>
 
 export type SharePaymentInput = Omit<SharePayment, 'id' | 'status'>;
 
-export async function addSharePayment(data: SharePaymentInput): Promise<SharePayment> {
-  const commitment = await prisma.memberShareCommitment.findUnique({ where: { id: data.commitmentId } });
-  if (!commitment) throw new Error("Share commitment not found");
-  
-  if (data.amount <= 0) throw new Error("Payment amount must be positive.");
+export async function addSharePayment(data: SharePaymentInput): Promise<{ success: boolean; error?: string }> {
+  try {
+    const commitment = await prisma.memberShareCommitment.findUnique({ where: { id: data.commitmentId } });
+    if (!commitment) return { success: false, error: "Share commitment not found" };
+    
+    if (data.amount <= 0) return { success: false, error: "Payment amount must be positive." };
 
-  const newPayment = await prisma.sharePayment.create({
-    data: {
-      ...data,
-      paymentDate: new Date(data.paymentDate),
-      status: 'pending',
-    },
-  });
-  
-  // After payment, update the commitment's amountPaid and status
-  const totalPaid = (await prisma.sharePayment.aggregate({
-      _sum: { amount: true },
-      where: { commitmentId: data.commitmentId, status: 'approved' }
-  }))._sum.amount || 0;
-  
-  const newTotalPaid = totalPaid + data.amount; // Assuming it will be approved
-
-  await prisma.memberShareCommitment.update({
-      where: { id: data.commitmentId },
+    await prisma.sharePayment.create({
       data: {
-          // This should ideally be updated after approval, but for now we optimistically update.
-          // A more robust system would handle this in the approval action.
-          status: newTotalPaid >= commitment.totalCommittedAmount ? 'PAID_OFF' : 'ACTIVE'
-      }
-  });
-
-
-  revalidatePath('/shares'); // This page will now be share-payments
-  revalidatePath('/approve-transactions');
-  return newPayment;
+        ...data,
+        paymentDate: new Date(data.paymentDate),
+        status: 'pending',
+      },
+    });
+    
+    revalidatePath('/shares');
+    revalidatePath('/approve-transactions');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to add share payment:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
 }
 
 export async function refundShareCommitment(commitmentId: string): Promise<{ success: boolean; message: string; }> {
@@ -98,7 +85,6 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
         return { success: false, message: "No amount has been paid for this share, so there is nothing to refund." };
     }
 
-    // Find the member's primary savings account to record the withdrawal against.
     const primarySavingAccount = await prisma.memberSavingAccount.findFirst({
         where: { memberId: commitment.memberId },
         orderBy: { createdAt: 'asc'}
@@ -109,23 +95,21 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
     }
 
     await prisma.$transaction(async (tx) => {
-        // 1. Create a withdrawal transaction to represent the refund
         await tx.saving.create({
             data: {
                 memberId: commitment.memberId,
-                memberSavingAccountId: primarySavingAccount.id, // Link to the savings account
+                memberSavingAccountId: primarySavingAccount.id,
                 amount: amountToRefund,
                 date: new Date(),
                 month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
                 transactionType: 'withdrawal',
-                status: 'pending', // This refund needs to be approved
+                status: 'pending',
                 notes: `Share refund for commitment ID: ${commitment.id}`,
-                depositMode: 'Bank', // Default for system transactions
+                depositMode: 'Bank',
                 sourceName: 'Internal System Refund',
             }
         });
 
-        // 2. Update the commitment status to PENDING_REFUND
         await tx.memberShareCommitment.update({
             where: { id: commitmentId },
             data: { status: 'PENDING_REFUND' }
@@ -136,14 +120,4 @@ export async function refundShareCommitment(commitmentId: string): Promise<{ suc
     revalidatePath('/approve-transactions');
 
     return { success: true, message: `Refund of ${amountToRefund.toFixed(2)} Birr for ${commitment.member.fullName}'s share submitted for approval.` };
-}
-
-
-// Keeping these for now, but they will likely be deprecated.
-export async function updateShare(id: string, data: any): Promise<any> {
-    return Promise.resolve();
-}
-
-export async function deleteShare(id: string): Promise<{ success: boolean; message: string }> {
-    return { success: false, message: 'This action is deprecated.' };
 }

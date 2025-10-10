@@ -114,15 +114,14 @@ export default function AddSavingAccountPage() {
     }
     
     setIsSubmitting(true);
-    try {
-      await createSavingAccount(formState);
+    const result = await createSavingAccount(formState);
+    if (result.success) {
       toast({ title: 'Success', description: 'Saving account created successfully.' });
       router.push('/savings-accounts');
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
+    setIsSubmitting(false);
   };
   
   const expectedMonthlySavingText = useMemo(() => {

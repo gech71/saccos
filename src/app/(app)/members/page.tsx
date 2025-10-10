@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -243,13 +244,13 @@ export default function MembersPage() {
     };
 
     if (isEditingMember && currentMember.id) {
-        try {
-            await updateMember(currentMember.id, memberInputData);
+        const result = await updateMember(currentMember.id, memberInputData);
+        if (result.success) {
             toast({ title: 'Success', description: 'Member updated successfully.' });
             setIsMemberModalOpen(false);
             await fetchPageData();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`});
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
         }
     } else {
         const result = await addMember(memberInputData);
@@ -493,16 +494,15 @@ export default function MembersPage() {
     }
 
     setIsSubmitting(true);
-    try {
-        const result = await importMembers(membersToImport);
+    const result = await importMembers(membersToImport);
+    if (result.success) {
         toast({ title: 'Import Complete', description: result.message });
         await fetchPageData();
         setIsImportModalOpen(false);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred during import.' });
-    } finally {
-      setIsSubmitting(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
+    setIsSubmitting(false);
   };
   
   const getValidationBadge = (status: ParsedMember['status']) => {
@@ -774,7 +774,7 @@ export default function MembersPage() {
                 <div><Label htmlFor="address.houseNumber">House Number</Label><Input id="address.houseNumber" name="address.houseNumber" value={currentMember.address?.houseNumber || ''} onChange={handleMemberInputChange} /></div>
             </div>
             <Separator className="my-4" />
-            <Label className="font-semibold text-base text-primary">Emergency Contact</Label>
+             <Label className="font-semibold text-base text-primary">Emergency Contact</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label htmlFor="emergencyContact.name">Rep Name</Label><Input id="emergencyContact.name" name="emergencyContact.name" value={currentMember.emergencyContact?.name || ''} onChange={handleMemberInputChange} /></div>
                 <div><Label htmlFor="emergencyContact.phone">Rep Phone</Label><Input id="emergencyContact.phone" name="emergencyContact.phone" type="tel" value={currentMember.emergencyContact?.phone || ''} onChange={handleMemberInputChange} /></div>
