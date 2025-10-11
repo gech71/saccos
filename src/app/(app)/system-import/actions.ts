@@ -97,185 +97,218 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
   const allLoanTypes = await prisma.loanType.findMany();
   const loanTypeMap = new Map(allLoanTypes.map(lt => [lt.id, lt]));
 
+  // Pre-fetch all saving account types, share types, and service charge types
+  const [savingAccountTypes, shareTypes, serviceChargeTypes] = await Promise.all([
+    prisma.savingAccountType.findMany(),
+    prisma.shareType.findMany(),
+    prisma.serviceChargeType.findMany()
+  ]);
+  
+  const savingTypeMap = new Map(savingAccountTypes.map(st => [st.id, st]));
+  const shareTypeMap = new Map(shareTypes.map(st => [st.id, st]));
+
   try {
-    await prisma.$transaction(async (tx) => {
-      for (const collection of collections) {
-        const { memberId, values } = collection;
+    // Process collections in smaller batches to avoid transaction timeout
+    const BATCH_SIZE = 5; // Process 5 members at a time
+    
+    for (let i = 0; i < collections.length; i += BATCH_SIZE) {
+      const batchCollections = collections.slice(i, i + BATCH_SIZE);
+      
+      await prisma.$transaction(async (tx) => {
+        for (const collection of batchCollections) {
+          const { memberId, values } = collection;
+          
+          // Pre-fetch member data and existing accounts for this member
+          const [member, existingSavingAccounts, existingShareCommitments, existingLoans] = await Promise.all([
+            tx.member.findUnique({ where: { id: memberId } }),
+            tx.memberSavingAccount.findMany({ where: { memberId } }),
+            tx.memberShareCommitment.findMany({ where: { memberId } }),
+            tx.loan.findMany({ where: { memberId, status: { in: ['active', 'overdue', 'pending'] } } })
+          ]);
+          
+          // Create maps for faster lookups
+          const savingAccountsMap = new Map(existingSavingAccounts.map(acc => [acc.savingAccountTypeId, acc]));
+          const shareCommitmentsMap = new Map(existingShareCommitments.map(comm => [comm.shareTypeId, comm]));
+          const loansMap = new Map(existingLoans.map(loan => [loan.loanTypeId, loan]));
 
-        for (const [key, value] of Object.entries(values)) {
-          if (typeof value === 'object') {
-              if ('principal' in value && value.principal <= 0) continue;
-              if ('principalRepaid' in value && value.principalRepaid <= 0 && value.interestRepaid <= 0) continue;
-          }
-          if (typeof value === 'number' && value <= 0) continue;
+          for (const [key, value] of Object.entries(values)) {
+            if (typeof value === 'object') {
+                if ('principal' in value && value.principal <= 0) continue;
+                if ('principalRepaid' in value && value.principalRepaid <= 0 && value.interestRepaid <= 0) continue;
+            }
+            if (typeof value === 'number' && value <= 0) continue;
 
-          const [type, idWithSuffix] = key.split('_');
-          const id = idWithSuffix.replace('_principal','').replace('_interest','');
+            const [type, idWithSuffix] = key.split('_');
+            const id = idWithSuffix.replace('_principal','').replace('_interest','');
 
-
-          if (type === 'saving') {
-            let account = await tx.memberSavingAccount.findFirst({ where: { memberId, savingAccountTypeId: id }});
-            
-            if (!account) {
-              const savingAccountType = await prisma.savingAccountType.findUnique({ where: { id }});
-              if (!savingAccountType) continue; 
-              const member = await tx.member.findUnique({ where: { id: memberId }});
+            if (type === 'saving') {
+              let account = savingAccountsMap.get(id);
               
-              let expectedMonthlySaving = 0;
-              if (savingAccountType.contributionType === 'FIXED') {
-                expectedMonthlySaving = savingAccountType.contributionValue;
-              } else if (savingAccountType.contributionType === 'PERCENTAGE' && member?.salary) {
-                expectedMonthlySaving = member.salary * savingAccountType.contributionValue;
+              if (!account) {
+                const savingAccountType = savingTypeMap.get(id);
+                if (!savingAccountType) continue;
+                
+                let expectedMonthlySaving = 0;
+                if (savingAccountType.contributionType === 'FIXED') {
+                  expectedMonthlySaving = savingAccountType.contributionValue;
+                } else if (savingAccountType.contributionType === 'PERCENTAGE' && member?.salary) {
+                  expectedMonthlySaving = member.salary * savingAccountType.contributionValue;
+                }
+
+                account = await tx.memberSavingAccount.create({
+                  data: {
+                    memberId,
+                    savingAccountTypeId: id,
+                    accountNumber: `SA-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
+                    balance: 0,
+                    initialBalance: 0,
+                    expectedMonthlySaving,
+                  }
+                });
+                savingAccountsMap.set(id, account);
               }
 
-              account = await tx.memberSavingAccount.create({
+              await tx.saving.create({
                 data: {
                   memberId,
-                  savingAccountTypeId: id,
-                  accountNumber: `SA-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 100)}`,
-                  balance: 0,
-                  initialBalance: 0,
-                  expectedMonthlySaving,
+                  memberSavingAccountId: account.id,
+                  amount: value as number,
+                  date: importDate,
+                  month: `${collectionMonth} ${collectionYear}`,
+                  transactionType: 'deposit',
+                  status: 'pending',
+                  depositMode: 'Cash',
+                  notes: 'Bulk data import',
                 }
               });
-            }
 
-            await tx.saving.create({
-              data: {
-                memberId,
-                memberSavingAccountId: account.id,
-                amount: value as number,
-                date: importDate,
-                month: `${collectionMonth} ${collectionYear}`,
-                transactionType: 'deposit',
-                status: 'pending',
-                depositMode: 'Cash',
-                notes: 'Bulk data import',
-              }
-            });
-
-          } else if (type === 'interest') {
-              const savingAccount = await tx.memberSavingAccount.findFirst({
-                  where: { memberId: memberId, savingAccountTypeId: id }
-              });
-              if (savingAccount && typeof value === 'number' && value > 0) {
-                  await tx.saving.create({
-                      data: {
-                          memberId,
-                          memberSavingAccountId: savingAccount.id,
-                          amount: value,
-                          date: importDate,
-                          month: `${collectionMonth} ${collectionYear}`,
-                          transactionType: 'deposit',
-                          status: 'pending',
-                          depositMode: 'Bank',
-                          notes: `Savings Interest posting for ${collectionMonth} ${collectionYear}`,
-                      }
-                  });
-              }
-          } else if (type === 'share') {
-             let commitment = await tx.memberShareCommitment.findFirst({ where: {memberId, shareTypeId: id}});
-             
-             if (!commitment) {
-                  const shareType = await tx.shareType.findUnique({ where: { id }});
-                  if (shareType) {
-                      commitment = await tx.memberShareCommitment.create({
-                          data: {
-                              memberId,
-                              shareTypeId: id,
-                              totalCommittedAmount: shareType.totalAmount,
-                          }
-                      });
-                  } else {
-                      continue; 
-                  }
-             }
-
-              await tx.sharePayment.create({
-                  data: {
-                      commitmentId: commitment.id,
-                      amount: value as number,
-                      paymentDate: importDate,
-                      depositMode: 'Cash',
-                      status: 'pending',
-                      notes: 'Bulk data import',
-                  }
-              });
-          } else if (type === 'loan') {
-              const loanType = loanTypeMap.get(id);
-              if (!loanType || typeof value !== 'object' || !('principal' in value)) continue;
-
-              const loan = await tx.loan.create({
-                  data: {
-                      memberId,
-                      loanTypeId: id,
-                      principalAmount: value.principal,
-                      interestRate: loanType.interestRate,
-                      loanTerm: value.term || loanType.maxRepaymentPeriod,
-                      repaymentFrequency: loanType.repaymentFrequency,
-                      disbursementDate: importDate,
-                      status: 'pending', // Imported loans must be approved
-                      remainingBalance: value.principal,
-                      notes: 'Loan created from bulk system import.',
-                  }
-              });
-          } else if (type === 'loanrepay') {
-               if (typeof value !== 'object' || !('principalRepaid' in value)) continue;
-               const existingLoan = await tx.loan.findFirst({
-                   where: { memberId, loanTypeId: id, status: { in: ['active', 'overdue', 'pending']}}
-               });
-               if (!existingLoan) continue;
+            } else if (type === 'interest') {
+                const savingAccount = savingAccountsMap.get(id);
+                if (savingAccount && typeof value === 'number' && value > 0) {
+                    await tx.saving.create({
+                        data: {
+                            memberId,
+                            memberSavingAccountId: savingAccount.id,
+                            amount: value,
+                            date: importDate,
+                            month: `${collectionMonth} ${collectionYear}`,
+                            transactionType: 'deposit',
+                            status: 'pending',
+                            depositMode: 'Bank',
+                            notes: `Savings Interest posting for ${collectionMonth} ${collectionYear}`,
+                        }
+                    });
+                }
+            } else if (type === 'share') {
+               let commitment = shareCommitmentsMap.get(id);
                
-               const { principalRepaid, interestRepaid } = value as { principalRepaid: number, interestRepaid: number };
+               if (!commitment) {
+                    const shareType = shareTypeMap.get(id);
+                    if (shareType) {
+                        commitment = await tx.memberShareCommitment.create({
+                            data: {
+                                memberId,
+                                shareTypeId: id,
+                                totalCommittedAmount: shareType.totalAmount,
+                            }
+                        });
+                        shareCommitmentsMap.set(id, commitment);
+                    } else {
+                        continue; 
+                    }
+               }
 
-              if(interestRepaid > 0) {
-                   await tx.loanRepayment.create({
-                       data: {
-                           loanId: existingLoan.id,
-                           memberId: memberId,
-                           amountPaid: interestRepaid,
-                           principalPaid: 0,
-                           interestPaid: interestRepaid,
-                           paymentDate: importDate,
-                           status: 'pending',
-                           depositMode: 'Cash',
-                           notes: 'Imported Loan Interest'
-                       }
-                   });
-               }
-               if (principalRepaid > 0) {
-                   await tx.loanRepayment.create({
-                       data: {
-                           loanId: existingLoan.id,
-                           memberId: memberId,
-                           amountPaid: principalRepaid,
-                           principalPaid: principalRepaid,
-                           interestPaid: 0,
-                           paymentDate: importDate,
-                           status: 'pending',
-                           depositMode: 'Cash',
-                           notes: 'Imported Loan Repayment'
-                       }
-                   });
-               }
-          } else if (type === 'service') {
-               await tx.appliedServiceCharge.create({
-                  data: {
-                      memberId,
-                      serviceChargeTypeId: id,
-                      amountCharged: value as number,
-                      dateApplied: importDate,
-                      status: 'pending',
-                      notes: 'Bulk data import',
-                  }
-               });
+                await tx.sharePayment.create({
+                    data: {
+                        commitmentId: commitment.id,
+                        amount: value as number,
+                        paymentDate: importDate,
+                        depositMode: 'Cash',
+                        status: 'pending',
+                        notes: 'Bulk data import',
+                    }
+                });
+            } else if (type === 'loan') {
+                const loanType = loanTypeMap.get(id);
+                if (!loanType || typeof value !== 'object' || !('principal' in value)) continue;
+
+                const loan = await tx.loan.create({
+                    data: {
+                        memberId,
+                        loanTypeId: id,
+                        principalAmount: value.principal,
+                        interestRate: loanType.interestRate,
+                        loanTerm: value.term || loanType.maxRepaymentPeriod,
+                        repaymentFrequency: loanType.repaymentFrequency,
+                        disbursementDate: importDate,
+                        status: 'pending', // Imported loans must be approved
+                        remainingBalance: value.principal,
+                        notes: 'Loan created from bulk system import.',
+                    }
+                });
+            } else if (type === 'loanrepay') {
+                 if (typeof value !== 'object' || !('principalRepaid' in value)) continue;
+                 const existingLoan = loansMap.get(id);
+                 if (!existingLoan) continue;
+                 
+                 const { principalRepaid, interestRepaid } = value as { principalRepaid: number, interestRepaid: number };
+
+                if(interestRepaid > 0) {
+                     await tx.loanRepayment.create({
+                         data: {
+                             loanId: existingLoan.id,
+                             memberId: memberId,
+                             amountPaid: interestRepaid,
+                             principalPaid: 0,
+                             interestPaid: interestRepaid,
+                             paymentDate: importDate,
+                             status: 'pending',
+                             depositMode: 'Cash',
+                             notes: 'Imported Loan Interest'
+                         }
+                     });
+                 }
+                 if (principalRepaid > 0) {
+                     await tx.loanRepayment.create({
+                         data: {
+                             loanId: existingLoan.id,
+                             memberId: memberId,
+                             amountPaid: principalRepaid,
+                             principalPaid: principalRepaid,
+                             interestPaid: 0,
+                             paymentDate: importDate,
+                             status: 'pending',
+                             depositMode: 'Cash',
+                             notes: 'Imported Loan Repayment'
+                         }
+                     });
+                 }
+            } else if (type === 'service') {
+                 await tx.appliedServiceCharge.create({
+                    data: {
+                        memberId,
+                        serviceChargeTypeId: id,
+                        amountCharged: value as number,
+                        dateApplied: importDate,
+                        status: 'pending',
+                        notes: 'Bulk data import',
+                    }
+                 });
+            }
           }
         }
-      }
-    });
+      }, {
+        timeout: 10000 // Increase transaction timeout to 10 seconds for each batch
+      });
+    }
 
     revalidatePath('/system-import');
     revalidatePath('/approve-transactions');
+    revalidatePath('/approve-transactions/savings');
+    revalidatePath('/approve-transactions/shares');
+    revalidatePath('/approve-transactions/loan-repayments');
+    revalidatePath('/approve-transactions/loans');
+    revalidatePath('/approve-transactions/service-charges');
     revalidatePath('/savings');
     revalidatePath('/shares');
     revalidatePath('/loan-repayments');
