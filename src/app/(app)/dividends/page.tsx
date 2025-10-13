@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown, Loader2, UploadCloud } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -56,15 +56,25 @@ import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/c
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
-import { getDividendsPageData, addDividend, updateDividend, deleteDividend, type DividendsPageData, type DividendInput } from './actions';
+import { getDividendsPageData, addDividend, updateDividend, deleteDividend, importDividends, type DividendsPageData, type DividendInput, type ImportedDividend } from './actions';
 import type { Dividend, Member } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
+import ExcelJS from 'exceljs';
 
 const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
   amount: 0,
   distributionDate: new Date().toISOString().split('T')[0],
   shareCountAtDistribution: 0,
+};
+
+type ParsedDividend = {
+  memberId: string;
+  amount: number;
+  shareCountAtDistribution: number;
+  distributionDate: Date;
+  notes?: string;
+  status: 'Ready to import' | 'Invalid Member ID' | 'Invalid Data';
 };
 
 export default function DividendsPage() {
@@ -87,6 +97,10 @@ export default function DividendsPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [parsedDividends, setParsedDividends] = useState<ParsedDividend[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
 
   const canCreate = useMemo(() => user?.permissions.includes('dividend:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('dividend:edit'), [user]);
@@ -258,6 +272,103 @@ export default function DividendsPage() {
     }));
     exportToExcel(dataToExport, 'dividends_export');
   };
+  
+   const openImportModal = () => {
+    setParsedDividends([]);
+    setIsImportModalOpen(true);
+  };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsParsing(true);
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        
+        if (!worksheet) throw new Error("No worksheet found.");
+
+        const headerRow = worksheet.getRow(1).values as string[];
+        const dataRows: any[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell((cell, colNumber) => {
+                    rowData[headerRow[colNumber]] = cell.value;
+                });
+                dataRows.push(rowData);
+            }
+        });
+
+        const existingMemberIds = new Set(members.map(m => m.id));
+        const validatedData: ParsedDividend[] = dataRows.map(row => {
+          const memberId = row['Member ID']?.toString().trim();
+          const amount = parseFloat(row['Amount (Birr)']);
+          const shareCount = parseInt(row['Shares Held'], 10);
+          const date = row['Distribution Date'] instanceof Date ? row['Distribution Date'] : new Date();
+
+          let status: ParsedDividend['status'] = 'Ready to import';
+          if (!memberId || !existingMemberIds.has(memberId)) status = 'Invalid Member ID';
+          else if (isNaN(amount) || amount <= 0 || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
+          
+          return {
+            memberId,
+            amount,
+            shareCountAtDistribution: shareCount,
+            distributionDate: date,
+            notes: row['Notes'] || 'Bulk import',
+            status
+          };
+        });
+        
+        setParsedDividends(validatedData);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "Member ID", "Amount (Birr)", "Shares Held", "Distribution Date".' });
+      } finally {
+        setIsParsing(false);
+      }
+    }
+  };
+  
+  const handleConfirmImport = async () => {
+    const dividendsToImport = parsedDividends.filter(d => d.status === 'Ready to import');
+    if (dividendsToImport.length === 0) {
+      toast({ title: 'No New Dividends', description: 'There are no new dividend records to import.' });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    const result = await importDividends(dividendsToImport);
+    if (result.success) {
+      toast({ title: 'Import Complete', description: result.message });
+      await fetchPageData();
+      setIsImportModalOpen(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
+    }
+    setIsSubmitting(false);
+  };
+  
+  const getValidationBadge = (status: ParsedDividend['status']) => {
+    switch (status) {
+      case 'Ready to import': return <Badge variant="default">Ready</Badge>;
+      case 'Invalid Member ID': return <Badge variant="destructive">Invalid Member</Badge>;
+      case 'Invalid Data': return <Badge variant="destructive">Invalid Data</Badge>;
+    }
+  };
+  
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      'Member ID': 'member-id-1',
+      'Amount (Birr)': 150.75,
+      'Shares Held': 50,
+      'Distribution Date': new Date().toISOString().split('T')[0],
+      'Notes': 'Annual Dividend 2024'
+    }];
+    exportToExcel(templateData, 'dividend_import_template');
+  };
 
   return (
     <div className="space-y-6">
@@ -266,6 +377,11 @@ export default function DividendsPage() {
             <Button onClick={handleExport} variant="outline" disabled={isLoading}>
                 <FileDown className="mr-2 h-4 w-4" /> Export
             </Button>
+            {canCreate && (
+              <Button onClick={openImportModal} variant="outline" disabled={isLoading}>
+                  <UploadCloud className="mr-2 h-4 w-4" /> Import Dividends
+              </Button>
+            )}
             {canCreate && (
               <Button onClick={openAddModal} className="shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
                 <PlusCircle className="mr-2 h-5 w-5" /> Distribute Dividends
@@ -438,6 +554,64 @@ export default function DividendsPage() {
             </div>
         </div>
       )}
+      
+       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Import Dividends from Excel</DialogTitle>
+            <DialogDescription>
+                Upload an Excel file with columns: "Member ID", "Amount (Birr)", "Shares Held", and "Distribution Date".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                <FileDown className="mr-2 h-4 w-4" /> Download Template
+            </Button>
+            <div>
+              <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
+              <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
+            </div>
+            {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+            {parsedDividends.length > 0 && (
+              <div>
+                <Label>Import Preview</Label>
+                <div className="mt-2 h-64 overflow-y-auto rounded-md border">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-muted">
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Member ID</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Shares</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parsedDividends.map((dividend, index) => (
+                        <TableRow key={index} className={dividend.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                          <TableCell>{getValidationBadge(dividend.status)}</TableCell>
+                          <TableCell>{dividend.memberId}</TableCell>
+                          <TableCell className="text-right">{dividend.amount?.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {parsedDividends.filter(s => s.status === 'Ready to import').length} record(s) will be imported. Others will be skipped.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+            <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedDividends.filter(s => s.status === 'Ready to import').length === 0}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Import Dividends
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -539,5 +713,6 @@ export default function DividendsPage() {
     </div>
   );
 }
+
 
 

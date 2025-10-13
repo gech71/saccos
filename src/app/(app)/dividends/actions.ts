@@ -3,7 +3,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Dividend, Member } from '@prisma/client';
+import type { Dividend, Member, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 export interface DividendsPageData {
@@ -90,4 +90,43 @@ export async function deleteDividend(id: string): Promise<{ success: boolean; me
     console.error('Failed to delete dividend:', error);
     return { success: false, message: 'An unexpected error occurred.' };
   }
+}
+
+export type ImportedDividend = {
+  memberId: string;
+  amount: number;
+  shareCountAtDistribution: number;
+  distributionDate: Date;
+  notes?: string;
+}
+
+export async function importDividends(dividends: ImportedDividend[]): Promise<{ success: boolean; message: string; }> {
+    if (dividends.length === 0) {
+        return { success: true, message: 'No new dividends to import.' };
+    }
+
+    const dividendsToCreate: Prisma.DividendCreateManyInput[] = dividends.map(d => ({
+        memberId: d.memberId,
+        amount: d.amount,
+        shareCountAtDistribution: d.shareCountAtDistribution,
+        distributionDate: d.distributionDate,
+        notes: d.notes,
+        status: 'pending'
+    }));
+
+    try {
+        const result = await prisma.dividend.createMany({
+            data: dividendsToCreate,
+            skipDuplicates: false, // Don't skip, show error if there's a unique constraint issue
+        });
+
+        revalidatePath('/dividends');
+        revalidatePath('/approve-transactions');
+        
+        return { success: true, message: `Successfully imported ${result.count} dividend records for approval.` };
+
+    } catch (error) {
+        console.error("Failed during dividend import:", error);
+        return { success: false, message: 'A critical error occurred during the import process. Please check for duplicate records or invalid data.' };
+    }
 }
