@@ -1,4 +1,3 @@
-
 'use server';
 
 import axios from 'axios';
@@ -45,7 +44,7 @@ export async function validateNibToken(token: string): Promise<{ phoneNumber?: s
  * @param payload The sorted dictionary of key-value pairs.
  * @returns The SHA256 hash as a hex string.
  */
-function createSignature(payload: Record<string, string>): string {
+export function createSignature(payload: Record<string, string>): string {
   const sortedPayload = new Map(Object.entries(payload).sort());
   const temp: string[] = [];
   sortedPayload.forEach((value, key) => {
