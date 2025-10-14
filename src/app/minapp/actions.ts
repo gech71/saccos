@@ -59,7 +59,6 @@ interface RequestMoneyParams {
     token: string;
     amount: string;
     accountNo: string;
-    callBackURL: string;
     companyName: string;
     transactionId: string;
     transactionTime: string;
@@ -73,9 +72,10 @@ interface RequestMoneyParams {
 export async function requestMoney(params: RequestMoneyParams): Promise<{ success: boolean; data?: any; error?: string }> {
     const apiUrl = process.env.NIB_REQUEST_MONEY_URL;
     const apiKey = process.env.NIB_API_KEY;
+    const callBackURL = `${process.env.NEXT_PUBLIC_APP_URL}/api/minapp/callback`;
 
-    if (!apiUrl || !apiKey) {
-        console.error('NIB_REQUEST_MONEY_URL or NIB_API_KEY are not set.');
+    if (!apiUrl || !apiKey || !callBackURL) {
+        console.error('NIB_REQUEST_MONEY_URL, NIB_API_KEY, or NEXT_PUBLIC_APP_URL are not set.');
         return { success: false, error: 'Service configuration error.' };
     }
 
@@ -83,7 +83,7 @@ export async function requestMoney(params: RequestMoneyParams): Promise<{ succes
         const integrityCheckPayload = {
             accountNo: params.accountNo,
             amount: params.amount,
-            callBackURL: params.callBackURL,
+            callBackURL: callBackURL,
             companyName: params.companyName,
             Key: apiKey,
             token: params.token,
@@ -97,8 +97,6 @@ export async function requestMoney(params: RequestMoneyParams): Promise<{ succes
             ...integrityCheckPayload,
             signature,
         };
-        // The API key is part of the signature but might not be needed in the body itself.
-        // The sample C# code includes it, so we do as well.
         
         const response = await axios.post(apiUrl, requestBody, {
             headers: {
