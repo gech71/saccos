@@ -38,7 +38,6 @@ export function MiniAppClient({ validationResult, token }: MiniAppClientProps) {
         token,
         amount: depositAmount.toString(),
         accountNo: "7000", // Example merchant account
-        callBackURL: "https://your-sacco.com/minapp/callback", // Your callback URL
         companyName: "AcademInvest",
         transactionId: `TXN-${Date.now()}`,
         transactionTime: new Date().getTime().toString(),
@@ -46,10 +45,16 @@ export function MiniAppClient({ validationResult, token }: MiniAppClientProps) {
 
     const result = await requestMoney(params);
 
-    if (result.success) {
+    if (result.success && result.data?.token) {
         toast({ title: 'Success', description: 'Transaction initiated. Please check your NIBtera app to complete the payment.' });
-        // Handle the response from NIBtera, e.g., redirecting or displaying a message
-        console.log('NIBtera API Response:', result.data);
+        
+        // STEP 04: Send message back to NIBtera Super App
+        if ((window as any).myJsChannel) {
+            (window as any).myJsChannel.postMessage(result.data.token);
+        } else {
+            console.warn('window.myJsChannel is not available. This will only work inside the NIBtera Super App.');
+        }
+
     } else {
         toast({ variant: 'destructive', title: 'Transaction Failed', description: result.error || 'An unknown error occurred.' });
     }
