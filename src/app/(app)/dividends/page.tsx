@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown, Loader2, UploadCloud } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, Landmark as LucideLandmark, TrendingUp, Check, ChevronsUpDown, FileDown, Loader2, UploadCloud, Radio } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -56,10 +56,12 @@ import { Card, CardContent, CardHeader, CardTitle as ShadcnCardTitle } from '@/c
 import { cn } from '@/lib/utils';
 import { exportToExcel } from '@/lib/utils';
 import { StatCard } from '@/components/stat-card';
-import { getDividendsPageData, addDividend, updateDividend, deleteDividend, importDividends, type DividendsPageData, type DividendInput, type ImportedDividend } from './actions';
+import { getDividendsPageData, addDividend, updateDividend, deleteDividend, importDividends, type DividendsPageData, type DividendInput, type ImportedDividend, type AllocationMethod } from './actions';
 import type { Dividend, Member } from '@prisma/client';
 import { useAuth } from '@/contexts/auth-context';
 import ExcelJS from 'exceljs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
 const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
@@ -101,6 +103,7 @@ export default function DividendsPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [parsedDividends, setParsedDividends] = useState<ParsedDividend[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [allocationMethod, setAllocationMethod] = useState<AllocationMethod>('deposit-to-savings');
 
   const canCreate = useMemo(() => user?.permissions.includes('dividend:create'), [user]);
   const canEdit = useMemo(() => user?.permissions.includes('dividend:edit'), [user]);
@@ -311,7 +314,7 @@ export default function DividendsPage() {
 
           let status: ParsedDividend['status'] = 'Ready to import';
           if (!memberId || !existingMemberIds.has(memberId)) status = 'Invalid Member ID';
-          else if (isNaN(amount) || amount <= 0 || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
+          else if (isNaN(amount) || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
           
           return {
             memberId,
@@ -340,7 +343,7 @@ export default function DividendsPage() {
     }
     
     setIsSubmitting(true);
-    const result = await importDividends(dividendsToImport);
+    const result = await importDividends(dividendsToImport, allocationMethod);
     if (result.success) {
       toast({ title: 'Import Complete', description: result.message });
       await fetchPageData();
@@ -573,33 +576,44 @@ export default function DividendsPage() {
             </div>
             {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
             {parsedDividends.length > 0 && (
-              <div>
-                <Label>Import Preview</Label>
-                <div className="mt-2 h-64 overflow-y-auto rounded-md border">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-muted">
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Member ID</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="text-right">Shares</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parsedDividends.map((dividend, index) => (
-                        <TableRow key={index} className={dividend.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
-                          <TableCell>{getValidationBadge(dividend.status)}</TableCell>
-                          <TableCell>{dividend.memberId}</TableCell>
-                          <TableCell className="text-right">{dividend.amount?.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              <div className="space-y-4">
+                <div>
+                    <Label>Import Preview</Label>
+                    <div className="mt-2 h-48 overflow-y-auto rounded-md border">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-muted">
+                          <TableRow>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Member ID</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Shares</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {parsedDividends.map((dividend, index) => (
+                            <TableRow key={index} className={dividend.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                              <TableCell>{getValidationBadge(dividend.status)}</TableCell>
+                              <TableCell>{dividend.memberId}</TableCell>
+                              <TableCell className="text-right">{dividend.amount?.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {parsedDividends.filter(s => s.status === 'Ready to import').length} record(s) will be imported. Others will be skipped.
+                    </p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {parsedDividends.filter(s => s.status === 'Ready to import').length} record(s) will be imported. Others will be skipped.
-                </p>
+                <Separator />
+                <div>
+                    <Label className="font-semibold text-base">Allocation Method</Label>
+                    <RadioGroup value={allocationMethod} onValueChange={(v) => setAllocationMethod(v as AllocationMethod)} className="mt-2 space-y-2">
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="deposit-to-savings" id="alloc-savings" /><Label htmlFor="alloc-savings">Deposit to Savings Account (for Profit)</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="add-to-shares" id="alloc-shares" /><Label htmlFor="alloc-shares">Add to Member Shares</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="deduct-from-savings" id="alloc-deduct" /><Label htmlFor="alloc-deduct">Deduct from Savings Account (for Loss)</Label></div>
+                    </RadioGroup>
+                </div>
               </div>
             )}
           </div>
@@ -607,7 +621,7 @@ export default function DividendsPage() {
             <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
             <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedDividends.filter(s => s.status === 'Ready to import').length === 0}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Import Dividends
+              Submit for Allocation
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -713,6 +727,7 @@ export default function DividendsPage() {
     </div>
   );
 }
+
 
 
 

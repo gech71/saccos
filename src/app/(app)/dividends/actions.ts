@@ -100,33 +100,83 @@ export type ImportedDividend = {
   notes?: string;
 }
 
-export async function importDividends(dividends: ImportedDividend[]): Promise<{ success: boolean; message: string; }> {
+export type AllocationMethod = 'deposit-to-savings' | 'add-to-shares' | 'deduct-from-savings';
+
+export async function importDividends(dividends: ImportedDividend[], allocationMethod: AllocationMethod): Promise<{ success: boolean; message: string; }> {
     if (dividends.length === 0) {
         return { success: true, message: 'No new dividends to import.' };
     }
 
-    const dividendsToCreate: Prisma.DividendCreateManyInput[] = dividends.map(d => ({
-        memberId: d.memberId,
-        amount: d.amount,
-        shareCountAtDistribution: d.shareCountAtDistribution,
-        distributionDate: d.distributionDate,
-        notes: d.notes,
-        status: 'pending'
-    }));
-
     try {
-        const result = await prisma.dividend.createMany({
-            data: dividendsToCreate,
-            skipDuplicates: false, // Don't skip, show error if there's a unique constraint issue
-        });
+        await prisma.$transaction(async (tx) => {
+            for (const dividendData of dividends) {
+                const { memberId, amount, distributionDate, notes } = dividendData;
 
+                if (allocationMethod === 'deposit-to-savings' || allocationMethod === 'deduct-from-savings') {
+                    const primarySavingAccount = await tx.memberSavingAccount.findFirst({
+                        where: { memberId },
+                        orderBy: { createdAt: 'asc' }
+                    });
+
+                    if (!primarySavingAccount) {
+                        // In a real scenario, you might want to create an account or handle this case differently
+                        console.warn(`Skipping dividend for member ${memberId}: No savings account found.`);
+                        continue;
+                    }
+                    
+                    const transactionType = allocationMethod === 'deposit-to-savings' ? 'deposit' : 'withdrawal';
+                    const noteText = allocationMethod === 'deposit-to-savings' ? 'Dividend/Profit Distribution' : 'Loss Allocation';
+
+                    await tx.saving.create({
+                        data: {
+                            memberId,
+                            memberSavingAccountId: primarySavingAccount.id,
+                            amount,
+                            date: distributionDate,
+                            month: new Date(distributionDate).toLocaleString('default', { month: 'long', year: 'numeric' }),
+                            transactionType,
+                            status: 'pending',
+                            notes: notes || noteText,
+                            depositMode: 'Bank',
+                            sourceName: 'Internal System Posting'
+                        }
+                    });
+
+                } else if (allocationMethod === 'add-to-shares') {
+                     const primaryShareCommitment = await tx.memberShareCommitment.findFirst({
+                        where: { memberId, shareType: { paymentType: 'INSTALLMENT' } },
+                        orderBy: { joinDate: 'asc' }
+                    });
+
+                     if (!primaryShareCommitment) {
+                        console.warn(`Skipping dividend for member ${memberId}: No suitable share commitment found to add funds to.`);
+                        continue;
+                    }
+                    
+                    await tx.sharePayment.create({
+                        data: {
+                            commitmentId: primaryShareCommitment.id,
+                            amount,
+                            paymentDate: distributionDate,
+                            status: 'pending',
+                            notes: notes || 'Dividend allocated to shares',
+                            depositMode: 'Bank',
+                            sourceName: 'Internal System Posting'
+                        }
+                    });
+                }
+            }
+        });
+        
         revalidatePath('/dividends');
         revalidatePath('/approve-transactions');
+        revalidatePath('/savings');
+        revalidatePath('/shares');
         
-        return { success: true, message: `Successfully imported ${result.count} dividend records for approval.` };
+        return { success: true, message: `Successfully submitted ${dividends.length} dividend allocations for approval.` };
 
     } catch (error) {
-        console.error("Failed during dividend import:", error);
-        return { success: false, message: 'A critical error occurred during the import process. Please check for duplicate records or invalid data.' };
+        console.error("Failed during dividend import and allocation:", error);
+        return { success: false, message: 'A critical error occurred during the import process. Please check for invalid data.' };
     }
 }
