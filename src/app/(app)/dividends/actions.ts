@@ -32,48 +32,58 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
 
 export type DividendInput = Omit<Dividend, 'id' | 'status'> & { memberName?: string };
 
-export async function addDividend(data: DividendInput): Promise<Dividend> {
-  const member = await prisma.member.findUnique({ where: { id: data.memberId } });
-  if (!member) throw new Error('Member not found');
-  
-  const newDividend = await prisma.dividend.create({
-    data: {
-      memberId: data.memberId,
-      amount: data.amount,
-      distributionDate: new Date(data.distributionDate),
-      shareCountAtDistribution: data.shareCountAtDistribution,
-      status: 'pending',
-      notes: data.notes,
-    },
-  });
+export async function addDividend(data: DividendInput): Promise<{success: boolean; error?: string}> {
+  try {
+    const member = await prisma.member.findUnique({ where: { id: data.memberId } });
+    if (!member) throw new Error('Member not found');
+    
+    await prisma.dividend.create({
+      data: {
+        memberId: data.memberId,
+        amount: data.amount,
+        distributionDate: new Date(data.distributionDate),
+        shareCountAtDistribution: data.shareCountAtDistribution,
+        status: 'pending',
+        notes: data.notes,
+      },
+    });
 
-  revalidatePath('/dividends');
-  revalidatePath('/approve-transactions');
-  return newDividend;
+    revalidatePath('/dividends');
+    revalidatePath('/approve-transactions');
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { success: false, error: message };
+  }
 }
 
-export async function updateDividend(id: string, data: Partial<DividendInput>): Promise<Dividend> {
-  if (!data.memberId) {
-    throw new Error('Member is required to update a dividend record.');
-  }
-  const member = await prisma.member.findUnique({ where: { id: data.memberId } });
-  if (!member) throw new Error('Member not found');
-  
-  const updatedDividend = await prisma.dividend.update({
-    where: { id },
-    data: {
-      memberId: data.memberId,
-      amount: data.amount,
-      distributionDate: data.distributionDate ? new Date(data.distributionDate) : undefined,
-      shareCountAtDistribution: data.shareCountAtDistribution,
-      status: 'pending', // Re-submit for approval on edit
-      notes: data.notes,
-    },
-  });
+export async function updateDividend(id: string, data: Partial<DividendInput>): Promise<{success: boolean; error?: string}> {
+  try {
+    if (!data.memberId) {
+      throw new Error('Member is required to update a dividend record.');
+    }
+    const member = await prisma.member.findUnique({ where: { id: data.memberId } });
+    if (!member) throw new Error('Member not found');
+    
+    await prisma.dividend.update({
+      where: { id },
+      data: {
+        memberId: data.memberId,
+        amount: data.amount,
+        distributionDate: data.distributionDate ? new Date(data.distributionDate) : undefined,
+        shareCountAtDistribution: data.shareCountAtDistribution,
+        status: 'pending', // Re-submit for approval on edit
+        notes: data.notes,
+      },
+    });
 
-  revalidatePath('/dividends');
-  revalidatePath('/approve-transactions');
-  return updatedDividend;
+    revalidatePath('/dividends');
+    revalidatePath('/approve-transactions');
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { success: false, error: message };
+  }
 }
 
 
@@ -85,6 +95,7 @@ export async function deleteDividend(id: string): Promise<{ success: boolean; me
     }
     await prisma.dividend.delete({ where: { id } });
     revalidatePath('/dividends');
+    revalidatePath('/approve-transactions');
     return { success: true, message: 'Dividend record deleted successfully.' };
   } catch (error) {
     console.error('Failed to delete dividend:', error);
