@@ -1,19 +1,17 @@
 
 import { headers } from 'next/headers';
-import { validateNibToken, requestMoney } from './actions';
+import { validateNibToken } from './actions';
 import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MiniAppClient } from './client';
+import { getWebsiteContent } from '@/lib/website-actions';
 
 export default async function MiniAppPage() {
   const headersList = headers();
   const authHeader = headersList.get('Authorization');
   let validationResult: { phoneNumber?: string; error?: string } = { error: 'Authorization token not found.' };
   let token: string | null = null;
+  const content = await getWebsiteContent();
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7);
@@ -25,9 +23,9 @@ export default async function MiniAppPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Logo />
+            <Logo logo={content?.logo} saccoName={content?.saccoName} />
           </div>
-          <CardTitle className="text-2xl font-bold text-primary">SACCO Savings</CardTitle>
+          <CardTitle className="text-2xl font-bold text-primary">{content?.saccoName || "SACCO"} Savings</CardTitle>
           <CardDescription>
             Seamlessly deposit funds into your SACCO savings account directly from NIBtera.
           </CardDescription>

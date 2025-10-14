@@ -9,6 +9,7 @@ import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 interface MiniAppClientProps {
   validationResult: { phoneNumber?: string; error?: string };
@@ -19,6 +20,7 @@ export function MiniAppClient({ validationResult, token }: MiniAppClientProps) {
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { content } = useAuth();
 
   const handleDeposit = async () => {
     if (!token) {
@@ -38,7 +40,7 @@ export function MiniAppClient({ validationResult, token }: MiniAppClientProps) {
         token,
         amount: depositAmount.toString(),
         accountNo: "7000", // Example merchant account
-        companyName: "AcademInvest",
+        companyName: content?.saccoName || "AcademInvest",
         transactionId: `TXN-${Date.now()}`,
         transactionTime: new Date().getTime().toString(),
     };
