@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateNibToken, createSignature } from '@/app/minapp/actions';
+import { validateNibToken } from '@/app/minapp/actions';
+import { createSignature } from '@/app/minapp/utils'; // Import from the new utility file
 
 /**
  * API route to handle callback notifications from NIBtera.

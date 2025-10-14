@@ -1,7 +1,8 @@
+
 'use server';
 
 import axios from 'axios';
-import crypto from 'crypto';
+import { createSignature } from './utils'; // Import from the new utility file
 
 /**
  * Validates the NIBtera authentication token.
@@ -39,21 +40,6 @@ export async function validateNibToken(token: string): Promise<{ phoneNumber?: s
   }
 }
 
-/**
- * Creates a SHA256 signature from a sorted dictionary of parameters.
- * @param payload The sorted dictionary of key-value pairs.
- * @returns The SHA256 hash as a hex string.
- */
-export function createSignature(payload: Record<string, string>): string {
-  const sortedPayload = new Map(Object.entries(payload).sort());
-  const temp: string[] = [];
-  sortedPayload.forEach((value, key) => {
-    temp.push(`${key}=${value}`);
-  });
-  const dataString = temp.join('&');
-  return crypto.createHash('sha256').update(dataString).digest('hex');
-}
-
 interface RequestMoneyParams {
     token: string;
     amount: string;
@@ -79,7 +65,7 @@ export async function requestMoney(params: RequestMoneyParams): Promise<{ succes
     }
 
     try {
-        const integrityCheckPayload = {
+        const integrityCheckPayload: Record<string, string> = {
             accountNo: params.accountNo,
             amount: params.amount,
             callBackURL: callBackURL,
