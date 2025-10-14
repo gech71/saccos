@@ -80,7 +80,7 @@ type ParsedDividend = {
 };
 
 export default function DividendsPage() {
-  const [dividends, setDividends] = useState<Dividend[]>([]);
+  const [dividends, setDividends] = useState<(Dividend & { memberName: string })[]>([]);
   const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,21 +145,22 @@ export default function DividendsPage() {
     }
 
     setIsSubmitting(true);
-    try {
-        if (isEditing && currentDividend.id) {
-            await updateDividend(currentDividend.id, currentDividend as DividendInput);
-            toast({ title: 'Dividend Updated', description: 'Dividend record updated and sent for re-approval.' });
-        } else {
-            await addDividend(currentDividend as DividendInput);
-            toast({ title: 'Dividend Submitted', description: 'Dividend distribution sent for approval.' });
-        }
+    let result;
+    if (isEditing && currentDividend.id) {
+        result = await updateDividend(currentDividend.id, currentDividend as DividendInput);
+    } else {
+        result = await addDividend(currentDividend as DividendInput);
+    }
+    
+    if (result.success) {
+        toast({ title: 'Success', description: `Dividend record ${isEditing ? 'updated' : 'created'} and sent for approval.` });
         await fetchPageData();
         setIsModalOpen(false);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'An error occurred while saving the dividend.' });
-    } finally {
-        setIsSubmitting(false);
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
+    
+    setIsSubmitting(false);
   };
 
   const openAddModal = () => {
@@ -247,13 +248,13 @@ export default function DividendsPage() {
   
   const paginationItems = getPaginationItems();
 
-  const totalDividendsDistributed = useMemo(() => filteredDividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [filteredDividends]);
+  const totalDividendsDistributed = useMemo(() => dividends.filter(d => d.status === 'approved').reduce((sum, d) => sum + d.amount, 0), [dividends]);
   const averageDividendPerShare = useMemo(() => {
-    const approvedDividends = filteredDividends.filter(d => d.status === 'approved');
+    const approvedDividends = dividends.filter(d => d.status === 'approved');
     const totalAmount = approvedDividends.reduce((sum, d) => sum + d.amount, 0);
     const totalShares = approvedDividends.reduce((sum, d) => sum + d.shareCountAtDistribution, 0);
     return totalShares > 0 ? totalAmount / totalShares : 0;
-  }, [filteredDividends]);
+  }, [dividends]);
 
   const getStatusBadgeVariant = (status: 'pending' | 'approved' | 'rejected') => {
     switch (status) {
@@ -456,7 +457,7 @@ export default function DividendsPage() {
                 <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedDividends.length > 0 ? paginatedDividends.map(dividend => (
                <TableRow key={dividend.id} className={dividend.status === 'pending' ? 'bg-yellow-500/10' : dividend.status === 'rejected' ? 'bg-red-500/10' : ''}>
-                <TableCell className="font-medium">{(dividend as any).memberName || members.find(m => m.id === dividend.memberId)?.fullName}</TableCell>
+                <TableCell className="font-medium">{dividend.memberName}</TableCell>
                 <TableCell><Badge variant={getStatusBadgeVariant(dividend.status)}>{dividend.status.charAt(0).toUpperCase() + dividend.status.slice(1)}</Badge></TableCell>
                 <TableCell className="text-right font-semibold">{dividend.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
                 <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
@@ -727,6 +728,7 @@ export default function DividendsPage() {
     </div>
   );
 }
+
 
 
 
