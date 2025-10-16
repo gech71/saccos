@@ -25,7 +25,6 @@ export default async function MiniAppPage() {
           <div className="flex justify-center mb-4">
             <Logo logo={content?.logo} saccoName={content?.saccoName} />
           </div>
-          <CardTitle className="text-2xl font-bold text-primary">{content?.saccoName || "SACCO"} Savings</CardTitle>
           <CardDescription>
             Seamlessly deposit funds into your SACCO savings account directly from NIBtera.
           </CardDescription>

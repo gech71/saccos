@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType, type Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
+import { randomUUID as uuidv4 } from 'crypto';
 
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
@@ -359,70 +360,91 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
 
 
 export interface ImportedMember {
-    MemberID: string;
-    MemberFullName: string;
-    SchoolID: string;
-    Salary?: number;
+  MemberID: string | number;
+  MemberFullName: string;
+  SchoolID: string;
+  Salary?: number;
 }
 
-export async function importMembers(members: ImportedMember[]): Promise<{ success: boolean, message: string }> {
-    if (members.length === 0) {
-        return { success: true, message: 'No new members to import.' };
-    }
-    
-    const schools = await prisma.school.findMany({ select: { id: true, name: true } });
-    const schoolMap = new Map(schools.map(s => [s.id, s.name]));
-    const temporaryPassword = '123456';
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-    const joinDate = new Date();
+export async function importMembers(
+  members: ImportedMember[]
+): Promise<{ success: boolean; message: string }> {
+  if (members.length === 0) {
+    return { success: true, message: 'No new members to import.' };
+  }
 
-    const membersToCreate: Prisma.MemberCreateManyInput[] = members.map(m => {
-        const timestamp = Date.now() + Math.random(); // Add randomness to avoid collision in fast loops
-        return {
-            id: m.MemberID,
-            fullName: m.MemberFullName,
-            email: `${timestamp}-${m.MemberID}@academinvest.com`, // Unique placeholder email
-            password: hashedPassword,
-            mustChangePassword: true,
-            sex: 'Male', // Default value
-            phoneNumber: `09${Math.floor(10000000 + Math.random() * 90000000)}`, // Random placeholder phone
-            schoolId: m.SchoolID,
-            joinDate: joinDate,
-            status: 'active',
-            salary: m.Salary,
-        };
+  // 🔹 Normalize and deduplicate IDs before database operation
+  const normalizedMembers = members.map((m) => ({
+    ...m,
+    MemberID: String(m.MemberID).trim(),
+  }));
+
+  const uniqueMembersMap = new Map<string, ImportedMember>();
+  for (const m of normalizedMembers) {
+    if (!uniqueMembersMap.has(m.MemberID)) {
+      uniqueMembersMap.set(m.MemberID, m);
+    }
+  }
+  const uniqueMembers = Array.from(uniqueMembersMap.values());
+
+  const schools = await prisma.school.findMany({ select: { id: true, name: true } });
+  const schoolMap = new Map(schools.map((s) => [s.id, s.name]));
+
+  const hashedPassword = await bcrypt.hash('123456', 10);
+  const joinDate = new Date();
+
+  const membersToCreate: Prisma.MemberCreateManyInput[] = uniqueMembers.map((m) => ({
+    id: String(m.MemberID).trim(),
+    fullName: m.MemberFullName,
+    email: `${uuidv4()}@academinvest.com`, // Guaranteed unique
+    password: hashedPassword,
+    mustChangePassword: true,
+    sex: 'Male',
+    phoneNumber: `09${Math.floor(10000000 + Math.random() * 90000000)}`,
+    schoolId: m.SchoolID,
+    joinDate,
+    status: 'active',
+    salary: m.Salary,
+  }));
+
+  const schoolHistoryToCreate: Prisma.SchoolHistoryCreateManyInput[] = uniqueMembers.map((m) => ({
+    memberId: String(m.MemberID).trim(),
+    schoolId: m.SchoolID,
+    schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
+    startDate: joinDate,
+    endDate: null,
+  }));
+
+  try {
+    const createdMembersResult = await prisma.member.createMany({
+      data: membersToCreate,
+      skipDuplicates: true,
     });
 
-    const schoolHistoryToCreate: Prisma.SchoolHistoryCreateManyInput[] = members.map(m => ({
-        memberId: m.MemberID,
-        schoolId: m.SchoolID,
-        schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
-        startDate: joinDate,
-        endDate: null,
-    }));
+    const createdMemberIds = uniqueMembers
+      .slice(0, createdMembersResult.count)
+      .map((m) => String(m.MemberID).trim());
 
-    try {
-        const createdMembersResult = await prisma.member.createMany({
-            data: membersToCreate,
-            skipDuplicates: true, // This will skip any members that already exist
-        });
+    await prisma.schoolHistory.createMany({
+      data: schoolHistoryToCreate.filter((sh) => createdMemberIds.includes(sh.memberId)),
+      skipDuplicates: true,
+    });
 
-        const createdMemberIds = members.slice(0, createdMembersResult.count).map(m => m.MemberID);
-        
-        await prisma.schoolHistory.createMany({
-            data: schoolHistoryToCreate.filter(sh => createdMemberIds.includes(sh.memberId)),
-            skipDuplicates: true,
-        });
+    revalidatePath('/members');
 
-        revalidatePath('/members');
+    const message = `Successfully imported ${createdMembersResult.count} new members. ${
+      uniqueMembers.length - createdMembersResult.count
+    } member(s) were skipped as duplicates.`;
 
-        const message = `Successfully imported ${createdMembersResult.count} new members. ${members.length - createdMembersResult.count} member(s) were skipped as duplicates.`;
-        return { success: true, message };
-
-    } catch (error) {
-        console.error("Failed during member import:", error);
-        return { success: false, message: 'A critical error occurred during the import process. Check for invalid data.' };
-    }
+    return { success: true, message };
+  } catch (error) {
+    console.error('Failed during member import:', error);
+    return {
+      success: false,
+      message:
+        'A critical error occurred during the import process. Check for invalid or duplicate member IDs.',
+    };
+  }
 }
 
 export async function changeMemberPassword(memberId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
