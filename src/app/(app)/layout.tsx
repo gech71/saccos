@@ -42,10 +42,11 @@ import {
   Newspaper,
   Settings2,
 } from 'lucide-react';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const navItems: NavItem[] = [
   {
@@ -248,7 +249,8 @@ const navItems: NavItem[] = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, user, member, content } = useAuth();
+  const { isAuthenticated, isLoading, user, member, content, logout } = useAuth();
+  const { toast } = useToast();
 
   const filteredNavItems = useMemo(() => {
     if (!user?.permissions) return [];
@@ -275,6 +277,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return acc;
     }, [] as NavItem[]);
   }, [user]);
+  
+  // Session Timeout Logic
+  const handleInactiveLogout = useCallback(() => {
+    toast({
+      title: 'Session Expired',
+      description: 'You have been logged out due to inactivity.',
+      variant: 'destructive'
+    });
+    logout();
+  }, [logout, toast]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const sessionTimeout = 1000 * 60 * 30; // 30 minutes
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleInactiveLogout, sessionTimeout);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
+
+    const resetTimerOnActivity = () => resetTimer();
+
+    events.forEach(event => window.addEventListener(event, resetTimerOnActivity));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimerOnActivity));
+    };
+  }, [isAuthenticated, handleInactiveLogout]);
+
 
   useEffect(() => {
     if (isLoading) {
