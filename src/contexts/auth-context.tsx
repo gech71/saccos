@@ -64,6 +64,20 @@ export const AuthProvider = ({ children, initialContent }: { children: React.Rea
     router.push('/login');
   }, [router]);
   
+  const logout = useCallback(() => {
+    handleLogout();
+    toast({ title: 'Logged Out', description: 'You have been successfully signed out.' });
+  }, [handleLogout, toast]);
+
+  const handleInactiveLogout = useCallback(() => {
+    toast({
+      title: "Session Expired",
+      description: "You have been logged out due to 30 minutes of inactivity.",
+      variant: "destructive",
+    });
+    logout();
+  }, [logout, toast]);
+
   const handleAuthSuccess = useCallback(async (data: { accessToken: string; refreshToken: string; }) => {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
@@ -131,6 +145,34 @@ export const AuthProvider = ({ children, initialContent }: { children: React.Rea
     };
     initAuth();
   }, [handleAuthSuccess, handleLogout, content]);
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const sessionTimeout = 1000 * 60 * 30; // 30 minutes
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleInactiveLogout, sessionTimeout);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
+
+    const resetTimerOnActivity = () => resetTimer();
+
+    // Only set up timers if the user is authenticated
+    if (user || member) {
+      events.forEach(event => window.addEventListener(event, resetTimerOnActivity));
+      resetTimer();
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimerOnActivity));
+    };
+  }, [user, member, handleInactiveLogout]);
+
 
   const login = async (data: any) => {
     try {
@@ -211,12 +253,6 @@ export const AuthProvider = ({ children, initialContent }: { children: React.Rea
       toast({ variant: 'destructive', title: 'Registration Failed', description: errorMessage });
       throw new Error(errorMessage);
     }
-  };
-
-
-  const logout = () => {
-    handleLogout();
-    toast({ title: 'Logged Out', description: 'You have been successfully signed out.' });
   };
   
   const value = {
