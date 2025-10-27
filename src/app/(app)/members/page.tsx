@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -131,6 +131,9 @@ export default function MembersPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  
+  // New password state
+  const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string; password:  string} | null>(null);
 
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
@@ -257,15 +260,8 @@ export default function MembersPage() {
         if (result.error) {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
         } else {
-            toast({ 
-                title: 'Success', 
-                description: (
-                    <div>
-                        <p>Member added successfully.</p>
-                        <p className="font-semibold">The temporary password is "123456". The member will be required to change it on first login.</p>
-                    </div>
-                )
-            });
+            toast({ title: 'Success', description: `Member '${result.member?.fullName}' added.` });
+            setNewPasswordInfo({ memberName: result.member!.fullName, password: result.temporaryPassword! });
             setIsMemberModalOpen(false);
             await fetchPageData();
         }
@@ -746,13 +742,6 @@ export default function MembersPage() {
             <DialogDescription>{isEditingMember ? 'Update the details for this member.' : 'Enter the details for the new member.'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
-            {!isEditingMember && (
-              <Alert>
-                <AlertDescription>
-                  The default temporary password is "123456". The member will be required to change it on their first login.
-                </AlertDescription>
-              </Alert>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label htmlFor="id">Member ID <span className="text-destructive">*</span></Label><Input id="id" name="id" value={currentMember.id || ''} onChange={handleMemberInputChange} required readOnly={isEditingMember} /></div>
                 <div><Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label><Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required /></div>
@@ -833,6 +822,26 @@ export default function MembersPage() {
           </form>
         </DialogContent>
       </Dialog>
+       <AlertDialog open={!!newPasswordInfo}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Member Created Successfully!</AlertDialogTitle>
+            <AlertDialogDescription>
+                Please provide the following temporary password to <strong>{newPasswordInfo?.memberName}</strong>. They will be required to change it upon their first login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="p-4 bg-muted rounded-md text-center">
+            <p className="text-lg font-mono font-bold tracking-widest">{newPasswordInfo?.password}</p>
+          </div>
+          <AlertDialogFooter>
+            <Button onClick={() => {
+                navigator.clipboard.writeText(newPasswordInfo?.password || '');
+                toast({ title: 'Copied!', description: 'Password copied to clipboard.' });
+            }}><Copy className="mr-2 h-4 w-4"/> Copy Password</Button>
+            <AlertDialogAction onClick={() => setNewPasswordInfo(null)}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={isTransferModalOpen} onOpenChange={setIsTransferModalOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Transfer {memberToTransfer?.fullName}</DialogTitle><DialogDescription>Select a new school. Their history at the current school will be preserved.</DialogDescription></DialogHeader>
@@ -853,3 +862,4 @@ export default function MembersPage() {
     </div>
   );
 }
+

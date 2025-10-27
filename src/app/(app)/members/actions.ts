@@ -1,11 +1,12 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
 import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType, type Member } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
-import { randomUUID as uuidv4 } from 'crypto';
+import { randomBytes } from 'crypto';
 
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
@@ -97,7 +98,7 @@ function validateMemberData(data: MemberInput): string | null {
 }
 
 
-export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; }> {
+export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; temporaryPassword?: string }> {
     const validationError = validateMemberData(data);
     if (validationError) {
         return { error: validationError };
@@ -145,8 +146,8 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
             where: { id: { in: validShareCommitmentIds } }
         });
 
-        // Use a static temporary password
-        const temporaryPassword = '123456';
+        // Generate a secure random password
+        const temporaryPassword = randomBytes(4).toString('hex'); // 8 characters
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
         const newMember = await prisma.member.create({
@@ -193,7 +194,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         revalidatePath('/members');
         revalidatePath('/applied-service-charges');
         revalidatePath('/shares');
-        return { member: newMember };
+        return { member: newMember, temporaryPassword };
     } catch (error) {
         console.error('Failed to add member:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -396,7 +397,7 @@ export async function importMembers(
   const membersToCreate: Prisma.MemberCreateManyInput[] = uniqueMembers.map((m) => ({
     id: String(m.MemberID).trim(),
     fullName: m.MemberFullName,
-    email: `${uuidv4()}@academinvest.com`, // Guaranteed unique
+    email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Guaranteed unique
     password: hashedPassword,
     mustChangePassword: true,
     sex: 'Male',
