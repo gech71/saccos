@@ -12,17 +12,19 @@ export async function POST(req: NextRequest) {
 
     // Configure Nodemailer transporter
     const transporter = nodemailer.createTransport({
-      service: 'gmail', 
+      service: 'gmail',
+      // Explicitly enforce secure connection
+      secure: true,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.SMTP_EMAIL_USER,
+        pass: process.env.SMTP_EMAIL_PASS,
       },
     });
 
     // Format email
     const mailOptions = {
       from: `"${firstName} ${lastName}" <${email}>`,
-      to: process.env.EMAIL_USER, // send to your email
+      to: process.env.SMTP_EMAIL_USER, // send to your email
       subject: `New Contact Message from ${firstName} ${lastName}`,
       text: `
         You received a new message from the contact form:
