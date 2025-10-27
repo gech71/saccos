@@ -39,8 +39,7 @@ export default function ContactPageWrapper() {
 
       if (res.ok) {
         setStatus('✅ Message sent successfully!');
-        console.log("✅ Message sent successfully!");        
-        form.reset(); // ✅ safe since we hold ref to form
+        form.reset(); 
 
         // Auto-clear success message after 5s
         setTimeout(() => setStatus(null), 5000);

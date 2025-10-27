@@ -55,7 +55,6 @@ export async function requestPasswordReset(
 
         if (member) {
              if (!member.password) {
-                console.log(`Password reset requested for member ${member.email} without a local password setup.`);
                 return { success: true, message: genericSuccessMessage };
             }
             await prisma.member.update({

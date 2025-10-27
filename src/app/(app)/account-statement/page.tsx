@@ -58,7 +58,7 @@ function AccountStatementContent() {
   }, [selectedMemberId, allMembers]);
 
   useEffect(() => {
-    if (!user) return; // Wait for user context to be available
+    if (!user) return; 
     
     async function fetchData() {
       const [members, content] = await Promise.all([
