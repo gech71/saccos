@@ -7,6 +7,7 @@ import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType,
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { z } from 'zod';
 
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
@@ -74,38 +75,49 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     };
 }
 
+const addressSchema = z.object({
+  city: z.string().optional(),
+  subCity: z.string().optional(),
+  wereda: z.string().optional(),
+  kebele: z.string().optional(),
+  houseNumber: z.string().optional(),
+}).optional();
+
+const emergencyContactSchema = z.object({
+    name: z.string().optional(),
+    phone: z.string().optional(),
+}).optional();
+
+// Zod schema for robust validation
+const memberInputSchema = z.object({
+    id: z.string().min(1, 'Member ID is required.'),
+    fullName: z.string().min(2, 'Full name is required.').max(100),
+    email: z.string().email('Invalid email format.').toLowerCase(),
+    sex: z.enum(['Male', 'Female']),
+    phoneNumber: z.string().regex(/^(09|\+2519)\d{8}$/, 'Invalid Ethiopian phone number format.'),
+    schoolId: z.string().min(1, 'School is required.'),
+    joinDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Invalid join date" }),
+    salary: z.number().nullable().optional(),
+    shareCommitmentIds: z.array(z.string().nullable()).optional(),
+    serviceChargeIds: z.array(z.string()).optional(),
+    address: addressSchema,
+    emergencyContact: emergencyContactSchema,
+});
+
+
 // Type for creating/updating a member, received from the client
-export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts' | 'memberShareCommitments'> & {
-    joinDate: string;
-    salary?: number | null;
-    shareCommitmentIds?: (string | null)[];
-    serviceChargeIds?: string[];
-    address?: Prisma.AddressCreateWithoutMemberInput;
-    emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
-};
-
-function validateMemberData(data: MemberInput): string | null {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (data.email && !emailRegex.test(data.email)) {
-        return 'Invalid email format.';
-    }
-
-    const phoneRegex = /^(09|\+2519)\d{8}$/;
-    if (data.phoneNumber && !phoneRegex.test(data.phoneNumber)) {
-        return 'Invalid phone number format. Must be in 09xxxxxxxx or +2519xxxxxxxx format.';
-    }
-    return null;
-}
+export type MemberInput = z.infer<typeof memberInputSchema>;
 
 
 export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; temporaryPassword?: string }> {
-    const validationError = validateMemberData(data);
-    if (validationError) {
-        return { error: validationError };
+    const validationResult = memberInputSchema.safeParse(data);
+    if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        return { error: `${firstError.path.join('.')}: ${firstError.message}` };
     }
 
     try {
-        const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = data;
+        const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
 
         const existingMemberById = await prisma.member.findUnique({
             where: { id: id },
@@ -205,13 +217,14 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<{ success: boolean; error?: string }> {
-    const validationError = validateMemberData(data);
-    if (validationError) {
-        return { success: false, error: validationError };
+    const validationResult = memberInputSchema.safeParse(data);
+    if (!validationResult.success) {
+        const firstError = validationResult.error.errors[0];
+        return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
     }
 
     try {
-        const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = data;
+        const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
 
         if (memberData.email) {
             const existingMemberByEmail = await prisma.member.findUnique({
@@ -391,7 +404,7 @@ export async function importMembers(
   const schools = await prisma.school.findMany({ select: { id: true, name: true } });
   const schoolMap = new Map(schools.map((s) => [s.id, s.name]));
 
-  const hashedPassword = await bcrypt.hash('123456', 10);
+  const hashedPassword = await bcrypt.hash(randomBytes(4).toString('hex'), 10);
   const joinDate = new Date();
 
   const membersToCreate: Prisma.MemberCreateManyInput[] = uniqueMembers.map((m) => ({
@@ -464,5 +477,3 @@ export async function changeMemberPassword(memberId: string, newPassword: string
         return { success: false, error: 'An unexpected error occurred.' };
     }
 }
-
-    
