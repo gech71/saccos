@@ -24,7 +24,7 @@ export function Header({
 }: {
   content: WebsiteContent | null;
 }) {
-  const { user, logout } = useAuth();
+  const { user, member, logout, isAuthenticated } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -62,6 +62,8 @@ export function Header({
       </header>
     );
   }
+
+  const sessionUser = user || member;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -102,39 +104,43 @@ export function Header({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
-              {user ? (
+              {isAuthenticated && sessionUser ? (
                 <>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user.name}
+                        {sessionUser.name}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
+                        {sessionUser.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings/profile">
-                      <UserCircle className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {user && ( // Only show settings for admin users
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings/profile">
+                          <UserCircle className="mr-2 h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings">
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>Settings</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </>
               ) : (
-                 <DropdownMenuItem onClick={logout}>
+                 <DropdownMenuItem onClick={() => window.location.href = '/login'}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log In</span>
                   </DropdownMenuItem>
