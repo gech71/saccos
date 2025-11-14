@@ -9,6 +9,25 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 
+// Helpers for phone normalization/formatting
+function toLocalPhone(phone?: string | null) {
+    if (!phone) return '';
+    const p = phone.trim();
+    if (p.startsWith('+251')) {
+        const rest = p.slice(4);
+        return rest ? `0${rest}` : p;
+    }
+    return p;
+}
+
+function toIntlPhone(phone?: string | null) {
+    if (!phone) return '';
+    const p = phone.trim();
+    if (p.startsWith('+251')) return p;
+    if (/^0[79]\d{8}$/.test(p)) return `+251${p.slice(1)}`;
+    return p;
+}
+
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
     school: { name: string } | null;
@@ -94,7 +113,8 @@ const memberInputSchema = z.object({
     fullName: z.string().min(2, 'Full name is required.').max(100),
     email: z.string().email('Invalid email format.').toLowerCase(),
     sex: z.enum(['Male', 'Female']),
-    phoneNumber: z.string().regex(/^09\d{8}$/, 'Phone number must be 10 digits and start with 09.'),
+    // Accept local formats starting with 09 or 07 plus 8 digits, or international +2519/+2517 + 8 digits
+    phoneNumber: z.string().regex(/^(?:0[79]\d{8}|\+251[79]\d{8})$/, 'Phone number must be in the format 09xxxxxxxx, 07xxxxxxxx, +2519xxxxxxxx or +2517xxxxxxxx'),
     schoolId: z.string().min(1, 'School is required.'),
     joinDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Invalid join date" }),
     salary: z.number().nullable().optional(),
@@ -110,14 +130,23 @@ export type MemberInput = z.infer<typeof memberInputSchema>;
 
 // Helper function for duplicate checks
 async function checkDuplicates(email: string, phoneNumber: string, memberIdToExclude?: string) {
-    const OR = [];
+    const OR: any[] = [];
     if (email) OR.push({ email: { equals: email, mode: 'insensitive' as const } });
-    if (phoneNumber) OR.push({ phoneNumber });
+    if (phoneNumber) {
+        const local = toLocalPhone(phoneNumber);
+        const intl = toIntlPhone(phoneNumber);
+        OR.push({ phoneNumber: local });
+        OR.push({ phoneNumber: intl });
+    }
 
     const existingUser = await prisma.user.findFirst({ where: { OR } });
     if (existingUser && existingUser.id !== memberIdToExclude) {
         if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by an admin user.`;
-        if (existingUser.phoneNumber === phoneNumber) return `Phone number is already in use by an admin user.`;
+        if (existingUser.phoneNumber) {
+            const storedLocal = toLocalPhone(existingUser.phoneNumber);
+            const inputLocal = toLocalPhone(phoneNumber);
+            if (storedLocal === inputLocal) return `Phone number is already in use by an admin user.`;
+        }
     }
     
     const where: Prisma.MemberWhereInput = { OR };
@@ -128,7 +157,11 @@ async function checkDuplicates(email: string, phoneNumber: string, memberIdToExc
     const existingMember = await prisma.member.findFirst({ where });
     if (existingMember) {
         if (existingMember.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by member ${existingMember.fullName}.`;
-        if (existingMember.phoneNumber === phoneNumber) return `Phone number is already in use by member ${existingMember.fullName}.`;
+        if (existingMember.phoneNumber) {
+            const storedLocal = toLocalPhone(existingMember.phoneNumber);
+            const inputLocal = toLocalPhone(phoneNumber);
+            if (storedLocal === inputLocal) return `Phone number is already in use by member ${existingMember.fullName}.`;
+        }
     }
     
     return null;
@@ -143,7 +176,9 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     }
 
     try {
-        const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
+    const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
+    // Normalize phone to local format before any checks/storage
+    if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
 
         // Check for duplicate ID separately for a more specific error
         const existingMemberById = await prisma.member.findUnique({ where: { id: id } });
@@ -250,9 +285,11 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
     }
 
     try {
-        const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
+    const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
+    // Normalize phone to local format before duplicate checks and storage
+    if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
 
-        const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber, id);
+    const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber, id);
         if (duplicateError) {
             return { success: false, error: duplicateError };
         }
@@ -441,7 +478,7 @@ export async function importMembers(
           temporaryPassword: temporaryPassword,
           mustChangePassword: true,
           sex: 'Male', // Default, can be updated later
-          phoneNumber: m.PhoneNumber,
+          phoneNumber: toLocalPhone(m.PhoneNumber),
           schoolId: m.SchoolID,
           joinDate,
           status: 'active',

@@ -8,6 +8,25 @@ import type { User, Member, Role } from '@prisma/client';
 import type { AuthUser, MemberAuthUser } from './types';
 import { permissionsList } from './app/(app)/settings/permissions';
 
+// Phone normalization helpers (local <-> international)
+function toLocalPhone(phone?: string | null) {
+  if (!phone) return '';
+  const p = phone.trim();
+  if (p.startsWith('+251')) {
+    const rest = p.slice(4);
+    return rest ? `0${rest}` : p;
+  }
+  return p;
+}
+
+function toIntlPhone(phone?: string | null) {
+  if (!phone) return '';
+  const p = phone.trim();
+  if (p.startsWith('+251')) return p;
+  if (/^0[79]\d{8}$/.test(p)) return `+251${p.slice(1)}`;
+  return p;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: {
@@ -29,9 +48,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Normalize candidate phone forms and attempt to find/admin or member by either format
+        const phoneLocal = toLocalPhone(phoneNumber);
+        const phoneIntl = toIntlPhone(phoneNumber);
+
         // 1. Attempt to find and authenticate an admin User
         const adminUser = await prisma.user.findFirst({
-          where: { phoneNumber: phoneNumber },
+          where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
 
         if (adminUser) {
@@ -70,7 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // 2. If no authenticated admin, attempt to find and authenticate a Member
         const member = await prisma.member.findFirst({
-          where: { phoneNumber: phoneNumber },
+          where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
 
         if (member) {

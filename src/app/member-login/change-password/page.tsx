@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { signOut } from 'next-auth/react';
 import { Logo } from '@/components/logo';
 import { Loader2, KeyRound } from 'lucide-react';
 import { changeMemberPassword } from '@/app/(app)/members/actions';
@@ -52,9 +53,12 @@ function ChangePasswordForm() {
 
     setIsLoading(true);
     const result = await changeMemberPassword(memberId, newPassword);
-    if (result.success) {
-        toast({ title: 'Password Changed Successfully', description: 'You can now log in with your new password.' });
-        router.push('/login');
+  if (result.success) {
+    // Password updated server-side. Sign the user out so the session is cleared
+    // (the current JWT/session still contains the old mustChangePassword flag).
+    toast({ title: 'Password Changed Successfully', description: 'You can now log in with your new password.' });
+    // Sign out and redirect to login to force a fresh sign-in with the new password.
+    await signOut({ redirect: true, callbackUrl: '/login' });
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.error });
         setIsLoading(false);
