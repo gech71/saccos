@@ -9,6 +9,7 @@ import { Logo } from '../logo';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { WebsiteContent } from '@prisma/client';
+import { useAuth } from '@/contexts/auth-context';
 
 const navLinks = [
   { href: '/home', label: 'Home' },
@@ -20,6 +21,17 @@ const navLinks = [
 
 export function Navbar({ content }: { content: WebsiteContent | null }) {
   const pathname = usePathname();
+  const { isAuthenticated, user, member } = useAuth();
+
+  const getDashboardLink = () => {
+    if (!isAuthenticated) return '/login';
+    return member ? `/member-profile/${member.id}` : '/dashboard';
+  };
+  
+  const getDashboardLabel = () => {
+      if (!isAuthenticated) return 'Login';
+      return member ? 'My Profile' : 'Dashboard';
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -45,7 +57,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
             </Link>
           ))}
           <Button asChild>
-            <Link href="/login">Login</Link>
+            <Link href={getDashboardLink()}>{getDashboardLabel()}</Link>
           </Button>
         </nav>
 
@@ -78,7 +90,7 @@ export function Navbar({ content }: { content: WebsiteContent | null }) {
                   </Link>
                 ))}
                 <Button asChild className="mt-4">
-                  <Link href="/login">Login</Link>
+                  <Link href={getDashboardLink()}>{getDashboardLabel()}</Link>
                 </Button>
               </nav>
             </SheetContent>
