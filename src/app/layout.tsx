@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // SAFE nonce extraction
   let nonce = "";
   try {
-    const h = headers();
+    const h = await headers();
     nonce = h.get("x-nonce") || "";
   } catch {
     nonce = ""; // fallback during static rendering
