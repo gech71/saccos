@@ -2,6 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { auth } from '@/auth';
 import { format, compareDesc } from 'date-fns';
 import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment, ShareType, LoanType, ServiceChargeType, SavingAccountType } from '@prisma/client';
 
@@ -27,6 +28,22 @@ export interface MemberDetails {
 
 
 export async function getMemberDetails(memberId: string): Promise<MemberDetails | null> {
+    // Server-side authorization: ensure requesting user can view this member
+    try {
+        const session = await auth();
+        const user = session?.user as any;
+        if (!user) return null; // not authenticated
+
+        // Members may only view their own profile
+        if (user.isMember) {
+            if (user.id !== memberId) {
+                return null; // deny access
+            }
+        }
+        // Admins (non-members) are allowed; add permission checks here if needed
+    } catch (err) {
+        return null;
+    }
     const member = await prisma.member.findUnique({
         where: { id: memberId },
         include: {

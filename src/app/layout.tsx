@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/auth-context";
 import { getWebsiteContent } from "@/lib/website-actions";
+import { headers } from "next/headers";
 
 // --- Metadata generation ---
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,20 +17,35 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// --- Root Layout ---
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const content = await getWebsiteContent();
-  
+
+  // SAFE nonce extraction
+  let nonce = "";
+  try {
+    const h = headers();
+    nonce = h.get("x-nonce") || "";
+  } catch {
+    nonce = ""; // fallback during static rendering
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <head nonce={nonce}>
+        <link rel="preconnect" href="https://fonts.googleapis.com" nonce={nonce} />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+          nonce={nonce}
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
+          nonce={nonce}
         />
       </head>
+
       <body className="font-body antialiased">
         <AuthProvider initialContent={content}>
           {children}

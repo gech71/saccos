@@ -55,13 +55,21 @@ function LoginForm() {
   }, [error]);
   
    useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-        if (session.user.isMember) {
-            router.replace(`/member-profile/${session.user.id}`);
-        } else {
-            router.replace('/dashboard');
-        }
-    }
+  if (status === 'authenticated' && session?.user) {
+    (async () => {
+      try {
+        // Create refresh token cookie for long-lived refresh (7 days)
+        await fetch('/api/auth/create-refresh', { method: 'POST' });
+      } catch (err) {
+        console.error('Failed to create refresh token', err);
+      }
+      if (session.user.isMember) {
+        router.replace(`/member-profile/${session.user.id}`);
+      } else {
+        router.replace('/dashboard');
+      }
+    })();
+  }
   }, [status, session, router]);
 
 

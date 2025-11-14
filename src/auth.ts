@@ -1,5 +1,6 @@
 
 import NextAuth from 'next-auth';
+import jwt from 'jsonwebtoken';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import prisma from './lib/prisma';
@@ -29,8 +30,44 @@ function toIntlPhone(phone?: string | null) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Ensure a stable secret is set in env (NEXTAUTH_SECRET) so JWTs are signed consistently
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
   session: {
     strategy: 'jwt',
+  },
+  // Use JWS (signed JWT) by providing custom encode/decode so Auth.js does not create an encrypted JWE
+  jwt: {
+    encode: async ({ token, secret: _secret, maxAge }) => {
+      const signingKey = (_secret as string) || process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+      // Build a standard JWT payload expected by Auth.js: include `sub` (user id) and basic user claims.
+      const user = (token as any)?.user ?? (token as any);
+      const sub = (token as any)?.user?.id ?? (token as any)?.sub;
+      const payload: any = {
+        ...(typeof user === 'object' ? { name: user.name, email: user.email } : {}),
+      };
+      if (sub) payload.sub = sub;
+      try {
+        return jwt.sign(payload, signingKey as string, {
+          algorithm: 'HS256',
+          expiresIn: typeof maxAge === 'number' ? Math.floor(maxAge) : undefined,
+        });
+      } catch (err) {
+        console.error('JWT encode error', err);
+        throw err;
+      }
+    },
+    decode: async ({ token, secret: _secret }) => {
+      const signingKey = (_secret as string) || process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+      try {
+        const decoded = jwt.verify(token as string, signingKey as string, { algorithms: ['HS256'] }) as any;
+        // Auth.js expects an object with at least { sub } to identify the user
+        if (!decoded) return null;
+        return decoded;
+      } catch (err) {
+        // verification failed
+        return null;
+      }
+    },
   },
   providers: [
     CredentialsProvider({

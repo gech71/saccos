@@ -57,7 +57,12 @@ function ChangePasswordForm() {
     // Password updated server-side. Sign the user out so the session is cleared
     // (the current JWT/session still contains the old mustChangePassword flag).
     toast({ title: 'Password Changed Successfully', description: 'You can now log in with your new password.' });
-    // Sign out and redirect to login to force a fresh sign-in with the new password.
+    // Clear refresh cookie then sign out and redirect to login to force a fresh sign-in with the new password.
+    try {
+      await fetch('/api/auth/clear-refresh', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to clear refresh token', err);
+    }
     await signOut({ redirect: true, callbackUrl: '/login' });
     } else {
         toast({ variant: 'destructive', title: 'Error', description: result.error });

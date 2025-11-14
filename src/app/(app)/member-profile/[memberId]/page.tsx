@@ -3,7 +3,7 @@
 
 import { getMemberDetails } from './actions';
 import type { MemberDetails } from './actions';
-import { notFound, useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +60,7 @@ export default function MemberProfilePage() {
     const { user } = useAuth(); // Get current user type
     const [details, setDetails] = useState<MemberDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
 
     const [transactionFilter, setTransactionFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all');
     const [transactionDateRange, setTransactionDateRange] = useState<DateRange | undefined>(undefined);
@@ -75,13 +76,26 @@ export default function MemberProfilePage() {
             try {
                 const data = await getMemberDetails(memberId);
                 if (!data) {
-                    notFound();
-                } else {
-                    setDetails(data);
+                    // If unauthorized or missing, keep members on their own profile
+                    setIsLoading(false);
+                    if (user?.isMember) {
+                        // Redirect back to the current member's profile
+                        router.replace(`/member-profile/${user.id}`);
+                    } else {
+                        // For admins or other users, redirect to members list
+                        router.replace('/members');
+                    }
+                    return;
                 }
+                setDetails(data);
             } catch (error) {
                 console.error("Failed to load member details", error);
-                notFound();
+                setIsLoading(false);
+                if (user?.isMember) {
+                  router.replace(`/member-profile/${user.id}`);
+                } else {
+                  router.replace('/members');
+                }
             } finally {
                 setIsLoading(false);
             }

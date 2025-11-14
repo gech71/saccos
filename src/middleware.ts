@@ -1,59 +1,93 @@
-
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/auth';
 
-// This function can be marked `async` if using `await` inside
 export async function middleware(request: NextRequest) {
   const session = await auth();
   const { pathname } = request.nextUrl;
 
-  const publicPaths = ['/login', '/forgot-password', '/reset-password', '/home', '/about', '/news', '/contact', '/api/auth'];
-  
-  // Allow all API routes for auth and public pages to be accessed
+  // ------ CSP + NONCE ------
+  const response = NextResponse.next();
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  response.headers.set("x-nonce", nonce);
+
+  const csp = `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}' https:;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    font-src 'self';
+    connect-src 'self';
+    frame-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+  `.replace(/\n/g, " ");
+
+  response.headers.set("Content-Security-Policy", csp);
+  // --------------------------
+
+  const publicPaths = [
+    '/login',
+    '/forgot-password',
+    '/reset-password',
+    '/home',
+    '/about',
+    '/news',
+    '/contact',
+    '/api/auth'
+  ];
+
+  // Allow public routes
   if (publicPaths.some(path => pathname.startsWith(path)) || pathname === '/') {
-    return NextResponse.next();
+    return response;
   }
 
-  // If there's no session, redirect to login
+  // Not logged in → redirect to login
   if (!session) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', request.url);
     return NextResponse.redirect(loginUrl);
   }
-  
+
   const user = session.user;
-  
-  // Force password change for members if required
-  if (user?.isMember && user.mustChangePassword && !pathname.startsWith('/member-login/change-password')) {
+
+  // Members forced to change password
+  if (
+    user?.isMember &&
+    user.mustChangePassword &&
+    !pathname.startsWith('/member-login/change-password')
+  ) {
     const changePasswordUrl = new URL(`/member-login/change-password`, request.url);
     changePasswordUrl.searchParams.set('memberId', user.id);
     return NextResponse.redirect(changePasswordUrl);
   }
 
-  // If a member is logged in, they should only access their profile page
-  if (user?.isMember && !pathname.startsWith('/member-profile') && !pathname.startsWith('/member-login/change-password')) {
-      const profileUrl = new URL(`/member-profile/${user.id}`, request.url);
-      return NextResponse.redirect(profileUrl);
+  // Members can only access their profile
+  if (
+    user?.isMember &&
+    !pathname.startsWith('/member-profile') &&
+    !pathname.startsWith('/member-login/change-password')
+  ) {
+    const profileUrl = new URL(`/member-profile/${user.id}`, request.url);
+    return NextResponse.redirect(profileUrl);
   }
 
-  // If an admin is trying to access a member-only page, redirect them
-  if (!user?.isMember && (pathname.startsWith('/member-profile') || pathname.startsWith('/member-login/change-password'))) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Admin trying to access member-only pages
+  if (
+    !user?.isMember &&
+    (pathname.startsWith('/member-profile') ||
+     pathname.startsWith('/member-login/change-password'))
+  ) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes, but we want to protect some)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
