@@ -51,15 +51,12 @@ function ChangePasswordForm() {
     }
 
     setIsLoading(true);
-    try {
-        const result = await changeMemberPassword(memberId, newPassword);
-        if (result.success) {
-            toast({ title: 'Password Changed Successfully', description: 'You can now log in with your new password.' });
-            router.push('/login');
-        }
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to change password. Please try again.' });
-    } finally {
+    const result = await changeMemberPassword(memberId, newPassword);
+    if (result.success) {
+        toast({ title: 'Password Changed Successfully', description: 'You can now log in with your new password.' });
+        router.push('/login');
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
         setIsLoading(false);
     }
   };

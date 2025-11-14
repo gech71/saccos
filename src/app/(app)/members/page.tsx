@@ -628,12 +628,12 @@ export default function MembersPage() {
                   <TableRow key={member.id}>
                     <TableCell className="font-mono text-xs">{member.id}</TableCell>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 group">
                         <span>{member.fullName}</span>
                         {member.mustChangePassword && member.temporaryPassword && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <KeyRound className="h-4 w-4 text-muted-foreground cursor-help" />
+                              <KeyRound className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
