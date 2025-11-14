@@ -91,6 +91,7 @@ model Member {
   email                       String?                 @unique
   emailVerified               DateTime?
   password                    String?
+  temporaryPassword           String?  
   mustChangePassword          Boolean?                @default(true)
   passwordResetToken          String?                 @unique
   passwordResetTokenExpires   DateTime?
