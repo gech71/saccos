@@ -1,14 +1,14 @@
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/auth';
 
 // This function can be marked `async` if using `await` inside
-export async function middleware(request: NextResponse) {
+export async function middleware(request: NextRequest) {
   const session = await auth();
   const { pathname } = request.nextUrl;
 
   const publicPaths = ['/login', '/forgot-password', '/reset-password', '/home', '/about', '/news', '/contact', '/api/auth'];
-
+  
   // Allow all API routes for auth and public pages to be accessed
   if (publicPaths.some(path => pathname.startsWith(path)) || pathname === '/') {
     return NextResponse.next();
@@ -21,14 +21,23 @@ export async function middleware(request: NextResponse) {
     return NextResponse.redirect(loginUrl);
   }
   
+  const user = session.user;
+  
+  // Force password change for members if required
+  if (user?.isMember && user.mustChangePassword && !pathname.startsWith('/member-login/change-password')) {
+    const changePasswordUrl = new URL(`/member-login/change-password`, request.url);
+    changePasswordUrl.searchParams.set('memberId', user.id);
+    return NextResponse.redirect(changePasswordUrl);
+  }
+
   // If a member is logged in, they should only access their profile page
-  if (session.user?.isMember && !pathname.startsWith('/member-profile')) {
-      const profileUrl = new URL(`/member-profile/${session.user.id}`, request.url);
+  if (user?.isMember && !pathname.startsWith('/member-profile') && !pathname.startsWith('/member-login/change-password')) {
+      const profileUrl = new URL(`/member-profile/${user.id}`, request.url);
       return NextResponse.redirect(profileUrl);
   }
 
   // If an admin is trying to access a member-only page, redirect them
-  if (!session.user?.isMember && pathname.startsWith('/member-profile')) {
+  if (!user?.isMember && (pathname.startsWith('/member-profile') || pathname.startsWith('/member-login/change-password'))) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

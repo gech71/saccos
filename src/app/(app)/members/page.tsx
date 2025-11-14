@@ -461,7 +461,7 @@ export default function MembersPage() {
           if (!existingSchoolIds.has(schoolId)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
           }
-          if (!/^(09|\+2519)\d{8}$/.test(phoneNumber)) {
+          if (!/^(09|\\+2519)\\d{8}$/.test(phoneNumber)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
           }
 
@@ -628,18 +628,19 @@ export default function MembersPage() {
                   <TableRow key={member.id}>
                     <TableCell className="font-mono text-xs">{member.id}</TableCell>
                     <TableCell className="font-medium">
-                        <Tooltip>
+                      <div className="flex items-center gap-2">
+                        <span>{member.fullName}</span>
+                        {member.mustChangePassword && member.temporaryPassword && (
+                          <Tooltip>
                             <TooltipTrigger asChild>
-                                <span className={member.mustChangePassword ? 'cursor-help underline decoration-dashed' : ''}>
-                                    {member.fullName}
-                                </span>
+                              <KeyRound className="h-4 w-4 text-muted-foreground cursor-help" />
                             </TooltipTrigger>
-                            {member.mustChangePassword && member.temporaryPassword && (
-                                <TooltipContent>
-                                    <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
-                                </TooltipContent>
-                            )}
-                        </Tooltip>
+                            <TooltipContent>
+                              <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                         <div className="text-sm">{member.email}</div>
@@ -913,4 +914,3 @@ export default function MembersPage() {
     </div>
   );
 }
-
