@@ -29,6 +29,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -58,35 +59,18 @@ function LoginForm() {
     setIsLoading(true);
     setAuthError(null);
     
-    try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        phoneNumber,
-        password,
-      });
+    // Let NextAuth handle the redirect by default
+    const result = await signIn('credentials', {
+      phoneNumber,
+      password,
+      callbackUrl, // Tell NextAuth where to redirect on success
+    });
 
-      // NextAuth returns an object with `error` and `ok` properties.
-      // If there's an error, show a message. On success, stop loading and navigate.
-      if (result?.error) {
-        setAuthError('Invalid phone number or password. Please try again.');
-        setIsLoading(false);
-      } else if (result?.ok || !result) {
-        // Successful sign-in
-        toast({ title: 'Login Successful', description: 'Welcome back!' });
-        setIsLoading(false);
-        // Prefer an explicit callbackUrl when provided (NextAuth uses this to return
-        // users to the protected page they originally requested). Fallback to the
-        // internal dashboard route rather than the public home page.
-        const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
-        // If NextAuth returned a URL in the result, prefer that. Otherwise use callbackUrl.
-        const redirectTo = (result as any)?.url ?? callbackUrl;
-        router.replace(redirectTo);
-      } else {
-        // Fallback: ensure spinner is cleared
-        setIsLoading(false);
-      }
-    } catch (e) {
-      setAuthError('An unexpected error occurred.');
+    // signIn will only return here if there's an error when not redirecting.
+    // If redirect is handled by NextAuth, this part might not be reached on success,
+    // but it's good practice to handle potential errors.
+    if (result?.error) {
+      setAuthError('Invalid phone number or password. Please try again.');
       setIsLoading(false);
     }
   };
@@ -96,19 +80,9 @@ function LoginForm() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
           <div className="flex flex-col items-center justify-center gap-4">
-            <Image
-              src={content?.logo || ''}
-              alt={`${content?.saccoName || 'Sacco'} Logo`}
-              width={80}
-              height={80}
-              className="h-20 w-20 rounded-full object-cover"
-              onClick={() => router.push('/')}
-              style={{ cursor: 'pointer' }}
-              unoptimized={content?.logo?.startsWith('data:image')}
-            />
-            <span className="text-2xl font-bold text-primary font-headline">
-              {content?.saccoName || 'SACCO System'}
-            </span>
+             <Link href="/" passHref>
+                <Logo logo={content?.logo} saccoName={content?.saccoName} />
+            </Link>
           </div>
           <CardDescription>
             {`Sign in to the ${content?.saccoName || 'SACCO'} system.`}
