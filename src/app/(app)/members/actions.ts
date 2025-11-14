@@ -167,6 +167,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
                 id,
                 ...memberData,
                 password: hashedPassword,
+                temporaryPassword: temporaryPassword,
                 mustChangePassword: true,
                 status: 'active',
                 joinDate: new Date(memberData.joinDate),
@@ -381,89 +382,86 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
 export interface ImportedMember {
   MemberID: string | number;
   MemberFullName: string;
+  PhoneNumber: string;
   SchoolID: string;
   Salary?: number;
 }
 
+export interface CreatedMemberInfo {
+    member: Member;
+    temporaryPassword?: string;
+}
+
 export async function importMembers(
   members: ImportedMember[]
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; createdMembers?: CreatedMemberInfo[] }> {
   if (members.length === 0) {
     return { success: true, message: 'No new members to import.' };
   }
 
-  // 🔹 Normalize and deduplicate IDs before database operation
-  const normalizedMembers = members.map((m) => ({
-    ...m,
-    MemberID: String(m.MemberID).trim(),
-  }));
-
-  const uniqueMembersMap = new Map<string, ImportedMember>();
-  for (const m of normalizedMembers) {
-    if (!uniqueMembersMap.has(m.MemberID)) {
-      uniqueMembersMap.set(m.MemberID, m);
-    }
-  }
-  const uniqueMembers = Array.from(uniqueMembersMap.values());
-
   const schools = await prisma.school.findMany({ select: { id: true, name: true } });
   const schoolMap = new Map(schools.map((s) => [s.id, s.name]));
-
-  const hashedPassword = await bcrypt.hash(randomBytes(4).toString('hex'), 10);
   const joinDate = new Date();
+  
+  let createdCount = 0;
+  let skippedCount = 0;
+  const createdMembersInfo: CreatedMemberInfo[] = [];
 
-  const membersToCreate: Prisma.MemberCreateManyInput[] = uniqueMembers.map((m) => ({
-    id: String(m.MemberID).trim(),
-    fullName: m.MemberFullName,
-    email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Guaranteed unique
-    password: hashedPassword,
-    mustChangePassword: true,
-    sex: 'Male',
-    phoneNumber: `09${Math.floor(10000000 + Math.random() * 90000000)}`,
-    schoolId: m.SchoolID,
-    joinDate,
-    status: 'active',
-    salary: m.Salary,
-  }));
+  for (const m of members) {
+    const memberId = String(m.MemberID).trim();
+    
+    try {
+      const temporaryPassword = randomBytes(4).toString('hex');
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+      
+      const newMember = await prisma.member.create({
+        data: {
+          id: memberId,
+          fullName: m.MemberFullName,
+          email: `${randomBytes(8).toString('hex')}@academinvest.com`,
+          password: hashedPassword,
+          temporaryPassword: temporaryPassword,
+          mustChangePassword: true,
+          sex: 'Male', // Default, can be updated later
+          phoneNumber: m.PhoneNumber,
+          schoolId: m.SchoolID,
+          joinDate,
+          status: 'active',
+          salary: m.Salary,
+        }
+      });
+      
+      await prisma.schoolHistory.create({
+          data: {
+            memberId: newMember.id,
+            schoolId: newMember.schoolId,
+            schoolName: schoolMap.get(newMember.schoolId) || 'Unknown School',
+            startDate: joinDate,
+            endDate: null,
+          }
+      });
 
-  const schoolHistoryToCreate: Prisma.SchoolHistoryCreateManyInput[] = uniqueMembers.map((m) => ({
-    memberId: String(m.MemberID).trim(),
-    schoolId: m.SchoolID,
-    schoolName: schoolMap.get(m.SchoolID) || 'Unknown School',
-    startDate: joinDate,
-    endDate: null,
-  }));
-
-  try {
-    const createdMembersResult = await prisma.member.createMany({
-      data: membersToCreate,
-      skipDuplicates: true,
-    });
-
-    const createdMemberIds = uniqueMembers
-      .slice(0, createdMembersResult.count)
-      .map((m) => String(m.MemberID).trim());
-
-    await prisma.schoolHistory.createMany({
-      data: schoolHistoryToCreate.filter((sh) => createdMemberIds.includes(sh.memberId)),
-      skipDuplicates: true,
-    });
-
-    revalidatePath('/members');
-
-    const message = `Successfully imported ${createdMembersResult.count} new members. ${
-      uniqueMembers.length - createdMembersResult.count
-    } member(s) were skipped as duplicates.`;
-
-    return { success: true, message };
-  } catch (error) {
-    console.error('Failed during member import:', error);
-    return {
-      success: false,
-      message:
-        'A critical error occurred during the import process. Check for invalid or duplicate member IDs.',
-    };
+      createdMembersInfo.push({ member: newMember, temporaryPassword });
+      createdCount++;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        skippedCount++; // Duplicate member ID
+      } else {
+        console.error(`Failed to import member ${memberId}:`, error);
+        // We can decide to stop or continue on other errors
+        return { success: false, message: `An error occurred while importing member ${memberId}.` };
+      }
+    }
   }
+
+  revalidatePath('/members');
+
+  let message = `Successfully imported ${createdCount} new members.`;
+  if (skippedCount > 0) {
+    message += ` ${skippedCount} member(s) were skipped as duplicates.`;
+  }
+
+  return { success: true, message, createdMembers: createdMembersInfo };
 }
 
 export async function changeMemberPassword(memberId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
@@ -474,6 +472,7 @@ export async function changeMemberPassword(memberId: string, newPassword: string
             data: {
                 password: hashedPassword,
                 mustChangePassword: false,
+                temporaryPassword: null, // Clear the temporary password
             }
         });
         return { success: true };

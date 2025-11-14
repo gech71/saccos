@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy, KeyRound } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -57,12 +57,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { exportToExcel } from '@/lib/utils';
-import { getMembersPageData, addMember, updateMember, deleteMember, transferMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData, type ImportedMember } from './actions';
+import { getMembersPageData, addMember, updateMember, deleteMember, transferMember, importMembers, type MemberWithDetails, type MemberInput, type MembersPageData, type ImportedMember, type CreatedMemberInfo } from './actions';
 import { useAuth } from '@/contexts/auth-context';
 import ExcelJS from 'exceljs';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -87,9 +88,10 @@ const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: s
 type ParsedMember = {
   MemberID: string;
   MemberFullName: string;
+  PhoneNumber: string;
   SchoolID: string;
   Salary?: number;
-  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID';
+  status: 'Ready to import' | 'Duplicate in file' | 'Already exists in DB' | 'Invalid ID or Name' | 'Invalid School ID' | 'Invalid Phone';
 };
 
 export default function MembersPage() {
@@ -134,6 +136,7 @@ export default function MembersPage() {
   
   // New password state
   const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string; password:  string} | null>(null);
+  const [importedMembersInfo, setImportedMembersInfo] = useState<CreatedMemberInfo[] | null>(null);
 
 
   const canCreate = useMemo(() => user?.permissions.includes('member:create'), [user]);
@@ -448,14 +451,18 @@ export default function MembersPage() {
         const validatedData: ParsedMember[] = dataRows.map(row => {
           const memberId = row['MemberID']?.toString().trim();
           const fullName = row['MemberFullName']?.toString().trim();
+          const phoneNumber = row['PhoneNumber']?.toString().trim();
           const schoolId = row['SchoolID']?.toString().trim();
           const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
 
-          if (!memberId || !fullName || !schoolId) {
-              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status: 'Invalid ID or Name' };
+          if (!memberId || !fullName || !schoolId || !phoneNumber) {
+              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid ID or Name' };
           }
           if (!existingSchoolIds.has(schoolId)) {
-              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status: 'Invalid School ID' };
+              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
+          }
+          if (!/^(09|\+2519)\d{8}$/.test(phoneNumber)) {
+              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
           }
 
           let status: ParsedMember['status'] = 'Ready to import';
@@ -466,13 +473,13 @@ export default function MembersPage() {
           }
           seenInFile.add(memberId);
 
-          return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, status };
+          return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, PhoneNumber: phoneNumber, Salary: salary, status };
         });
         
         setParsedMembers(validatedData);
 
       } catch (error) {
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", and "SchoolID".' });
+        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "PhoneNumber", and "SchoolID".' });
       } finally {
         setIsParsing(false);
       }
@@ -480,9 +487,9 @@ export default function MembersPage() {
   };
   
   const handleConfirmImport = async () => {
-    const membersToImport = parsedMembers
+    const membersToImport: ImportedMember[] = parsedMembers
       .filter(m => m.status === 'Ready to import')
-      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, SchoolID: m.SchoolID, Salary: m.Salary }));
+      .map(m => ({ MemberID: m.MemberID, MemberFullName: m.MemberFullName, PhoneNumber: m.PhoneNumber, SchoolID: m.SchoolID, Salary: m.Salary }));
 
     if (membersToImport.length === 0) {
       toast({ title: 'No New Members', description: 'There are no new members to import from the file.' });
@@ -493,10 +500,12 @@ export default function MembersPage() {
     const result = await importMembers(membersToImport);
     if (result.success) {
         toast({ title: 'Import Complete', description: result.message });
+        setImportedMembersInfo(result.createdMembers || []);
         await fetchPageData();
-        setIsImportModalOpen(false);
+        // Keep the modal open to show results
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
+      setIsImportModalOpen(false);
     }
     setIsSubmitting(false);
   };
@@ -508,6 +517,7 @@ export default function MembersPage() {
       case 'Duplicate in file': return <Badge variant="secondary">Duplicate</Badge>;
       case 'Invalid ID or Name': return <Badge variant="destructive">Invalid Data</Badge>;
       case 'Invalid School ID': return <Badge variant="destructive">Invalid School</Badge>;
+      case 'Invalid Phone': return <Badge variant="destructive">Invalid Phone</Badge>;
     }
   };
   
@@ -515,6 +525,7 @@ export default function MembersPage() {
     const templateData = [{
       MemberID: 'EMP001',
       MemberFullName: 'John Doe',
+      PhoneNumber: '0912345678',
       SchoolID: 'school-id-1',
       Salary: 50000,
     }];
@@ -585,11 +596,7 @@ export default function MembersPage() {
                     <Check className={cn("mr-2 h-4 w-4", selectedSchoolFilter === "all" ? "opacity-100" : "opacity-0")} />
                     All Schools
                   </CommandItem>
-                  {schools.map((school) => (<CommandItem key={school.id} value={`${school.name} ${school.id}`} onSelect={() => { setSelectedSchoolFilter(school.id); setOpenSchoolFilterCombobox(false); }}>
-                      <Check className={cn("mr-2 h-4 w-4", selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0")} />
-                      {school.name}
-                    </CommandItem>
-                  ))}
+                  {schools.map((school) => (<CommandItem key={school.id} value={`${school.name} ${school.id}`} onSelect={() => { setSelectedSchoolFilter(school.id); setOpenSchoolFilterCombobox(false); }}><Check className={cn("mr-2 h-4 w-4", selectedSchoolFilter === school.id ? "opacity-100" : "opacity-0")} />{school.name}</CommandItem>))}
                 </CommandGroup>
               </CommandList>
             </Command>
@@ -598,59 +605,74 @@ export default function MembersPage() {
       </div>
       
       <div className="overflow-x-auto rounded-lg border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                 <Button variant="ghost" onClick={() => requestSort('id')} className="px-0">
-                    Member ID <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>Full Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead className="text-right">Total Savings</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
-              <TableRow key={member.id}>
-                <TableCell className="font-mono text-xs">{member.id}</TableCell>
-                <TableCell className="font-medium">{member.fullName}</TableCell>
-                <TableCell>
-                    <div className="text-sm">{member.email}</div>
-                    <div className="text-xs text-muted-foreground">{member.phoneNumber}</div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{member.school?.name}</Badge>
-                </TableCell>
-                <TableCell className="text-right font-semibold">{member.totalSavingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <span className="sr-only">Open menu</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                       <DropdownMenuItem asChild><Link href={`/member-profile/${member.id}`}><UserRound className="mr-2 h-4 w-4" /> View Profile</Link></DropdownMenuItem>
-                      {canEdit && <DropdownMenuItem onClick={() => openEditMemberModal(member)}><Edit className="mr-2 h-4 w-4" /> Edit Member</DropdownMenuItem>}
-                      {canEdit && <DropdownMenuItem onClick={() => openTransferModal(member)}><ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer School</DropdownMenuItem>}
-                      <Separator />
-                      {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Delete Member</DropdownMenuItem>}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            )) : (
-              <TableRow><TableCell colSpan={6} className="h-24 text-center">No members found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <TooltipProvider>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                     <Button variant="ghost" onClick={() => requestSort('id')} className="px-0">
+                        Member ID <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>Full Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>School</TableHead>
+                  <TableHead className="text-right">Total Savings</TableHead>
+                  <TableHead className="text-right w-[120px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
+                  <TableRow key={member.id}>
+                    <TableCell className="font-mono text-xs">{member.id}</TableCell>
+                    <TableCell className="font-medium">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className={member.mustChangePassword ? 'cursor-help underline decoration-dashed' : ''}>
+                                    {member.fullName}
+                                </span>
+                            </TooltipTrigger>
+                            {member.mustChangePassword && member.temporaryPassword && (
+                                <TooltipContent>
+                                    <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
+                                </TooltipContent>
+                            )}
+                        </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                        <div className="text-sm">{member.email}</div>
+                        <div className="text-xs text-muted-foreground">{member.phoneNumber}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{member.school?.name}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">{member.totalSavingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <span className="sr-only">Open menu</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem asChild><Link href={`/member-profile/${member.id}`}><UserRound className="mr-2 h-4 w-4" /> View Profile</Link></DropdownMenuItem>
+                          {canEdit && <DropdownMenuItem onClick={() => openEditMemberModal(member)}><Edit className="mr-2 h-4 w-4" /> Edit Member</DropdownMenuItem>}
+                          {canEdit && <DropdownMenuItem onClick={() => openTransferModal(member)}><ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer School</DropdownMenuItem>}
+                          <Separator />
+                          {canDelete && <DropdownMenuItem onClick={() => openDeleteDialog(member.id)} className="text-destructive focus:text-destructive focus:bg-destructive/10"><Trash2 className="mr-2 h-4 w-4" /> Delete Member</DropdownMenuItem>}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow><TableCell colSpan={6} className="h-24 text-center">No members found.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+        </TooltipProvider>
       </div>
 
        {filteredMembers.length > 0 && (
@@ -681,56 +703,85 @@ export default function MembersPage() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
-            <DialogDescription>
-                Upload an Excel file with columns: "MemberID", "MemberFullName", and "SchoolID".
-            </DialogDescription>
+             {importedMembersInfo ? (
+                <DialogDescription>
+                    Import successful. Below are the newly created members and their temporary passwords.
+                </DialogDescription>
+             ) : (
+                <DialogDescription>
+                    Upload an Excel file with columns: "MemberID", "MemberFullName", "PhoneNumber", and "SchoolID".
+                </DialogDescription>
+             )}
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
-                <FileDown className="mr-2 h-4 w-4" /> Download Template
-            </Button>
-            <div>
-              <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
-              <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
-            </div>
-            {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
-            {parsedMembers.length > 0 && (
-              <div>
-                <Label>Import Preview</Label>
-                <div className="mt-2 h-64 overflow-y-auto rounded-md border">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-muted">
-                      <TableRow>
-                        <TableHead>Member ID</TableHead>
-                        <TableHead>Full Name</TableHead>
-                        <TableHead className="text-right">Salary</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {parsedMembers.map((member, index) => (
-                        <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
-                          <TableCell>{member.MemberID}</TableCell>
-                          <TableCell>{member.MemberFullName}</TableCell>
-                          <TableCell className="text-right">{member.Salary ? member.Salary.toFixed(2) : 'N/A'}</TableCell>
-                          <TableCell>{getValidationBadge(member.status)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            {importedMembersInfo ? (
+                <div>
+                     <Label>Imported Members & Passwords</Label>
+                      <div className="mt-2 rounded-md border">
+                        <Table>
+                            <TableHeader><TableRow><TableHead>Full Name</TableHead><TableHead>Temp. Password</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                                {importedMembersInfo.map(info => (
+                                    <TableRow key={info.member.id}>
+                                        <TableCell>{info.member.fullName}</TableCell>
+                                        <TableCell className="font-mono">{info.temporaryPassword}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                      </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {parsedMembers.filter(s => s.status === 'Ready to import').length} member(s) will be imported. Others will be skipped.
-                </p>
-              </div>
+            ) : (
+                <>
+                    <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                        <FileDown className="mr-2 h-4 w-4" /> Download Template
+                    </Button>
+                    <div>
+                      <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
+                      <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
+                    </div>
+                    {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+                    {parsedMembers.length > 0 && (
+                      <div>
+                        <Label>Import Preview</Label>
+                        <div className="mt-2 h-64 overflow-y-auto rounded-md border">
+                          <Table>
+                            <TableHeader className="sticky top-0 bg-muted">
+                              <TableRow>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Member ID</TableHead>
+                                <TableHead>Full Name</TableHead>
+                                <TableHead>Phone Number</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {parsedMembers.map((member, index) => (
+                                <TableRow key={index} className={member.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
+                                  <TableCell>{getValidationBadge(member.status)}</TableCell>
+                                  <TableCell>{member.MemberID}</TableCell>
+                                  <TableCell>{member.MemberFullName}</TableCell>
+                                  <TableCell>{member.PhoneNumber}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {parsedMembers.filter(s => s.status === 'Ready to import').length} member(s) will be imported. Others will be skipped.
+                        </p>
+                      </div>
+                    )}
+                </>
             )}
           </div>
           <DialogFooter>
-            <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-            <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedMembers.filter(s => s.status === 'Ready to import').length === 0}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Import Members
-            </Button>
+            <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Close</Button></DialogClose>
+            {!importedMembersInfo && (
+                <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedMembers.filter(s => s.status === 'Ready to import').length === 0}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Import Members
+                </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
