@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { permissionsList } from '../src/app/(app)/settings/permissions';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -49,14 +50,16 @@ async function main() {
   });
 
   console.log('Seeding admin user...');
+  const hashedPassword = await bcrypt.hash('password', 10);
   await prisma.user.create({
     data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', 
+      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66',
       email: 'admin@example.com',
       name: 'Academ Admin',
       firstName: 'Academ',
       lastName: 'Admin',
       phoneNumber: '0912345678',
+      password: hashedPassword,
       roles: {
         connect: { id: adminRole.id },
       },
