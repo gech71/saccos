@@ -20,6 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         phoneNumber: { label: 'Phone Number', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
+      
       async authorize(credentials) {
         const phoneNumber = credentials?.phoneNumber as string;
         const password = credentials?.password as string;

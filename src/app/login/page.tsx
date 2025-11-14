@@ -65,13 +65,25 @@ function LoginForm() {
         password,
       });
 
+      // NextAuth returns an object with `error` and `ok` properties.
+      // If there's an error, show a message. On success, stop loading and navigate.
       if (result?.error) {
         setAuthError('Invalid phone number or password. Please try again.');
         setIsLoading(false);
-      } else {
-        // Successful sign-in, NextAuth will handle the session and redirect
-        // The middleware will automatically redirect to the intended page or dashboard
+      } else if (result?.ok || !result) {
+        // Successful sign-in
         toast({ title: 'Login Successful', description: 'Welcome back!' });
+        setIsLoading(false);
+        // Prefer an explicit callbackUrl when provided (NextAuth uses this to return
+        // users to the protected page they originally requested). Fallback to the
+        // internal dashboard route rather than the public home page.
+        const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
+        // If NextAuth returned a URL in the result, prefer that. Otherwise use callbackUrl.
+        const redirectTo = (result as any)?.url ?? callbackUrl;
+        router.replace(redirectTo);
+      } else {
+        // Fallback: ensure spinner is cleared
+        setIsLoading(false);
       }
     } catch (e) {
       setAuthError('An unexpected error occurred.');
