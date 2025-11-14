@@ -1,5 +1,3 @@
-
-
 import type { Prisma } from '@prisma/client';
 
 export interface School {
@@ -207,35 +205,30 @@ export interface LoanRepayment {
   evidenceUrl?: string;
 }
 
-export interface AuthResponse {
-  isSuccess: boolean;
-  accessToken?: string;
-  refreshToken?: string;
-  userId?: string; // Add this to capture the ID on registration
-  errors?: string[] | null;
-}
-
+// Custom types for the new unified authentication system
 export interface AuthUser {
-  id: string; // Prisma DB ID
-  userId: string; // External Auth Provider ID
-  email: string;
-  name: string;
-  phoneNumber: string;
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  isMember: false; // Discriminator
   roles: string[];
   permissions: string[];
 }
 
 export interface MemberAuthUser {
-  id: string; // Member DB ID
-  fullName: string;
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  isMember: true; // Discriminator
   mustChangePassword?: boolean | null;
 }
 
-
-export type MemberInput = Omit<Member, 'schoolName' | 'joinDate' | 'status' | 'closureDate' | 'shareCommitments' | 'address' | 'emergencyContact' | 'memberSavingAccounts'> & {
-    joinDate: string;
-    salary?: number | null;
-    shareCommitments?: { shareTypeId: string; monthlyCommittedAmount: number }[];
-    address?: Prisma.AddressCreateWithoutMemberInput;
-    emergencyContact?: Prisma.EmergencyContactCreateWithoutMemberInput;
-};
+export interface WebsiteContent extends Prisma.WebsiteContentGetPayload<{
+  include: {
+    socialLinks: true;
+    services: true;
+    heroSlides: true;
+  }
+}> {}

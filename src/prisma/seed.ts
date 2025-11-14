@@ -1,4 +1,3 @@
-
 import { PrismaClient } from '@prisma/client';
 import { permissionsList } from '../src/app/(app)/settings/permissions';
 import bcrypt from 'bcryptjs';
@@ -35,6 +34,8 @@ async function main() {
   await prisma.heroSlide.deleteMany();
   await prisma.service.deleteMany();
   await prisma.websiteContent.deleteMany();
+  await prisma.account.deleteMany();
+  await prisma.session.deleteMany();
   console.log('Database cleaned.');
 
   console.log('Seeding admin role...');

@@ -1,4 +1,3 @@
-
 "use server";
 
 import prisma from "@/lib/prisma";
@@ -100,7 +99,7 @@ export async function registerUserByAdmin(
 }
 
 // Role-related actions
-export type RoleInput = Omit<Role, "id">;
+export type RoleInput = Omit<Role, "id" | "createdAt" | "updatedAt">;
 
 export async function createOrUpdateRole(
   data: Partial<RoleInput> & { id?: string }
