@@ -94,7 +94,7 @@ const memberInputSchema = z.object({
     fullName: z.string().min(2, 'Full name is required.').max(100),
     email: z.string().email('Invalid email format.').toLowerCase(),
     sex: z.enum(['Male', 'Female']),
-    phoneNumber: z.string().regex(/^(09|\+2519)\d{8}$/, 'Invalid Ethiopian phone number format.'),
+    phoneNumber: z.string().regex(/^09\d{8}$/, 'Phone number must be 10 digits and start with 09.'),
     schoolId: z.string().min(1, 'School is required.'),
     joinDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "Invalid join date" }),
     salary: z.number().nullable().optional(),
@@ -108,6 +108,32 @@ const memberInputSchema = z.object({
 // Type for creating/updating a member, received from the client
 export type MemberInput = z.infer<typeof memberInputSchema>;
 
+// Helper function for duplicate checks
+async function checkDuplicates(email: string, phoneNumber: string, memberIdToExclude?: string) {
+    const OR = [];
+    if (email) OR.push({ email: { equals: email, mode: 'insensitive' as const } });
+    if (phoneNumber) OR.push({ phoneNumber });
+
+    const existingUser = await prisma.user.findFirst({ where: { OR } });
+    if (existingUser && existingUser.id !== memberIdToExclude) {
+        if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by an admin user.`;
+        if (existingUser.phoneNumber === phoneNumber) return `Phone number is already in use by an admin user.`;
+    }
+    
+    const where: Prisma.MemberWhereInput = { OR };
+    if (memberIdToExclude) {
+        where.NOT = { id: memberIdToExclude };
+    }
+    
+    const existingMember = await prisma.member.findFirst({ where });
+    if (existingMember) {
+        if (existingMember.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by member ${existingMember.fullName}.`;
+        if (existingMember.phoneNumber === phoneNumber) return `Phone number is already in use by member ${existingMember.fullName}.`;
+    }
+    
+    return null;
+}
+
 
 export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; temporaryPassword?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
@@ -119,20 +145,16 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     try {
         const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
 
-        const existingMemberById = await prisma.member.findUnique({
-            where: { id: id },
-        });
+        // Check for duplicate ID separately for a more specific error
+        const existingMemberById = await prisma.member.findUnique({ where: { id: id } });
         if (existingMemberById) {
-            return { error: `The member id already existed` };
+            return { error: `Member ID '${id}' already exists.` };
         }
 
-        if (memberData.email) {
-            const existingMemberByEmail = await prisma.member.findUnique({
-                where: { email: memberData.email },
-            });
-            if (existingMemberByEmail) {
-                return { error: `A member with email '${memberData.email}' already exists.` };
-            }
+        // Check for duplicate email or phone
+        const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber);
+        if (duplicateError) {
+            return { error: duplicateError };
         }
         
         let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
@@ -210,10 +232,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         return { member: newMember, temporaryPassword };
     } catch (error) {
         console.error('Failed to add member:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          return { error: 'A member with this ID or email already exists.' };
-        }
-        return { error: 'An unexpected server error occurred.' };
+        return { error: 'An unexpected server error occurred. Please check the logs.' };
     }
 }
 
@@ -222,7 +241,8 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         ...data,
         address: data.address || {},
         emergencyContact: data.emergencyContact || {},
-    }
+    };
+
     const validationResult = memberInputSchema.safeParse(validatedData);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -232,13 +252,9 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
     try {
         const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
 
-        if (memberData.email) {
-            const existingMemberByEmail = await prisma.member.findUnique({
-                where: { email: memberData.email },
-            });
-            if (existingMemberByEmail && existingMemberByEmail.id !== id) {
-                 return { success: false, error: `Email '${memberData.email}' is already in use by another member.` };
-            }
+        const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber, id);
+        if (duplicateError) {
+            return { success: false, error: duplicateError };
         }
         
         const existingMember = await prisma.member.findUnique({
@@ -411,6 +427,8 @@ export async function importMembers(
     const memberId = String(m.MemberID).trim();
     
     try {
+      // The validation is now done client-side before calling this,
+      // but we can have a fallback check here if needed.
       const temporaryPassword = randomBytes(4).toString('hex');
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
       
@@ -418,7 +436,7 @@ export async function importMembers(
         data: {
           id: memberId,
           fullName: m.MemberFullName,
-          email: `${randomBytes(8).toString('hex')}@academinvest.com`,
+          email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Generate unique email
           password: hashedPassword,
           temporaryPassword: temporaryPassword,
           mustChangePassword: true,
@@ -448,8 +466,7 @@ export async function importMembers(
         skippedCount++; // Duplicate member ID
       } else {
         console.error(`Failed to import member ${memberId}:`, error);
-        // We can decide to stop or continue on other errors
-        return { success: false, message: `An error occurred while importing member ${memberId}.` };
+        return { success: false, message: `An error occurred while importing member ${memberId}. Please check the logs.` };
       }
     }
   }
@@ -481,3 +498,5 @@ export async function changeMemberPassword(memberId: string, newPassword: string
         return { success: false, error: 'An unexpected error occurred.' };
     }
 }
+
+    

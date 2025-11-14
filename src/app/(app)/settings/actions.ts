@@ -1,7 +1,8 @@
+
 "use server";
 
 import prisma from "@/lib/prisma";
-import type { User, Role } from "@prisma/client";
+import type { User, Role, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { permissionsList } from "./permissions";
 import bcrypt from 'bcryptjs';
@@ -69,11 +70,49 @@ export async function updateUserRoles(
   }
 }
 
+// Helper function for duplicate checks
+async function checkUserDuplicates(email: string, phoneNumber: string, userIdToExclude?: string) {
+    const OR = [];
+    if (email) OR.push({ email: { equals: email, mode: 'insensitive' as const } });
+    if (phoneNumber) OR.push({ phoneNumber });
+
+    const where: Prisma.UserWhereInput = { OR };
+    if (userIdToExclude) {
+        where.NOT = { id: userIdToExclude };
+    }
+
+    const existingUser = await prisma.user.findFirst({ where });
+    if (existingUser) {
+        if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by user ${existingUser.name}.`;
+        if (existingUser.phoneNumber === phoneNumber) return `Phone number is already in use by user ${existingUser.name}.`;
+    }
+    
+    const existingMember = await prisma.member.findFirst({ where: { OR } });
+    if (existingMember) {
+        if (existingMember.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by member ${existingMember.fullName}.`;
+        if (existingMember.phoneNumber === phoneNumber) return `Phone number is already in use by member ${existingMember.fullName}.`;
+    }
+    
+    return null;
+}
+
 export async function registerUserByAdmin(
   data: any,
   roleIds: string[],
-) {
+): Promise<{ success: boolean; user?: User, error?: string; }> {
   try {
+    if (!data.email || !data.password || !data.phoneNumber) {
+        return { success: false, error: 'Email, password, and phone number are required.' };
+    }
+     if (!/^09\d{8}$/.test(data.phoneNumber)) {
+      return { success: false, error: 'Phone number must be 10 digits and start with 09.' };
+    }
+
+    const duplicateError = await checkUserDuplicates(data.email, data.phoneNumber);
+    if (duplicateError) {
+        return { success: false, error: duplicateError };
+    }
+
     const hashedPassword = await bcrypt.hash(data.password, 10);
     
     const newUser = await prisma.user.create({
@@ -91,10 +130,15 @@ export async function registerUserByAdmin(
     });
 
     revalidatePath("/settings");
-    return newUser;
+    return { success: true, user: newUser };
   } catch (error) {
     console.error("Error during user registration:", error);
-    throw new Error("An unexpected error occurred during registration.");
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        if (target.includes('email')) return { success: false, error: 'This email is already registered.' };
+        if (target.includes('phoneNumber')) return { success: false, error: 'This phone number is already registered.' };
+    }
+    return { success: false, error: "An unexpected error occurred during registration." };
   }
 }
 
@@ -192,3 +236,5 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       return [];
   }
 }
+
+    

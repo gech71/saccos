@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy, KeyRound } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy, KeyRound, CheckCircle, XCircle } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -133,6 +133,7 @@ export default function MembersPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
   
   // New password state
   const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string; password:  string} | null>(null);
@@ -414,6 +415,8 @@ export default function MembersPage() {
   const openImportModal = () => {
     setParsedMembers([]);
     setIsImportModalOpen(true);
+    setImportedMembersInfo(null);
+    setValidationSummary(null);
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -445,6 +448,7 @@ export default function MembersPage() {
         });
 
         const existingMemberIds = new Set(members.map(m => m.id));
+        const existingMemberPhones = new Set(members.map(m => m.phoneNumber));
         const existingSchoolIds = new Set(schools.map(s => s.id));
         const seenInFile = new Set<string>();
 
@@ -461,22 +465,29 @@ export default function MembersPage() {
           if (!existingSchoolIds.has(schoolId)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
           }
-          if (!/^(09|\\+2519)\\d{8}$/.test(phoneNumber)) {
+          if (!/^09\d{8}$/.test(phoneNumber)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
           }
 
           let status: ParsedMember['status'] = 'Ready to import';
-          if (existingMemberIds.has(memberId)) {
+          if (existingMemberIds.has(memberId) || existingMemberPhones.has(phoneNumber)) {
             status = 'Already exists in DB';
-          } else if (seenInFile.has(memberId)) {
+          } else if (seenInFile.has(memberId) || seenInFile.has(phoneNumber)) {
             status = 'Duplicate in file';
           }
           seenInFile.add(memberId);
+          seenInFile.add(phoneNumber);
 
           return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, PhoneNumber: phoneNumber, Salary: salary, status };
         });
         
         setParsedMembers(validatedData);
+        const validCount = validatedData.filter(v => v.status === 'Ready to import').length;
+        setValidationSummary({
+            valid: validCount,
+            invalid: validatedData.length - validCount,
+            total: validatedData.length,
+        });
 
       } catch (error) {
         toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "PhoneNumber", and "SchoolID".' });
@@ -502,7 +513,6 @@ export default function MembersPage() {
         toast({ title: 'Import Complete', description: result.message });
         setImportedMembersInfo(result.createdMembers || []);
         await fetchPageData();
-        // Keep the modal open to show results
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
       setIsImportModalOpen(false);
@@ -631,9 +641,9 @@ export default function MembersPage() {
                       <div className="flex items-center gap-2 group">
                         <span>{member.fullName}</span>
                         {member.mustChangePassword && member.temporaryPassword && (
-                          <Tooltip>
+                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <KeyRound className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <KeyRound className="h-4 w-4 text-primary cursor-pointer" />
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
@@ -742,6 +752,20 @@ export default function MembersPage() {
                       <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls, .csv" />
                     </div>
                     {isParsing && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /><span>Parsing file...</span></div>}
+                    
+                    {validationSummary && (
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 p-3 border rounded-md bg-green-50 text-green-800">
+                               <CheckCircle className="h-5 w-5" />
+                               <span className="font-semibold">{validationSummary.valid} Valid Rows</span>
+                            </div>
+                             <div className="flex items-center gap-2 p-3 border rounded-md bg-red-50 text-red-800">
+                               <XCircle className="h-5 w-5" />
+                               <span className="font-semibold">{validationSummary.invalid} Invalid Rows</span>
+                            </div>
+                        </div>
+                    )}
+                    
                     {parsedMembers.length > 0 && (
                       <div>
                         <Label>Import Preview</Label>
@@ -768,7 +792,7 @@ export default function MembersPage() {
                           </Table>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {parsedMembers.filter(s => s.status === 'Ready to import').length} member(s) will be imported. Others will be skipped.
+                          {validationSummary?.valid || 0} member(s) will be imported. Others will be skipped.
                         </p>
                       </div>
                     )}
@@ -778,7 +802,7 @@ export default function MembersPage() {
           <DialogFooter>
             <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Close</Button></DialogClose>
             {!importedMembersInfo && (
-                <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || parsedMembers.filter(s => s.status === 'Ready to import').length === 0}>
+                <Button onClick={handleConfirmImport} disabled={isSubmitting || isParsing || !validationSummary || validationSummary.valid === 0}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Import Members
                 </Button>
@@ -914,3 +938,5 @@ export default function MembersPage() {
     </div>
   );
 }
+
+    
