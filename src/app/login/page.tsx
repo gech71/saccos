@@ -21,7 +21,7 @@ import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function LoginForm() {
@@ -29,7 +29,6 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +36,7 @@ function LoginForm() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [content, setContent] = useState<WebsiteContent | null>(null);
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     getWebsiteContent().then(setContent);
@@ -53,26 +53,35 @@ function LoginForm() {
       setAuthError(null);
     }
   }, [error]);
+  
+   useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+        if (session.user.isMember) {
+            router.replace(`/member-profile/${session.user.id}`);
+        } else {
+            router.replace('/dashboard');
+        }
+    }
+  }, [status, session, router]);
+
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
     setAuthError(null);
     
-    // Let NextAuth handle the redirect by default
+    // We use redirect: false to handle the redirect manually based on user type
     const result = await signIn('credentials', {
       phoneNumber,
       password,
-      callbackUrl, // Tell NextAuth where to redirect on success
+      redirect: false, // Important: prevent default redirect
     });
 
-    // signIn will only return here if there's an error when not redirecting.
-    // If redirect is handled by NextAuth, this part might not be reached on success,
-    // but it's good practice to handle potential errors.
     if (result?.error) {
       setAuthError('Invalid phone number or password. Please try again.');
       setIsLoading(false);
-    }
+    } 
+    // The useEffect hook will handle the successful redirect
   };
 
   return (
@@ -120,7 +129,7 @@ function LoginForm() {
                 aria-label="Password"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || status === 'authenticated'}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...

@@ -331,6 +331,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.replace(`/member-login/change-password?memberId=${member.id}`);
       return;
     }
+    
+    // If a member is authenticated but is not on their profile page, redirect them.
+    if (member && !pathname.startsWith('/member-profile/')) {
+        router.replace(`/member-profile/${member.id}`);
+        return;
+    }
+
 
     if (user) {
       // Admin user is logged in
