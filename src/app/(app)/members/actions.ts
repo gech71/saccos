@@ -217,7 +217,12 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<{ success: boolean; error?: string }> {
-    const validationResult = memberInputSchema.safeParse(data);
+    const validatedData = {
+        ...data,
+        address: data.address || {},
+        emergencyContact: data.emergencyContact || {},
+    }
+    const validationResult = memberInputSchema.safeParse(validatedData);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
         return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
