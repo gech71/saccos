@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2, UploadCloud } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2, UploadCloud, Download } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -336,6 +337,16 @@ export default function SchoolsPage() {
     }
     setIsSubmitting(false);
   };
+  
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      'School ID': 'SCH-001',
+      'School Name': 'Example High School',
+      'Address': '123 Example St, City',
+      'Contact Person': 'John Smith'
+    }];
+    exportToExcel(templateData, 'school_import_template');
+  };
 
   const getValidationBadge = (status: ParsedSchool['status']) => {
     switch (status) {
@@ -523,10 +534,13 @@ export default function SchoolsPage() {
           <DialogHeader>
             <DialogTitle className="font-headline">Import Schools from Excel</DialogTitle>
             <DialogDescription>
-              Upload an Excel file with columns: "School ID" and "School Name". The ID must be unique.
+              Upload an Excel file with columns: "School ID", "School Name", "Address", and "Contact Person".
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <Button type="button" variant="secondary" onClick={handleDownloadTemplate} size="sm">
+                <Download className="mr-2 h-4 w-4" /> Download Template
+            </Button>
             <div>
               <Label htmlFor="importFile">Upload File <span className="text-destructive">*</span></Label>
               <Input id="importFile" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
