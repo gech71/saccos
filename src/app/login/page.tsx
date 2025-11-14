@@ -17,20 +17,24 @@ import Link from 'next/link';
 import React, { useState, FormEvent, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
+import { signIn } from 'next-auth/react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
-  const { unifiedLogin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(error);
 
   const [content, setContent] = useState<WebsiteContent | null>(null);
 
@@ -38,15 +42,40 @@ export default function LoginPage() {
     getWebsiteContent().then(setContent);
   }, []);
 
+  useEffect(() => {
+    if (error) {
+      if (error === 'CredentialsSignin') {
+        setAuthError('Invalid phone number or password. Please try again.');
+      } else {
+        setAuthError('An unexpected error occurred during login.');
+      }
+    } else {
+      setAuthError(null);
+    }
+  }, [error]);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
+    setAuthError(null);
+    
     try {
-      await unifiedLogin({ phoneNumber, password });
-      // Redirect is handled by the auth context
-    } catch (error) {
-      // Error toast is handled by the auth context
-    } finally {
+      const result = await signIn('credentials', {
+        redirect: false,
+        phoneNumber,
+        password,
+      });
+
+      if (result?.error) {
+        setAuthError('Invalid phone number or password. Please try again.');
+        setIsLoading(false);
+      } else {
+        // Successful sign-in, NextAuth will handle the session and redirect
+        // The middleware will automatically redirect to the intended page or dashboard
+        toast({ title: 'Login Successful', description: 'Welcome back!' });
+      }
+    } catch (e) {
+      setAuthError('An unexpected error occurred.');
       setIsLoading(false);
     }
   };
@@ -76,6 +105,11 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent className="px-6 pt-6">
+        {authError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{authError}</AlertDescription>
+          </Alert>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="phoneNumber">Phone Number</Label>

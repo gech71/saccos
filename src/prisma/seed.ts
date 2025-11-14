@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { permissionsList } from '../src/app/(app)/settings/permissions';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -49,14 +50,15 @@ async function main() {
   });
 
   console.log('Seeding admin user...');
+  const hashedPassword = await bcrypt.hash('password', 10);
   await prisma.user.create({
     data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66', 
       email: 'admin@example.com',
-      name: 'Default Admin',
-      firstName: 'Default',
+      name: 'Academ Admin',
+      firstName: 'Academ',
       lastName: 'Admin',
       phoneNumber: '0912345678',
+      password: hashedPassword,
       roles: {
         connect: { id: adminRole.id },
       },
@@ -66,7 +68,7 @@ async function main() {
   console.log('Seeding default website content...');
   await prisma.websiteContent.create({
     data: {
-      saccoName: 'My SACCO',
+      saccoName: 'AcademInvest',
       heroTitle: 'Empowering Your Financial Future, Together.',
       heroSubtitle: 'Your trusted partner in savings and credit for the educational community.',
       heroImageUrl: '',
@@ -74,7 +76,7 @@ async function main() {
       aboutUsImageUrl: '',
       address: '123 Main Street, Addis Ababa, Ethiopia',
       phone: '+251-911-123-456',
-      email: 'contact@example.com',
+      email: 'contact@academinvest.com',
       logo: '',
       primary: '#FBBF24',
       accent: '#4A2E19',

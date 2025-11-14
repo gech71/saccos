@@ -17,7 +17,6 @@ import { useAuth } from '@/contexts/auth-context';
 
 export default function RegisterUserPage() {
   const { toast } = useToast();
-  const { accessToken } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -68,7 +67,7 @@ export default function RegisterUserPage() {
 
     setIsLoading(true);
     try {
-      await registerUserByAdmin(formData, Array.from(selectedRoleIds), accessToken);
+      await registerUserByAdmin(formData, Array.from(selectedRoleIds));
       toast({ title: 'User Registered', description: `Successfully created an account for ${formData.firstName} ${formData.lastName}.` });
       // Reset form
       setFormData({ firstName: '', lastName: '', phoneNumber: '', email: '', password: '' });
@@ -123,7 +122,7 @@ export default function RegisterUserPage() {
                 <Label htmlFor="password">Password <span className="text-destructive">*</span></Label>
                 <Input id="password" name="password" type="password" value={formData.password} onChange={handleInputChange} required />
                  <p className="text-xs text-muted-foreground mt-1">
-                    Password must be at least 6 characters and include an uppercase letter, a number, and a special character (e.g., !@#$%).
+                    Password must be at least 6 characters.
                 </p>
             </div>
              <div>
