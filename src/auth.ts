@@ -1,19 +1,15 @@
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import prisma from "./lib/prisma";
+import bcrypt from "bcryptjs";
+import type { AuthUser, MemberAuthUser } from "./types";
+import { permissionsList } from "./app/(app)/settings/permissions";
 
-import NextAuth from 'next-auth';
-import jwt from 'jsonwebtoken';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import prisma from './lib/prisma';
-import bcrypt from 'bcryptjs';
-import type { User, Member, Role } from '@prisma/client';
-import type { AuthUser, MemberAuthUser } from './types';
-import { permissionsList } from './app/(app)/settings/permissions';
-
-// Phone normalization helpers (local <-> international)
 function toLocalPhone(phone?: string | null) {
-  if (!phone) return '';
+  if (!phone) return "";
   const p = phone.trim();
-  if (p.startsWith('+251')) {
+  if (p.startsWith("+251")) {
     const rest = p.slice(4);
     return rest ? `0${rest}` : p;
   }
@@ -21,99 +17,67 @@ function toLocalPhone(phone?: string | null) {
 }
 
 function toIntlPhone(phone?: string | null) {
-  if (!phone) return '';
+  if (!phone) return "";
   const p = phone.trim();
-  if (p.startsWith('+251')) return p;
+  if (p.startsWith("+251")) return p;
   if (/^0[79]\d{8}$/.test(p)) return `+251${p.slice(1)}`;
   return p;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  // Ensure a stable secret is set in env (NEXTAUTH_SECRET) so JWTs are signed consistently
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+
+  //--------------------------
+  // ✨ IMPORTANT FIX:
+  // REMOVE custom encode/decode to avoid JWTSessionError
+  //--------------------------
+
+  secret: process.env.NEXTAUTH_SECRET,
+
   session: {
-    strategy: 'jwt',
+    strategy: "jwt", // uses internal Auth.js JWT format
   },
-  // Use JWS (signed JWT) by providing custom encode/decode so Auth.js does not create an encrypted JWE
-  jwt: {
-    encode: async ({ token, secret: _secret, maxAge }) => {
-      const signingKey = (_secret as string) || process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-      // Build a standard JWT payload expected by Auth.js: include `sub` (user id) and basic user claims.
-      const user = (token as any)?.user ?? (token as any);
-      const sub = (token as any)?.user?.id ?? (token as any)?.sub;
-      const payload: any = {
-        ...(typeof user === 'object' ? { name: user.name, email: user.email } : {}),
-      };
-      if (sub) payload.sub = sub;
-      try {
-        return jwt.sign(payload, signingKey as string, {
-          algorithm: 'HS256',
-          expiresIn: typeof maxAge === 'number' ? Math.floor(maxAge) : undefined,
-        });
-      } catch (err) {
-        console.error('JWT encode error', err);
-        throw err;
-      }
-    },
-    decode: async ({ token, secret: _secret }) => {
-      const signingKey = (_secret as string) || process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-      try {
-        const decoded = jwt.verify(token as string, signingKey as string, { algorithms: ['HS256'] }) as any;
-        // Auth.js expects an object with at least { sub } to identify the user
-        if (!decoded) return null;
-        return decoded;
-      } catch (err) {
-        // verification failed
-        return null;
-      }
-    },
-  },
+
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
-        phoneNumber: { label: 'Phone Number', type: 'text' },
-        password: { label: 'Password', type: 'password' },
+        phoneNumber: { label: "Phone Number", type: "text" },
+        password: { label: "Password", type: "password" },
       },
-      
+
       async authorize(credentials) {
-        const phoneNumber = credentials?.phoneNumber as string;
-        const password = credentials?.password as string;
+        const phoneNumber = credentials?.phoneNumber;
+        const password = credentials?.password;
 
-        if (!phoneNumber || !password) {
-          return null;
-        }
+        if (!phoneNumber || !password) return null;
 
-        // Normalize candidate phone forms and attempt to find/admin or member by either format
         const phoneLocal = toLocalPhone(phoneNumber);
         const phoneIntl = toIntlPhone(phoneNumber);
 
-        // 1. Attempt to find and authenticate an admin User
+        // -------------------------
+        // 1. ADMIN USER LOGIN
+        // -------------------------
         const adminUser = await prisma.user.findFirst({
           where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
 
         if (adminUser) {
-          const passwordMatch = adminUser.password && (await bcrypt.compare(password, adminUser.password));
-          if (passwordMatch) {
+          const match = adminUser.password && (await bcrypt.compare(password, adminUser.password));
+          if (match) {
             const userRoles = await prisma.role.findMany({
               where: { users: { some: { id: adminUser.id } } },
             });
+
             const permissions = new Set<string>();
-            
-            const isAdmin = userRoles.some(role => role.name === 'Admin');
+            const isAdmin = userRoles.some(r => r.name === "Admin");
 
             if (isAdmin) {
-                // If user is an Admin, grant all permissions
-                permissionsList.forEach(p => permissions.add(p.id));
+              permissionsList.forEach(p => permissions.add(p.id));
             } else {
-                // Otherwise, aggregate permissions from assigned roles
-                userRoles.forEach(role => {
-                    role.permissions.split(',').forEach(p => {
-                        if(p) permissions.add(p);
-                    });
-                });
+              userRoles.forEach(role => {
+                role.permissions.split(",").forEach(p => p && permissions.add(p));
+              });
             }
 
             return {
@@ -128,14 +92,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // 2. If no authenticated admin, attempt to find and authenticate a Member
+        // -------------------------
+        // 2. MEMBER LOGIN
+        // -------------------------
         const member = await prisma.member.findFirst({
           where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
 
         if (member) {
-          const passwordMatch = member.password && (await bcrypt.compare(password, member.password));
-          if (passwordMatch) {
+          const match = member.password && (await bcrypt.compare(password, member.password));
+          if (match) {
             return {
               id: member.id,
               name: member.fullName,
@@ -146,29 +112,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             } as MemberAuthUser;
           }
         }
-        
-        // 3. If neither authentication succeeded, return null
+
         return null;
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
-        if (user) {
-            // This is the first sign-in
-            token.user = user;
-        }
-        return token;
+      if (user) token.user = user;
+      return token;
     },
+
     async session({ session, token }) {
-        // The user object in the token has the data from authorize
-        session.user = token.user as any; 
-        return session;
+      session.user = token.user as any;
+      return session;
     },
   },
+
   pages: {
-    signIn: '/login',
-    error: '/login', // Redirect to login page on error
+    signIn: "/login",
+    error: "/login",
   },
 });
+
 export const { GET, POST } = handlers;

@@ -291,7 +291,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const sessionTimeout = 1000 * 60 * 1; // 1 minute
+    const sessionTimeout = 1000 * 60 * 15; // 15 minutes
     let timeoutId: NodeJS.Timeout;
 
     const resetTimer = () => {
