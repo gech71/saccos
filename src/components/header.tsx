@@ -94,7 +94,7 @@ export function Header({
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src="/images/user-avatar.png"
+                    src=""
                     alt="User avatar"
                   />
                   <AvatarFallback>
