@@ -96,10 +96,11 @@ function LoginForm() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center space-y-4 pt-8">
-          <div className="flex flex-col items-center justify-center gap-4">
-             <Link href="/" passHref>
-                <Logo logo={content?.logo} saccoName={content?.saccoName} />
+          <div className="flex flex-col items-center justify-center gap-2">
+            <Link href="/" passHref>
+              <Logo logo={content?.logo} isCircular hideName sizeClass="h-28 w-28" />
             </Link>
+            <div className="text-2xl font-headline font-bold text-primary">{content?.saccoName || 'SACCO'}</div>
           </div>
           <CardDescription>
             {`Sign in to the ${content?.saccoName || 'SACCO'} system.`}

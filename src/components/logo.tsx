@@ -10,14 +10,16 @@ export function Logo({
   saccoName,
   isCircular = false,
   hideName = false,
+  sizeClass,
 }: {
   className?: string;
   logo?: string | null;
   saccoName?: string | null;
   isCircular?: boolean;
   hideName?: boolean;
+  sizeClass?: string;
 }) {
-  const isBase64 = logo && logo.startsWith('data:image');
+  const isBase64 = Boolean(logo && logo.startsWith('data:image'));
   
   return (
     <Link
@@ -31,13 +33,14 @@ export function Logo({
                 width={32}
                 height={32}
                 className={cn(
-                    "transition-transform duration-300 group-hover:rotate-12",
-                    isCircular ? "rounded-full h-8 w-8 object-cover" : "rounded-md h-8 w-8"
+                    "transition-transform duration-300 group-hover:rotate-12 object-cover",
+                    isCircular ? 'rounded-full' : 'rounded-md',
+                    sizeClass || 'h-8 w-8'
                 )}
                 unoptimized={isBase64}
             />
         ) : (
-            <div className="p-2 bg-primary/10 rounded-md">
+            <div className={cn('bg-primary/10 flex items-center justify-center', isCircular ? 'rounded-full' : 'rounded-md', sizeClass || 'h-8 w-8')}>
                 <School className="h-5 w-5 text-primary"/>
             </div>
         )}

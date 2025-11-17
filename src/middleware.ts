@@ -46,6 +46,8 @@ export async function middleware(request: NextRequest) {
     "/news",
     "/contact",
     "/api/auth",
+    // allow anonymous uploads and public access to uploaded files
+    "/api/upload",
   ];
 
   if (publicPaths.some((path) => pathname.startsWith(path)) || pathname === "/") {
@@ -96,3 +98,4 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+.
