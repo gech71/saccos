@@ -37,29 +37,23 @@ export async function getCollectionForecast(criteria: {
 
     const includeClause: any = {
         school: { select: { name: true } },
-        shareCommitments: {
-            where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
-        },
-        memberSavingAccounts: {
-            where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
-        },
+        memberSavingAccounts: {},
+        memberShareCommitments: {},
         loans: {
             where: {
-                loanTypeId: collectionType === 'loans' ? typeId : undefined,
                 status: { in: ['active', 'overdue'] }
             }
         }
     };
-    
-    // Conditionally remove where clauses to prevent Prisma validation errors
-    if (collectionType !== 'shares') {
-        delete includeClause.shareCommitments.where;
+
+    if (collectionType === 'shares') {
+        includeClause.memberShareCommitments.where = { shareTypeId: typeId };
     }
-    if (collectionType !== 'savings') {
-        delete includeClause.memberSavingAccounts.where;
+    if (collectionType === 'savings') {
+        includeClause.memberSavingAccounts.where = { savingAccountTypeId: typeId };
     }
-     if (collectionType !== 'loans') {
-        delete includeClause.loans.where;
+     if (collectionType === 'loans') {
+        includeClause.loans.where.loanTypeId = typeId;
     }
 
     
@@ -101,7 +95,7 @@ export async function getCollectionForecast(criteria: {
     } else if (collectionType === 'shares') {
         results = members
             .map(m => {
-                const commitment = m.shareCommitments.find(sc => sc.shareTypeId === typeId);
+                const commitment = m.memberShareCommitments.find(sc => sc.shareTypeId === typeId);
                 const expectedShare = commitment?.monthlyCommittedAmount ?? 0;
                 const totalExpected = expectedShare + totalMonthlyCharges;
                 
