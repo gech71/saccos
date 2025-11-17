@@ -50,7 +50,7 @@ async function main() {
   });
 
   console.log('Seeding admin user...');
-  const hashedPassword = await bcrypt.hash('password', 10);
+  const hashedPassword = await bcrypt.hash('Admin@123', 10);
   await prisma.user.create({
     data: {
       userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66',
