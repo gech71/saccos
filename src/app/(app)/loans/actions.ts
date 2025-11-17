@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Loan, Prisma, Member, LoanType, Collateral } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { addMonths, differenceInMonths } from 'date-fns';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -175,7 +176,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   
   // Membership Duration Validation
   if (loanType.minSavingMonths && loanType.minSavingMonths > 0) {
-      const monthsSinceJoined = (new Date().getTime() - new Date(member.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44); // Avg days in month
+      const monthsSinceJoined = differenceInMonths(new Date(), new Date(member.joinDate));
       if (monthsSinceJoined < loanType.minSavingMonths) {
           throw new Error(`Member must have at least ${loanType.minSavingMonths} months of membership to be eligible for this loan.`);
       }
@@ -255,4 +256,3 @@ export async function deleteLoan(id: string): Promise<{ success: boolean; messag
     return { success: false, message: 'An unexpected error occurred.' };
   }
 }
-
