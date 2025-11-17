@@ -332,23 +332,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // If a member is authenticated but is not on their profile page, redirect them.
-    if (member && !pathname.startsWith('/member-profile/')) {
+    // If a member is authenticated but is not on their own profile page, redirect them.
+    if (member && !pathname.startsWith(`/member-profile/${member.id}`)) {
         router.replace(`/member-profile/${member.id}`);
         return;
     }
 
-
-    if (user) {
-      // Admin user is logged in
-      if (pathname === '/dashboard') {
+    // Admin user is logged in
+    if (user) { 
+      // If admin is on a member-only specific route (change password), redirect to dashboard
+      if (pathname.startsWith('/member-login/change-password')) {
+        router.replace('/dashboard');
         return;
       }
+      
       const navItem = [...navItems]
         .filter((item) => item.href && item.href !== '/')
         .sort((a, b) => b.href!.length - a.href!.length)
         .find((item) => pathname.startsWith(item.href!));
 
+      // If the route doesn't correspond to a nav item (like a member profile page for an admin),
+      // we don't need to do a permission check on it here. The page's own data fetching will handle auth.
       if (navItem && navItem.permission) {
         if (!user.permissions.includes(navItem.permission)) {
           router.replace('/dashboard');

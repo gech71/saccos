@@ -37,11 +37,14 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         // Members may only view their own profile
         if (user.isMember) {
             if (user.id !== memberId) {
-                return null; // deny access
+                // Deny access if a member tries to view another member's profile
+                return null;
             }
         }
-        // Admins (non-members) are allowed; add permission checks here if needed
+        // Admins (non-members) are allowed; add specific permission checks here if needed
+        // For now, any admin can view any member profile
     } catch (err) {
+        console.error("Session validation error:", err);
         return null;
     }
     const member = await prisma.member.findUnique({
