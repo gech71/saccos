@@ -34,6 +34,34 @@ export async function getCollectionForecast(criteria: {
     typeId: string;
 }): Promise<ForecastResult[]> {
     const { schoolId, collectionType, typeId } = criteria;
+
+    const includeClause: any = {
+        school: { select: { name: true } },
+        shareCommitments: {
+            where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
+        },
+        memberSavingAccounts: {
+            where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
+        },
+        loans: {
+            where: {
+                loanTypeId: collectionType === 'loans' ? typeId : undefined,
+                status: { in: ['active', 'overdue'] }
+            }
+        }
+    };
+    
+    // Conditionally remove where clauses to prevent Prisma validation errors
+    if (collectionType !== 'shares') {
+        delete includeClause.shareCommitments.where;
+    }
+    if (collectionType !== 'savings') {
+        delete includeClause.memberSavingAccounts.where;
+    }
+     if (collectionType !== 'loans') {
+        delete includeClause.loans.where;
+    }
+
     
     const [members, monthlyServiceCharges] = await Promise.all([
         prisma.member.findMany({
@@ -41,21 +69,7 @@ export async function getCollectionForecast(criteria: {
                 schoolId,
                 status: 'active',
             },
-            include: {
-                school: { select: { name: true } },
-                shareCommitments: {
-                    where: { shareTypeId: collectionType === 'shares' ? typeId : undefined }
-                },
-                memberSavingAccounts: {
-                    where: { savingAccountTypeId: collectionType === 'savings' ? typeId : undefined }
-                },
-                loans: {
-                    where: {
-                        loanTypeId: collectionType === 'loans' ? typeId : undefined,
-                        status: { in: ['active', 'overdue'] }
-                    }
-                }
-            }
+            include: includeClause,
         }),
         prisma.serviceChargeType.findMany({
             where: { frequency: 'monthly' }
