@@ -146,7 +146,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       const guarantorChecks = await prisma.member.findMany({
           where: { id: { in: guarantorIds } },
           include: { _count: { select: { guaranteedLoans: { where: { loan: { status: { in: ['active', 'overdue'] } } } } } }
-      });
+      }});
 
       for (const guarantor of guarantorChecks) {
           if (guarantor._count.guaranteedLoans >= 2) {
