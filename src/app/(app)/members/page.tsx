@@ -69,7 +69,7 @@ const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
 ].sort();
 
-const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: string[] }> = {
+const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: string[], temporaryPassword?: string }> = {
   id: '',
   fullName: '',
   email: '',
@@ -108,7 +108,7 @@ export default function MembersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[] }>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[], temporaryPassword?: string }>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');

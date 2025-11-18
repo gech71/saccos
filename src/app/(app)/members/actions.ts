@@ -216,7 +216,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         });
 
         // Generate a secure random password
-        const temporaryPassword = randomBytes(8).toString('hex'); // 16 characters
+        const temporaryPassword = randomBytes(12).toString('hex'); // 24 characters
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
         const newMember = await prisma.member.create({
@@ -465,7 +465,7 @@ export async function importMembers(
     try {
       // The validation is now done client-side before calling this,
       // but we can have a fallback check here if needed.
-      const temporaryPassword = randomBytes(8).toString('hex');
+      const temporaryPassword = randomBytes(12).toString('hex');
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
       
       const newMember = await prisma.member.create({
