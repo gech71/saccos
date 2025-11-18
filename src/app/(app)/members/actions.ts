@@ -216,7 +216,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         });
 
         // Generate a secure random password
-        const temporaryPassword = randomBytes(12).toString('hex'); // 24 characters
+        const temporaryPassword = randomBytes(12).toString('hex');
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
         const newMember = await prisma.member.create({
@@ -224,6 +224,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
                 id,
                 ...memberData,
                 password: hashedPassword,
+                temporaryPassword: temporaryPassword, // Store plaintext temporarily
                 mustChangePassword: true,
                 status: 'active',
                 joinDate: new Date(memberData.joinDate),
@@ -474,6 +475,7 @@ export async function importMembers(
           fullName: m.MemberFullName,
           email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Generate unique email
           password: hashedPassword,
+          temporaryPassword,
           mustChangePassword: true,
           sex: 'Male', // Default, can be updated later
           phoneNumber: toLocalPhone(m.PhoneNumber),
