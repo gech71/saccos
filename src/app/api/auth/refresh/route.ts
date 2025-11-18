@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import prisma from '@/lib/prisma';
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     // Sign new access token (15 minutes)
     const accessToken = jwt.sign({ user: tokenPayload }, signingKey as string, {
       algorithm: 'HS256',
-      expiresIn: 15 * 60,
+      expiresIn: '15m',
     });
 
     const res = NextResponse.json({ ok: true });
