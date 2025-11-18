@@ -17,7 +17,6 @@ export async function middleware(request: NextRequest) {
     "/news",
     "/contact",
     "/api/auth",
-    // allow anonymous uploads and public access to uploaded files
     "/api/upload",
   ];
 
@@ -25,7 +24,6 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Not logged in → redirect
   if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.url);
@@ -34,10 +32,21 @@ export async function middleware(request: NextRequest) {
 
   const user = session.user;
 
-  // Members allowed only profile routes
+  // Handle forced password change for members
+  if (user?.isMember && user.mustChangePassword && pathname !== '/member-change-password') {
+    return NextResponse.redirect(new URL('/member-change-password', request.url));
+  }
+  
+  if (user?.isMember && !user.mustChangePassword && pathname === '/member-change-password') {
+    return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
+  }
+
+
+  // Members allowed only profile and password change routes
   if (
     user?.isMember &&
-    !pathname.startsWith("/member-profile")
+    !pathname.startsWith("/member-profile") &&
+    !pathname.startsWith("/member-change-password")
   ) {
     return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
   }
@@ -45,7 +54,7 @@ export async function middleware(request: NextRequest) {
   // Admin shouldn't access member-only routes
   if (
     !user?.isMember &&
-    (pathname.startsWith("/member-profile"))
+    (pathname.startsWith("/member-profile") || pathname.startsWith("/member-change-password"))
   ) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }

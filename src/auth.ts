@@ -92,30 +92,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (member) {
           const match = member.password && (await bcrypt.compare(password, member.password));
           if (match) {
-            // Check if password change is required
-            if (member.mustChangePassword) {
-              // Instead of returning the user, we throw a custom error
-              // that the login page can catch to redirect.
-              // Note: NextAuth redirects errors to the error page by default.
-              // A custom login page logic is needed to handle this gracefully.
-              // For now, let's allow login but include the flag.
-              return {
-                id: member.id,
-                name: member.fullName,
-                email: member.email,
-                phoneNumber: member.phoneNumber,
-                isMember: true,
-                mustChangePassword: member.mustChangePassword,
-              } as MemberAuthUser;
-            }
-
             return {
               id: member.id,
               name: member.fullName,
               email: member.email,
               phoneNumber: member.phoneNumber,
               isMember: true,
-              mustChangePassword: false,
+              mustChangePassword: member.mustChangePassword,
             } as MemberAuthUser;
           }
         }

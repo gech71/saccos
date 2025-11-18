@@ -324,7 +324,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
     
     // If a member is authenticated but is not on their own profile page, redirect them.
-    if (member && !pathname.startsWith(`/member-profile/${member.id}`)) {
+    if (member && !pathname.startsWith(`/member-profile/${member.id}`) && !pathname.startsWith('/member-change-password')) {
         router.replace(`/member-profile/${member.id}`);
         return;
     }
