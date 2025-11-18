@@ -517,23 +517,3 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
-
-export async function changeMemberPassword(memberId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
-    try {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await prisma.member.update({
-            where: { id: memberId },
-            data: {
-                password: hashedPassword,
-                mustChangePassword: false,
-                temporaryPassword: null, // Clear the temporary password
-            }
-        });
-        return { success: true };
-    } catch(error) {
-        console.error("Failed to change member password:", error);
-        return { success: false, error: 'An unexpected error occurred.' };
-    }
-}
-
-    

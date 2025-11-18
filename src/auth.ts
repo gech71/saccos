@@ -1,3 +1,4 @@
+
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -26,18 +27,11 @@ function toIntlPhone(phone?: string | null) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-
-  //--------------------------
-  // ✨ IMPORTANT FIX:
-  // REMOVE custom encode/decode to avoid JWTSessionError
-  //--------------------------
-
+  trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
-
   session: {
-    strategy: "jwt", // uses internal Auth.js JWT format
+    strategy: "jwt",
   },
-
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -55,9 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const phoneLocal = toLocalPhone(phoneNumber);
         const phoneIntl = toIntlPhone(phoneNumber);
 
-        // -------------------------
         // 1. ADMIN USER LOGIN
-        // -------------------------
         const adminUser = await prisma.user.findFirst({
           where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
@@ -92,9 +84,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // -------------------------
         // 2. MEMBER LOGIN
-        // -------------------------
         const member = await prisma.member.findFirst({
           where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] },
         });
@@ -102,13 +92,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (member) {
           const match = member.password && (await bcrypt.compare(password, member.password));
           if (match) {
+            // Check if password change is required
+            if (member.mustChangePassword) {
+              // Instead of returning the user, we throw a custom error
+              // that the login page can catch to redirect.
+              // Note: NextAuth redirects errors to the error page by default.
+              // A custom login page logic is needed to handle this gracefully.
+              // For now, let's allow login but include the flag.
+              return {
+                id: member.id,
+                name: member.fullName,
+                email: member.email,
+                phoneNumber: member.phoneNumber,
+                isMember: true,
+                mustChangePassword: member.mustChangePassword,
+              } as MemberAuthUser;
+            }
+
             return {
               id: member.id,
               name: member.fullName,
               email: member.email,
               phoneNumber: member.phoneNumber,
               isMember: true,
-              mustChangePassword: member.mustChangePassword,
+              mustChangePassword: false,
             } as MemberAuthUser;
           }
         }
