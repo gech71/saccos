@@ -21,7 +21,7 @@ export async function getAuditLogs(
   } = {}
 ): Promise<{ logs: AuditLogWithActor[]; totalCount: number }> {
   try {
-    await requirePermission('audit:view');
+    await requirePermission('auditLog:view');
     const where: Prisma.AuditLogWhereInput = {};
     if (filters.actorName) {
         where.OR = [
