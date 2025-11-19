@@ -61,7 +61,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
             memberShareCommitments: {
                 include: {
                     shareType: true,
-                    payments: {
+                    sharePayments: {
                         where: { status: 'approved' },
                         orderBy: {
                             paymentDate: 'desc'
@@ -200,7 +200,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         totalRepaid
     })).sort((a,b) => compareDesc(new Date(a.month), new Date(b.month)));
 
-    const allSharePayments = (member.memberShareCommitments || []).flatMap(c => c.payments || []);
+    const allSharePayments = (member.memberShareCommitments || []).flatMap(c => c.sharePayments || []);
     
     // Sanitize loans to remove repayments from the main object to avoid redundant data transfer
     const sanitizedLoans = loans.map(l => {
@@ -214,7 +214,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         address: member.address,
         emergencyContact: member.emergencyContact,
         savingAccounts: member.memberSavingAccounts || [],
-        shareCommitments: member.memberShareCommitments || [],
+        shareCommitments: member.memberShareCommitments.map(c => ({...c, payments: c.sharePayments})),
         sharePayments: allSharePayments,
         loans: sanitizedLoans,
         guaranteedLoans: safeGuaranteedLoans,
@@ -223,7 +223,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         serviceCharges: member.appliedServiceCharges || [],
         monthlySavings,
         monthlyLoanRepayments,
-        allSavingsTransactions: savingsWithBalance,
+        allSavingsTransactions: savingsWithBalance.sort((a, b) => compareDesc(new Date(a.date), new Date(b.date))),
         schoolHistory: member.schoolHistory || [],
     };
 }
