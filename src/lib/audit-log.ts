@@ -23,7 +23,6 @@ export type AuditAction =
 export async function logAudit(
   action: AuditAction,
   options: {
-    actorId?: string; // For when session is not available
     targetId?: string;
     targetType?: string;
     details?: Prisma.JsonValue;
@@ -33,7 +32,6 @@ export async function logAudit(
     const session = await auth();
     const sessionUser = session?.user;
     
-    let actorId: string | undefined = options.actorId;
     let actorName = 'System';
     let actorType: 'ADMIN' | 'MEMBER' | 'SYSTEM' = 'SYSTEM';
     
@@ -41,7 +39,6 @@ export async function logAudit(
     let memberId: string | undefined;
 
     if (sessionUser) {
-        actorId = sessionUser.id;
         actorName = sessionUser.name || 'Unknown';
         if (sessionUser.isMember) {
             actorType = 'MEMBER';
@@ -52,11 +49,6 @@ export async function logAudit(
         }
     }
     
-    if (!actorId && !options.actorId) {
-        console.warn(`Audit log for action "${action}" skipped: No actor ID could be determined.`);
-        return;
-    }
-
     const { targetId, targetType, details } = options;
 
     await prisma.auditLog.create({

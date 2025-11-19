@@ -223,7 +223,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
   await logAudit('LOAN_CREATE', {
       targetId: newLoan.id,
       targetType: 'LOAN',
-      details: { memberId: memberId, loanType: loanType.name, amount: principalAmount }
+      details: { memberId: member.memberId, loanType: loanType.name, amount: principalAmount }
   });
 
   return newLoan;
@@ -241,7 +241,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
 
 export async function deleteLoan(id: string, isUpdate: boolean = false): Promise<{ success: boolean; message: string }> {
   try {
-    const loan = await prisma.loan.findUnique({ where: { id }, select: { memberId: true, loanType: { select: { name: true }} } });
+    const loan = await prisma.loan.findUnique({ where: { id }, select: { member: { select: { memberId: true}}, loanType: { select: { name: true }} } });
     if (!loan) {
         return { success: false, message: "Loan not found." };
     }
@@ -260,7 +260,7 @@ export async function deleteLoan(id: string, isUpdate: boolean = false): Promise
         await logAudit('LOAN_DELETE', {
             targetId: id,
             targetType: 'LOAN',
-            details: { memberId: loan.memberId, loanType: loan.loanType.name }
+            details: { memberId: loan.member?.memberId, loanType: loan.loanType?.name }
         });
     }
 
