@@ -21,10 +21,7 @@ export async function getAuditLogs(
   try {
     const where: Prisma.AuditLogWhereInput = {};
     if (filters.actorName) {
-        where.OR = [
-            { user: { name: { contains: filters.actorName, mode: 'insensitive' } } },
-            { member: { fullName: { contains: filters.actorName, mode: 'insensitive' } } },
-        ];
+        where.actorName = { contains: filters.actorName, mode: 'insensitive' };
     }
     if (filters.action) {
       where.action = { equals: filters.action };
@@ -47,7 +44,8 @@ export async function getAuditLogs(
       prisma.auditLog.count({ where }),
     ]);
 
-    return { logs, totalCount };
+    // The type assertion is safe because of the include statement.
+    return { logs: logs as AuditLogWithActor[], totalCount };
   } catch (error) {
     console.error('Failed to get audit logs:', error);
     throw new Error('Could not retrieve audit logs.');

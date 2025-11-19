@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,8 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Search, Loader2, ListFilter, ChevronsRight, ChevronsLeft, ChevronRight, ChevronLeft } from 'lucide-react';
 import { permissionsByGroup } from '../settings/permissions';
 
-const auditActions = permissionsByGroup['Audit Log'] ? [] : Object.values(permissionsByGroup).flat().map(p => p.id);
-
+const auditActions = Object.values(permissionsByGroup).flat().map(p => p.id);
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditLogWithActor[]>([]);
@@ -56,10 +55,10 @@ export default function AuditLogPage() {
 
   const getActorName = (log: AuditLogWithActor) => {
     if (log.actorType === 'ADMIN' && log.user) {
-      return `${log.user.name} (Admin)`;
+      return `${log.user.name ?? log.actorName} (Admin)`;
     }
     if (log.actorType === 'MEMBER' && log.member) {
-      return `${log.member.fullName} (Member)`;
+      return `${log.member.fullName ?? log.actorName} (Member)`;
     }
     return log.actorName || 'System';
   };

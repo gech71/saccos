@@ -23,40 +23,49 @@ export type AuditAction =
 export async function logAudit(
   action: AuditAction,
   options: {
-    actorId?: string; // actorId is now optional
+    actorId?: string; // For when session is not available
     targetId?: string;
     targetType?: string;
     details?: Prisma.JsonValue;
   } = {}
 ) {
   try {
-    let actorId = options.actorId;
+    const session = await auth();
+    const sessionUser = session?.user;
+    
+    let actorId: string | undefined = options.actorId;
     let actorName = 'System';
     let actorType: 'ADMIN' | 'MEMBER' | 'SYSTEM' = 'SYSTEM';
+    
+    let userId: string | undefined;
+    let memberId: string | undefined;
 
-    if (!actorId) {
-        const session = await auth();
-        if (session?.user?.id) {
-            actorId = session.user.id;
-            actorName = session.user.name || 'Unknown';
-            actorType = session.user.isMember ? 'MEMBER' : 'ADMIN';
+    if (sessionUser) {
+        actorId = sessionUser.id;
+        actorName = sessionUser.name || 'Unknown';
+        if (sessionUser.isMember) {
+            actorType = 'MEMBER';
+            memberId = sessionUser.id;
+        } else {
+            actorType = 'ADMIN';
+            userId = sessionUser.id;
         }
     }
     
-    if (!actorId) {
+    if (!actorId && !options.actorId) {
         console.warn(`Audit log for action "${action}" skipped: No actor ID could be determined.`);
         return;
     }
-
 
     const { targetId, targetType, details } = options;
 
     await prisma.auditLog.create({
       data: {
-        actorId,
         actorName,
         actorType,
         action,
+        userId: userId,
+        memberId: memberId,
         targetId,
         targetType,
         details,
@@ -65,6 +74,5 @@ export async function logAudit(
 
   } catch (error) {
     console.error("Failed to write to audit log:", error);
-    // In a real-world scenario, you might have a fallback logging mechanism here
   }
 }
