@@ -1,6 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
-import { permissionsList } from '../src/app/(app)/settings/permissions';
+import { permissionsList } from '../app/(app)/settings/permissions';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -71,7 +71,7 @@ async function main() {
   console.log('Seeding a sample member...');
   const memberPassword = await bcrypt.hash('password', 10);
   const school = await prisma.school.create({
-      data: { name: "Sample School" }
+      data: { id: 'school-1', name: "Sample School" }
   });
   await prisma.member.create({
       data: {
