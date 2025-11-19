@@ -9,6 +9,7 @@ async function main() {
   console.log('Start seeding ...');
 
   console.log('Cleaning database...');
+  await prisma.auditLog.deleteMany();
   await prisma.schoolHistory.deleteMany();
   await prisma.loanGuarantor.deleteMany();
   await prisma.loanRepayment.deleteMany();
@@ -35,6 +36,8 @@ async function main() {
   await prisma.heroSlide.deleteMany();
   await prisma.service.deleteMany();
   await prisma.websiteContent.deleteMany();
+  await prisma.account.deleteMany();
+  await prisma.session.deleteMany();
   console.log('Database cleaned.');
 
   console.log('Seeding admin role...');
@@ -50,10 +53,9 @@ async function main() {
   });
 
   console.log('Seeding admin user...');
-  const hashedPassword = await bcrypt.hash('Admin@123', 10);
+  const hashedPassword = await bcrypt.hash('password', 10);
   await prisma.user.create({
     data: {
-      userId: 'b1e55c84-9055-4eb5-8bd4-a262538f7e66',
       email: 'admin@example.com',
       name: 'Academ Admin',
       firstName: 'Academ',
@@ -65,6 +67,26 @@ async function main() {
       },
     },
   });
+  
+  console.log('Seeding a sample member...');
+  const memberPassword = await bcrypt.hash('password', 10);
+  const school = await prisma.school.create({
+      data: { name: "Sample School" }
+  });
+  await prisma.member.create({
+      data: {
+          memberId: "MEM-001",
+          fullName: "Test Member",
+          email: "member@test.com",
+          password: memberPassword,
+          sex: "Male",
+          phoneNumber: "0900000000",
+          schoolId: school.id,
+          joinDate: new Date(),
+          status: "active",
+      }
+  });
+
 
   console.log('Seeding default website content...');
   await prisma.websiteContent.create({
