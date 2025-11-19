@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
 
   // Handle forced password change for members
   if (user?.isMember && user.mustChangePassword && pathname !== '/member-change-password') {
-    return NextResponse.redirect(new URL(`/member-change-password?memberId=${user.id}`, request.url));
+    return NextResponse.redirect(new URL(`/member-change-password`, request.url));
   }
   
   if (user?.isMember && !user.mustChangePassword && pathname === '/member-change-password') {
@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
   // Members allowed only profile and password change routes
   if (
     user?.isMember &&
-    !pathname.startsWith("/member-profile") &&
+    !pathname.startsWith(`/member-profile/${user.id}`) &&
     !pathname.startsWith("/member-change-password")
   ) {
     return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
