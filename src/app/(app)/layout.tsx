@@ -41,7 +41,7 @@ import {
   UploadCloud,
   Newspaper,
   Settings2,
-  History, // Import History icon
+  History,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
