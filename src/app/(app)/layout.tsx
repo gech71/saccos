@@ -223,12 +223,6 @@ const navItems: NavItem[] = [
     permission: 'setting:view',
   },
   {
-    title: 'Register New User',
-    href: '/settings/register',
-    icon: UserRoundPlus,
-    permission: 'setting:create',
-  },
-  {
     title: 'Saving Acct. Types',
     href: '/saving-account-types',
     icon: WalletCards,
