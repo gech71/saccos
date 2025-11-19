@@ -231,7 +231,7 @@ export default function CalculateLoanInterestPage() {
                           {pageData.members.map((member) => (
                             <CommandItem
                               key={member.id}
-                              value={`${member.fullName} ${member.id}`}
+                              value={`${member.fullName} ${member.memberId}`}
                               onSelect={() => {
                                 setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
                                 setOpenMemberCombobox(false);
@@ -243,7 +243,7 @@ export default function CalculateLoanInterestPage() {
                                   selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {member.fullName} ({member.id})
+                               {member.fullName} {member.memberId && `(#${member.memberId})`}
                             </CommandItem>
                           ))}
                         </CommandGroup>

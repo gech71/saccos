@@ -20,7 +20,7 @@ export interface StatementData {
   schoolName: string | null;
 }
 
-export type MemberForStatement = Pick<Member, 'id' | 'fullName' | 'status'> & {
+export type MemberForStatement = Pick<Member, 'id' | 'fullName' | 'status' | 'memberId'> & {
     memberSavingAccounts: (Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'> & { savingAccountType: Pick<SavingAccountType, 'name'> | null })[]
 };
 
@@ -35,6 +35,7 @@ export async function getMembersForStatement(): Promise<MemberForStatement[]> {
         id: true,
         fullName: true,
         status: true,
+        memberId: true,
         memberSavingAccounts: {
             select: {
                 id: true,

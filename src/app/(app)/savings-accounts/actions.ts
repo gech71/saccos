@@ -74,7 +74,7 @@ export async function getSavingsAccountPageData(): Promise<SavingsAccountPageDat
         }
 
         return {
-        memberId: member.id,
+        memberId: member.memberId, // Use sequential ID
         fullName: member.fullName,
         schoolName: member.school?.name ?? 'N/A',
         schoolId: member.schoolId,

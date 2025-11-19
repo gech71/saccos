@@ -223,7 +223,7 @@ function AccountStatementContent() {
                               {allMembers.map((member) => (
                                   <CommandItem
                                   key={member.id}
-                                  value={`${member.fullName} ${member.id}`}
+                                  value={`${member.fullName} ${member.memberId}`}
                                   onSelect={() => {
                                       setSelectedMemberId(member.id === selectedMemberId ? "" : member.id)
                                       setOpenMemberCombobox(false)
@@ -235,7 +235,7 @@ function AccountStatementContent() {
                                       selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                       )}
                                   />
-                                  {member.fullName}
+                                  {member.fullName} {member.memberId && `(#${member.memberId})`}
                                   {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                                   </CommandItem>
                               ))}

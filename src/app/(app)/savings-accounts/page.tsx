@@ -54,7 +54,7 @@ export default function SavingsAccountsPage() {
     return accountSummaries.filter(summary => {
       const searchTermLower = searchTerm.toLowerCase();
       const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTermLower) ||
-                                summary.memberId.toLowerCase().includes(searchTermLower);
+                                (summary.memberId && summary.memberId.toLowerCase().includes(searchTermLower));
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -191,7 +191,6 @@ export default function SavingsAccountsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Member ID</TableHead>
               <TableHead>Member Name</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Account Number</TableHead>
@@ -203,7 +202,6 @@ export default function SavingsAccountsPage() {
           <TableBody>
             {paginatedSummaries.length > 0 ? paginatedSummaries.map(summary => (
               <TableRow key={`${summary.memberId}-${summary.savingsAccountNumber}`}>
-                <TableCell className="font-mono text-xs">{summary.memberId}</TableCell>
                 <TableCell className="font-medium">{summary.fullName}</TableCell>
                 <TableCell>{summary.schoolName}</TableCell>
                 <TableCell>{summary.savingsAccountNumber || 'N/A'}</TableCell>

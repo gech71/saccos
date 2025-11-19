@@ -11,7 +11,7 @@ function roundToTwo(num: number) {
 }
 
 export interface CalculationPageData {
-    members: Pick<Member, 'id' | 'fullName'>[];
+    members: Pick<Member, 'id' | 'fullName' | 'memberId'>[];
     schools: Pick<School, 'id' | 'name'>[];
     loanTypes: Pick<LoanType, 'id' | 'name'>[];
     serviceChargeTypes: Pick<ServiceChargeType, 'id' | 'name'>[];
@@ -30,7 +30,7 @@ export interface InterestCalculationResult {
 export async function getCalculationPageData(): Promise<CalculationPageData> {
     try {
         const [members, schools, loanTypes, serviceChargeTypes] = await Promise.all([
-            prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true }, orderBy: { fullName: 'asc' } }),
+            prisma.member.findMany({ where: { status: 'active'}, select: { id: true, fullName: true, memberId: true }, orderBy: { fullName: 'asc' } }),
             prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
             prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
             prisma.serviceChargeType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
