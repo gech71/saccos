@@ -304,7 +304,7 @@ export default function AggregateCollectionsPage() {
     const headers = getHeaders();
 
     const dataToExport = membersData.map(member => {
-        const row: (string | number)[] = [member.memberId, member.fullName];
+        const row: (string | number)[] = [member.memberId || '', member.fullName];
         dynamicColumns.savings.forEach(s => row.push(collectionData[member.id]?.[`saving_${s.id}`] || 0));
         dynamicColumns.loans.forEach(l => {
             row.push(collectionData[member.id]?.[`loan_${l.id}-principal`] || 0);
@@ -332,7 +332,7 @@ export default function AggregateCollectionsPage() {
     
     const headers = getHeaders().filter(h => h !== 'Total Collected');
     const templateData = membersData.map(member => {
-        const rowObject: Record<string, any> = { 'Member ID': member.memberId, 'Full Name': member.fullName };
+        const rowObject: Record<string, any> = { 'Member ID': member.memberId || '', 'Full Name': member.fullName };
         headers.slice(2).forEach(header => {
             rowObject[header] = 0; // Default to 0
         });
@@ -396,17 +396,12 @@ export default function AggregateCollectionsPage() {
         
         const validatedData: ValidatedRow[] = dataRows.map(row => {
             const providedId = row['Member ID']?.toString().trim();
-            // Look up by UUID first, then by sequential memberId
-            let member = membersData.find(m => m.id === providedId);
-            if (!member) member = membersData.find(m => String(m.memberId) === providedId);
+            const member = membersData.find(m => String(m.memberId) === providedId);
             const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
 
             if (!member) {
                 return { memberId: providedId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
             }
-
-            // Normalize the displayed Member ID in the preview to the sequential id
-            row['Member ID'] = member.memberId;
 
             const collectionValues: CollectionInputValues = {};
             for(const header of fileHeaders) {

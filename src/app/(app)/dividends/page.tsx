@@ -306,8 +306,7 @@ export default function DividendsPage() {
             }
         });
 
-        const memberMapByUuid = new Map(members.map(m => [m.id, m.id]));
-        const memberMapBySeq = new Map(members.map(m => [String(m.memberId), m.id]));
+        const memberMap = new Map(members.map(m => [String(m.memberId), m.id]));
         const validatedData: ParsedDividend[] = dataRows.map(row => {
           const providedId = row['Member ID']?.toString().trim();
           const amount = parseFloat(row['Amount (Birr)']);
@@ -315,11 +314,8 @@ export default function DividendsPage() {
           const date = row['Distribution Date'] instanceof Date ? row['Distribution Date'] : new Date();
 
           let status: ParsedDividend['status'] = 'Ready to import';
-          let dbMemberId: string | undefined;
-          if (providedId) {
-            if (memberMapByUuid.has(providedId)) dbMemberId = providedId;
-            else if (memberMapBySeq.has(providedId)) dbMemberId = memberMapBySeq.get(providedId);
-          }
+          const dbMemberId = memberMap.get(providedId);
+          
           if (!dbMemberId) status = 'Invalid Member ID';
           else if (isNaN(amount) || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
           

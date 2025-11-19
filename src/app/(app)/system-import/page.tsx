@@ -141,7 +141,7 @@ export default function SystemImportPage() {
     
     const headers = getHeaders();
     const templateData = membersData.map(member => {
-      const rowObject: Record<string, any> = { 'Member ID': member.memberId, 'Full Name': member.fullName };
+      const rowObject: Record<string, any> = { 'Member ID': member.memberId || '', 'Full Name': member.fullName };
         dynamicColumns.savings.forEach(s => { 
             rowObject[s.name] = 0;
             rowObject[`${s.name} Interest`] = 0;
@@ -227,17 +227,12 @@ export default function SystemImportPage() {
           const fullNameKey = headerMap[standardizeHeader('Full Name')];
           const memberIdFromFile = row[memberIdKey];
           const providedId = memberIdFromFile?.toString().trim();
-          // lookup by UUID first, then by sequential memberId
-          let member = membersData.find(m => m.id === providedId);
-          if (!member) member = membersData.find(m => String(m.memberId) === providedId);
+          const member = membersData.find(m => String(m.memberId) === providedId);
           const fullName = member?.fullName || row[fullNameKey] || 'Unknown Member';
 
           if (!member) {
             return { memberId: providedId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
           }
-
-          // Normalize displayed Member ID in preview to sequential id
-          row[memberIdKey] = member.memberId;
 
             const collectionValues: CollectionInputValues = {};
             for(const standardizedHeader of Object.keys(headerMap)) {
