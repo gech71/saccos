@@ -162,7 +162,7 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                   data: {
                     memberId,
                     savingAccountTypeId: id,
-                    accountNumber: `SA-${memberId.slice(-4)}-${id.slice(-4)}`,
+                    accountNumber: `SA${Math.floor(100000 + Math.random() * 900000)}`,
                     balance: 0,
                     initialBalance: 0,
                     expectedMonthlySaving,

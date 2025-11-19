@@ -53,7 +53,7 @@ export async function createSavingAccount(data: AccountCreationData): Promise<{ 
         return { success: false, error: `This member already has a '${savingAccountType.name}' account.` };
     }
 
-    const finalAccountNumber = accountNumber || `SA-${Date.now().toString().slice(-6)}`;
+    const finalAccountNumber = accountNumber || `SA${Math.floor(100000 + Math.random() * 900000)}`;
     
     if (accountNumber) {
       const existingByAcctNo = await prisma.memberSavingAccount.findFirst({

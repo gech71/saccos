@@ -203,7 +203,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       notes,
       purpose,
       loanTerm,
-      loanAccountNumber: loanAccountNumber || `LN${Date.now().toString().slice(-6)}`,
+      loanAccountNumber: loanAccountNumber || `LN${Math.floor(100000 + Math.random() * 900000)}`,
       disbursementDate: new Date(disbursementDate),
       interestRate: loanType.interestRate,
       repaymentFrequency: loanType.repaymentFrequency,
