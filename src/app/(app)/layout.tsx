@@ -331,15 +331,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    if (member?.mustChangePassword) {
-      if (!pathname.startsWith('/member-change-password')) {
-        router.replace(`/member-change-password`);
-      }
+    if (member?.mustChangePassword && pathname !== '/member-change-password') {
+      router.replace(`/member-change-password`);
       return;
     }
     
     // If a member is authenticated but is not on their own profile page, redirect them.
-    if (member && !pathname.startsWith(`/member-profile/${member.id}`)) {
+    if (member && !pathname.startsWith(`/member-profile/${member.id}`) && pathname !== '/member-change-password') {
         router.replace(`/member-profile/${member.id}`);
         return;
     }
