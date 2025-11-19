@@ -10,7 +10,7 @@ function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
 }
 
-export type ActiveMemberForClosure = Pick<Member, 'id' | 'fullName'> & {
+export type ActiveMemberForClosure = Pick<Member, 'id' | 'fullName' | 'memberId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'accountNumber' | 'balance'>[]
 };
 
@@ -20,6 +20,7 @@ export async function getActiveMembersForClosure() {
     select: {
       id: true,
       fullName: true,
+      memberId: true,
       memberSavingAccounts: {
           select: {
               accountNumber: true,

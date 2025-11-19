@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -61,7 +62,8 @@ export default function ClosedAccountsPage() {
 
   const filteredClosedAccounts = useMemo(() => {
     return closedAccounts.filter(member => {
-      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.memberId && member.memberId.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -113,8 +115,8 @@ export default function ClosedAccountsPage() {
     if (filteredClosedAccounts.length === 0) return;
     const dataToExport = filteredClosedAccounts.map(member => ({
       'Member Name': member.fullName,
+      'Member ID': member.memberId,
       'School': member.school?.name ?? 'N/A',
-      'Account Number': member.savingsAccountNumber || 'N/A',
       'Closure Date': member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A',
       'Savings Payout (Birr)': member.finalSavingsPayout,
       'Interest Payout (Birr)': member.finalInterestPayout,
@@ -141,7 +143,7 @@ export default function ClosedAccountsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by member name..."
+            placeholder="Search by member name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
@@ -172,7 +174,7 @@ export default function ClosedAccountsPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead>Member Name</TableHead>
                 <TableHead>School</TableHead>
-                <TableHead>Account Number</TableHead>
+                <TableHead>Member ID</TableHead>
                 <TableHead>Closure Date</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center w-[180px]">Actions</TableHead>
@@ -184,7 +186,7 @@ export default function ClosedAccountsPage() {
                     <TableRow>
                       <TableCell className="font-medium">{member.fullName}</TableCell>
                       <TableCell>{member.school?.name ?? 'N/A'}</TableCell>
-                      <TableCell>{member.savingsAccountNumber || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-xs">{member.memberId || 'N/A'}</TableCell>
                       <TableCell>
                         {member.closureDate ? format(new Date(member.closureDate), 'PPP') : 'N/A'}
                       </TableCell>

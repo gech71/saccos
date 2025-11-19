@@ -185,7 +185,7 @@ export default function CloseAccountPage() {
                             return (
                                 <CommandItem
                                 key={member.id}
-                                value={`${member.fullName} ${member.id}`}
+                                value={`${member.fullName} ${member.memberId}`}
                                 onSelect={() => {
                                     setSelectedMemberId(member.id === selectedMemberId ? "" : member.id);
                                     setOpenMemberCombobox(false);
@@ -198,7 +198,7 @@ export default function CloseAccountPage() {
                                     selectedMemberId === member.id ? "opacity-100" : "opacity-0"
                                     )}
                                 />
-                                {member.fullName} (ID: {member.id})
+                                {member.fullName} (#${member.memberId})
                                 </CommandItem>
                             )
                         })}
