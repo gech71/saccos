@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma, School } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export type SchoolWithMemberCount = School & {
   _count: {
@@ -34,6 +35,7 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
 }
 
 export async function addSchool(data: Omit<School, 'id' | '_count'>): Promise<{ success: boolean; error?: string }> {
+  await requirePermission('school:create');
   try {
     await prisma.school.create({
       data,
@@ -50,6 +52,7 @@ export async function addSchool(data: Omit<School, 'id' | '_count'>): Promise<{ 
 }
 
 export async function updateSchool(id: string, data: Partial<Omit<School, 'id' | '_count'>>): Promise<{ success: boolean; error?: string }> {
+  await requirePermission('school:edit');
   try {
     await prisma.school.update({
       where: { id },
@@ -65,6 +68,7 @@ export async function updateSchool(id: string, data: Partial<Omit<School, 'id' |
 
 export async function deleteSchool(id: string): Promise<{ success: boolean, message: string }> {
   try {
+    await requirePermission('school:delete');
     const memberCount = await prisma.member.count({
       where: { schoolId: id },
     });
@@ -95,6 +99,7 @@ export async function importSchools(schools: {id: string, name: string, address?
     let skippedCount = 0;
 
     try {
+      await requirePermission('school:create');
         for (const school of schools) {
             try {
                 await prisma.school.create({

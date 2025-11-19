@@ -5,9 +5,11 @@
 import prisma from '@/lib/prisma';
 import type { WebsiteContent, Post, SocialMediaLink, Service, HeroSlide } from '@prisma/client';
 import { revalidateTag } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getWebsiteContentForAdmin() {
     try {
+    await requirePermission('setting:edit');
         let content = await prisma.websiteContent.findFirst({
             include: {
                 socialLinks: {
@@ -52,6 +54,7 @@ export async function getWebsiteContentForAdmin() {
 
 export async function updateWebsiteContent(data: Partial<WebsiteContent>): Promise<WebsiteContent> {
     try {
+    await requirePermission('setting:edit');
         const currentContent = await prisma.websiteContent.findFirst();
         
         const { socialLinks, services, heroSlides, ...contentData } = data;
@@ -79,6 +82,7 @@ export async function updateWebsiteContent(data: Partial<WebsiteContent>): Promi
 // SOCIAL MEDIA ACTIONS
 export async function createOrUpdateSocialMediaLink(data: Partial<Omit<SocialMediaLink, 'id'>> & { id?: string; contentId: string }): Promise<SocialMediaLink> {
   try {
+    await requirePermission('setting:edit');
     const { id, contentId, ...linkData } = data;
 
     if (id) {
@@ -110,6 +114,7 @@ export async function createOrUpdateSocialMediaLink(data: Partial<Omit<SocialMed
 
 export async function deleteSocialMediaLink(id: string): Promise<{ success: boolean }> {
   try {
+    await requirePermission('setting:edit');
     await prisma.socialMediaLink.delete({
       where: { id },
     });
@@ -124,6 +129,7 @@ export async function deleteSocialMediaLink(id: string): Promise<{ success: bool
 // SERVICE ACTIONS
 export async function createOrUpdateService(data: Partial<Omit<Service, 'id'>> & { id?: string; contentId: string }): Promise<Service> {
   try {
+    await requirePermission('setting:edit');
     const { id, contentId, ...serviceData } = data;
 
     if (id) {
@@ -155,6 +161,7 @@ export async function createOrUpdateService(data: Partial<Omit<Service, 'id'>> &
 
 export async function deleteService(id: string): Promise<{ success: boolean }> {
   try {
+    await requirePermission('setting:edit');
     await prisma.service.delete({
       where: { id },
     });
@@ -169,6 +176,7 @@ export async function deleteService(id: string): Promise<{ success: boolean }> {
 // HERO SLIDE ACTIONS
 export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id' | 'websiteContent'>> & { id?: string; contentId: string }): Promise<HeroSlide> {
     try {
+    await requirePermission('setting:edit');
         const { id, contentId, ...slideData } = data;
         
         const dataToSave = {
@@ -206,6 +214,7 @@ export async function createOrUpdateHeroSlide(data: Partial<Omit<HeroSlide, 'id'
 
 export async function deleteHeroSlide(id: string): Promise<{ success: boolean }> {
     try {
+    await requirePermission('setting:edit');
         await prisma.heroSlide.delete({
             where: { id },
         });
@@ -234,6 +243,7 @@ export async function getPostsForAdmin(): Promise<Post[]> {
 
 export async function createPost(data: Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'slug'>): Promise<Post> {
   try {
+    await requirePermission('setting:edit');
     const newPost = await prisma.post.create({
       data: {
         ...data,
@@ -250,6 +260,7 @@ export async function createPost(data: Omit<Post, 'id' | 'createdAt' | 'updatedA
 
 export async function updatePost(id: string, data: Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt' | 'slug'>>): Promise<Post> {
   try {
+    await requirePermission('setting:edit');
     const postData = { ...data };
     if (data.title) {
       postData.slug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -269,6 +280,7 @@ export async function updatePost(id: string, data: Partial<Omit<Post, 'id' | 'cr
 
 export async function deletePost(id: string): Promise<Post> {
   try {
+    await requirePermission('setting:edit');
     const deletedPost = await prisma.post.delete({
       where: { id },
     });

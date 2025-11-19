@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, MemberSavingAccount, Saving } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export type SavingWithMemberName = Saving & { memberName: string | null };
 
@@ -57,6 +58,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
 export type SavingInput = Omit<Saving, 'id' | 'status'> & { memberName?: string };
 
 export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
+  await requirePermission('saving:create');
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
@@ -83,6 +85,7 @@ export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
 }
 
 export async function updateSavingTransaction(id: string, data: SavingInput): Promise<Saving> {
+  await requirePermission('saving:edit');
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
@@ -111,6 +114,7 @@ export async function updateSavingTransaction(id: string, data: SavingInput): Pr
 
 export async function deleteSavingTransaction(id: string): Promise<{ success: boolean, message: string }> {
   try {
+    await requirePermission('saving:delete');
     const saving = await prisma.saving.findUnique({ where: { id } });
     if (saving?.status === 'approved') {
         return { success: false, message: 'Cannot delete an approved transaction.' };

@@ -4,6 +4,7 @@
 
 import prisma from '@/lib/prisma';
 import type { Saving, Member, MemberSavingAccount, MemberShareCommitment } from '@prisma/client';
+import { requirePermission } from '@/lib/authorization';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -107,6 +108,7 @@ export async function confirmAccountClosure(
 ) {
     const { totalPayout, accruedInterest, totalSharesPaid, savingsBalance, depositMode, sourceName, transactionReference, evidenceUrl } = payoutDetails;
     
+    await requirePermission('member:delete');
     const member = await prisma.member.findUnique({ where: { id: memberId } });
     if (!member) throw new Error('Member not found');
     

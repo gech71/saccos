@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import type { SharePayment, Member, ShareType, MemberShareCommitment } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { compareDesc } from 'date-fns';
+import { requirePermission } from '@/lib/authorization';
 
 export interface MemberCommitmentWithDetails extends MemberShareCommitment {
   member: Pick<Member, 'fullName'>;
@@ -40,6 +41,7 @@ export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData>
 export type SharePaymentInput = Omit<SharePayment, 'id' | 'status'>;
 
 export async function addSharePayment(data: SharePaymentInput): Promise<{ success: boolean; error?: string }> {
+  await requirePermission('share:create');
   try {
     const commitment = await prisma.memberShareCommitment.findUnique({ where: { id: data.commitmentId } });
     if (!commitment) return { success: false, error: "Share commitment not found" };
@@ -64,6 +66,7 @@ export async function addSharePayment(data: SharePaymentInput): Promise<{ succes
 }
 
 export async function refundShareCommitment(commitmentId: string): Promise<{ success: boolean; message: string; }> {
+  await requirePermission('share:edit');
     const commitment = await prisma.memberShareCommitment.findUnique({
         where: { id: commitmentId },
         include: { 

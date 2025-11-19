@@ -6,6 +6,7 @@ import type { Loan, Prisma, Member, LoanType, Collateral } from '@prisma/client'
 import { revalidatePath } from 'next/cache';
 import { addMonths, differenceInMonths } from 'date-fns';
 import { logAudit } from '@/lib/audit-log';
+import { requirePermission } from '@/lib/authorization';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -117,6 +118,7 @@ export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' 
 };
 
 export async function addLoan(data: LoanInput): Promise<Loan> {
+  await requirePermission('loan:create');
   const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm } = data;
   
   const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
@@ -230,7 +232,8 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
 }
 
 export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
-    revalidatePath('/loans');
+  await requirePermission('loan:edit');
+  revalidatePath('/loans');
     // For this complex update, it's safer to re-implement the creation logic.
     // A real scenario would need more careful handling of existing records.
     await deleteLoan(id, true); // Soft delete for audit purposes
@@ -241,6 +244,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
 
 export async function deleteLoan(id: string, isUpdate: boolean = false): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('loan:delete');
     const loan = await prisma.loan.findUnique({ where: { id }, select: { member: { select: { memberId: true}}, loanType: { select: { name: true }} } });
     if (!loan) {
         return { success: false, message: "Loan not found." };

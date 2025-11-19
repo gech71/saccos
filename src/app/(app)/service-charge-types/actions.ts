@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getServiceChargeTypes(): Promise<ServiceChargeType[]> {
   try {
@@ -17,6 +18,7 @@ export async function getServiceChargeTypes(): Promise<ServiceChargeType[]> {
 }
 
 export async function addServiceChargeType(data: Omit<ServiceChargeType, 'id'>): Promise<ServiceChargeType> {
+  await requirePermission('configuration:create');
   try {
     const newChargeType = await prisma.serviceChargeType.create({ data });
     revalidatePath('/service-charge-types');
@@ -28,6 +30,7 @@ export async function addServiceChargeType(data: Omit<ServiceChargeType, 'id'>):
 }
 
 export async function updateServiceChargeType(id: string, data: Partial<Omit<ServiceChargeType, 'id'>>): Promise<ServiceChargeType> {
+  await requirePermission('configuration:edit');
   try {
     const updatedChargeType = await prisma.serviceChargeType.update({
       where: { id },
@@ -42,6 +45,7 @@ export async function updateServiceChargeType(id: string, data: Partial<Omit<Ser
 }
 
 export async function deleteServiceChargeType(id: string): Promise<{ success: boolean; message: string }> {
+  await requirePermission('configuration:delete');
   try {
     const chargesWithThisType = await prisma.appliedServiceCharge.count({
       where: { serviceChargeTypeId: id },

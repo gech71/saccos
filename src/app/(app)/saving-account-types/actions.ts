@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { SavingAccountType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getSavingAccountTypes(): Promise<SavingAccountType[]> {
   try {
@@ -18,6 +19,7 @@ export async function getSavingAccountTypes(): Promise<SavingAccountType[]> {
 }
 
 export async function addSavingAccountType(data: Omit<SavingAccountType, 'id'>): Promise<SavingAccountType> {
+  await requirePermission('configuration:create');
   try {
     const { name, interestRate, contributionType, contributionValue, description } = data;
     
@@ -39,6 +41,7 @@ export async function addSavingAccountType(data: Omit<SavingAccountType, 'id'>):
 }
 
 export async function updateSavingAccountType(id: string, data: Partial<Omit<SavingAccountType, 'id'>>): Promise<SavingAccountType> {
+  await requirePermission('configuration:edit');
    try {
     const { name, interestRate, contributionType, contributionValue, description } = data;
     
@@ -61,6 +64,7 @@ export async function updateSavingAccountType(id: string, data: Partial<Omit<Sav
 }
 
 export async function deleteSavingAccountType(id: string): Promise<{ success: boolean; message: string }> {
+  await requirePermission('configuration:delete');
   try {
     const membersWithAccountType = await prisma.memberSavingAccount.count({
       where: { savingAccountTypeId: id },

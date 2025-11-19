@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { ShareType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getShareTypes(): Promise<ShareType[]> {
   try {
@@ -20,6 +21,7 @@ export async function getShareTypes(): Promise<ShareType[]> {
 export type ShareTypeInput = Omit<ShareType, 'id'>;
 
 export async function addShareType(data: ShareTypeInput): Promise<ShareType> {
+  await requirePermission('configuration:create');
   try {
     const newShareType = await prisma.shareType.create({ data });
     revalidatePath('/share-types');
@@ -31,6 +33,7 @@ export async function addShareType(data: ShareTypeInput): Promise<ShareType> {
 }
 
 export async function updateShareType(id: string, data: Partial<ShareTypeInput>): Promise<ShareType> {
+  await requirePermission('configuration:edit');
   try {
     const updatedShareType = await prisma.shareType.update({
       where: { id },
@@ -45,6 +48,7 @@ export async function updateShareType(id: string, data: Partial<ShareTypeInput>)
 }
 
 export async function deleteShareType(id: string): Promise<{ success: boolean; message: string }> {
+  await requirePermission('configuration:delete');
   try {
     const activeCommitments = await prisma.memberShareCommitment.count({
       where: { 

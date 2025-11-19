@@ -7,6 +7,7 @@ import type { Loan, Member, LoanRepayment, Prisma, LoanType } from '@prisma/clie
 import { revalidatePath } from 'next/cache';
 import { compareDesc } from 'date-fns';
 import { logAudit } from '@/lib/audit-log';
+import { requirePermission } from '@/lib/authorization';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -116,6 +117,7 @@ export type LoanRepaymentInput = Pick<
 
 
 export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ success: boolean; message: string }> {
+  await requirePermission('loanRepayment:create');
   try {
     const loan = await prisma.loan.findUnique({ where: { id: data.loanId } });
     if (!loan) throw new Error('Loan not found');

@@ -3,7 +3,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType, type Member } from '@prisma/client';
+import { Prisma, type SavingAccountType, type ServiceChargeType, type ShareType, type Member, type MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
 import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -34,9 +35,7 @@ function toIntlPhone(phone?: string | null) {
 // This is the shape of the data the client page will receive
 export interface MemberWithDetails extends Member {
     school: { name: string } | null;
-    memberSavingAccounts: ({
-        savingAccountType: { name: string; };
-    } & Prisma.MemberSavingAccountGetPayload<{}>)[];
+    memberSavingAccounts: (Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'> & { savingAccountType: { name: string } | null })[];
     memberShareCommitments: ({
         shareType: { name: string; } | null;
     } & Prisma.MemberShareCommitmentGetPayload<{}>)[];
@@ -50,8 +49,8 @@ export interface MemberWithDetails extends Member {
 export interface MembersPageData {
   members: MemberWithDetails[];
   schools: { id: string; name: string }[];
-  shareTypes: ShareType[];
-  savingAccountTypes: SavingAccountType[];
+    shareTypes: ShareType[];
+    savingAccountTypes: Pick<SavingAccountType, 'id' | 'name' | 'interestRate' | 'contributionType' | 'contributionValue'>[];
   serviceChargeTypes: ServiceChargeType[];
 }
 
@@ -189,6 +188,8 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
       return { error: "Authentication required to perform this action." };
     }
 
+        await requirePermission('member:create');
+
     try {
     const { memberId, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
     if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
@@ -272,7 +273,6 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         }
 
         await logAudit('MEMBER_CREATE', {
-            actorId: session.user.id,
             targetId: newMember.id,
             targetType: 'MEMBER',
             details: { name: newMember.fullName, memberId: newMember.memberId }
@@ -299,6 +299,8 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
     if (!session?.user?.id) {
       return { success: false, error: "Authentication required to perform this action." };
     }
+
+        await requirePermission('member:edit');
 
     try {
     const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
@@ -371,7 +373,6 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         });
 
         await logAudit('MEMBER_UPDATE', {
-            actorId: session.user.id,
             targetId: updatedMember.id,
             targetType: 'MEMBER',
             details: { changes: Object.keys(data) }
@@ -394,6 +395,7 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
     }
     
     try {
+                await requirePermission('member:delete');
         const member = await prisma.member.findUnique({ where: { id } });
         if (!member) {
             return { success: false, message: 'Member not found.' };
@@ -409,7 +411,6 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
         });
 
         await logAudit('MEMBER_DELETE', {
-            actorId: session.user.id,
             targetId: member.id,
             targetType: 'MEMBER',
             details: { name: member.fullName, memberId: member.memberId }
@@ -431,6 +432,7 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
     if (!session?.user?.id) {
       return { success: false, message: "Authentication required to perform this action." };
     }
+        await requirePermission('member:transfer');
     
     try {
         const transferDate = new Date();
@@ -468,7 +470,6 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
         });
 
         await logAudit('MEMBER_TRANSFER', {
-            actorId: session.user.id,
             targetId: memberId,
             targetType: 'MEMBER',
             details: { toSchoolId: newSchoolId, toSchoolName: newSchool.name, reason }
@@ -504,6 +505,7 @@ export async function importMembers(
     if (!session?.user?.id) {
       return { success: false, message: "Authentication required to perform this action." };
     }
+        await requirePermission('member:import');
     
   if (members.length === 0) {
     return { success: true, message: 'No new members to import.' };
@@ -551,12 +553,11 @@ export async function importMembers(
           }
       });
       
-      await logAudit('MEMBER_CREATE', {
-        actorId: session.user.id,
-        targetId: newMember.id,
-        targetType: 'MEMBER',
-        details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
-      });
+            await logAudit('MEMBER_CREATE', {
+                targetId: newMember.id,
+                targetType: 'MEMBER',
+                details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
+            });
 
       createdMembersInfo.push({ member: newMember, temporaryPassword });
       createdCount++;

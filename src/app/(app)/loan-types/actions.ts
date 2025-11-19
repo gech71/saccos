@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { LoanType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getLoanTypes(): Promise<LoanType[]> {
   try {
@@ -18,6 +19,7 @@ export async function getLoanTypes(): Promise<LoanType[]> {
 }
 
 export async function addLoanType(data: Omit<LoanType, 'id'>): Promise<LoanType> {
+  await requirePermission('configuration:create');
   try {
     const newLoanType = await prisma.loanType.create({ 
       data: {
@@ -34,6 +36,7 @@ export async function addLoanType(data: Omit<LoanType, 'id'>): Promise<LoanType>
 }
 
 export async function updateLoanType(id: string, data: Partial<Omit<LoanType, 'id'>>): Promise<LoanType> {
+  await requirePermission('configuration:edit');
   try {
     const updatedLoanType = await prisma.loanType.update({
       where: { id },
@@ -49,6 +52,7 @@ export async function updateLoanType(id: string, data: Partial<Omit<LoanType, 'i
 
 export async function deleteLoanType(id: string): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('configuration:delete');
     const loansWithThisType = await prisma.loan.count({
       where: { loanTypeId: id },
     });

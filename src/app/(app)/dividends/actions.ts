@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Dividend, Member, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export interface DividendsPageData {
   dividends: (Dividend & { memberName: string })[];
@@ -33,6 +34,7 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
 export type DividendInput = Omit<Dividend, 'id' | 'status'> & { memberName?: string };
 
 export async function addDividend(data: DividendInput): Promise<{success: boolean; error?: string}> {
+  await requirePermission('dividend:create');
   try {
     const member = await prisma.member.findUnique({ where: { id: data.memberId } });
     if (!member) throw new Error('Member not found');
@@ -58,6 +60,7 @@ export async function addDividend(data: DividendInput): Promise<{success: boolea
 }
 
 export async function updateDividend(id: string, data: Partial<DividendInput>): Promise<{success: boolean; error?: string}> {
+  await requirePermission('dividend:edit');
   try {
     if (!data.memberId) {
       throw new Error('Member is required to update a dividend record.');
@@ -89,6 +92,7 @@ export async function updateDividend(id: string, data: Partial<DividendInput>): 
 
 export async function deleteDividend(id: string): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('dividend:delete');
     const dividend = await prisma.dividend.findUnique({ where: { id } });
     if (dividend?.status === 'approved') {
         return { success: false, message: 'Cannot delete an approved dividend record.' };
@@ -119,6 +123,7 @@ export async function importDividends(dividends: ImportedDividend[], allocationM
     }
 
     try {
+    await requirePermission('dividend:create');
         await prisma.$transaction(async (tx) => {
             for (const dividendData of dividends) {
                 const { memberId, amount, distributionDate, notes } = dividendData;

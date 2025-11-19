@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import type { Saving, SharePayment, Dividend, Loan, LoanRepayment, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { addMonths } from 'date-fns';
+import { requirePermission } from '@/lib/authorization';
 
 export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | AppliedServiceCharge | LoanRepayment) & { 
     transactionTypeLabel: string; 
@@ -146,6 +147,7 @@ const revalidateAllPaths = () => {
 
 export async function approveTransaction(txId: string, txType: string): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('transactionApproval:edit');
     await prisma.$transaction(async (tx) => {
       if (txType === 'Savings' || txType === 'Saving Interest') {
         const savingTx = await tx.saving.findUnique({ where: { id: txId } });
@@ -246,6 +248,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
 
 export async function rejectTransaction(txId: string, txType: string, reason: string): Promise<{ success: boolean; message: string }> {
    try {
+  await requirePermission('transactionApproval:edit');
     if (txType === 'Savings' || txType === 'Saving Interest') {
         await prisma.saving.update({ where: { id: txId }, data: { status: 'rejected', notes: reason } });
     } else if (txType === 'Shares') {
@@ -271,6 +274,7 @@ export async function approveMultipleTransactions(
   transactions: { txId: string; txType: string }[]
 ): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('transactionApproval:edit');
     for (const { txId, txType } of transactions) {
       // Re-using the single approval logic for atomicity and validation
       const result = await approveTransaction(txId, txType);
@@ -291,6 +295,7 @@ export async function rejectMultipleTransactions(
   reason: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    await requirePermission('transactionApproval:edit');
     const commonReason = reason || "Rejected in bulk";
     for (const { txId, txType } of transactions) {
       await rejectTransaction(txId, txType, commonReason);

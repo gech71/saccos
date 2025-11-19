@@ -3,6 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import type { AuditLog, Prisma } from '@prisma/client';
+import { requirePermission } from '@/lib/authorization';
 
 export interface AuditLogWithActor extends AuditLog {
   user: { name: string | null } | null;
@@ -19,6 +20,7 @@ export async function getAuditLogs(
   } = {}
 ): Promise<{ logs: AuditLogWithActor[]; totalCount: number }> {
   try {
+    await requirePermission('audit:view');
     const where: Prisma.AuditLogWhereInput = {};
     if (filters.actorName) {
         where.actorName = { contains: filters.actorName, mode: 'insensitive' };

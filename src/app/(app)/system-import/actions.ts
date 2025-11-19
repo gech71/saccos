@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType, Member, MemberSavingAccount, MemberShareCommitment, Loan, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { endOfMonth } from 'date-fns';
+import { requirePermission } from '@/lib/authorization';
 
 
 export interface ImportPageData {
@@ -93,6 +94,7 @@ function roundToTwo(num: number) {
 }
 
 export async function processImport(payload: ImportPayload): Promise<{ success: boolean, error?: string }> {
+  await requirePermission('systemImport:create');
   const { collections, collectionMonth, collectionYear } = payload;
   const firstDayOfMonth = new Date(`${collectionMonth} 1, ${collectionYear}`);
   const importDate = endOfMonth(firstDayOfMonth);

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { permissionsList } from "./permissions";
 import bcrypt from 'bcryptjs';
 import { logAudit } from "@/lib/audit-log";
+import { requirePermission } from '@/lib/authorization';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -54,6 +55,7 @@ export async function updateUserRoles(
   userId: string,
   roleIds: string[]
 ): Promise<User> {
+  await requirePermission('setting:edit');
   try {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -109,6 +111,7 @@ export async function registerUserByAdmin(
   data: any,
   roleIds: string[],
 ): Promise<{ success: boolean; user?: User, error?: string; }> {
+  await requirePermission('setting:create');
   try {
     if (!data.email || !data.password || !data.phoneNumber) {
         return { success: false, error: 'Email, password, and phone number are required.' };
@@ -163,6 +166,9 @@ export type RoleInput = Omit<Role, "id" | "createdAt" | "updatedAt">;
 export async function createOrUpdateRole(
   data: Partial<RoleInput> & { id?: string }
 ): Promise<Role> {
+  // create -> setting:create, update -> setting:edit
+  if (data.id) await requirePermission('setting:edit');
+  else await requirePermission('setting:create');
   try {
     const { id, ...roleData } = data;
     
@@ -201,6 +207,7 @@ export async function createOrUpdateRole(
 export async function deleteRole(
   roleId: string
 ): Promise<{ success: boolean; message: string }> {
+  await requirePermission('setting:delete');
   try {
     const role = await prisma.role.findUnique({ where: { id: roleId } });
     if (!role) return { success: false, message: 'Role not found.' };
