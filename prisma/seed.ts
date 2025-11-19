@@ -1,6 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
-import { permissionsList } from '../app/(app)/settings/permissions';
+import { permissionsList } from '../src/app/(app)/settings/permissions';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
