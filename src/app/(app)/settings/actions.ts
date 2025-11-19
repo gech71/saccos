@@ -107,6 +107,67 @@ async function checkUserDuplicates(email: string, phoneNumber: string, userIdToE
     return null;
 }
 
+export async function updateUser(
+  userId: string,
+  data: Pick<User, 'firstName' | 'lastName' | 'email' | 'phoneNumber'>
+): Promise<{ success: boolean; error?: string }> {
+  await requirePermission('setting:edit');
+  try {
+    const duplicateError = await checkUserDuplicates(data.email, data.phoneNumber, userId);
+    if (duplicateError) {
+      return { success: false, error: duplicateError };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        name: `${data.firstName} ${data.lastName}`,
+        email: data.email.toLowerCase(),
+        phoneNumber: data.phoneNumber,
+      },
+    });
+
+    await logAudit('MEMBER_UPDATE', {
+        targetId: userId,
+        targetType: 'USER',
+        details: { changes: Object.keys(data) }
+    });
+
+    revalidatePath('/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return { success: false, error: 'An unexpected error occurred.' };
+  }
+}
+
+export async function deleteUser(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+    await requirePermission('setting:delete');
+    try {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return { success: false, message: "User not found." };
+        }
+        if (user.email === 'admin@example.com') {
+             return { success: false, message: "The default admin user cannot be deleted." };
+        }
+        await prisma.user.delete({ where: { id: userId } });
+        await logAudit('MEMBER_DELETE', { targetId: userId, targetType: 'USER', details: { name: user.name } });
+
+        revalidatePath('/settings');
+        return { success: true, message: "User deleted successfully." };
+
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        return { success: false, message: "An unexpected error occurred." };
+    }
+}
+
+
 export async function registerUserByAdmin(
   data: any,
   roleIds: string[],

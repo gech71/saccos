@@ -16,8 +16,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Shield, PlusCircle, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { Role } from '@prisma/client';
-import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, type UserWithRoles, type RoleWithUserCount } from './actions';
+import type { Role, User } from '@prisma/client';
+import { getSettingsPageData, updateUserRoles, createOrUpdateRole, deleteRole, updateUser, deleteUser, type UserWithRoles, type RoleWithUserCount } from './actions';
 import Link from 'next/link';
 import { permissionsByGroup } from './permissions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -39,8 +39,11 @@ export default function SettingsPage() {
   const [currentRole, setCurrentRole] = useState<Partial<RoleWithUserCount>>({});
   const [isEditingRole, setIsEditingRole] = useState(false);
 
+  const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
+  const [currentUserToEdit, setCurrentUserToEdit] = useState<Partial<User>>({});
+
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState<RoleWithUserCount | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'user' | 'role', name: string } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -96,6 +99,33 @@ export default function SettingsPage() {
     setIsSubmitting(false);
   };
 
+  // User Edit Modal Logic
+  const openUserEditModal = (userToEdit: UserWithRoles) => {
+    setCurrentUserToEdit(userToEdit);
+    setIsUserEditModalOpen(true);
+  };
+
+  const handleUserEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCurrentUserToEdit(prev => ({...prev, [name]: value}));
+  };
+
+  const handleUserEditSave = async () => {
+    if (!currentUserToEdit.id) return;
+    setIsSubmitting(true);
+    const { firstName, lastName, email, phoneNumber } = currentUserToEdit;
+    const result = await updateUser(currentUserToEdit.id, { firstName, lastName, email, phoneNumber } as any);
+    if (result.success) {
+      toast({ title: 'Success', description: 'User details updated.' });
+      await fetchPageData();
+      setIsUserEditModalOpen(false);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error });
+    }
+    setIsSubmitting(false);
+  };
+
+
   // Role Modal Logic
   const openRoleModal = (role?: RoleWithUserCount) => {
     if (role) {
@@ -115,7 +145,7 @@ export default function SettingsPage() {
   
   const handlePermissionChange = (permission: string, checked: boolean) => {
     setCurrentRole(prev => {
-        const currentPermissions = new Set(prev.permissions || []);
+        const currentPermissions = new Set((prev.permissions as string[] || []));
         if (checked) currentPermissions.add(permission);
         else currentPermissions.delete(permission);
         return {...prev, permissions: Array.from(currentPermissions)};
@@ -124,7 +154,7 @@ export default function SettingsPage() {
 
   const handleGroupPermissionChange = (groupPermissions: string[], checked: boolean) => {
     setCurrentRole(prev => {
-      const currentPermissions = new Set(prev.permissions || []);
+      const currentPermissions = new Set((prev.permissions as string[]) || []);
       if (checked) {
         groupPermissions.forEach(p => currentPermissions.add(p));
       } else {
@@ -145,7 +175,7 @@ export default function SettingsPage() {
             id: currentRole.id,
             name: currentRole.name,
             description: currentRole.description,
-            permissions: currentRole.permissions || [],
+            permissions: currentRole.permissions as string[] || [],
         });
         toast({ title: 'Success', description: `Role '${currentRole.name}' saved successfully.` });
         await fetchPageData();
@@ -156,20 +186,30 @@ export default function SettingsPage() {
     setIsSubmitting(false);
   };
 
-  // Delete Role Logic
-  const openDeleteAlert = (role: RoleWithUserCount) => {
-    if (role._count.users > 0) {
-        toast({ variant: 'destructive', title: 'Cannot Delete Role', description: 'This role is currently assigned to users.' });
-        return;
+  // Delete Logic
+  const openDeleteAlert = (item: { id: string; type: 'user' | 'role', name: string }) => {
+    if (item.type === 'role') {
+        const role = roles.find(r => r.id === item.id);
+        if (role && role._count.users > 0) {
+            toast({ variant: 'destructive', title: 'Cannot Delete Role', description: 'This role is currently assigned to users.' });
+            return;
+        }
     }
-    setRoleToDelete(role);
+    setItemToDelete(item);
     setIsDeleteAlertOpen(true);
   };
   
-  const handleDeleteRole = async () => {
-    if (!roleToDelete) return;
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
     setIsSubmitting(true);
-    const result = await deleteRole(roleToDelete.id);
+
+    let result;
+    if (itemToDelete.type === 'user') {
+      result = await deleteUser(itemToDelete.id);
+    } else {
+      result = await deleteRole(itemToDelete.id);
+    }
+    
     if (result.success) {
         toast({ title: 'Success', description: result.message });
         await fetchPageData();
@@ -222,21 +262,28 @@ export default function SettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map(user => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
+                  {users.map(userItem => (
+                    <TableRow key={userItem.id}>
+                      <TableCell className="font-medium">{userItem.name}</TableCell>
+                      <TableCell>{userItem.email}</TableCell>
                       <TableCell className="space-x-1">
-                        {user.roles.length > 0 ? user.roles.map(role => (
+                        {userItem.roles.length > 0 ? userItem.roles.map(role => (
                           <Badge key={role.id} variant="secondary">{role.name}</Badge>
                         )) : <span className="text-muted-foreground text-sm">No roles</span>}
                       </TableCell>
                       <TableCell className="text-right">
-                          {canEditSettings && (
-                            <Button variant="outline" size="sm" onClick={() => openUserModal(user)}>
-                                <Edit className="mr-2 h-3.5 w-3.5" /> Manage Roles
-                            </Button>
-                          )}
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditSettings && !canDeleteSettings}>
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {canEditSettings && <DropdownMenuItem onClick={() => openUserModal(userItem)}>Manage Roles</DropdownMenuItem>}
+                                {canEditSettings && <DropdownMenuItem onClick={() => openUserEditModal(userItem)}>Edit User</DropdownMenuItem>}
+                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert({ id: userItem.id, type: 'user', name: userItem.name! })} className="text-destructive focus:text-destructive">Delete User</DropdownMenuItem>}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -287,7 +334,7 @@ export default function SettingsPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 {canEditSettings && <DropdownMenuItem onClick={() => openRoleModal(role)} disabled={role.name === 'Admin'}><Edit className="mr-2 h-4 w-4" /> Edit Role</DropdownMenuItem>}
-                                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert(role)} className="text-destructive focus:text-destructive" disabled={role.name === 'Admin'}><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>}
+                                                {canDeleteSettings && <DropdownMenuItem onClick={() => openDeleteAlert({id: role.id, type: 'role', name: role.name})} className="text-destructive focus:text-destructive" disabled={role.name === 'Admin'}><Trash2 className="mr-2 h-4 w-4" /> Delete Role</DropdownMenuItem>}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -325,6 +372,28 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
       
+      {/* Edit User Modal */}
+      <Dialog open={isUserEditModalOpen} onOpenChange={setIsUserEditModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit User: {currentUserToEdit?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div><Label htmlFor="firstName">First Name</Label><Input id="firstName" name="firstName" value={currentUserToEdit.firstName || ''} onChange={handleUserEditChange} /></div>
+                <div><Label htmlFor="lastName">Last Name</Label><Input id="lastName" name="lastName" value={currentUserToEdit.lastName || ''} onChange={handleUserEditChange} /></div>
+                <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" value={currentUserToEdit.email || ''} onChange={handleUserEditChange} /></div>
+                <div><Label htmlFor="phoneNumber">Phone Number</Label><Input id="phoneNumber" name="phoneNumber" type="tel" value={currentUserToEdit.phoneNumber || ''} onChange={handleUserEditChange} /></div>
+            </div>
+             <DialogFooter>
+                <DialogClose asChild><Button variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                <Button onClick={handleUserEditSave} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add/Edit Role Modal */}
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -349,7 +418,7 @@ export default function SettingsPage() {
                         <Accordion type="multiple" className="w-full">
                             {Object.entries(permissionsByGroup).map(([groupName, perms]) => {
                                 const groupPermissionIds = perms.map(p => p.id);
-                                const selectedPermissionsInGroup = groupPermissionIds.filter(pId => (currentRole.permissions || []).includes(pId));
+                                const selectedPermissionsInGroup = groupPermissionIds.filter(pId => ((currentRole.permissions as string[]) || []).includes(pId));
                                 const allSelected = selectedPermissionsInGroup.length > 0 && selectedPermissionsInGroup.length === groupPermissionIds.length;
                                 const someSelected = selectedPermissionsInGroup.length > 0 && !allSelected;
 
@@ -376,7 +445,7 @@ export default function SettingsPage() {
                                                     <div key={permission.id} className="flex items-center space-x-3">
                                                         <Checkbox 
                                                             id={`perm-${permission.id}`}
-                                                            checked={(currentRole.permissions || []).includes(permission.id)}
+                                                            checked={((currentRole.permissions as string[]) || []).includes(permission.id)}
                                                             onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
                                                         />
                                                         <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm capitalize cursor-pointer">
@@ -403,18 +472,18 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Role Alert */}
+      {/* Delete Confirmation Alert */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
           <AlertDialogContent>
               <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the "{roleToDelete?.name}" role.
+                      This action cannot be undone and will permanently delete the {itemToDelete?.type} "{itemToDelete?.name}".
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteRole} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+                  <AlertDialogAction onClick={handleDeleteItem} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
                   </AlertDialogAction>
               </AlertDialogFooter>
