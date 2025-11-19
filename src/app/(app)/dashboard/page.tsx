@@ -156,5 +156,17 @@ export default function DashboardPage() {
     );
   }
   
-  return null; // Fallback for when data is not loaded
+  return (
+      <div className="space-y-8">
+        <PageTitle title="Dashboard" subtitle="You do not have permission to view this page." />
+        <Card>
+            <CardHeader>
+                <CardTitle>Access Denied</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>Please contact your administrator to request access to the dashboard.</p>
+            </CardContent>
+        </Card>
+    </div>
+  );
 }

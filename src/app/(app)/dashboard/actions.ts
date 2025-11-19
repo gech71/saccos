@@ -3,6 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import { subMonths, format, startOfMonth } from 'date-fns';
+import { requirePermission } from '@/lib/authorization';
 
 export interface AdminDashboardData {
   totalMembers: number;
@@ -17,6 +18,23 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+  try {
+    await requirePermission('dashboard:view');
+  } catch (error) {
+    // If user doesn't have permission, return a default/empty state
+    return {
+      totalMembers: 0,
+      totalSavings: 0,
+      totalSchools: 0,
+      totalDividendsYTD: 0,
+      totalLoanPrincipal: 0,
+      totalLoanInterestCollected: 0,
+      totalServiceChargesCollected: 0,
+      savingsTrend: [],
+      schoolPerformance: [],
+    };
+  }
+
   const [
     totalMembers,
     totalSavingsResult,
