@@ -298,7 +298,7 @@ export default function LoanRepaymentsPage() {
                                   {group.repayments.map(repayment => (
                                       <TableRow key={repayment.id}>
                                           <TableCell className="font-mono text-xs">{repayment.loan?.loanTypeName}</TableCell>
-                                          <TableCell>{format(parseISO(repayment.paymentDate), 'PPP')}</TableCell>
+                                          <TableCell>{format(parseISO(repayment.paymentDate as unknown as string), 'PPP')}</TableCell>
                                           <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                           <TableCell className="text-right text-green-600">{repayment.principalPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>
                                           <TableCell className="text-right text-orange-600">{repayment.interestPaid?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}</TableCell>

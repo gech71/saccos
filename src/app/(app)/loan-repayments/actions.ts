@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -68,6 +69,7 @@ export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageDat
           runningBalance -= repayment.principalPaid;
           allRepaymentsWithBalance.push({
               ...repayment,
+              paymentDate: repayment.paymentDate.toISOString(),
               balanceAfter: roundToTwo(runningBalance),
               loan: { loanAccountNumber: loan.loanAccountNumber, loanTypeName: loan.loanType?.name ?? 'N/A' },
               memberName: loan.member.fullName,
@@ -159,3 +161,4 @@ export async function addLoanRepayment(data: LoanRepaymentInput): Promise<{ succ
     return { success: false, message: errorMessage };
   }
 }
+
