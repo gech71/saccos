@@ -41,6 +41,7 @@ import {
   UploadCloud,
   Newspaper,
   Settings2,
+  History, // Import History icon
 } from 'lucide-react';
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -192,6 +193,12 @@ const navItems: NavItem[] = [
     icon: FileText,
     permission: 'report:view',
   },
+  {
+    title: 'Audit Log',
+    href: '/audit-log',
+    icon: History,
+    permission: 'auditLog:view',
+  },
 
   { title: 'Website Management', isGroupLabel: true },
   {
@@ -325,7 +332,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     
     if (member?.mustChangePassword) {
       if (!pathname.startsWith('/member-change-password')) {
-        router.replace(`/member-change-password?memberId=${member.id}`);
+        router.replace(`/member-change-password`);
       }
       return;
     }

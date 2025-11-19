@@ -6,6 +6,7 @@ import type { User, Role, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { permissionsList } from "./permissions";
 import bcrypt from 'bcryptjs';
+import { logAudit } from "@/lib/audit-log";
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -61,7 +62,15 @@ export async function updateUserRoles(
           set: roleIds.map((id) => ({ id })),
         },
       },
+      include: { roles: true }
     });
+
+    await logAudit('USER_ROLE_UPDATE', {
+        targetId: userId,
+        targetType: 'USER',
+        details: { newRoles: updatedUser.roles.map(r => r.name) }
+    });
+
     revalidatePath("/settings");
     return updatedUser;
   } catch (error) {
@@ -129,6 +138,12 @@ export async function registerUserByAdmin(
       },
     });
 
+    await logAudit('MEMBER_CREATE', { // Note: using MEMBER_CREATE for admin user creation as well for simplicity
+        targetId: newUser.id,
+        targetType: 'USER',
+        details: { name: newUser.name, email: newUser.email }
+    });
+
     revalidatePath("/settings");
     return { success: true, user: newUser };
   } catch (error) {
@@ -165,12 +180,14 @@ export async function createOrUpdateRole(
         where: { id },
         data: dataToSave,
       });
+      await logAudit('ROLE_UPDATE', { targetId: id, targetType: 'ROLE', details: { name: updatedRole.name } });
       revalidatePath("/settings");
       return updatedRole;
     } else {
       const newRole = await prisma.role.create({
         data: dataToSave as RoleInput,
       });
+      await logAudit('ROLE_CREATE', { targetId: newRole.id, targetType: 'ROLE', details: { name: newRole.name } });
       revalidatePath("/settings");
       return newRole;
     }
@@ -185,6 +202,9 @@ export async function deleteRole(
   roleId: string
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) return { success: false, message: 'Role not found.' };
+
     const usersWithRole = await prisma.user.count({
       where: { roles: { some: { id: roleId } } },
     });
@@ -198,6 +218,7 @@ export async function deleteRole(
     }
 
     await prisma.role.delete({ where: { id: roleId } });
+    await logAudit('ROLE_DELETE', { targetId: roleId, targetType: 'ROLE', details: { name: role.name } });
     revalidatePath("/settings");
     return { success: true, message: "Role deleted successfully." };
   } catch (error) {
@@ -236,5 +257,3 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       return [];
   }
 }
-
-    

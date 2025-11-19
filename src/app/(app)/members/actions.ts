@@ -7,6 +7,8 @@ import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
+import { logAudit } from '@/lib/audit-log';
+import { differenceInMonths } from 'date-fns';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -80,7 +82,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     // Map members to a more usable format for the client
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
         ...member,
-        joinDate: member.joinDate.toISOString(), // Ensure date is a string
+        joinDate: member.joinDate, // Keep as Date object for server
         totalSavingsBalance: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     }));
 
@@ -128,7 +130,7 @@ const memberInputSchema = z.object({
 export type MemberInput = z.infer<typeof memberInputSchema>;
 
 // Helper function for duplicate checks
-async function checkDuplicates(email: string, phoneNumber: string, memberIdToExclude?: string) {
+async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: string) {
     const OR: any[] = [];
     if (email) OR.push({ email: { equals: email, mode: 'insensitive' as const } });
     if (phoneNumber) {
@@ -138,29 +140,35 @@ async function checkDuplicates(email: string, phoneNumber: string, memberIdToExc
         OR.push({ phoneNumber: intl });
     }
 
-    const existingUser = await prisma.user.findFirst({ where: { OR } });
-    if (existingUser) {
-        if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by an admin user.`;
-        if (existingUser.phoneNumber) {
-            const storedLocal = toLocalPhone(existingUser.phoneNumber);
-            const inputLocal = toLocalPhone(phoneNumber);
-            if (storedLocal === inputLocal) return `Phone number is already in use by an admin user.`;
-        }
-    }
-    
     const where: Prisma.MemberWhereInput = { OR };
-    if (memberIdToExclude) {
-        where.NOT = { memberId: memberIdToExclude };
+    if (memberUUID) {
+        where.NOT = { id: memberUUID };
     }
-    
+
     const existingMember = await prisma.member.findFirst({ where });
     if (existingMember) {
         if (existingMember.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by member ${existingMember.fullName}.`;
-        if (existingMember.phoneNumber) {
-            const storedLocal = toLocalPhone(existingMember.phoneNumber);
-            const inputLocal = toLocalPhone(phoneNumber);
-            if (storedLocal === inputLocal) return `Phone number is already in use by member ${existingMember.fullName}.`;
-        }
+        const storedLocal = toLocalPhone(existingMember.phoneNumber);
+        const inputLocal = toLocalPhone(phoneNumber);
+        if (storedLocal === inputLocal) return `Phone number is already in use by member ${existingMember.fullName}.`;
+    }
+    
+    // Also check against admin users
+    const userWhere: Prisma.UserWhereInput = { OR: [] };
+    if (email) (userWhere.OR as any).push({ email: { equals: email, mode: 'insensitive' as const } });
+    if (phoneNumber) {
+        const local = toLocalPhone(phoneNumber);
+        const intl = toIntlPhone(phoneNumber);
+        (userWhere.OR as any).push({ phoneNumber: local });
+        (userWhere.OR as any).push({ phoneNumber: intl });
+    }
+    
+    const existingUser = await prisma.user.findFirst({ where: userWhere });
+    if (existingUser) {
+        if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by an admin user.`;
+        const storedLocal = toLocalPhone(existingUser.phoneNumber);
+        const inputLocal = toLocalPhone(phoneNumber);
+        if (storedLocal === inputLocal) return `Phone number is already in use by an admin user.`;
     }
     
     return null;
@@ -176,16 +184,13 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
 
     try {
     const { memberId, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
-    // Normalize phone to local format before any checks/storage
     if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
 
-        // Check for duplicate ID separately for a more specific error
-        const existingMemberById = await prisma.member.findUnique({ where: { memberId: memberId } });
-        if (existingMemberById) {
+        const existingMemberBySeqId = await prisma.member.findUnique({ where: { memberId: memberId } });
+        if (existingMemberBySeqId) {
             return { error: `Member ID '${memberId}' already exists.` };
         }
 
-        // Check for duplicate email or phone
         const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber);
         if (duplicateError) {
             return { error: duplicateError };
@@ -214,7 +219,6 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
             where: { id: { in: validShareCommitmentIds } }
         });
 
-        // Generate a secure random password
         const temporaryPassword = randomBytes(12).toString('hex');
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
@@ -223,7 +227,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
                 memberId,
                 ...memberData,
                 password: hashedPassword,
-                temporaryPassword: temporaryPassword, // Store plaintext temporarily
+                temporaryPassword: temporaryPassword,
                 mustChangePassword: true,
                 status: 'active',
                 joinDate: new Date(memberData.joinDate),
@@ -260,6 +264,12 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
             });
         }
 
+        await logAudit('MEMBER_CREATE', {
+            targetId: newMember.id,
+            targetType: 'MEMBER',
+            details: { name: newMember.fullName, memberId: newMember.memberId }
+        });
+
         revalidatePath('/members');
         revalidatePath('/applied-service-charges');
         revalidatePath('/shares');
@@ -271,13 +281,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
 }
 
 export async function updateMember(id: string, data: MemberInput): Promise<{ success: boolean; error?: string }> {
-    const validatedData = {
-        ...data,
-        address: data.address || {},
-        emergencyContact: data.emergencyContact || {},
-    };
-
-    const validationResult = memberInputSchema.safeParse(validatedData);
+    const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
         return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
@@ -285,7 +289,6 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
 
     try {
     const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
-    // Normalize phone to local format before duplicate checks and storage
     if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
 
     const duplicateError = await checkDuplicates(memberData.email, memberData.phoneNumber, id);
@@ -334,7 +337,7 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         const commitmentsToAdd = shareTypesToCommit.filter(st => !existingCommitmentIds.has(st.id));
         const commitmentsToRemove = Array.from(existingCommitmentIds).filter(id => !newCommitmentIds.has(id));
 
-        await prisma.member.update({
+        const updatedMember = await prisma.member.update({
             where: { id },
             data: {
                 ...memberData,
@@ -354,6 +357,12 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
             },
         });
 
+        await logAudit('MEMBER_UPDATE', {
+            targetId: updatedMember.id,
+            targetType: 'MEMBER',
+            details: { changes: Object.keys(data) }
+        });
+
         revalidatePath('/members');
         revalidatePath('/shares');
         return { success: true };
@@ -366,6 +375,11 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
 
 export async function deleteMember(id: string): Promise<{ success: boolean; message: string }> {
     try {
+        const member = await prisma.member.findUnique({ where: { id } });
+        if (!member) {
+            return { success: false, message: 'Member not found.' };
+        }
+
         const loanCount = await prisma.loan.count({ where: { memberId: id, status: { in: ['active', 'overdue'] } } });
         if (loanCount > 0) {
             return { success: false, message: 'Cannot delete member with active or overdue loans. Please resolve loans first.' };
@@ -374,6 +388,13 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
         await prisma.member.delete({
             where: { id },
         });
+
+        await logAudit('MEMBER_DELETE', {
+            targetId: member.id,
+            targetType: 'MEMBER',
+            details: { name: member.fullName, memberId: member.memberId }
+        });
+
         revalidatePath('/members');
         return { success: true, message: 'Member deleted successfully.' };
     } catch (error) {
@@ -421,6 +442,12 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
             });
         });
 
+        await logAudit('MEMBER_TRANSFER', {
+            targetId: memberId,
+            targetType: 'MEMBER',
+            details: { toSchoolId: newSchoolId, toSchoolName: newSchool.name, reason }
+        });
+
         revalidatePath('/members');
         revalidatePath(`/member-profile/${memberId}`);
         return { success: true, message: `Successfully transferred ${member.fullName} to ${newSchool.name}.` };
@@ -463,8 +490,6 @@ export async function importMembers(
     const memberId = String(m.MemberID).trim();
     
     try {
-      // The validation is now done client-side before calling this,
-      // but we can have a fallback check here if needed.
       const temporaryPassword = randomBytes(12).toString('hex');
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
       
@@ -494,12 +519,18 @@ export async function importMembers(
             endDate: null,
           }
       });
+      
+      await logAudit('MEMBER_CREATE', {
+        targetId: newMember.id,
+        targetType: 'MEMBER',
+        details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
+      });
 
       createdMembersInfo.push({ member: newMember, temporaryPassword });
       createdCount++;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        skippedCount++; // Duplicate member ID
+        skippedCount++;
       } else {
         console.error(`Failed to import member ${memberId}:`, error);
         return { success: false, message: `An error occurred while importing member ${memberId}. Please check the logs.` };

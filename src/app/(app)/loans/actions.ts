@@ -1,11 +1,11 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { Loan, Prisma, Member, LoanType, Collateral } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { addMonths, differenceInMonths } from 'date-fns';
+import { logAudit } from '@/lib/audit-log';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -93,8 +93,6 @@ export async function getLoansPageData(): Promise<LoansPageData> {
       ...l, 
       memberName: l.member.fullName,
       loanTypeName: l.loanType.name,
-      disbursementDate: l.disbursementDate.toISOString(), 
-      nextDueDate: l.nextDueDate?.toISOString() ?? null 
     })),
     members,
     loanTypes,
@@ -138,9 +136,8 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       throw new Error(`Repayment period must be between ${loanType.minRepaymentPeriod} and ${loanType.maxRepaymentPeriod} months for this loan type.`);
   }
 
-  // Guarantor validation
   const rawGuarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
-  const guarantorIds = [...new Set(rawGuarantorIds)]; // Remove duplicates
+  const guarantorIds = [...new Set(rawGuarantorIds)];
   
   if (guarantorIds.length > 0) {
       const guarantorChecks = await prisma.member.findMany({
@@ -155,7 +152,6 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
-  // Collateral Logic Validation
   if (loanType.collateralLogic === 'GUARANTOR_OR_SAVINGS_BALANCE') {
       const totalSavings = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
       if (totalSavings < (loanType.minSavingBalance || 0) && guarantorIds.length === 0) {
@@ -165,7 +161,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       const threshold = loanType.collateralThresholdAmount || 200000;
       if (principalAmount <= threshold) {
           if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error(`Loans up to ${threshold.toLocaleString()} ETB require at least one guarantor.`);
-      } else { // > threshold
+      } else { 
           if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error(`Loans over ${threshold.toLocaleString()} ETB require a house title deed.`);
       }
   } else if (loanType.collateralLogic === 'GUARANTOR') {
@@ -174,7 +170,6 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("This loan type requires a title deed.");
   }
   
-  // Membership Duration Validation
   if (loanType.minSavingMonths && loanType.minSavingMonths > 0) {
       const monthsSinceJoined = differenceInMonths(new Date(), new Date(member.joinDate));
       if (monthsSinceJoined < loanType.minSavingMonths) {
@@ -182,21 +177,18 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
   }
 
-  // Purpose Validation
   if (loanType.purposes.length > 0 && (!purpose || !loanType.purposes.includes(purpose))) {
       throw new Error("A valid purpose must be selected for this loan type.");
   }
 
-  // Reducing Balance Method: Fixed Principal + Variable Interest
   const fixedPrincipalPayment = roundToTwo(principalAmount / loanTerm);
   const firstMonthInterest = roundToTwo(principalAmount * (loanType.interestRate / 12));
   const firstMonthRepayment = fixedPrincipalPayment + firstMonthInterest;
   
-  // Fee calculation using values from the loanType object
   const insuranceFee = roundToTwo(principalAmount * (loanType.insuranceFeePercentage || 0));
   const serviceFee = loanType.serviceFee || 0;
 
-  return await prisma.loan.create({
+  const newLoan = await prisma.loan.create({
     data: {
       principalAmount: roundToTwo(principalAmount),
       status,
@@ -210,7 +202,7 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       remainingBalance: roundToTwo(principalAmount),
       insuranceFee,
       serviceFee,
-      monthlyRepaymentAmount: roundToTwo(firstMonthRepayment), // Store first month's total payment
+      monthlyRepaymentAmount: roundToTwo(firstMonthRepayment),
       member: { connect: { id: memberId } },
       loanType: { connect: { id: loanTypeId } },
       collaterals: { 
@@ -227,28 +219,51 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       }
     },
   });
+
+  await logAudit('LOAN_CREATE', {
+      targetId: newLoan.id,
+      targetType: 'LOAN',
+      details: { memberId: memberId, loanType: loanType.name, amount: principalAmount }
+  });
+
+  return newLoan;
 }
 
 export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
     revalidatePath('/loans');
     // For this complex update, it's safer to re-implement the creation logic.
     // A real scenario would need more careful handling of existing records.
-    await deleteLoan(id);
-    return addLoan(data);
+    await deleteLoan(id, true); // Soft delete for audit purposes
+    const updatedLoan = await addLoan(data);
+    await logAudit('LOAN_UPDATE', { targetId: updatedLoan.id, targetType: 'LOAN' });
+    return updatedLoan;
 }
 
-export async function deleteLoan(id: string): Promise<{ success: boolean; message: string }> {
+export async function deleteLoan(id: string, isUpdate: boolean = false): Promise<{ success: boolean; message: string }> {
   try {
+    const loan = await prisma.loan.findUnique({ where: { id }, select: { memberId: true, loanType: { select: { name: true }} } });
+    if (!loan) {
+        return { success: false, message: "Loan not found." };
+    }
+
     const repaymentCount = await prisma.loanRepayment.count({ where: { loanId: id } });
     if (repaymentCount > 0) {
       return { success: false, message: "Cannot delete a loan with existing repayments." };
     }
     
-    // Need to delete related guarantors first due to the relation
     await prisma.loanGuarantor.deleteMany({ where: { loanId: id } });
     await prisma.collateral.deleteMany({ where: { loanId: id }});
 
     await prisma.loan.delete({ where: { id } });
+
+    if (!isUpdate) {
+        await logAudit('LOAN_DELETE', {
+            targetId: id,
+            targetType: 'LOAN',
+            details: { memberId: loan.memberId, loanType: loan.loanType.name }
+        });
+    }
+
     revalidatePath('/loans');
     return { success: true, message: 'Loan application deleted successfully.' };
   } catch (error) {
