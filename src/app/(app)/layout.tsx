@@ -343,17 +343,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     // Admin user is logged in
-    if (user) { 
+    if (user) {
       const navItem = [...navItems]
         .filter((item) => item.href && item.href !== '/')
         .sort((a, b) => b.href!.length - a.href!.length)
         .find((item) => pathname.startsWith(item.href!));
 
-      // If the route doesn't correspond to a nav item (like a member profile page for an admin),
-      // we don't need to do a permission check on it here. The page's own data fetching will handle auth.
+      // If the route corresponds to a nav item, ensure the user has the
+      // required permission. If they don't, redirect them to their first
+      // permitted page instead of the dashboard (which previously caused
+      // unauthorized users to land on the dashboard).
       if (navItem && navItem.permission) {
         if (!user.permissions.includes(navItem.permission)) {
-          router.replace('/dashboard');
+          const firstAllowed = filteredNavItems.find(it => !it.isGroupLabel && it.href)?.href || '/';
+          router.replace(firstAllowed);
         }
       }
     }

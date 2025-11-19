@@ -65,10 +65,27 @@ function LoginForm() {
       } catch (err) {
         console.error('Failed to create refresh token', err);
       }
+
       if (session.user.isMember) {
         router.replace(`/member-profile/${session.user.id}`);
-      } else {
+        return;
+      }
+
+      // For admin users, redirect to the first page they have access to.
+      const perms: string[] = Array.isArray((session.user as any).permissions)
+        ? (session.user as any).permissions
+        : [];
+
+      if (perms.includes('dashboard:view')) {
         router.replace('/dashboard');
+      } else if (perms.includes('member:view')) {
+        router.replace('/members');
+      } else if (perms.includes('saving:view')) {
+        router.replace('/savings');
+      } else if (perms.includes('school:view')) {
+        router.replace('/schools');
+      } else {
+        router.replace('/');
       }
     })();
   }

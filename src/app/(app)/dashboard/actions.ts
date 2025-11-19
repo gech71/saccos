@@ -18,22 +18,10 @@ export interface AdminDashboardData {
 }
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
-  try {
-    await requirePermission('dashboard:view');
-  } catch (error) {
-    // If user doesn't have permission, return a default/empty state
-    return {
-      totalMembers: 0,
-      totalSavings: 0,
-      totalSchools: 0,
-      totalDividendsYTD: 0,
-      totalLoanPrincipal: 0,
-      totalLoanInterestCollected: 0,
-      totalServiceChargesCollected: 0,
-      savingsTrend: [],
-      schoolPerformance: [],
-    };
-  }
+  // Require explicit permission to view dashboard data. Let errors bubble
+  // so the calling page can show an Access Denied state instead of an
+  // empty/zeroed dashboard that might mislead users.
+  await requirePermission('dashboard:view');
 
   const [
     totalMembers,
