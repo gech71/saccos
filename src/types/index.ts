@@ -1,3 +1,4 @@
+
 import type { Prisma } from '@prisma/client';
 
 export interface School {
@@ -50,6 +51,7 @@ export interface MemberShareCommitment {
 
 export interface Member {
   id: string;
+  memberId: string;
   fullName: string;
   email: string | null;
   password?: string | null;

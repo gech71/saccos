@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -69,7 +68,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
             address: true,
             emergencyContact: true,
         },
-        orderBy: { id: 'asc' }
+        orderBy: { memberId: 'asc' }
     });
 
     const schools = await prisma.school.findMany({ select: { id: true, name: true }, orderBy: {name: 'asc'} });
@@ -109,7 +108,7 @@ const emergencyContactSchema = z.object({
 
 // Zod schema for robust validation
 const memberInputSchema = z.object({
-    id: z.string().min(1, 'Member ID is required.'),
+    memberId: z.string().min(1, 'Member ID is required.'),
     fullName: z.string().min(2, 'Full name is required.').max(100),
     email: z.string().email('Invalid email format.').toLowerCase(),
     sex: z.enum(['Male', 'Female']),
@@ -140,7 +139,7 @@ async function checkDuplicates(email: string, phoneNumber: string, memberIdToExc
     }
 
     const existingUser = await prisma.user.findFirst({ where: { OR } });
-    if (existingUser && existingUser.id !== memberIdToExclude) {
+    if (existingUser) {
         if (existingUser.email?.toLowerCase() === email.toLowerCase()) return `Email is already in use by an admin user.`;
         if (existingUser.phoneNumber) {
             const storedLocal = toLocalPhone(existingUser.phoneNumber);
@@ -151,7 +150,7 @@ async function checkDuplicates(email: string, phoneNumber: string, memberIdToExc
     
     const where: Prisma.MemberWhereInput = { OR };
     if (memberIdToExclude) {
-        where.NOT = { id: memberIdToExclude };
+        where.NOT = { memberId: memberIdToExclude };
     }
     
     const existingMember = await prisma.member.findFirst({ where });
@@ -176,14 +175,14 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     }
 
     try {
-    const { id, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
+    const { memberId, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
     // Normalize phone to local format before any checks/storage
     if (memberData.phoneNumber) memberData.phoneNumber = toLocalPhone(memberData.phoneNumber as string);
 
         // Check for duplicate ID separately for a more specific error
-        const existingMemberById = await prisma.member.findUnique({ where: { id: id } });
+        const existingMemberById = await prisma.member.findUnique({ where: { memberId: memberId } });
         if (existingMemberById) {
-            return { error: `Member ID '${id}' already exists.` };
+            return { error: `Member ID '${memberId}' already exists.` };
         }
 
         // Check for duplicate email or phone
@@ -221,7 +220,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
 
         const newMember = await prisma.member.create({
             data: {
-                id,
+                memberId,
                 ...memberData,
                 password: hashedPassword,
                 temporaryPassword: temporaryPassword, // Store plaintext temporarily
@@ -471,7 +470,7 @@ export async function importMembers(
       
       const newMember = await prisma.member.create({
         data: {
-          id: memberId,
+          memberId: memberId,
           fullName: m.MemberFullName,
           email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Generate unique email
           password: hashedPassword,

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -70,7 +69,7 @@ const subcities = [
 ].sort();
 
 const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: string[], temporaryPassword?: string }> = {
-  id: '',
+  memberId: '',
   fullName: '',
   email: '',
   sex: 'Male',
@@ -120,7 +119,7 @@ export default function MembersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
-  const [sortConfig, setSortConfig] = useState<{ key: keyof MemberWithDetails; direction: 'ascending' | 'descending' } | null>({ key: 'id', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof MemberWithDetails; direction: 'ascending' | 'descending' } | null>({ key: 'memberId', direction: 'ascending' });
   
   // Transfer state
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -228,7 +227,7 @@ export default function MembersPage() {
   const handleMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!currentMember.id || !currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
+    if (!currentMember.memberId || !currentMember.fullName || !currentMember.email || !currentMember.schoolId || !currentMember.sex || !currentMember.phoneNumber) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields (Member ID, Full Name, Email, Sex, Phone, School).' });
         return;
     }
@@ -236,7 +235,7 @@ export default function MembersPage() {
     setIsSubmitting(true);
     
     const memberInputData: MemberInput = {
-        id: currentMember.id!,
+        memberId: currentMember.memberId!,
         fullName: currentMember.fullName!,
         email: currentMember.email!,
         sex: currentMember.sex as 'Male' | 'Female',
@@ -339,7 +338,7 @@ export default function MembersPage() {
     return sortedMembers.filter(member => {
       const searchTermLower = searchTerm.toLowerCase();
       const matchesSearchTerm = member.fullName.toLowerCase().includes(searchTermLower) ||
-                                member.id.toLowerCase().includes(searchTermLower);
+                                member.memberId.toLowerCase().includes(searchTermLower);
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || member.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -347,7 +346,7 @@ export default function MembersPage() {
 
   const handleExport = () => {
     const dataToExport = filteredMembers.map(member => ({
-        'Member ID': member.id,
+        'Member ID': member.memberId,
         'Full Name': member.fullName,
         'Email': member.email,
         'Phone': member.phoneNumber,
@@ -447,7 +446,7 @@ export default function MembersPage() {
             }
         });
 
-        const existingMemberIds = new Set(members.map(m => m.id));
+        const existingMemberIds = new Set(members.map(m => m.memberId));
         const existingMemberPhones = new Set(members.map(m => m.phoneNumber));
         const existingSchoolIds = new Set(schools.map(s => s.id));
         const seenInFile = new Set<string>();
@@ -620,7 +619,7 @@ export default function MembersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>
-                     <Button variant="ghost" onClick={() => requestSort('id')} className="px-0">
+                     <Button variant="ghost" onClick={() => requestSort('memberId')} className="px-0">
                         Member ID <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                   </TableHead>
@@ -636,7 +635,7 @@ export default function MembersPage() {
                   <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : paginatedMembers.length > 0 ? paginatedMembers.map(member => (
                   <TableRow key={member.id}>
-                    <TableCell className="font-mono text-xs">{member.id}</TableCell>
+                    <TableCell className="font-mono text-xs">{member.memberId}</TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2 group">
                         <span>{member.fullName}</span>
@@ -819,7 +818,7 @@ export default function MembersPage() {
           </DialogHeader>
           <form onSubmit={handleMemberSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><Label htmlFor="id">Member ID <span className="text-destructive">*</span></Label><Input id="id" name="id" value={currentMember.id || ''} onChange={handleMemberInputChange} required readOnly={isEditingMember} /></div>
+                <div><Label htmlFor="memberId">Member ID <span className="text-destructive">*</span></Label><Input id="memberId" name="memberId" value={currentMember.memberId || ''} onChange={handleMemberInputChange} required readOnly={isEditingMember} /></div>
                 <div><Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label><Input id="fullName" name="fullName" value={currentMember.fullName || ''} onChange={handleMemberInputChange} required /></div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -938,5 +937,3 @@ export default function MembersPage() {
     </div>
   );
 }
-
-    

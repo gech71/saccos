@@ -1,3 +1,4 @@
+
 import { PrismaClient } from '@prisma/client';
 import { permissionsList } from '../src/app/(app)/settings/permissions';
 import bcrypt from 'bcryptjs';
@@ -65,6 +66,26 @@ async function main() {
       },
     },
   });
+  
+  console.log('Seeding a sample member...');
+  const memberPassword = await bcrypt.hash('password', 10);
+  const school = await prisma.school.create({
+      data: { name: "Sample School" }
+  });
+  await prisma.member.create({
+      data: {
+          memberId: "MEM-001",
+          fullName: "Test Member",
+          email: "member@test.com",
+          password: memberPassword,
+          sex: "Male",
+          phoneNumber: "0900000000",
+          schoolId: school.id,
+          joinDate: new Date(),
+          status: "active",
+      }
+  });
+
 
   console.log('Seeding default website content...');
   await prisma.websiteContent.create({

@@ -57,7 +57,7 @@ const SectionCard = ({ title, description, children, actionButton }: { title: st
 export default function MemberProfilePage() {
     const params = useParams();
     const memberId = params.memberId as string;
-    const { user } = useAuth(); // Get current user type
+    const { user, member: authMember } = useAuth(); // Get current user type
     const [details, setDetails] = useState<MemberDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
@@ -78,9 +78,9 @@ export default function MemberProfilePage() {
                 if (!data) {
                     // If unauthorized or missing, keep members on their own profile
                     setIsLoading(false);
-                    if (user?.isMember) {
+                    if (authMember) {
                         // Redirect back to the current member's profile
-                        router.replace(`/member-profile/${user.id}`);
+                        router.replace(`/member-profile/${authMember.id}`);
                     } else {
                         // For admins or other users, redirect to members list
                         router.replace('/members');
@@ -91,8 +91,8 @@ export default function MemberProfilePage() {
             } catch (error) {
                 console.error("Failed to load member details", error);
                 setIsLoading(false);
-                if (user?.isMember) {
-                  router.replace(`/member-profile/${user.id}`);
+                if (authMember) {
+                  router.replace(`/member-profile/${authMember.id}`);
                 } else {
                   router.replace('/members');
                 }
@@ -101,7 +101,7 @@ export default function MemberProfilePage() {
             }
         }
         loadData();
-    }, [memberId]);
+    }, [memberId, authMember, router]);
 
     const filteredTransactions = useMemo(() => {
         if (!details) return [];
@@ -113,7 +113,7 @@ export default function MemberProfilePage() {
                 (!transactionDateRange.to || txDate <= transactionDateRange.to)
             );
             return matchesType && matchesDate;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
     }, [details, transactionFilter, transactionDateRange]);
 
     const paginatedTransactions = useMemo(() => {
