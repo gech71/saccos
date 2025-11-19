@@ -42,6 +42,7 @@ import {
   Newspaper,
   Settings2,
   History,
+  UserRoundPlus,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -220,6 +221,12 @@ const navItems: NavItem[] = [
     href: '/settings',
     icon: Settings,
     permission: 'setting:view',
+  },
+  {
+    title: 'Register New User',
+    href: '/settings/register',
+    icon: UserRoundPlus,
+    permission: 'setting:create',
   },
   {
     title: 'Saving Acct. Types',

@@ -109,10 +109,13 @@ export const permissionsByGroup = {
         { id: 'news:delete', label: 'Delete News Posts' },
     ],
     'Settings': [
-        { id: 'setting:view', label: 'View' },
-        { id: 'setting:create', label: 'Create' },
-        { id: 'setting:edit', label: 'Edit' },
-        { id: 'setting:delete', label: 'Delete' },
+        { id: 'setting:view', label: 'View App Settings' },
+        { id: 'setting:create', label: 'Create Users/Roles' },
+        { id: 'setting:edit', label: 'Edit Users/Roles' },
+        { id: 'setting:delete', label: 'Delete Users/Roles' },
+    ],
+    'User Registration': [
+        { id: 'registerUser:view', label: 'View Registration Page'}
     ],
     'Configuration': [
         { id: 'configuration:view', label: 'View' },
