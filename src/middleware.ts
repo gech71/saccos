@@ -51,14 +51,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
   }
 
-  // Admin shouldn't access member-only routes
-  if (
-    !user?.isMember &&
-    (pathname.startsWith("/member-profile") || pathname.startsWith("/member-change-password"))
-  ) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
   return response;
 }
 
