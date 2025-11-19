@@ -28,7 +28,7 @@ function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const error = searchParams.get('error');
+  const callbackError = searchParams.get('error');
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -43,8 +43,10 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
-    if (error) {
-      if (error === 'CredentialsSignin') {
+    if (callbackError) {
+      if (callbackError === 'CredentialsSignin') {
+        // This is a generic error from NextAuth, we'll show our custom one set in `handleSubmit`
+        // but can be a fallback.
         setAuthError('Invalid phone number or password. Please try again.');
       } else {
         setAuthError('An unexpected error occurred during login.');
@@ -52,7 +54,7 @@ function LoginForm() {
     } else {
       setAuthError(null);
     }
-  }, [error]);
+  }, [callbackError]);
   
    useEffect(() => {
   if (status === 'authenticated' && session?.user) {
@@ -86,9 +88,13 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setAuthError('Invalid phone number or password. Please try again.');
-      setIsLoading(false);
-    } 
+        if (result.error.includes('Account is temporarily locked')) {
+            setAuthError(result.error);
+        } else {
+            setAuthError('Invalid phone number or password. Please try again.');
+        }
+    }
+    setIsLoading(false);
     // The useEffect hook will handle the successful redirect
   };
 
