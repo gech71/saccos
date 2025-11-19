@@ -82,7 +82,7 @@ export default function AuditLogPage() {
                 <SelectValue placeholder="Filter by action..." />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="">All Actions</SelectItem>
+                <SelectItem value="all">All Actions</SelectItem>
                 {auditActions.map(action => (
                     <SelectItem key={action} value={action}>{action}</SelectItem>
                 ))}

@@ -23,7 +23,7 @@ export async function getAuditLogs(
     if (filters.actorName) {
         where.actorName = { contains: filters.actorName, mode: 'insensitive' };
     }
-    if (filters.action) {
+    if (filters.action && filters.action !== 'all') {
       where.action = { equals: filters.action };
     }
     if (filters.targetId) {
