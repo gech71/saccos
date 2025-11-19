@@ -3,6 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import type { School, SavingAccountType, ShareType, Member, ServiceChargeType, LoanType } from '@prisma/client';
+import { auth } from '@/auth';
 
 export interface ForecastResult {
     memberId: string;
@@ -19,6 +20,10 @@ export interface ForecastPageData {
 }
 
 export async function getForecastPageData(): Promise<ForecastPageData> {
+    const session = await auth();
+    if (!session?.user?.permissions.includes('collectionForecast:view')) {
+      return { schools: [], savingAccountTypes: [], shareTypes: [], loanTypes: [] };
+    }
     const [schools, savingAccountTypes, shareTypes, loanTypes] = await Promise.all([
         prisma.school.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
         prisma.savingAccountType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
@@ -33,6 +38,10 @@ export async function getCollectionForecast(criteria: {
     collectionType: 'savings' | 'shares' | 'loans';
     typeId: string;
 }): Promise<ForecastResult[]> {
+    const session = await auth();
+    if (!session?.user?.permissions.includes('collectionForecast:view')) {
+      return [];
+    }
     const { schoolId, collectionType, typeId } = criteria;
 
     const includeClause: any = {

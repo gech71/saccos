@@ -1,11 +1,11 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
 import type { School, Share, Saving, Member, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@prisma/client';
 import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 export interface OverdueShareDetail {
   shareTypeId: string;
@@ -39,6 +39,11 @@ export interface OverduePageData {
 
 
 export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
+  const session = await auth();
+  if (!session?.user?.permissions.includes('overduePayment:view')) {
+    return { overdueMembers: [], schools: [], shareTypes: [] };
+  }
+
   const [members, allSharePayments, allShareTypes, allSchools, appliedCharges] = await Promise.all([
     prisma.member.findMany({ 
         where: { status: 'active' },
@@ -141,54 +146,33 @@ export type OverduePaymentInput = {
     };
 };
 
-export async function recordOverduePayment(data: OverduePaymentInput): Promise<{success: boolean}> {
+export async function recordOverduePayment(data: OverduePaymentInput): Promise<{success: boolean; error?: string}> {
+    const session = await auth();
+    if (!session?.user?.permissions.includes('overduePayment:create')) {
+        return { success: false, error: "You don't have permission to record payments." };
+    }
     const { memberId, savingsAmount, shareAmounts, serviceChargeAmount, paymentDate, depositMode, paymentDetails } = data;
     const date = new Date(paymentDate);
     const month = format(date, 'MMMM yyyy');
 
-    await prisma.$transaction(async (tx) => {
-        // 1. Create Saving transaction if amount is provided
-        if (savingsAmount > 0) {
-            const primarySavingAccount = await tx.memberSavingAccount.findFirst({
-                where: { memberId },
-                orderBy: { createdAt: 'asc'}
-            });
-
-            if (primarySavingAccount) {
-                 await tx.saving.create({
-                    data: {
-                        memberId,
-                        memberSavingAccountId: primarySavingAccount.id,
-                        amount: savingsAmount,
-                        date,
-                        month,
-                        transactionType: 'deposit',
-                        status: 'pending',
-                        depositMode: depositMode,
-                        notes: 'Overdue payment catch-up',
-                        sourceName: paymentDetails?.sourceName,
-                        transactionReference: paymentDetails?.transactionReference,
-                        evidenceUrl: paymentDetails?.evidenceUrl,
-                    }
-                });
-            }
-        }
-        
-        // 2. Create Share transactions if amounts are provided
-        if (Object.keys(shareAmounts).length > 0) {
-            for (const [shareTypeId, amount] of Object.entries(shareAmounts)) {
-                if (amount <= 0) continue;
-                
-                const commitment = await tx.memberShareCommitment.findFirst({
-                    where: { memberId, shareTypeId }
+    try {
+        await prisma.$transaction(async (tx) => {
+            // 1. Create Saving transaction if amount is provided
+            if (savingsAmount > 0) {
+                const primarySavingAccount = await tx.memberSavingAccount.findFirst({
+                    where: { memberId },
+                    orderBy: { createdAt: 'asc'}
                 });
 
-                if (commitment) {
-                     await tx.sharePayment.create({
+                if (primarySavingAccount) {
+                     await tx.saving.create({
                         data: {
-                            commitmentId: commitment.id,
-                            amount: amount,
-                            paymentDate: date,
+                            memberId,
+                            memberSavingAccountId: primarySavingAccount.id,
+                            amount: savingsAmount,
+                            date,
+                            month,
+                            transactionType: 'deposit',
                             status: 'pending',
                             depositMode: depositMode,
                             notes: 'Overdue payment catch-up',
@@ -199,33 +183,63 @@ export async function recordOverduePayment(data: OverduePaymentInput): Promise<{
                     });
                 }
             }
-        }
-        
-        // 3. Mark service charges as paid
-        if (serviceChargeAmount > 0) {
-            let remainingServiceChargePayment = serviceChargeAmount;
-            const chargesToPay = await tx.appliedServiceCharge.findMany({
-                where: { memberId, status: 'pending' },
-                orderBy: { dateApplied: 'asc' },
-            });
-            for (const charge of chargesToPay) {
-                if (remainingServiceChargePayment <= 0) break;
-                if (remainingServiceChargePayment >= charge.amountCharged) {
-                    await tx.appliedServiceCharge.update({
-                        where: { id: charge.id },
-                        data: { status: 'paid', notes: `Paid on ${paymentDate}` },
+            
+            // 2. Create Share transactions if amounts are provided
+            if (Object.keys(shareAmounts).length > 0) {
+                for (const [shareTypeId, amount] of Object.entries(shareAmounts)) {
+                    if (amount <= 0) continue;
+                    
+                    const commitment = await tx.memberShareCommitment.findFirst({
+                        where: { memberId, shareTypeId }
                     });
-                    remainingServiceChargePayment -= charge.amountCharged;
+
+                    if (commitment) {
+                         await tx.sharePayment.create({
+                            data: {
+                                commitmentId: commitment.id,
+                                amount: amount,
+                                paymentDate: date,
+                                status: 'pending',
+                                depositMode: depositMode,
+                                notes: 'Overdue payment catch-up',
+                                sourceName: paymentDetails?.sourceName,
+                                transactionReference: paymentDetails?.transactionReference,
+                                evidenceUrl: paymentDetails?.evidenceUrl,
+                            }
+                        });
+                    }
                 }
             }
-        }
-    });
+            
+            // 3. Mark service charges as paid
+            if (serviceChargeAmount > 0) {
+                let remainingServiceChargePayment = serviceChargeAmount;
+                const chargesToPay = await tx.appliedServiceCharge.findMany({
+                    where: { memberId, status: 'pending' },
+                    orderBy: { dateApplied: 'asc' },
+                });
+                for (const charge of chargesToPay) {
+                    if (remainingServiceChargePayment <= 0) break;
+                    if (remainingServiceChargePayment >= charge.amountCharged) {
+                        await tx.appliedServiceCharge.update({
+                            where: { id: charge.id },
+                            data: { status: 'paid', notes: `Paid on ${paymentDate}` },
+                        });
+                        remainingServiceChargePayment -= charge.amountCharged;
+                    }
+                }
+            }
+        });
 
-    revalidatePath('/overdue-payments');
-    revalidatePath('/approve-transactions');
-    revalidatePath('/applied-service-charges');
-    revalidatePath('/savings');
-    revalidatePath('/shares');
-    
-    return { success: true };
+        revalidatePath('/overdue-payments');
+        revalidatePath('/approve-transactions');
+        revalidatePath('/applied-service-charges');
+        revalidatePath('/savings');
+        revalidatePath('/shares');
+        
+        return { success: true };
+    } catch (err) {
+        console.error("Error recording overdue payment:", err);
+        return { success: false, error: "An unexpected error occurred." };
+    }
 }

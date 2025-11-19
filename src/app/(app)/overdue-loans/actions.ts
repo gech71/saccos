@@ -4,6 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Loan, School, Member } from '@prisma/client';
 import { differenceInDays } from 'date-fns';
+import { auth } from '@/auth';
 
 export interface OverdueLoanInfo extends Loan {
   daysOverdue: number;
@@ -16,6 +17,10 @@ export interface OverdueLoansPageData {
 }
 
 export async function getOverdueLoansPageData(): Promise<OverdueLoansPageData> {
+  const session = await auth();
+  if (!session?.user?.permissions.includes('overdueLoan:view')) {
+    return { overdueLoans: [], schools: [] };
+  }
   const today = new Date();
   const loans = await prisma.loan.findMany({
     where: {
