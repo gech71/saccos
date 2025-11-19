@@ -42,7 +42,7 @@ const initialFormState: AccountFormState = {
 };
 
 export default function AddSavingAccountPage() {
-  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName' | 'salary'>[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'memberId' | 'fullName' | 'salary'>[]>([]);
   const [savingAccountTypes, setSavingAccountTypes] = useState<SavingAccountType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -155,7 +155,10 @@ export default function AddSavingAccountPage() {
                     disabled={isLoading}
                   >
                     {formState.memberId
-                      ? members.find((member) => member.id === formState.memberId)?.fullName
+                      ? (() => {
+                          const m = members.find((member) => member.id === formState.memberId);
+                          return m ? `${m.fullName} ${m.memberId ? `(#${m.memberId})` : ''}` : 'Select member...';
+                        })()
                       : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -169,7 +172,7 @@ export default function AddSavingAccountPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.id}`}
+                            value={`${member.fullName} ${member.memberId ?? ''}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -181,7 +184,7 @@ export default function AddSavingAccountPage() {
                                 formState.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName}
+                            {member.fullName} {member.memberId ? `(#${member.memberId})` : ''}
                           </CommandItem>
                         ))}
                       </CommandGroup>

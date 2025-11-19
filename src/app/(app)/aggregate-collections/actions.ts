@@ -36,7 +36,8 @@ export async function getAggregateData(): Promise<AggregatePageData> {
     prisma.member.findMany({
         where: { status: 'active' },
         select: {
-            id: true,
+        id: true,
+        memberId: true,
             fullName: true,
             schoolId: true,
             memberSavingAccounts: {

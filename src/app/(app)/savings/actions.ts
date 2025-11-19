@@ -6,7 +6,7 @@ import type { Member, MemberSavingAccount, Saving } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
 
-export type SavingWithMemberName = Saving & { memberName: string | null };
+export type SavingWithMemberName = Saving & { memberName: string | null; memberSeqId?: string | null };
 
 export interface SavingsPageData {
   savings: SavingWithMemberName[];
@@ -19,7 +19,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
   const [savingsWithDetails, members] = await Promise.all([
     prisma.saving.findMany({
       include: {
-        member: { select: { fullName: true } },
+        member: { select: { fullName: true, memberId: true } },
       },
       orderBy: { date: 'desc' },
     }),
@@ -45,6 +45,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
     return {
       ...rest,
       memberName: member?.fullName || 'Deleted Member', // Handle cases where a member might be deleted
+      memberSeqId: member?.memberId || null,
       date: s.date.toISOString(),
     };
   });

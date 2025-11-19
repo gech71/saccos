@@ -75,7 +75,7 @@ const initialTransactionFormState: Partial<SavingInput & {id?: string}> = {
   evidenceUrl: '',
 };
 
-type MemberForSelect = (Pick<Member, 'id' | 'fullName' | 'status'> & {
+type MemberForSelect = (Pick<Member, 'id' | 'memberId' | 'fullName' | 'status'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'>[];
 });
 
@@ -253,7 +253,7 @@ export default function SavingsPage() {
     return savingsTransactions.filter(tx => {
       const memberName = tx.memberName || '';
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = memberName.toLowerCase().includes(searchTermLower) || (tx.memberId && tx.memberId.toLowerCase().includes(searchTermLower));
+      const matchesSearchTerm = memberName.toLowerCase().includes(searchTermLower) || (tx.memberId && tx.memberId.toLowerCase().includes(searchTermLower)) || (tx.memberSeqId && tx.memberSeqId.toString().toLowerCase().includes(searchTermLower));
       const matchesStatus = selectedStatusFilter === 'all' || tx.status === selectedStatusFilter;
       const matchesType = selectedTypeFilter === 'all' || tx.transactionType === selectedTypeFilter;
       return matchesSearchTerm && matchesStatus && matchesType;
@@ -425,7 +425,7 @@ export default function SavingsPage() {
                 <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
               <TableRow key={tx.id} className={tx.status === 'pending' ? 'bg-yellow-500/10' : tx.status === 'rejected' ? 'bg-destructive/10' : ''}>
-                <TableCell className="font-medium">{tx.memberName || 'N/A'}</TableCell>
+                <TableCell className="font-medium">{tx.memberName ? `${tx.memberName} ${tx.memberSeqId ? `(#${tx.memberSeqId})` : ''}` : 'N/A'}</TableCell>
                 <TableCell>
                   <span className={`flex items-center gap-1 ${tx.transactionType === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
                     {tx.transactionType === 'deposit' ? <ArrowUpCircle className="h-4 w-4" /> : <ArrowDownCircle className="h-4 w-4" />}
@@ -546,7 +546,7 @@ export default function SavingsPage() {
             <div>
               <Label htmlFor="memberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
-                <PopoverTrigger asChild>
+                  <PopoverTrigger asChild>
                   <Button
                     id="memberId"
                     variant="outline"
@@ -555,7 +555,10 @@ export default function SavingsPage() {
                     className="w-full justify-between"
                   >
                     {currentTransaction.memberId
-                      ? members.find((member) => member.id === currentTransaction.memberId)?.fullName
+                      ? (() => {
+                          const m = members.find((member) => member.id === currentTransaction.memberId);
+                          return m ? `${m.fullName} ${m.memberId ? `(#${m.memberId})` : ''}` : 'Select member...';
+                        })()
                       : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -569,7 +572,7 @@ export default function SavingsPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.id}`}
+                            value={`${member.fullName} ${member.memberId ?? ''}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -581,7 +584,7 @@ export default function SavingsPage() {
                                 currentTransaction.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} ({member.id})
+                            {member.fullName} {member.memberId ? `(#${member.memberId})` : ''}
                              {member.status === 'inactive' && <Badge variant="outline" className="ml-auto text-destructive border-destructive">Closed</Badge>}
                           </CommandItem>
                         ))}

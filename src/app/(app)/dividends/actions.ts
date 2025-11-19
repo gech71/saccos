@@ -9,7 +9,7 @@ import { requirePermission } from '@/lib/authorization';
 
 export interface DividendsPageData {
   dividends: (Dividend & { memberName: string })[];
-  members: Pick<Member, 'id' | 'fullName'>[];
+  members: Pick<Member, 'id' | 'fullName' | 'memberId'>[];
 }
 
 export async function getDividendsPageData(): Promise<DividendsPageData> {
@@ -20,7 +20,7 @@ export async function getDividendsPageData(): Promise<DividendsPageData> {
     }),
     prisma.member.findMany({
         where: { status: 'active' },
-        select: { id: true, fullName: true },
+      select: { id: true, fullName: true, memberId: true },
         orderBy: { fullName: 'asc' }
     }),
   ]);

@@ -19,7 +19,7 @@ export async function getAccountCreationData(): Promise<{
     const [members, savingAccountTypes] = await Promise.all([
       prisma.member.findMany({
         where: { status: 'active' },
-        select: { id: true, fullName: true, salary: true },
+        select: { id: true, memberId: true, fullName: true, salary: true },
         orderBy: { fullName: 'asc' },
       }),
       prisma.savingAccountType.findMany({ orderBy: { name: 'asc' } }),

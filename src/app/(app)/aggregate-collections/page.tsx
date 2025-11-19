@@ -304,7 +304,7 @@ export default function AggregateCollectionsPage() {
     const headers = getHeaders();
 
     const dataToExport = membersData.map(member => {
-        const row: (string | number)[] = [member.id, member.fullName];
+        const row: (string | number)[] = [member.memberId, member.fullName];
         dynamicColumns.savings.forEach(s => row.push(collectionData[member.id]?.[`saving_${s.id}`] || 0));
         dynamicColumns.loans.forEach(l => {
             row.push(collectionData[member.id]?.[`loan_${l.id}-principal`] || 0);
@@ -332,7 +332,7 @@ export default function AggregateCollectionsPage() {
     
     const headers = getHeaders().filter(h => h !== 'Total Collected');
     const templateData = membersData.map(member => {
-        const rowObject: Record<string, any> = { 'Member ID': member.id, 'Full Name': member.fullName };
+        const rowObject: Record<string, any> = { 'Member ID': member.memberId, 'Full Name': member.fullName };
         headers.slice(2).forEach(header => {
             rowObject[header] = 0; // Default to 0
         });
@@ -395,18 +395,23 @@ export default function AggregateCollectionsPage() {
         const serviceChargeTypesMap = new Map(pageData!.serviceChargeTypes.map(t => [t.name, `service_${t.id}`]));
         
         const validatedData: ValidatedRow[] = dataRows.map(row => {
-            const memberId = row['Member ID']?.toString().trim();
-            const member = membersData.find(m => m.id === memberId);
+            const providedId = row['Member ID']?.toString().trim();
+            // Look up by UUID first, then by sequential memberId
+            let member = membersData.find(m => m.id === providedId);
+            if (!member) member = membersData.find(m => String(m.memberId) === providedId);
             const fullName = member?.fullName || row['Full Name'] || 'Unknown Member';
-            
+
             if (!member) {
-                return { memberId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
+                return { memberId: providedId, fullName, status: 'Invalid Member ID', data: {}, originalRow: row };
             }
+
+            // Normalize the displayed Member ID in the preview to the sequential id
+            row['Member ID'] = member.memberId;
 
             const collectionValues: CollectionInputValues = {};
             for(const header of fileHeaders) {
               if(header === 'Member ID' || header === 'Full Name' || header === 'Total Collected') continue;
-              
+
               const value = parseFloat(row[header]);
               if(isNaN(value) || value <= 0) continue;
 
@@ -422,11 +427,11 @@ export default function AggregateCollectionsPage() {
                   collectionValues[serviceChargeTypesMap.get(header)!] = value;
               }
             }
-            
+
             const hasData = Object.keys(collectionValues).length > 0;
 
             return {
-                memberId,
+                memberId: member.id, // DB UUID used for backend processing
                 fullName,
                 status: hasData ? 'Valid' : 'No Data to Import',
                 data: collectionValues,
@@ -574,7 +579,7 @@ export default function AggregateCollectionsPage() {
                             {membersData.map(member => (
                             <TableRow key={member.id}>
                                 <TableCell className="font-mono text-xs sticky left-0 bg-background z-10 w-[150px]">
-                                    {member.id}
+                                    {member.memberId}
                                 </TableCell>
                                 <TableCell className="font-medium w-[200px]">
                                     {member.fullName}

@@ -81,7 +81,7 @@ type ParsedDividend = {
 
 export default function DividendsPage() {
   const [dividends, setDividends] = useState<(Dividend & { memberName: string })[]>([]);
-  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName'>[]>([]);
+  const [members, setMembers] = useState<Pick<Member, 'id' | 'fullName' | 'memberId'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -200,7 +200,7 @@ export default function DividendsPage() {
     return dividends.filter(dividend => {
       const member = members.find(m => m.id === dividend.memberId);
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTermLower) || member.id.toLowerCase().includes(searchTermLower) : false);
+      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTermLower) || String(member.memberId).toLowerCase().includes(searchTermLower) || member.id.toLowerCase().includes(searchTermLower) : false);
       const matchesMemberFilter = (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter);
       return matchesSearchTerm && matchesMemberFilter;
     });
@@ -306,19 +306,25 @@ export default function DividendsPage() {
             }
         });
 
-        const existingMemberIds = new Set(members.map(m => m.id));
+        const memberMapByUuid = new Map(members.map(m => [m.id, m.id]));
+        const memberMapBySeq = new Map(members.map(m => [String(m.memberId), m.id]));
         const validatedData: ParsedDividend[] = dataRows.map(row => {
-          const memberId = row['Member ID']?.toString().trim();
+          const providedId = row['Member ID']?.toString().trim();
           const amount = parseFloat(row['Amount (Birr)']);
           const shareCount = parseInt(row['Shares Held'], 10);
           const date = row['Distribution Date'] instanceof Date ? row['Distribution Date'] : new Date();
 
           let status: ParsedDividend['status'] = 'Ready to import';
-          if (!memberId || !existingMemberIds.has(memberId)) status = 'Invalid Member ID';
+          let dbMemberId: string | undefined;
+          if (providedId) {
+            if (memberMapByUuid.has(providedId)) dbMemberId = providedId;
+            else if (memberMapBySeq.has(providedId)) dbMemberId = memberMapBySeq.get(providedId);
+          }
+          if (!dbMemberId) status = 'Invalid Member ID';
           else if (isNaN(amount) || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
           
           return {
-            memberId,
+            memberId: dbMemberId || providedId,
             amount,
             shareCountAtDistribution: shareCount,
             distributionDate: date,
@@ -434,7 +440,7 @@ export default function DividendsPage() {
           <SelectContent>
             <SelectItem value="all">All Members</SelectItem>
             {members.map(member => (
-              <SelectItem key={member.id} value={member.id}>{member.fullName}</SelectItem>
+              <SelectItem key={member.id} value={member.id}>{member.fullName} {member.memberId ? `(#${member.memberId})` : ''}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -594,7 +600,7 @@ export default function DividendsPage() {
                           {parsedDividends.map((dividend, index) => (
                             <TableRow key={index} className={dividend.status !== 'Ready to import' ? 'bg-destructive/10' : ''}>
                               <TableCell>{getValidationBadge(dividend.status)}</TableCell>
-                              <TableCell>{dividend.memberId}</TableCell>
+                              <TableCell>{members.find(m => m.id === dividend.memberId)?.memberId || dividend.memberId}</TableCell>
                               <TableCell className="text-right">{dividend.amount?.toFixed(2)}</TableCell>
                               <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                             </TableRow>
@@ -640,7 +646,7 @@ export default function DividendsPage() {
             <div>
               <Label htmlFor="memberId">Member <span className="text-destructive">*</span></Label>
               <Popover open={openMemberCombobox} onOpenChange={setOpenMemberCombobox}>
-                <PopoverTrigger asChild>
+                  <PopoverTrigger asChild>
                   <Button
                     id="memberId"
                     variant="outline"
@@ -649,7 +655,10 @@ export default function DividendsPage() {
                     className="w-full justify-between"
                   >
                     {currentDividend.memberId
-                      ? members.find((member) => member.id === currentDividend.memberId)?.fullName
+                      ? (() => {
+                          const m = members.find((member) => member.id === currentDividend.memberId);
+                          return m ? `${m.fullName} ${m.memberId ? `(#${m.memberId})` : ''}` : 'Select member...';
+                        })()
                       : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -675,7 +684,7 @@ export default function DividendsPage() {
                                 currentDividend.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName}
+                            {member.fullName} {member.memberId ? `(#${member.memberId})` : ''}
                           </CommandItem>
                         ))}
                       </CommandGroup>
