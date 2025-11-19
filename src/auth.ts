@@ -237,7 +237,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        // Artificial delay for failed attempts on non-existent users
+        // If neither an admin nor a member was found, this is a failed login attempt for a non-existent user.
+        // We still check rate limit to prevent enumeration attacks.
+        if (!adminUser && !member) {
+          try {
+            const phoneKey = `rl:phone:${phoneLocal || phoneIntl}`;
+            const phoneLimit = Number(process.env.RATE_LIMIT_PHONE_LIMIT || 10);
+            const windowSeconds = Number(process.env.RATE_LIMIT_WINDOW_SECONDS || 15 * 60);
+            // This call will increment the counter for the non-existent phone number
+            await rateLimitCheck(phoneKey, phoneLimit, windowSeconds);
+          } catch (rlErr) {
+            // ignore
+          }
+        }
+
+        // Artificial delay for all failed attempts on non-existent users
         await new Promise(resolve => setTimeout(resolve, 300));
         return null;
       },
