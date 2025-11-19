@@ -253,7 +253,7 @@ export default function SavingsPage() {
     return savingsTransactions.filter(tx => {
       const memberName = tx.memberName || '';
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = memberName.toLowerCase().includes(searchTermLower) || (tx.memberId && tx.memberId.toLowerCase().includes(searchTermLower)) || (tx.memberSeqId && tx.memberSeqId.toString().toLowerCase().includes(searchTermLower));
+      const matchesSearchTerm = memberName.toLowerCase().includes(searchTermLower) || (tx.memberSeqId && tx.memberSeqId.toString().toLowerCase().includes(searchTermLower));
       const matchesStatus = selectedStatusFilter === 'all' || tx.status === selectedStatusFilter;
       const matchesType = selectedTypeFilter === 'all' || tx.transactionType === selectedTypeFilter;
       return matchesSearchTerm && matchesStatus && matchesType;
@@ -698,4 +698,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-

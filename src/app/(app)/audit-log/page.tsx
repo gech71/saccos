@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -58,7 +59,7 @@ export default function AuditLogPage() {
       return `${log.user.name ?? log.actorName} (Admin)`;
     }
     if (log.actorType === 'MEMBER' && log.member) {
-      return `${log.member.fullName ?? log.actorName} (Member)`;
+      return `${log.member.fullName ?? log.actorName} (#${log.member.memberId})`;
     }
     return log.actorName || 'System';
   };

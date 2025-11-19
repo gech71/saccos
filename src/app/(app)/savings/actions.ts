@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -10,7 +11,7 @@ export type SavingWithMemberName = Saving & { memberName: string | null; memberS
 
 export interface SavingsPageData {
   savings: SavingWithMemberName[];
-  members: (Pick<Member, 'id' | 'fullName' | 'status'> & {
+  members: (Pick<Member, 'id' | 'fullName' | 'status' | 'memberId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'id' | 'accountNumber' | 'balance'>[];
   })[];
 }
@@ -28,6 +29,7 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
         id: true, 
         fullName: true, 
         status: true,
+        memberId: true,
         memberSavingAccounts: {
           select: {
             id: true,

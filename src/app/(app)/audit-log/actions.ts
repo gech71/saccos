@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -7,7 +8,7 @@ import { requirePermission } from '@/lib/authorization';
 
 export interface AuditLogWithActor extends AuditLog {
   user: { name: string | null } | null;
-  member: { fullName: string | null } | null;
+  member: { fullName: string | null; memberId: string; } | null;
 }
 
 export async function getAuditLogs(
@@ -23,7 +24,11 @@ export async function getAuditLogs(
     await requirePermission('audit:view');
     const where: Prisma.AuditLogWhereInput = {};
     if (filters.actorName) {
-        where.actorName = { contains: filters.actorName, mode: 'insensitive' };
+        where.OR = [
+          { actorName: { contains: filters.actorName, mode: 'insensitive' } },
+          { user: { name: { contains: filters.actorName, mode: 'insensitive' } } },
+          { member: { fullName: { contains: filters.actorName, mode: 'insensitive' } } },
+        ]
     }
     if (filters.action && filters.action !== 'all') {
       where.action = { equals: filters.action };
@@ -39,7 +44,7 @@ export async function getAuditLogs(
         skip: (page - 1) * limit,
         include: {
           user: { select: { name: true } },
-          member: { select: { fullName: true } },
+          member: { select: { fullName: true, memberId: true } },
         },
         orderBy: { timestamp: 'desc' },
       }),

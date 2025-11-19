@@ -106,7 +106,8 @@ export default function AppliedServiceChargesPage() {
     if (!pageData) return [];
     return pageData.summaries.filter(summary => {
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTermLower) || summary.memberId.toLowerCase().includes(searchTermLower);
+      const member = pageData.members.find(m => m.id === summary.memberId);
+      const matchesSearchTerm = summary.fullName.toLowerCase().includes(searchTermLower) || member?.memberId?.toLowerCase().includes(searchTermLower);
       const matchesSchoolFilter = selectedSchoolFilter === 'all' || summary.schoolId === selectedSchoolFilter;
       return matchesSearchTerm && matchesSchoolFilter;
     });
@@ -472,7 +473,10 @@ export default function AppliedServiceChargesPage() {
                     className="w-full justify-between"
                   >
                     {applyChargeForm.memberId
-                      ? pageData.members.find((member) => member.id === applyChargeForm.memberId)?.fullName
+                      ? (() => {
+                          const m = pageData.members.find((member) => member.id === applyChargeForm.memberId);
+                          return m ? `${m.fullName} ${m.memberId ? `(#${m.memberId})` : ''}` : 'Select member...';
+                        })()
                       : "Select member..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -486,7 +490,7 @@ export default function AppliedServiceChargesPage() {
                         {pageData.members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.id}`}
+                            value={`${member.fullName} ${member.memberId ?? ''}`}
                             onSelect={() => {
                               handleApplyChargeSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -498,7 +502,7 @@ export default function AppliedServiceChargesPage() {
                                 applyChargeForm.memberId === member.id ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {member.fullName} ({member.id})
+                            {member.fullName} {member.memberId ? `(#${member.memberId})` : ''}
                           </CommandItem>
                         ))}
                       </CommandGroup>

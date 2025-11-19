@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -21,7 +22,7 @@ export type LoanWithDetails = Loan & {
 
 export interface LoansPageData {
   loans: LoanWithDetails[];
-  members: (Pick<Member, 'id' | 'fullName' | 'joinDate'> & { totalSavings: number, totalGuaranteed: number })[];
+  members: (Pick<Member, 'id' | 'fullName' | 'joinDate' | 'memberId'> & { totalSavings: number, totalGuaranteed: number })[];
   loanTypes: LoanType[];
 }
 
@@ -58,6 +59,7 @@ export async function getLoansPageData(): Promise<LoansPageData> {
       select: { 
         id: true, 
         fullName: true,
+        memberId: true,
         joinDate: true,
         memberSavingAccounts: {
             select: {
@@ -84,6 +86,7 @@ export async function getLoansPageData(): Promise<LoansPageData> {
   const members = membersData.map(m => ({
       id: m.id,
       fullName: m.fullName,
+      memberId: m.memberId,
       joinDate: m.joinDate,
       totalGuaranteed: m._count.guaranteedLoans,
       totalSavings: m.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
@@ -245,7 +248,7 @@ export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
 export async function deleteLoan(id: string, isUpdate: boolean = false): Promise<{ success: boolean; message: string }> {
   try {
     await requirePermission('loan:delete');
-    const loan = await prisma.loan.findUnique({ where: { id }, select: { member: { select: { memberId: true}}, loanType: { select: { name: true }} } });
+    const loan = await prisma.loan.findUnique({ where: { id }, select: { member: { select: { memberId: true }}, loanType: { select: { name: true }} } });
     if (!loan) {
         return { success: false, message: "Loan not found." };
     }

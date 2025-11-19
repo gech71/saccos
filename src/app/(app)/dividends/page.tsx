@@ -200,7 +200,7 @@ export default function DividendsPage() {
     return dividends.filter(dividend => {
       const member = members.find(m => m.id === dividend.memberId);
       const searchTermLower = searchTerm.toLowerCase();
-      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTermLower) || String(member.memberId).toLowerCase().includes(searchTermLower) || member.id.toLowerCase().includes(searchTermLower) : false);
+      const matchesSearchTerm = (member ? member.fullName.toLowerCase().includes(searchTermLower) || String(member.memberId).toLowerCase().includes(searchTermLower) : false);
       const matchesMemberFilter = (selectedMemberFilter === 'all' || dividend.memberId === selectedMemberFilter);
       return matchesSearchTerm && matchesMemberFilter;
     });
@@ -672,7 +672,7 @@ export default function DividendsPage() {
                         {members.map((member) => (
                           <CommandItem
                             key={member.id}
-                            value={`${member.fullName} ${member.id}`}
+                            value={`${member.fullName} ${member.memberId ?? ''}`}
                             onSelect={() => {
                               handleSelectChange('memberId', member.id);
                               setOpenMemberCombobox(false);
@@ -737,8 +737,3 @@ export default function DividendsPage() {
     </div>
   );
 }
-
-
-
-
-

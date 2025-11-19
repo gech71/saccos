@@ -273,7 +273,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         }
 
         await logAudit('MEMBER_CREATE', {
-            targetId: newMember.id,
+            targetId: newMember.memberId,
             targetType: 'MEMBER',
             details: { name: newMember.fullName, memberId: newMember.memberId }
         });
@@ -373,7 +373,7 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         });
 
         await logAudit('MEMBER_UPDATE', {
-            targetId: updatedMember.id,
+            targetId: updatedMember.memberId,
             targetType: 'MEMBER',
             details: { changes: Object.keys(data) }
         });
@@ -411,7 +411,7 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
         });
 
         await logAudit('MEMBER_DELETE', {
-            targetId: member.id,
+            targetId: member.memberId,
             targetType: 'MEMBER',
             details: { name: member.fullName, memberId: member.memberId }
         });
@@ -470,7 +470,7 @@ export async function transferMember(memberId: string, newSchoolId: string, reas
         });
 
         await logAudit('MEMBER_TRANSFER', {
-            targetId: memberId,
+            targetId: member.memberId,
             targetType: 'MEMBER',
             details: { toSchoolId: newSchoolId, toSchoolName: newSchool.name, reason }
         });
@@ -554,7 +554,7 @@ export async function importMembers(
       });
       
             await logAudit('MEMBER_CREATE', {
-                targetId: newMember.id,
+                targetId: newMember.memberId,
                 targetType: 'MEMBER',
                 details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
             });

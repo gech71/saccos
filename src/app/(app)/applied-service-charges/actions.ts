@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -19,7 +20,7 @@ export interface MemberServiceChargeSummary {
 
 export interface AppliedChargesPageData {
   summaries: MemberServiceChargeSummary[];
-  members: Pick<Member, 'id' | 'fullName' | 'savingsAccountNumber'>[];
+  members: Pick<Member, 'id' | 'fullName' | 'memberId' | 'savingsAccountNumber'>[];
   serviceChargeTypes: ServiceChargeType[];
   schools: Pick<School, 'id' | 'name'>[];
 }
@@ -63,7 +64,7 @@ export async function getAppliedChargesPageData(): Promise<AppliedChargesPageDat
 
     return {
       summaries,
-      members: members.map(m => ({ id: m.id, fullName: m.fullName, savingsAccountNumber: m.savingsAccountNumber })),
+      members: members.map(m => ({ id: m.id, fullName: m.fullName, memberId: m.memberId, savingsAccountNumber: m.savingsAccountNumber })),
       serviceChargeTypes,
       schools,
     };
