@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
     const filenameFromClient = file.name || 'file';
     const ext = extname(filenameFromClient).toLowerCase();
 
-    // Quick size check from the File/Blob object if provided by the platform
     if (typeof (file as any).size === 'number' && (file as any).size > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ success: false, error: 'File too large.' }, { status: 413 });
     }
