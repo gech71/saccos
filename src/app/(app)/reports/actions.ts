@@ -6,8 +6,10 @@ import prisma from '@/lib/prisma';
 import type { Saving, Share, Dividend, SavingAccountType, Loan, LoanRepayment, LoanType, AppliedServiceCharge } from '@prisma/client';
 import { format, startOfYear, endOfYear, startOfDay, endOfDay } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getReportPageData() {
+    await requirePermission('report:view');
     try {
         const [schools, savingAccountTypes, loanTypes] = await Promise.all([
             prisma.school.findMany({
@@ -79,6 +81,7 @@ export async function generateSimpleReport(
     loanTypeId?: string,
 ): Promise<ReportData | null> {
     try {
+        await requirePermission('report:view');
         const school = await prisma.school.findUnique({ where: { id: schoolId } });
         if (!school) return null;
 

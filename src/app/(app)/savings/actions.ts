@@ -17,6 +17,7 @@ export interface SavingsPageData {
 }
 
 export async function getSavingsPageData(): Promise<SavingsPageData> {
+  await requirePermission('saving:view');
   const [savingsWithDetails, members] = await Promise.all([
     prisma.saving.findMany({
       include: {

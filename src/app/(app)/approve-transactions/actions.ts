@@ -14,6 +14,7 @@ export type PendingTransaction = (Saving | SharePayment | Dividend | Loan | Appl
 };
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
+  await requirePermission('transactionApproval:view');
   const [pendingSavings, pendingSharePayments, pendingDividends, pendingLoans, pendingServiceCharges, pendingLoanRepayments] = await Promise.all([
     prisma.saving.findMany({
       where: { status: 'pending' },

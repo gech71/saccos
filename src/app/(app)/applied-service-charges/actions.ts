@@ -5,7 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { AppliedServiceCharge, Member, School, ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 export interface MemberServiceChargeSummary {
   memberId: string;
@@ -26,8 +26,9 @@ export interface AppliedChargesPageData {
 }
 
 export async function getAppliedChargesPageData(): Promise<AppliedChargesPageData> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('serviceCharge:view')) {
+  try {
+    await requirePermission('serviceCharge:view');
+  } catch (err) {
     return { summaries: [], members: [], serviceChargeTypes: [], schools: [] };
   }
   try {
@@ -77,16 +78,17 @@ export async function getAppliedChargesPageData(): Promise<AppliedChargesPageDat
 export type AppliedChargeInput = Omit<AppliedServiceCharge, 'id' | 'serviceChargeTypeName' | 'status'> & {
     dateApplied: string;
 };
-
 export async function applyServiceCharge(data: AppliedChargeInput): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('serviceCharge:create')) {
+  try {
+    await requirePermission('serviceCharge:create');
+  } catch (err) {
     return { success: false, error: "You don't have permission to apply service charges." };
   }
   try {
     const [member, serviceChargeType] = await Promise.all([
       prisma.member.findUnique({ where: { id: data.memberId } }),
       prisma.serviceChargeType.findUnique({ where: { id: data.serviceChargeTypeId } }),
+    ]);
     ]);
 
     if (!member || !serviceChargeType) {

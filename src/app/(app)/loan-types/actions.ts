@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
 
 export async function getLoanTypes(): Promise<LoanType[]> {
+  await requirePermission('configuration:view');
   try {
     return prisma.loanType.findMany({
       orderBy: { name: 'asc' },

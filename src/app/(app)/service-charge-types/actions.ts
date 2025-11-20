@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
 
 export async function getServiceChargeTypes(): Promise<ServiceChargeType[]> {
+  await requirePermission('serviceCharge:view');
   try {
     return prisma.serviceChargeType.findMany({
       orderBy: { name: 'asc' },

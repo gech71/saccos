@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
 
 export async function getShareTypes(): Promise<ShareType[]> {
+  await requirePermission('configuration:view');
   try {
     return prisma.shareType.findMany({
       orderBy: { name: 'asc' },

@@ -25,6 +25,7 @@ export interface SettingsPageData {
 }
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
+  await requirePermission('setting:view');
   try {
     const [users, roles] = await Promise.all([
       prisma.user.findMany({

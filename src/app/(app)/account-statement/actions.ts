@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import { requireAuth } from '@/lib/authorization';
 import type { Member, Saving, MemberSavingAccount, SavingAccountType } from '@prisma/client';
 import type { DateRange } from 'react-day-picker';
 import { startOfDay } from 'date-fns';
@@ -66,9 +66,8 @@ export async function generateStatement(
   // Server-side authorization: ensure the requesting user is allowed to view this member's data.
   // Members may only access their own data. Admins (non-members) are allowed.
   try {
-    const session = await auth();
-    const user = session?.user as any;
-    if (!user) return null; // not authenticated
+    const session = await requireAuth();
+    const user = (session as any).user;
 
     // If the authenticated user is a member, ensure they only request their own memberId
     if (user.isMember) {
@@ -79,7 +78,7 @@ export async function generateStatement(
     }
     // If user is not a member (admin), allow. Optionally extend with permission checks here.
   } catch (err) {
-    // If we cannot determine session, deny access
+    // If we cannot determine session or authentication fails, deny access
     return null;
   }
 

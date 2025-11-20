@@ -4,14 +4,15 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { requireAuth, requirePermission } from '@/lib/authorization';
 
 export async function getAccountCreationData(): Promise<{
   members: Pick<Member, 'id' | 'fullName' | 'salary'>[];
   savingAccountTypes: SavingAccountType[];
 }> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('savingAccount:create')) {
+  try {
+    await requirePermission('savingAccount:create');
+  } catch (err) {
     return { members: [], savingAccountTypes: [] };
   }
 
@@ -40,8 +41,9 @@ interface AccountCreationData {
 }
 
 export async function createSavingAccount(data: AccountCreationData): Promise<{ success: boolean, error?: string }> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('savingAccount:create')) {
+  try {
+    await requirePermission('savingAccount:create');
+  } catch (err) {
     return { success: false, error: "You don't have permission to create saving accounts." };
   }
   

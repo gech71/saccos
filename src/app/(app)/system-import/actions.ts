@@ -25,6 +25,7 @@ export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 
 }
 
 export async function getImportPageData(): Promise<ImportPageData> {
+  await requirePermission('systemImport:view');
   const [savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
     prisma.savingAccountType.findMany({ select: { id: true, name: true, contributionType: true, contributionValue: true }, orderBy: { name: 'asc' } }),
     prisma.loanType.findMany({ select: { id: true, name: true, interestRate: true, maxRepaymentPeriod: true }, orderBy: { name: 'asc' } }),

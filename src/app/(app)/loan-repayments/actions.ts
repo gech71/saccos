@@ -28,6 +28,7 @@ export interface LoanRepaymentsPageData {
 }
 
 export async function getLoanRepaymentsPageData(): Promise<LoanRepaymentsPageData> {
+  await requirePermission('loanRepayment:view');
   const [allLoans, activeLoans, loanTypes] = await Promise.all([
     prisma.loan.findMany({
         include: {

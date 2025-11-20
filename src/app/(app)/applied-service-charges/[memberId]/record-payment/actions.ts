@@ -3,13 +3,10 @@
 
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getPaymentFormInitialData(memberId: string) {
-    const session = await auth();
-    if (!session?.user?.permissions.includes('serviceCharge:edit')) {
-        throw new Error("You don't have permission to perform this action.");
-    }
+    await requirePermission('serviceCharge:edit');
     try {
         const member = await prisma.member.findUnique({
             where: { id: memberId },
@@ -44,8 +41,9 @@ export async function recordChargePayment(memberId: string, data: {
     transactionReference?: string;
     evidenceUrl?: string;
 }): Promise<{ success: boolean; error?: string }> {
-    const session = await auth();
-    if (!session?.user?.permissions.includes('serviceCharge:edit')) {
+    try {
+        await requirePermission('serviceCharge:edit');
+    } catch (err) {
         return { success: false, error: "You don't have permission to record payments." };
     }
     try {

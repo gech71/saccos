@@ -15,7 +15,8 @@ export type ActiveMemberForClosure = Pick<Member, 'id' | 'fullName' | 'memberId'
 };
 
 export async function getActiveMembersForClosure() {
-  return prisma.member.findMany({
+    await requirePermission('accountClosure:view');
+    return prisma.member.findMany({
     where: { status: 'active' },
     select: {
       id: true,
@@ -44,6 +45,7 @@ export async function calculateFinalPayout(memberId: string): Promise<{
   accruedInterest: number;
   totalPayout: number;
 } | null> {
+    await requirePermission('accountClosure:view');
     const member = await prisma.member.findUnique({
         where: { id: memberId },
         include: {

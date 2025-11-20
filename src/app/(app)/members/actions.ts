@@ -10,7 +10,6 @@ import { randomBytes } from 'crypto';
 import { z } from 'zod';
 import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
-import { auth } from '@/auth';
 import { requirePermission } from '@/lib/authorization';
 
 // Helpers for phone normalization/formatting
@@ -55,6 +54,8 @@ export interface MembersPageData {
 }
 
 export async function getMembersPageData(): Promise<MembersPageData> {
+    // Enforce view permission for member listing on the server-side
+    await requirePermission('member:view');
     const members = await prisma.member.findMany({
         include: {
             school: { select: { name: true } },
@@ -183,11 +184,6 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         return { error: `${firstError.path.join('.')}: ${firstError.message}` };
     }
     
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { error: "Authentication required to perform this action." };
-    }
-
         await requirePermission('member:create');
 
     try {
@@ -295,11 +291,6 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
     }
     
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "Authentication required to perform this action." };
-    }
-
         await requirePermission('member:edit');
 
     try {
@@ -389,13 +380,8 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
 
 
 export async function deleteMember(id: string): Promise<{ success: boolean; message: string }> {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, message: "Authentication required to perform this action." };
-    }
-    
     try {
-                await requirePermission('member:delete');
+        await requirePermission('member:delete');
         const member = await prisma.member.findUnique({ where: { id } });
         if (!member) {
             return { success: false, message: 'Member not found.' };
@@ -428,10 +414,6 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
 }
 
 export async function transferMember(memberId: string, newSchoolId: string, reason?: string): Promise<{ success: boolean, message: string }> {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, message: "Authentication required to perform this action." };
-    }
         await requirePermission('member:transfer');
     
     try {
@@ -501,10 +483,6 @@ export interface CreatedMemberInfo {
 export async function importMembers(
   members: ImportedMember[]
 ): Promise<{ success: boolean; message: string; createdMembers?: CreatedMemberInfo[] }> {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, message: "Authentication required to perform this action." };
-    }
         await requirePermission('member:import');
     
   if (members.length === 0) {

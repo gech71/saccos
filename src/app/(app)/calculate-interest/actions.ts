@@ -32,6 +32,7 @@ export interface InterestCalculationResult {
 
 export async function getCalculationPageData(): Promise<CalculationPageData> {
     try {
+        await requirePermission('savingsInterestCalculation:view');
         const [members, schools, savingAccountTypes] = await Promise.all([
             prisma.member.findMany({
                 where: { status: 'active' },

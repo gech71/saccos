@@ -4,7 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType, Member, MemberSavingAccount, MemberShareCommitment, Loan, AppliedServiceCharge } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 export interface AggregatePageData {
   schools: Pick<School, 'id', 'name'>[];
@@ -23,8 +23,9 @@ export type MemberDataForAggregate = Pick<Member, 'id' | 'fullName' | 'schoolId'
 }
 
 export async function getAggregateData(): Promise<AggregatePageData> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('groupCollection:view')) {
+  try {
+    await requirePermission('groupCollection:view');
+  } catch (err) {
     return { schools: [], savingTypes: [], loanTypes: [], shareTypes: [], serviceChargeTypes: [], members: [] };
   }
   const [schools, savingTypes, loanTypes, shareTypes, serviceChargeTypes, members] = await Promise.all([
@@ -90,8 +91,9 @@ export type CollectionPayload = {
 }
 
 export async function processAggregateCollection(payload: CollectionPayload): Promise<{ success: boolean, error?: string }> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('groupCollection:create')) {
+  try {
+    await requirePermission('groupCollection:create');
+  } catch (err) {
     return { success: false, error: "You don't have permission to perform this action." };
   }
   const { collections, collectionMonth, collectionYear } = payload;

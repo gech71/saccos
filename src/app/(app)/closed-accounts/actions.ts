@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import type { Member, School, Saving, SharePayment } from '@prisma/client';
+import { requirePermission } from '@/lib/authorization';
 
 export type ClosedAccountWithDetails = Member & { 
   school: School | null;
@@ -11,6 +12,7 @@ export type ClosedAccountWithDetails = Member & {
 };
 
 export async function getClosedAccounts(): Promise<ClosedAccountWithDetails[]> {
+  await requirePermission('closedAccount:view');
   const closedMembers = await prisma.member.findMany({
     where: { status: 'inactive' },
     include: {

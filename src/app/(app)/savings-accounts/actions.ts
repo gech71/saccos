@@ -4,7 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Prisma, School, MemberSavingAccount } from '@prisma/client';
 import { differenceInMonths } from 'date-fns';
-import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 export interface SavingsAccountSummary {
   memberId: string;
@@ -24,10 +24,7 @@ export interface SavingsAccountPageData {
 }
 
 export async function getSavingsAccountPageData(): Promise<SavingsAccountPageData> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('savingAccount:view')) {
-    return { summaries: [], schools: [] };
-  }
+  await requirePermission('savingAccount:view');
   const [memberSavingAccounts, schools] = await Promise.all([
     prisma.memberSavingAccount.findMany({
       include: {

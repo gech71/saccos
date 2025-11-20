@@ -3,9 +3,10 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Prisma, School } from '@prisma/client';
-import { revalidatePath } from 'next/cache';
+import { Prisma } from '@prisma/client';
+import type { School } from '@prisma/client';
 import { requirePermission } from '@/lib/authorization';
+import { revalidatePath } from 'next/cache';
 
 export type SchoolWithMemberCount = School & {
   _count: {
@@ -14,6 +15,7 @@ export type SchoolWithMemberCount = School & {
 };
 
 export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount[]> {
+  await requirePermission('school:view');
   try {
     const prismaOptions: Prisma.SchoolFindManyArgs = {
       include: {

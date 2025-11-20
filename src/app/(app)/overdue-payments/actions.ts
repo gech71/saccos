@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 import type { School, Share, Saving, Member, ShareType, MemberShareCommitment, AppliedServiceCharge, ServiceChargeType } from '@prisma/client';
 import { differenceInMonths, parseISO, format, compareDesc } from 'date-fns';
 import { revalidatePath } from 'next/cache';
-import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 
 export interface OverdueShareDetail {
   shareTypeId: string;
@@ -39,8 +39,9 @@ export interface OverduePageData {
 
 
 export async function getOverduePaymentsPageData(): Promise<OverduePageData> {
-  const session = await auth();
-  if (!session?.user?.permissions.includes('overduePayment:view')) {
+  try {
+    await requirePermission('overduePayment:view');
+  } catch (err) {
     return { overdueMembers: [], schools: [], shareTypes: [] };
   }
 
@@ -147,10 +148,11 @@ export type OverduePaymentInput = {
 };
 
 export async function recordOverduePayment(data: OverduePaymentInput): Promise<{success: boolean; error?: string}> {
-    const session = await auth();
-    if (!session?.user?.permissions.includes('overduePayment:create')) {
-        return { success: false, error: "You don't have permission to record payments." };
-    }
+  try {
+    await requirePermission('overduePayment:create');
+  } catch (err) {
+    return { success: false, error: "You don't have permission to record payments." };
+  }
     const { memberId, savingsAmount, shareAmounts, serviceChargeAmount, paymentDate, depositMode, paymentDetails } = data;
     const date = new Date(paymentDate);
     const month = format(date, 'MMMM yyyy');

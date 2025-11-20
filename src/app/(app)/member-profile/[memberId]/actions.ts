@@ -2,7 +2,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import { requireAuth, requirePermission } from '@/lib/authorization';
 import { format, compareDesc } from 'date-fns';
 import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment, ShareType, LoanType, ServiceChargeType, SavingAccountType } from '@prisma/client';
 
@@ -30,9 +30,9 @@ export interface MemberDetails {
 export async function getMemberDetails(memberId: string): Promise<MemberDetails | null> {
     // Server-side authorization: ensure requesting user can view this member
     try {
-        const session = await auth();
-        const user = session?.user as any;
-        if (!user) return null; // not authenticated
+        const session = await requireAuth();
+        const user = (session as any).user;
+        if (!user) return null; // not authenticated (shouldn't happen because requireAuth throws)
 
         // Members may only view their own profile
         if (user.isMember) {
@@ -40,11 +40,12 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 // Deny access if a member tries to view another member's profile
                 return null;
             }
+        } else {
+            // Non-member (admin) users must have explicit permission to view member profiles
+            await requirePermission('member:view');
         }
-        // Admins (non-members) are allowed; add specific permission checks here if needed
-        // For now, any admin can view any member profile
     } catch (err) {
-        console.error("Session validation error:", err);
+        console.error("Session/permission validation error:", err);
         return null;
     }
     const member = await prisma.member.findUnique({

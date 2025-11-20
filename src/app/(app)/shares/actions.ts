@@ -18,6 +18,7 @@ export interface SharePaymentsPageData {
 }
 
 export async function getSharePaymentsPageData(): Promise<SharePaymentsPageData> {
+  await requirePermission('share:view');
   const commitments = await prisma.memberShareCommitment.findMany({
       include: {
         member: { select: { fullName: true } },

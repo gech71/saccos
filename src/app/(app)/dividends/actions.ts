@@ -13,6 +13,7 @@ export interface DividendsPageData {
 }
 
 export async function getDividendsPageData(): Promise<DividendsPageData> {
+  await requirePermission('dividend:view');
   const [dividends, members] = await Promise.all([
     prisma.dividend.findMany({
         include: { member: { select: { fullName: true } } },

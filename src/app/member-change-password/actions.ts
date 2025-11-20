@@ -2,7 +2,7 @@
 
 'use server';
 
-import { auth } from '@/auth';
+import { requireAuth } from '@/lib/authorization';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
@@ -11,7 +11,7 @@ export async function changeMemberPassword(
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
+    const session = await requireAuth();
     const user = session?.user;
 
     // 1. Ensure user is authenticated and is a member

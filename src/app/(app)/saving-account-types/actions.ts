@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
 
 export async function getSavingAccountTypes(): Promise<SavingAccountType[]> {
+  await requirePermission('configuration:view');
   try {
     return prisma.savingAccountType.findMany({
       orderBy: { name: 'asc' },
