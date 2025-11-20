@@ -35,16 +35,11 @@ export async function middleware(request: NextRequest) {
       const check = await rateLimitCheck(ipKey, ipLimit, windowSeconds);
 
       if (!check.allowed) {
-        return new NextResponse(
-          JSON.stringify({
-            error: "Too many requests. Try again later.",
-          }),
-          {
-            status: 429,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+        const url = new URL("/login", request.url);
+        url.searchParams.set("error", "TooManyRequests");
+        return NextResponse.redirect(url);
       }
+
     }
   } catch (e) {
     console.warn("Rate limiter error:", e);
