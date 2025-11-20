@@ -115,9 +115,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (adminUser) {
-           if (adminUser.lockoutUntil && adminUser.lockoutUntil > now) {
+          if (adminUser.lockoutUntil && adminUser.lockoutUntil > now) {
             const minutesLeft = differenceInMinutes(adminUser.lockoutUntil, now);
-            throw new Error(`Account is temporarily locked. Please try again in ${minutesLeft} minutes.`);
+            const msg = `Account is temporarily locked. Please try again in ${minutesLeft} minutes.`;
+            try {
+              const res = req?.res || req?.req?.res;
+              if (res && typeof res.setHeader === 'function') {
+                const cookie = `auth_error=${encodeURIComponent(msg)}; Path=/; Max-Age=${60 * 15}; SameSite=Lax`;
+                const prev = res.getHeader && res.getHeader('Set-Cookie');
+                if (prev) {
+                  const existing = Array.isArray(prev) ? prev : [String(prev)];
+                  res.setHeader('Set-Cookie', [...existing, cookie]);
+                } else {
+                  res.setHeader('Set-Cookie', cookie);
+                }
+              }
+            } catch (e) {
+              // ignore cookie set errors
+            }
+            throw new Error(msg);
           }
           
           const match = adminUser.password && (await bcrypt.compare(String(password ?? ''), String(adminUser.password ?? '')));
@@ -146,8 +162,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               permissionsList.forEach(p => permissions.add(p.id));
             } else {
               userRoles.forEach(role => {
-                role.permissions.split(",").forEach(p => p && permissions.add(p));
-              });
+                  role.permissions.split(",").forEach((p: string) => p && permissions.add(p));
+                });
             }
 
             return {
@@ -170,7 +186,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 },
               });
               await rateLimitDelay(300);
-              throw new Error(`Account is temporarily locked due to too many failed login attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`);
+              const msg = `Account is temporarily locked due to too many failed login attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`;
+              try {
+                const res = req?.res || req?.req?.res;
+                if (res && typeof res.setHeader === 'function') {
+                  const cookie = `auth_error=${encodeURIComponent(msg)}; Path=/; Max-Age=${60 * LOCKOUT_DURATION_MINUTES}; SameSite=Lax`;
+                  const prev = res.getHeader && res.getHeader('Set-Cookie');
+                  if (prev) {
+                    const existing = Array.isArray(prev) ? prev : [String(prev)];
+                    res.setHeader('Set-Cookie', [...existing, cookie]);
+                  } else {
+                    res.setHeader('Set-Cookie', cookie);
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+              throw new Error(msg);
             } else {
               await prisma.user.update({
                 where: { id: adminUser.id },
@@ -187,9 +219,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (member) {
-           if (member.lockoutUntil && member.lockoutUntil > now) {
+          if (member.lockoutUntil && member.lockoutUntil > now) {
             const minutesLeft = differenceInMinutes(member.lockoutUntil, now);
-            throw new Error(`Account is temporarily locked. Please try again in ${minutesLeft} minutes.`);
+            const msg = `Account is temporarily locked. Please try again in ${minutesLeft} minutes.`;
+            try {
+              const res = req?.res || req?.req?.res;
+              if (res && typeof res.setHeader === 'function') {
+                const cookie = `auth_error=${encodeURIComponent(msg)}; Path=/; Max-Age=${60 * 15}; SameSite=Lax`;
+                const prev = res.getHeader && res.getHeader('Set-Cookie');
+                if (prev) {
+                  const existing = Array.isArray(prev) ? prev : [String(prev)];
+                  res.setHeader('Set-Cookie', [...existing, cookie]);
+                } else {
+                  res.setHeader('Set-Cookie', cookie);
+                }
+              }
+            } catch (e) {
+              // ignore cookie set errors
+            }
+            throw new Error(msg);
           }
           
           const match = member.password && (await bcrypt.compare(String(password ?? ''), String(member.password ?? '')));
@@ -226,7 +274,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 },
               });
               await rateLimitDelay(300);
-              throw new Error(`Account is temporarily locked due to too many failed login attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`);
+              const msg = `Account is temporarily locked due to too many failed login attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`;
+              try {
+                const res = req?.res || req?.req?.res;
+                if (res && typeof res.setHeader === 'function') {
+                  const cookie = `auth_error=${encodeURIComponent(msg)}; Path=/; Max-Age=${60 * LOCKOUT_DURATION_MINUTES}; SameSite=Lax`;
+                  const prev = res.getHeader && res.getHeader('Set-Cookie');
+                  if (prev) {
+                    const existing = Array.isArray(prev) ? prev : [String(prev)];
+                    res.setHeader('Set-Cookie', [...existing, cookie]);
+                  } else {
+                    res.setHeader('Set-Cookie', cookie);
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+              throw new Error(msg);
             } else {
               await prisma.member.update({
                 where: { id: member.id },

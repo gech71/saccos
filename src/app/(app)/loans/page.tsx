@@ -87,6 +87,7 @@ export default function LoansPage() {
   const [currentLoan, setCurrentLoan] = useState<Partial<LoanInput & { id?: string, status?: string }>>(initialLoanFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [openMemberCombobox, setOpenMemberCombobox] = useState(false);
   const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);
   
@@ -200,24 +201,38 @@ export default function LoansPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!currentLoan.memberId || !selectedLoanType || !currentLoan.principalAmount || currentLoan.principalAmount <= 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Member, loan type, and a valid principal amount are required.' });
+      setFormError('Member, loan type, and a valid principal amount are required.');
       return;
     }
     
     setIsSubmitting(true);
     try {
+        let res: { success: boolean; loan?: Loan; error?: string } | null = null;
         if (isEditing && currentLoan.id) {
-          await updateLoan(currentLoan.id, currentLoan as LoanInput);
-          toast({ title: 'Loan Updated', description: 'Loan application has been updated.' });
+          res = await updateLoan(currentLoan.id, currentLoan as LoanInput);
+          if (!res.success) {
+            setFormError(res.error || 'Failed to update loan.');
+          } else {
+            toast({ title: 'Loan Updated', description: 'Loan application has been updated.' });
+          }
         } else {
-          await addLoan(currentLoan as LoanInput);
-          toast({ title: 'Loan Application Submitted', description: 'New loan application submitted for approval.' });
+          res = await addLoan(currentLoan as LoanInput);
+          if (!res.success) {
+            setFormError(res.error || 'Failed to submit loan application.');
+          } else {
+            toast({ title: 'Loan Application Submitted', description: 'New loan application submitted for approval.' });
+          }
         }
         await fetchPageData();
-        setIsModalOpen(false);
+        if (res && res.success) {
+          setFormError(null);
+          setIsModalOpen(false);
+        }
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: `${error instanceof Error ? error.message : 'An unexpected error occurred.'}` });
+        const msg = error instanceof Error ? error.message : 'An unexpected error occurred.';
+        setFormError(msg);
     } finally {
         setIsSubmitting(false);
     }
@@ -226,6 +241,7 @@ export default function LoansPage() {
   const openAddModal = () => {
     setCurrentLoan(initialLoanFormState);
     setIsEditing(false);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -236,6 +252,7 @@ export default function LoansPage() {
                     .concat(loan.collaterals.map(c => ({ type: 'TITLE_DEED', documentUrl: c.documentUrl, description: c.description })))
     });
     setIsEditing(true);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -533,6 +550,11 @@ export default function LoansPage() {
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader><DialogTitle className="font-headline">{isEditing ? 'Edit' : 'New'} Loan Application</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
+            {formError && (
+              <Alert variant="destructive">
+                <AlertDescription className="font-medium">{formError}</AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="loanMemberId">Member</Label>

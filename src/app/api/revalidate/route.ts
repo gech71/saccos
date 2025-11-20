@@ -1,8 +1,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 export async function POST(request: NextRequest) {
+  // Require authenticated user with appropriate permission to trigger revalidation
+  try {
+    await requirePermission('setting:edit');
+  } catch (err) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const tag = request.nextUrl.searchParams.get('tag');
 
   if (!tag) {

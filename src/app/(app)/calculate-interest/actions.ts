@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType, School, Saving, Prisma, MemberSavingAccount } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 import { startOfDay, endOfDay, eachDayOfInterval, differenceInDays, format, parse, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -167,6 +168,8 @@ export async function postInterestTransactions(
     transactions: InterestCalculationResult[],
     period: DateRange
 ): Promise<{ success: boolean; message: string }> {
+    // Authorization: require permission to create/save saving transactions
+    await requirePermission('saving:create');
     if (transactions.length === 0) {
         return { success: false, message: 'No interest transactions to post.' };
     }

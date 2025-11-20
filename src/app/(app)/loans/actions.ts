@@ -120,26 +120,27 @@ export type LoanInput = Omit<Loan, 'id' | 'interestRate' | 'repaymentFrequency' 
     insuranceFee: number;
 };
 
-export async function addLoan(data: LoanInput): Promise<Loan> {
+export async function addLoan(data: LoanInput): Promise<{ success: boolean; loan?: Loan; error?: string }> {
   await requirePermission('loan:create');
   const { collaterals, memberId, loanTypeId, principalAmount, disbursementDate, status, loanAccountNumber, notes, purpose, loanTerm } = data;
-  
+
+  try {
   const loanType = await prisma.loanType.findUnique({ where: { id: loanTypeId }});
-  if (!loanType) throw new Error("Loan Type not found");
-  
+  if (!loanType) return { success: false, error: 'Loan Type not found.' };
+
   const member = await prisma.member.findUnique({ 
     where: { id: memberId },
     include: { memberSavingAccounts: true }
   });
-  if (!member) throw new Error("Member not found");
+  if (!member) return { success: false, error: 'Member not found.' };
 
   // VALIDATION LOGIC
-  if (principalAmount < loanType.minLoanAmount || principalAmount > loanType.maxLoanAmount) {
-      throw new Error(`Loan amount must be between ${loanType.minLoanAmount.toLocaleString()} and ${loanType.maxLoanAmount.toLocaleString()} ETB for this loan type.`);
-  }
-  if (loanTerm < loanType.minRepaymentPeriod || loanTerm > loanType.maxRepaymentPeriod) {
-      throw new Error(`Repayment period must be between ${loanType.minRepaymentPeriod} and ${loanType.maxRepaymentPeriod} months for this loan type.`);
-  }
+    if (principalAmount < loanType.minLoanAmount || principalAmount > loanType.maxLoanAmount) {
+      return { success: false, error: `Loan amount must be between ${loanType.minLoanAmount.toLocaleString()} and ${loanType.maxLoanAmount.toLocaleString()} ETB for this loan type.` };
+    }
+    if (loanTerm < loanType.minRepaymentPeriod || loanTerm > loanType.maxRepaymentPeriod) {
+      return { success: false, error: `Repayment period must be between ${loanType.minRepaymentPeriod} and ${loanType.maxRepaymentPeriod} months for this loan type.` };
+    }
 
   const rawGuarantorIds = collaterals.filter(c => c.type === 'GUARANTOR' && c.guarantorId).map(c => c.guarantorId!);
   const guarantorIds = [...new Set(rawGuarantorIds)];
@@ -150,41 +151,41 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
           include: { _count: { select: { guaranteedLoans: { where: { loan: { status: { in: ['active', 'overdue'] } } } } } }
       }});
 
-      for (const guarantor of guarantorChecks) {
+        for (const guarantor of guarantorChecks) {
           if (guarantor._count.guaranteedLoans >= 2) {
-              throw new Error(`Member ${guarantor.fullName} is already guaranteeing two active loans and cannot be added as a guarantor.`);
+            return { success: false, error: `Member ${guarantor.fullName} is already guaranteeing two active loans and cannot be added as a guarantor.` };
           }
-      }
+        }
   }
 
   if (loanType.collateralLogic === 'GUARANTOR_OR_SAVINGS_BALANCE') {
       const totalSavings = member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-      if (totalSavings < (loanType.minSavingBalance || 0) && guarantorIds.length === 0) {
-          throw new Error(`Member must have at least one guarantor if savings are less than ${loanType.minSavingBalance} ETB.`);
-      }
+        if (totalSavings < (loanType.minSavingBalance || 0) && guarantorIds.length === 0) {
+          return { success: false, error: `Member must have at least one guarantor if savings are less than ${loanType.minSavingBalance} ETB.` };
+        }
   } else if (loanType.collateralLogic === 'GUARANTOR_AND_TITLE_DEED_OVER_X') {
       const threshold = loanType.collateralThresholdAmount || 200000;
       if (principalAmount <= threshold) {
-          if (!collaterals.some(c => c.type === 'GUARANTOR')) throw new Error(`Loans up to ${threshold.toLocaleString()} ETB require at least one guarantor.`);
+            if (!collaterals.some(c => c.type === 'GUARANTOR')) return { success: false, error: `Loans up to ${threshold.toLocaleString()} ETB require at least one guarantor.` };
       } else { 
-          if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error(`Loans over ${threshold.toLocaleString()} ETB require a house title deed.`);
+            if (!collaterals.some(c => c.type === 'TITLE_DEED')) return { success: false, error: `Loans over ${threshold.toLocaleString()} ETB require a house title deed.` };
       }
   } else if (loanType.collateralLogic === 'GUARANTOR') {
-      if (guarantorIds.length === 0) throw new Error("This loan type requires at least one guarantor.");
+          if (guarantorIds.length === 0) return { success: false, error: "This loan type requires at least one guarantor." };
   } else if (loanType.collateralLogic === 'TITLE_DEED') {
-      if (!collaterals.some(c => c.type === 'TITLE_DEED')) throw new Error("This loan type requires a title deed.");
+          if (!collaterals.some(c => c.type === 'TITLE_DEED')) return { success: false, error: "This loan type requires a title deed." };
   }
   
   if (loanType.minSavingMonths && loanType.minSavingMonths > 0) {
       const monthsSinceJoined = differenceInMonths(new Date(), new Date(member.joinDate));
-      if (monthsSinceJoined < loanType.minSavingMonths) {
-          throw new Error(`Member must have at least ${loanType.minSavingMonths} months of membership to be eligible for this loan.`);
-      }
+        if (monthsSinceJoined < loanType.minSavingMonths) {
+          return { success: false, error: `Member must have at least ${loanType.minSavingMonths} months of membership to be eligible for this loan.` };
+        }
   }
 
-  if (loanType.purposes.length > 0 && (!purpose || !loanType.purposes.includes(purpose))) {
-      throw new Error("A valid purpose must be selected for this loan type.");
-  }
+    if (loanType.purposes.length > 0 && (!purpose || !loanType.purposes.includes(purpose))) {
+      return { success: false, error: "A valid purpose must be selected for this loan type." };
+    }
 
   const fixedPrincipalPayment = roundToTwo(principalAmount / loanTerm);
   const firstMonthInterest = roundToTwo(principalAmount * (loanType.interestRate / 12));
@@ -231,18 +232,29 @@ export async function addLoan(data: LoanInput): Promise<Loan> {
       details: { memberId: member.memberId, loanType: loanType.name, amount: principalAmount }
   });
 
-  return newLoan;
+  return { success: true, loan: newLoan };
+  } catch (err: any) {
+    console.error('Failed to add loan:', err);
+    return { success: false, error: 'An unexpected server error occurred. Please check the logs.' };
+  }
 }
 
-export async function updateLoan(id: string, data: LoanInput): Promise<Loan> {
+export async function updateLoan(id: string, data: LoanInput): Promise<{ success: boolean; loan?: Loan; error?: string }> {
   await requirePermission('loan:edit');
   revalidatePath('/loans');
+    try {
     // For this complex update, it's safer to re-implement the creation logic.
     // A real scenario would need more careful handling of existing records.
     await deleteLoan(id, true); // Soft delete for audit purposes
-    const updatedLoan = await addLoan(data);
+    const res = await addLoan(data);
+    if (!res.success) return { success: false, error: res.error };
+    const updatedLoan = res.loan!;
     await logAudit('LOAN_UPDATE', { targetId: updatedLoan.id, targetType: 'LOAN' });
-    return updatedLoan;
+    return { success: true, loan: updatedLoan };
+    } catch (err) {
+      console.error('Failed to update loan:', err);
+      return { success: false, error: 'An unexpected error occurred during loan update.' };
+    }
 }
 
 export async function deleteLoan(id: string, isUpdate: boolean = false): Promise<{ success: boolean; message: string }> {

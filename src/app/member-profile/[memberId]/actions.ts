@@ -3,6 +3,7 @@
 
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
+import { requirePermission } from '@/lib/authorization';
 import { format, compareDesc } from 'date-fns';
 import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment, ShareType, LoanType, ServiceChargeType, SavingAccountType } from '@prisma/client';
 
@@ -41,8 +42,16 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
                 return null;
             }
         }
-        // Admins (non-members) are allowed; add specific permission checks here if needed
-        // For now, any admin can view any member profile
+        // Admins (non-members) must have explicit permission to view member profiles
+        // Require `member:view` permission for non-member users (admins/STAFF)
+        if (!user.isMember) {
+            try {
+                await requirePermission('member:view');
+            } catch (permErr) {
+                console.warn('Permission denied to view member profile:', permErr);
+                return null;
+            }
+        }
     } catch (err) {
         console.error("Session validation error:", err);
         return null;

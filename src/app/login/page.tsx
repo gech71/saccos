@@ -105,10 +105,22 @@ function LoginForm() {
     });
 
     if (result?.error) {
-        if (result.error.includes('Account is temporarily locked')) {
+        // First, check for an auth_error cookie set by the server (lockout message).
+        try {
+          const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
+          if (match) {
+            const msg = decodeURIComponent(match[1]);
+            setAuthError(msg);
+            // clear the cookie
+            document.cookie = `auth_error=; Max-Age=0; Path=/`;
+          } else if (result.error.includes('Account is temporarily locked')) {
+            // fallback: sometimes NextAuth surfaces the server message directly
             setAuthError(result.error);
-        } else {
+          } else {
             setAuthError('Invalid phone number or password. Please try again.');
+          }
+        } catch (e) {
+          setAuthError('Invalid phone number or password. Please try again.');
         }
     }
     setIsLoading(false);

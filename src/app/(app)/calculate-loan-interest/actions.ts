@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma, ServiceChargeType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { requirePermission } from '@/lib/authorization';
 
 function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
@@ -102,7 +103,9 @@ export async function postInterestCharges(
     period: { month: string, year: string },
     serviceChargeTypeIdForInterest: string
 ): Promise<{ success: boolean; message: string }> {
-  
+  // Authorization: ensure caller has permission to create service charge records
+  await requirePermission('serviceCharge:create');
+
   if (!serviceChargeTypeIdForInterest) {
     return { success: false, message: 'You must select a service charge type to post loan interest.' };
   }
