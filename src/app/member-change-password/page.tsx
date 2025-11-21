@@ -27,7 +27,6 @@ export default function ChangePasswordPage() {
   const router = useRouter();
   const { member, logout, content } = useAuth();
   
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +47,7 @@ export default function ChangePasswordPage() {
 
     setIsLoading(true);
 
-    const result = await changeMemberPassword(currentPassword, newPassword);
+    const result = await changeMemberPassword(newPassword);
 
     if (result.success) {
       toast({
@@ -82,17 +81,6 @@ export default function ChangePasswordPage() {
             </Alert>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
-             <div className="space-y-2">
-              <Label htmlFor="currentPassword">Temporary Password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                placeholder="Enter the password you used to log in"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">New Password</Label>
               <Input

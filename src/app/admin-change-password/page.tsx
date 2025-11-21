@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,6 @@ export default function AdminChangePasswordPage() {
   const router = useRouter();
   const { user, logout, content } = useAuth();
   
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +46,7 @@ export default function AdminChangePasswordPage() {
 
     setIsLoading(true);
 
-    const result = await changeAdminPassword(currentPassword, newPassword);
+    const result = await changeAdminPassword(newPassword);
 
     if (result.success) {
       toast({
@@ -80,17 +80,6 @@ export default function AdminChangePasswordPage() {
             </Alert>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
-             <div className="space-y-2">
-              <Label htmlFor="currentPassword">Temporary Password</Label>
-              <Input
-                id="currentPassword"
-                type="password"
-                placeholder="Enter the password from your administrator"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">New Password</Label>
               <Input

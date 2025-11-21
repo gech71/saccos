@@ -1,3 +1,4 @@
+
 'use server';
 
 import { requireAuth } from '@/lib/authorization';
@@ -5,7 +6,6 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function changeAdminPassword(
-  currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -25,10 +25,12 @@ export async function changeAdminPassword(
     if (!adminUser || !adminUser.password) {
       return { success: false, error: 'User account not found or has no password set.' };
     }
-
-    const isPasswordCorrect = await bcrypt.compare(currentPassword, adminUser.password);
-    if (!isPasswordCorrect) {
-      return { success: false, error: 'The temporary password you entered is incorrect.' };
+    
+    // The user is already authenticated via middleware, so we don't need to re-verify the old password.
+    // We just need to ensure they are in the 'mustChangePassword' state.
+    if (!adminUser.mustChangePassword) {
+      // This is a safeguard. In theory, middleware should prevent non-must-change users from reaching this.
+      return { success: false, error: 'Password has already been changed.' };
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);

@@ -7,7 +7,6 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function changeMemberPassword(
-  currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -30,10 +29,11 @@ export async function changeMemberPassword(
       return { success: false, error: 'Member account not found or has no password set.' };
     }
 
-    // 3. Verify the current (temporary) password
-    const isPasswordCorrect = await bcrypt.compare(currentPassword, member.password);
-    if (!isPasswordCorrect) {
-      return { success: false, error: 'The temporary password you entered is incorrect.' };
+    // Since the middleware already authenticated the user with their temp password to get here,
+    // we don't need to re-verify it. We just need to ensure they are in the 'mustChangePassword' state.
+    if (!member.mustChangePassword) {
+      // This is a safeguard, in theory middleware should prevent non-must-change users from reaching this.
+      return { success: false, error: 'Password has already been changed.' };
     }
 
     // 4. Hash the new password
