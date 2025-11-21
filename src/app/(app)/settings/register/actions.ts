@@ -6,7 +6,7 @@ import { requirePermission } from '@/lib/authorization';
 import type { Role } from '@prisma/client';
 
 export async function getRolesForRegistration(): Promise<Pick<Role, 'id' | 'name'>[]> {
-    await requirePermission('user:create'); // or "admin:manage-roles"
+    await requirePermission('setting:create'); 
 
     return prisma.role.findMany({
         select: { id: true, name: true },

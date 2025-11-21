@@ -24,6 +24,28 @@ import { Logo } from '@/components/logo';
 import { signIn, useSession } from 'next-auth/react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+const AUTH_ERROR_COOKIE_NAME = 'auth_error';
+
+function decodeAuthMessage(value?: string | null) {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value.replace(/\+/g, ' '));
+  } catch {
+    return value;
+  }
+}
+
+function consumeAuthErrorCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${AUTH_ERROR_COOKIE_NAME}=([^;]+)`)
+  );
+  if (!match) return null;
+  const msg = decodeURIComponent(match[1].replace(/\+/g, ' '));
+  document.cookie = `${AUTH_ERROR_COOKIE_NAME}=; Max-Age=0; Path=/`;
+  return msg;
+}
+
 function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
@@ -43,16 +65,14 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
-    // Check for our custom error cookie first
-    const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
-    if (match) {
-      const msg = decodeURIComponent(match[1].replace(/\+/g, ' '));
-      setAuthError(msg);
-      // Clear the cookie immediately after reading
-      document.cookie = 'auth_error=; Max-Age=0; Path=/';
+    const cookieMessage = consumeAuthErrorCookie();
+    if (cookieMessage) {
+      setAuthError(cookieMessage);
     } else if (callbackError === 'CredentialsSignin') {
       // Fallback for generic NextAuth error
       setAuthError('Invalid phone number or password. Please try again.');
+    } else if (callbackError) {
+      setAuthError(decodeAuthMessage(callbackError));
     } else {
       setAuthError(null);
     }
@@ -111,18 +131,17 @@ function LoginForm() {
       redirect: false, // Important: prevent default redirect
     });
 
+    const cookieMessage = consumeAuthErrorCookie();
     if (result?.error) {
-        // The error message will be read from the cookie in the useEffect hook.
-        // This is to handle cases where the server needs to pass a custom error message
-        // like the rate-limiting one.
-        const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
-        if (match) {
-            const msg = decodeURIComponent(match[1].replace(/\+/g, ' '));
-            setAuthError(msg);
-            document.cookie = 'auth_error=; Max-Age=0; Path=/';
-        } else {
-            setAuthError('Invalid phone number or password. Please try again.');
-        }
+      if (cookieMessage) {
+        setAuthError(cookieMessage);
+      } else if (result.error !== 'CredentialsSignin') {
+        setAuthError(decodeAuthMessage(result.error) ?? 'Authentication failed.');
+      } else {
+        setAuthError('Invalid phone number or password. Please try again.');
+      }
+    } else if (cookieMessage) {
+      setAuthError(cookieMessage);
     }
     setIsLoading(false);
     // The useEffect hook will handle the successful redirect

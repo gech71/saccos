@@ -9,6 +9,7 @@ import type { Role } from '@prisma/client';
 import { permissionsList } from "./app/(app)/settings/permissions";
 import { differenceInMinutes } from 'date-fns';
 import { Prisma } from "@prisma/client";
+import { cookies } from "next/headers";
 
 function toLocalPhone(phone?: string | null) {
   if (!phone) return "";
@@ -28,25 +29,87 @@ function toIntlPhone(phone?: string | null) {
   return p;
 }
 
+function getHeaderValue(headers: any, name: string): string | null {
+  if (!headers) return null;
+  const normalizedName = name.toLowerCase();
+
+  try {
+    if (typeof headers.get === "function") {
+      const value = headers.get(name);
+      return value ?? null;
+    }
+  } catch (err) {
+    // ignore - we'll try the object path below
+  }
+
+  if (typeof headers === "object") {
+    const key = Object.keys(headers).find(
+      (headerKey) => headerKey.toLowerCase() === normalizedName
+    );
+    if (key) {
+      return headers[key as keyof typeof headers] as string;
+    }
+  }
+
+  return null;
+}
+
+function getClientIp(req: any): string {
+  const headerSources = [req?.headers, req?.request?.headers];
+  for (const headerSource of headerSources) {
+    const forwarded = getHeaderValue(headerSource, "x-forwarded-for");
+    if (forwarded) {
+      const ip = forwarded.split(",")[0]?.trim();
+      if (ip) return ip;
+    }
+
+    const real = getHeaderValue(headerSource, "x-real-ip");
+    if (real) {
+      const ip = real.split(",")[0]?.trim();
+      if (ip) return ip;
+    }
+
+    const cf = getHeaderValue(headerSource, "cf-connecting-ip");
+    if (cf) {
+      const ip = cf.split(",")[0]?.trim();
+      if (ip) return ip;
+    }
+  }
+
+  if (typeof req?.ip === "string" && req.ip.trim()) {
+    return req.ip.trim();
+  }
+
+  const socketIp = req?.socket?.remoteAddress;
+  if (typeof socketIp === "string" && socketIp.trim()) {
+    return socketIp.trim();
+  }
+
+  return "unknown";
+}
+
 const MAX_FAILED_ATTEMPTS_PHONE = 5;
 const MAX_FAILED_ATTEMPTS_IP = 50;
 const LOCKOUT_DURATION_MINUTES = 15;
 
-function setAuthErrorCookie(req: any, message: string, durationMinutes: number) {
-    try {
-        const res = req?.res || req?.req?.res;
-        if (res && typeof res.setHeader === 'function') {
-            const cookie = `auth_error=${encodeURIComponent(message)}; Path=/; Max-Age=${60 * durationMinutes}; SameSite=Lax`;
-            const prev = res.getHeader && res.getHeader('Set-Cookie');
-            const existing = Array.isArray(prev) ? prev : (prev ? [String(prev)] : []);
-            res.setHeader('Set-Cookie', [...existing, cookie]);
-        }
-    } catch (e) {
-        console.error('Failed to set auth error cookie:', e);
-    }
+function setAuthErrorCookie(message: string, durationMinutes: number) {
+  try {
+    // Store plain text message in the cookie (avoid double-encoding)
+    const age = Math.max(60 * durationMinutes, 60); // at least 60s
+    cookies().set({
+      name: "auth_error",
+      value: message,
+      path: "/",
+      maxAge: age,
+      sameSite: "lax",
+    });
+  } catch (e) {
+    console.error('Failed to set auth error cookie:', e);
+  }
 }
 
-async function checkRateLimit(type: 'PHONE' | 'IP', identifier: string, maxAttempts: number, req: any) {
+
+async function checkRateLimit(type: 'PHONE' | 'IP', identifier: string, maxAttempts: number) {
     const now = new Date();
     const limitRecord = await prisma.rateLimit.findUnique({
         where: { identifier_type: { identifier, type } },
@@ -55,7 +118,7 @@ async function checkRateLimit(type: 'PHONE' | 'IP', identifier: string, maxAttem
     if (limitRecord && limitRecord.lockedUntil && limitRecord.lockedUntil > now) {
         const minutesLeft = Math.ceil(differenceInMinutes(limitRecord.lockedUntil, now));
         const msg = `Too many failed attempts. Please try again in ${minutesLeft} minutes.`;
-        setAuthErrorCookie(req, msg, minutesLeft);
+        setAuthErrorCookie(msg, minutesLeft);
         throw new Error(msg);
     }
     
@@ -66,7 +129,7 @@ async function checkRateLimit(type: 'PHONE' | 'IP', identifier: string, maxAttem
            data: { lockedUntil: lockoutUntil, attempts: 0 } // Reset attempts after locking
        });
        const msg = `Too many failed attempts. Account temporarily locked for ${LOCKOUT_DURATION_MINUTES} minutes.`;
-       setAuthErrorCookie(req, msg, LOCKOUT_DURATION_MINUTES);
+       setAuthErrorCookie(msg, LOCKOUT_DURATION_MINUTES);
        throw new Error(msg);
     }
 
@@ -109,24 +172,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string;
 
         if (!phoneNumber || !password) return null;
-        
-        let ip = 'unknown';
-        try {
-          // req in this context might not be a standard NextRequest.
-          // We need to access headers carefully.
-          const headers = req?.headers as Record<string, string> | undefined;
-          if (headers) {
-              ip = headers['x-forwarded-for'] || headers['x-real-ip'] || req.ip || ip;
-          }
-        } catch (e) {
-          ip = 'unknown'; // fallback
-        }
+
+        const ip = getClientIp(req);
         
         const phoneLocal = toLocalPhone(String(phoneNumber ?? ''));
 
         // --- RATE LIMITING CHECKS ---
-        await checkRateLimit('IP', ip, MAX_FAILED_ATTEMPTS_IP, req);
-        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE, req);
+        await checkRateLimit('IP', ip, MAX_FAILED_ATTEMPTS_IP);
+        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE);
 
         // --- AUTHENTICATION ---
         const user = await prisma.user.findFirst({ where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: toIntlPhone(phoneLocal) }] } });
@@ -164,7 +217,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         
         // Re-check phone limit to lock immediately if threshold is met
-        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE, req);
+        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE);
 
         return null;
       },
