@@ -1,6 +1,6 @@
+
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { rateLimitCheck } from "@/lib/rate-limit";
 
 function generateNonce() {
   const array = new Uint8Array(16);
@@ -11,39 +11,6 @@ function generateNonce() {
 export async function middleware(request: NextRequest) {
   const session = await auth();
   const { pathname } = request.nextUrl;
-
-  // --- RATE LIMITING ---
-  try {
-    const isAuthApi = pathname.startsWith("/api/auth");
-    const isLoginPost = pathname === "/login" && request.method === "POST";
-
-    if (isAuthApi || isLoginPost) {
-      const forwarded =
-        request.headers.get("x-forwarded-for") ||
-        request.headers.get("x-real-ip") ||
-        request.headers.get("cf-connecting-ip") ||
-        "";
-
-      const ip = forwarded.split(",")[0].trim() || "unknown";
-
-      const ipKey = `rl:ip:${ip}`;
-      const ipLimit = Number(process.env.RATE_LIMIT_IP_LIMIT || 50);
-      const windowSeconds = Number(
-        process.env.RATE_LIMIT_WINDOW_SECONDS || 15 * 60
-      );
-
-      const check = await rateLimitCheck(ipKey, ipLimit, windowSeconds);
-
-      if (!check.allowed) {
-        const url = new URL("/login", request.url);
-        url.searchParams.set("error", "TooManyRequests");
-        return NextResponse.redirect(url);
-      }
-
-    }
-  } catch (e) {
-    console.warn("Rate limiter error:", e);
-  }
 
   // --- CSP ---
   const response = NextResponse.next();
