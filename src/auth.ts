@@ -104,19 +104,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         const phoneNumber = credentials?.phoneNumber as string;
         const password = credentials?.password as string;
 
         if (!phoneNumber || !password) return null;
-
-        const req: any = arguments[1];
+        
         let ip = 'unknown';
         try {
-          const headers = req?.headers || req?.req?.headers || {};
-          ip = headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+          // req in this context might not be a standard NextRequest.
+          // We need to access headers carefully.
+          const headers = req?.headers as Record<string, string> | undefined;
+          if (headers) {
+              ip = headers['x-forwarded-for'] || headers['x-real-ip'] || req.ip || ip;
+          }
         } catch (e) {
-          ip = 'unknown';
+          ip = 'unknown'; // fallback
         }
         
         const phoneLocal = toLocalPhone(String(phoneNumber ?? ''));
@@ -186,5 +189,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export const { GET, POST } = handlers;
-
-    

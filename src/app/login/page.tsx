@@ -43,14 +43,16 @@ function LoginForm() {
   }, []);
 
   useEffect(() => {
-    if (callbackError) {
-      if (callbackError === 'CredentialsSignin') {
-        // This is a generic error from NextAuth, we'll show our custom one set in `handleSubmit`
-        // but can be a fallback.
-        setAuthError('Invalid phone number or password. Please try again.');
-      } else {
-        setAuthError('An unexpected error occurred during login.');
-      }
+    // Check for our custom error cookie first
+    const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
+    if (match) {
+      const msg = decodeURIComponent(match[1].replace(/\+/g, ' '));
+      setAuthError(msg);
+      // Clear the cookie immediately after reading
+      document.cookie = 'auth_error=; Max-Age=0; Path=/';
+    } else if (callbackError === 'CredentialsSignin') {
+      // Fallback for generic NextAuth error
+      setAuthError('Invalid phone number or password. Please try again.');
     } else {
       setAuthError(null);
     }
@@ -66,14 +68,19 @@ function LoginForm() {
         console.error('Failed to create refresh token', err);
       }
 
-      if (session.user.isMember) {
-        router.replace(`/member-profile/${session.user.id}`);
+      const user = session.user as any;
+      if (user.isMember) {
+        if(user.mustChangePassword) {
+          router.replace('/member-change-password');
+        } else {
+          router.replace(`/member-profile/${user.id}`);
+        }
         return;
       }
 
       // For admin users, redirect to the first page they have access to.
-      const perms: string[] = Array.isArray((session.user as any).permissions)
-        ? (session.user as any).permissions
+      const perms: string[] = Array.isArray(user.permissions)
+        ? user.permissions
         : [];
 
       if (perms.includes('dashboard:view')) {
@@ -85,7 +92,7 @@ function LoginForm() {
       } else if (perms.includes('school:view')) {
         router.replace('/schools');
       } else {
-        router.replace('/');
+        router.replace('/settings'); // Fallback for admins with no specific view perms
       }
     })();
   }
@@ -105,22 +112,16 @@ function LoginForm() {
     });
 
     if (result?.error) {
-        // First, check for an auth_error cookie set by the server (lockout message).
-        try {
-          const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
-          if (match) {
-            const msg = decodeURIComponent(match[1]);
+        // The error message will be read from the cookie in the useEffect hook.
+        // This is to handle cases where the server needs to pass a custom error message
+        // like the rate-limiting one.
+        const match = document.cookie.match(/(?:^|; )auth_error=([^;]+)/);
+        if (match) {
+            const msg = decodeURIComponent(match[1].replace(/\+/g, ' '));
             setAuthError(msg);
-            // clear the cookie
-            document.cookie = `auth_error=; Max-Age=0; Path=/`;
-          } else if (result.error.includes('Account is temporarily locked')) {
-            // fallback: sometimes NextAuth surfaces the server message directly
-            setAuthError(result.error);
-          } else {
+            document.cookie = 'auth_error=; Max-Age=0; Path=/';
+        } else {
             setAuthError('Invalid phone number or password. Please try again.');
-          }
-        } catch (e) {
-          setAuthError('Invalid phone number or password. Please try again.');
         }
     }
     setIsLoading(false);
