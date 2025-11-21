@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -74,7 +75,7 @@ const initialMemberFormState: Partial<MemberWithDetails & { serviceChargeIds?: s
   email: '',
   sex: 'Male',
   phoneNumber: '',
-  address: { id: '', city: '', subCity: '', wereda: '', kebele: '', houseNumber: '', memberId: null, collateralId: null },
+  address: { id: '', city: '', subCity: '', wereda: '', kebele: '', houseNumber: '', memberId: null },
   emergencyContact: { id: '', name: '', phone: '', memberId: null },
   schoolId: undefined,
   joinDate: new Date().toISOString().split('T')[0],

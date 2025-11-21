@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { PageTitle } from '@/components/page-title';
@@ -10,16 +11,19 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import React, { useState } from 'react';
 import { UserCircle, Camera } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function ProfileSettingsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  
   const [userProfile, setUserProfile] = useState({
-    firstName: 'Academ',
-    lastName: 'User',
-    email: 'user@example.com',
-    bio: 'Dedicated member of the AcademInvest community.',
-    avatarUrl: '', // Removed default image
+    firstName: user?.firstName || 'Academ',
+    lastName: user?.lastName || 'User',
+    email: user?.email || 'user@example.com',
+    avatarUrl: user?.image || '',
   });
+  
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -81,17 +85,6 @@ export default function ProfileSettingsPage() {
           <div>
             <Label htmlFor="email">Email Address</Label>
             <Input id="email" name="email" type="email" value={userProfile.email} onChange={handleInputChange} />
-          </div>
-          <div>
-            <Label htmlFor="bio">Bio</Label>
-            <textarea
-              id="bio"
-              name="bio"
-              className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Tell us something about yourself"
-              value={userProfile.bio}
-              onChange={handleInputChange}
-            />
           </div>
         </CardContent>
         <CardFooter>

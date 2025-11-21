@@ -202,7 +202,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         
         let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
         if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
-            const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
+            const { id: addressId, memberId, ...restOfAddress } = address as any;
             cleanAddressPayload = restOfAddress;
         }
 
@@ -313,7 +313,7 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
         
         let cleanAddressPayload: Prisma.AddressCreateWithoutMemberInput | undefined;
         if (address && Object.values(address).some(val => val !== '' && val !== null && val !== undefined)) {
-            const { id: addressId, memberId, collateralId, ...restOfAddress } = address as any;
+            const { id: addressId, memberId, ...restOfAddress } = address as any;
             cleanAddressPayload = restOfAddress;
         }
 
@@ -559,5 +559,3 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
-
-    
