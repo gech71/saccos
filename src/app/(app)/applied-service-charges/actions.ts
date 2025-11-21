@@ -89,7 +89,6 @@ export async function applyServiceCharge(data: AppliedChargeInput): Promise<{ su
       prisma.member.findUnique({ where: { id: data.memberId } }),
       prisma.serviceChargeType.findUnique({ where: { id: data.serviceChargeTypeId } }),
     ]);
-    ]);
 
     if (!member || !serviceChargeType) {
       return { success: false, error: 'Invalid member or service charge type. Please ensure both are selected.'};
