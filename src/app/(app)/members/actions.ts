@@ -532,6 +532,7 @@ export async function importMembers(
       });
       
             await logAudit('MEMBER_CREATE', {
+                actorType: 'SYSTEM',
                 targetId: newMember.memberId,
                 targetType: 'MEMBER',
                 details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
@@ -558,3 +559,5 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
+
+    

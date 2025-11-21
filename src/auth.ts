@@ -28,12 +28,10 @@ function toIntlPhone(phone?: string | null) {
   return p;
 }
 
-const MAX_FAILED_ATTEMPTS_PER_ACCOUNT = 5;
+const MAX_FAILED_ATTEMPTS_PHONE = 5;
+const MAX_FAILED_ATTEMPTS_IP = 50;
 const LOCKOUT_DURATION_MINUTES = 15;
-const MAX_ATTEMPTS_PER_IP = 50;
 
-// This helper function sets a cookie on the response to show specific errors on the client.
-// This is necessary because NextAuth's default error handling is too generic.
 function setAuthErrorCookie(req: any, message: string, durationMinutes: number) {
     try {
         const res = req?.res || req?.req?.res;
@@ -46,6 +44,48 @@ function setAuthErrorCookie(req: any, message: string, durationMinutes: number) 
     } catch (e) {
         console.error('Failed to set auth error cookie:', e);
     }
+}
+
+async function checkRateLimit(type: 'PHONE' | 'IP', identifier: string, maxAttempts: number, req: any) {
+    const now = new Date();
+    const limitRecord = await prisma.rateLimit.findUnique({
+        where: { identifier_type: { identifier, type } },
+    });
+
+    if (limitRecord && limitRecord.lockedUntil && limitRecord.lockedUntil > now) {
+        const minutesLeft = Math.ceil(differenceInMinutes(limitRecord.lockedUntil, now));
+        const msg = `Too many failed attempts. Please try again in ${minutesLeft} minutes.`;
+        setAuthErrorCookie(req, msg, minutesLeft);
+        throw new Error(msg);
+    }
+    
+    if (limitRecord && limitRecord.attempts >= maxAttempts) {
+       const lockoutUntil = new Date(now.getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+       await prisma.rateLimit.update({
+           where: { id: limitRecord.id },
+           data: { lockedUntil: lockoutUntil, attempts: 0 } // Reset attempts after locking
+       });
+       const msg = `Too many failed attempts. Account temporarily locked for ${LOCKOUT_DURATION_MINUTES} minutes.`;
+       setAuthErrorCookie(req, msg, LOCKOUT_DURATION_MINUTES);
+       throw new Error(msg);
+    }
+
+    return limitRecord;
+}
+
+async function incrementRateLimit(type: 'PHONE' | 'IP', identifier: string) {
+    await prisma.rateLimit.upsert({
+        where: { identifier_type: { identifier, type } },
+        create: { type, identifier, attempts: 1 },
+        update: { attempts: { increment: 1 } },
+    });
+}
+
+async function resetRateLimit(type: 'PHONE' | 'IP', identifier: string) {
+     await prisma.rateLimit.updateMany({
+        where: { identifier, type },
+        data: { attempts: 0, lockedUntil: null }
+    });
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -65,130 +105,65 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
 
       async authorize(credentials) {
-        const phoneNumber = credentials?.phoneNumber;
-        const password = credentials?.password;
+        const phoneNumber = credentials?.phoneNumber as string;
+        const password = credentials?.password as string;
 
         if (!phoneNumber || !password) return null;
 
-        const now = new Date();
-        
         const req: any = arguments[1];
         let ip = 'unknown';
         try {
           const headers = req?.headers || req?.req?.headers || {};
-          const headerCandidates = ['x-forwarded-for', 'x-real-ip', 'cf-connecting-ip', 'x-vercel-forwarded-for', 'x-forwarded'];
-          let forwarded = '';
-          for (const h of headerCandidates) {
-            const val = headers[h] || headers[h.toLowerCase()];
-            if (val) {
-              forwarded = Array.isArray(val) ? String(val[0]) : String(val);
-              break;
-            }
-          }
-          if (forwarded) {
-            ip = forwarded.split(',')[0].trim();
-          } else if (req?.socket?.remoteAddress) {
-            ip = req.socket.remoteAddress;
-          }
+          ip = headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
         } catch (e) {
           ip = 'unknown';
         }
-
-        // --- RATE LIMITING: IP Address ---
-        const ipWindowStart = new Date(now.getTime() - LOCKOUT_DURATION_MINUTES * 60 * 1000);
-        const ipLoginAttempts = await prisma.auditLog.count({
-            where: {
-                action: 'AUTH_LOGIN_FAIL',
-                details: { path: ['ip'], equals: ip },
-                timestamp: { gte: ipWindowStart }
-            }
-        });
-        
-        if (ipLoginAttempts >= MAX_ATTEMPTS_PER_IP) {
-            const msg = `Too many requests from your network. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`;
-            setAuthErrorCookie(req, msg, LOCKOUT_DURATION_MINUTES);
-            throw new Error(msg);
-        }
         
         const phoneLocal = toLocalPhone(String(phoneNumber ?? ''));
-        const phoneIntl = toIntlPhone(String(phoneNumber ?? ''));
 
-        // --- ACCOUNT LOCKOUT: Check both User and Member tables ---
-        const user = await prisma.user.findFirst({ where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] } });
-        if (user && user.lockoutUntil && user.lockoutUntil > now) {
-            const minutesLeft = Math.ceil(differenceInMinutes(user.lockoutUntil, now));
-            const msg = `Account is temporarily locked. Please try again in ${minutesLeft} minutes.`;
-            setAuthErrorCookie(req, msg, minutesLeft);
-            throw new Error(msg);
-        }
+        // --- RATE LIMITING CHECKS ---
+        await checkRateLimit('IP', ip, MAX_FAILED_ATTEMPTS_IP, req);
+        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE, req);
 
-        const member = await prisma.member.findFirst({ where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: phoneIntl }] } });
-        if (member && member.lockoutUntil && member.lockoutUntil > now) {
-             const minutesLeft = Math.ceil(differenceInMinutes(member.lockoutUntil, now));
-            const msg = `Account is temporarily locked. Please try again in ${minutesLeft} minutes.`;
-            setAuthErrorCookie(req, msg, minutesLeft);
-            throw new Error(msg);
-        }
-        
-        // --- AUTHENTICATION ATTEMPT ---
-        const handleFailedAttempt = async (entity: 'user' | 'member', id: string, currentAttempts: number) => {
-             const newAttemptCount = currentAttempts + 1;
-             await prisma.auditLog.create({
-                data: { actorName: String(phoneNumber), action: 'AUTH_LOGIN_FAIL', details: { ip } }
-             });
-
-             if (newAttemptCount >= MAX_FAILED_ATTEMPTS_PER_ACCOUNT) {
-                const lockoutUntil = new Date(now.getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
-                await prisma[entity].update({
-                    where: { id },
-                    data: { failedLoginAttempts: newAttemptCount, lockoutUntil },
-                });
-                const msg = `Account locked due to too many failed attempts. Please try again in ${LOCKOUT_DURATION_MINUTES} minutes.`;
-                setAuthErrorCookie(req, msg, LOCKOUT_DURATION_MINUTES);
-                throw new Error(msg);
-             } else {
-                 await prisma[entity].update({
-                    where: { id },
-                    data: { failedLoginAttempts: newAttemptCount },
-                });
-             }
-        };
-
+        // --- AUTHENTICATION ---
+        const user = await prisma.user.findFirst({ where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: toIntlPhone(phoneLocal) }] } });
         if (user) {
-          const match = user.password && (await bcrypt.compare(String(password ?? ''), String(user.password ?? '')));
-          if (match) {
-            await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockoutUntil: null }});
-            const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
-            const permissions = new Set<string>();
-            if (userRoles.some(r => r.name === "Admin")) {
-              permissionsList.forEach(p => permissions.add(p.id));
-            } else {
-              userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
+            const match = user.password && (await bcrypt.compare(password, user.password));
+            if (match) {
+                await resetRateLimit('PHONE', phoneLocal);
+                // IP is not reset to allow catching distributed attacks from one IP
+                const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
+                const permissions = new Set<string>();
+                if (userRoles.some(r => r.name === "Admin")) {
+                    permissionsList.forEach(p => permissions.add(p.id));
+                } else {
+                    userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
+                }
+                return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions) } as AuthUser;
             }
-            return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions) } as AuthUser;
-          } else {
-            await handleFailedAttempt('user', user.id, user.failedLoginAttempts || 0);
-            return null;
-          }
         }
         
+        const member = await prisma.member.findFirst({ where: { OR: [{ phoneNumber: phoneLocal }, { phoneNumber: toIntlPhone(phoneLocal) }] } });
         if (member) {
-          const match = member.password && (await bcrypt.compare(String(password ?? ''), String(member.password ?? '')));
-          if (match) {
-            await prisma.member.update({ where: { id: member.id }, data: { failedLoginAttempts: 0, lockoutUntil: null }});
-            return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
-          } else {
-             await handleFailedAttempt('member', member.id, member.failedLoginAttempts || 0);
-             return null;
-          }
+            const match = member.password && (await bcrypt.compare(password, member.password));
+            if (match) {
+                await resetRateLimit('PHONE', phoneLocal);
+                return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
+            }
         }
 
-        // If no user or member found, still log the failed attempt against the IP.
+        // --- FAILED ATTEMPT LOGIC ---
+        await incrementRateLimit('IP', ip);
+        await incrementRateLimit('PHONE', phoneLocal);
+        
         await prisma.auditLog.create({
-            data: { actorName: String(phoneNumber), action: 'AUTH_LOGIN_FAIL', details: { ip, reason: 'user_not_found' } }
+            data: { actorName: String(phoneNumber), actorType: 'ANONYMOUS', action: 'AUTH_LOGIN_FAIL', details: { ip } }
         });
         
-        return null; // Invalid credentials
+        // Re-check phone limit to lock immediately if threshold is met
+        await checkRateLimit('PHONE', phoneLocal, MAX_FAILED_ATTEMPTS_PHONE, req);
+
+        return null;
       },
     }),
   ],
@@ -211,3 +186,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export const { GET, POST } = handlers;
+
+    

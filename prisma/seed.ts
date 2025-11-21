@@ -9,6 +9,7 @@ async function main() {
   console.log('Start seeding ...');
 
   console.log('Cleaning database...');
+  await prisma.rateLimit.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.schoolHistory.deleteMany();
   await prisma.loanGuarantor.deleteMany();
@@ -119,3 +120,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    

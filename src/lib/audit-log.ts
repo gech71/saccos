@@ -26,14 +26,15 @@ export async function logAudit(
     targetId?: string;
     targetType?: string;
     details?: Prisma.JsonValue;
+    actorType?: 'ADMIN' | 'MEMBER' | 'SYSTEM' | 'ANONYMOUS';
   } = {}
 ) {
   try {
     const session = await auth();
     const sessionUser = session?.user;
     
-    let actorName = 'System';
-    let actorType: 'ADMIN' | 'MEMBER' | 'SYSTEM' = 'SYSTEM';
+    let actorName = options.actorType === 'ANONYMOUS' ? 'Anonymous' : 'System';
+    let actorType: 'ADMIN' | 'MEMBER' | 'SYSTEM' | 'ANONYMOUS' = options.actorType || 'SYSTEM';
     
     let userId: string | undefined;
     let memberId: string | undefined;
@@ -68,3 +69,5 @@ export async function logAudit(
     console.error("Failed to write to audit log:", error);
   }
 }
+
+    
