@@ -114,6 +114,12 @@ export const permissionsByGroup = {
         { id: 'setting:edit', label: 'Edit Users/Roles' },
         { id: 'setting:delete', label: 'Delete Users/Roles' },
     ],
+    'User Management': [
+        { id: 'user:view', label: 'View Users' },
+        { id: 'user:create', label: 'Create Users' },
+        { id: 'user:edit', label: 'Edit Users' },
+        { id: 'user:delete', label: 'Delete Users' },
+    ],
     'User Registration': [
         { id: 'registerUser:view', label: 'View Registration Page'}
     ],

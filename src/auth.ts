@@ -90,7 +90,7 @@ function getClientIp(req: any): string {
 
 const MAX_FAILED_ATTEMPTS_PHONE = 5;
 const MAX_FAILED_ATTEMPTS_IP = 50;
-const LOCKOUT_DURATION_MINUTES = 15;
+const LOCKOUT_DURATION_MINUTES = 2;
 
 function setAuthErrorCookie(message: string, durationMinutes: number) {
   try {

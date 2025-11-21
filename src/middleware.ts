@@ -1,6 +1,10 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import {
+  getFirstPermittedRoute,
+  getRequiredPermission,
+} from "@/lib/route-permissions";
 
 function generateNonce() {
   const array = new Uint8Array(16);
@@ -68,12 +72,18 @@ export async function middleware(request: NextRequest) {
   const user = session.user;
 
   // --- MEMBER MUST CHANGE PASSWORD ---
-  if (user?.isMember && user.mustChangePassword && pathname !== "/member-change-password") {
+  if (
+    user?.isMember &&
+    user.mustChangePassword &&
+    pathname !== "/member-change-password"
+  ) {
     return NextResponse.redirect(new URL("/member-change-password", request.url));
   }
 
   if (!user?.mustChangePassword && pathname === "/member-change-password") {
-    return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
+    return NextResponse.redirect(
+      new URL(`/member-profile/${user.id}`, request.url)
+    );
   }
 
   // --- MEMBER ONLY PATHS ---
@@ -82,7 +92,25 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith(`/member-profile/${user.id}`) &&
     pathname !== "/member-change-password"
   ) {
-    return NextResponse.redirect(new URL(`/member-profile/${user.id}`, request.url));
+    return NextResponse.redirect(
+      new URL(`/member-profile/${user.id}`, request.url)
+    );
+  }
+
+  // --- ADMIN PERMISSION CHECK ---
+  const requiredPermission =
+    !user?.isMember && getRequiredPermission(pathname);
+
+  if (requiredPermission) {
+    const permissions: string[] = Array.isArray((user as any).permissions)
+      ? (user as any).permissions
+      : [];
+    if (!permissions.includes(requiredPermission)) {
+      const redirectTarget = getFirstPermittedRoute(permissions);
+      const redirectUrl = new URL(redirectTarget, request.url);
+      redirectUrl.searchParams.set("error", "forbidden");
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return response;
