@@ -21,7 +21,6 @@ export async function middleware(request: NextRequest) {
 
   const nonce = generateNonce();
 
-
   const isProd = process.env.NODE_ENV === "production";
 
   const scriptSources = isProd
@@ -69,22 +68,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const user = session.user;
+  const user = session.user as any;
 
-  // --- MEMBER MUST CHANGE PASSWORD ---
-  if (
-    user?.isMember &&
-    user.mustChangePassword &&
-    pathname !== "/member-change-password"
-  ) {
-    return NextResponse.redirect(new URL("/member-change-password", request.url));
+  // --- MUST CHANGE PASSWORD ---
+  if (user?.mustChangePassword) {
+    const changePasswordPath = user.isMember ? '/member-change-password' : '/admin-change-password';
+    if (pathname !== changePasswordPath) {
+      return NextResponse.redirect(new URL(changePasswordPath, request.url));
+    }
   }
 
-  if (!user?.mustChangePassword && pathname === "/member-change-password") {
-    return NextResponse.redirect(
-      new URL(`/member-profile/${user.id}`, request.url)
-    );
+  if (user && !user.mustChangePassword && (pathname === '/member-change-password' || pathname === '/admin-change-password')) {
+     const redirectTarget = user.isMember ? `/member-profile/${user.id}` : getFirstPermittedRoute(user.permissions || []);
+     return NextResponse.redirect(new URL(redirectTarget, request.url));
   }
+
 
   // --- MEMBER ONLY PATHS ---
   if (

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -9,12 +7,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, UserPlus, Shield } from 'lucide-react';
+import { Loader2, PlusCircle, UserPlus, Shield, KeyRound, Copy } from 'lucide-react';
 import type { Role } from '@prisma/client';
 import { getRolesForRegistration, registerUserByAdmin } from './actions';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const initialFormState = {
   firstName: '',
@@ -32,6 +31,8 @@ export default function RegisterUserPage() {
   const [formState, setFormState] = useState(initialFormState);
   const { toast } = useToast();
   const router = useRouter();
+
+  const [newPasswordInfo, setNewPasswordInfo] = useState<{ userName: string; password:  string} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -75,7 +76,8 @@ export default function RegisterUserPage() {
     const result = await registerUserByAdmin(formState, formState.roleIds);
     if (result.success) {
       toast({ title: 'Success', description: 'New user has been registered successfully.' });
-      router.push('/settings');
+      setNewPasswordInfo({ userName: result.user!.name!, password: result.temporaryPassword! });
+      setFormState(initialFormState); // Reset form
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
@@ -118,7 +120,7 @@ export default function RegisterUserPage() {
               </div>
             </div>
             <div>
-              <Label htmlFor="password">Password <span className="text-destructive">*</span></Label>
+              <Label htmlFor="password">Temporary Password <span className="text-destructive">*</span></Label>
               <Input id="password" name="password" type="password" value={formState.password} onChange={handleInputChange} required />
             </div>
             
@@ -152,6 +154,30 @@ export default function RegisterUserPage() {
           </CardFooter>
         </form>
       </Card>
+
+      <AlertDialog open={!!newPasswordInfo}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>User Created Successfully!</AlertDialogTitle>
+            <AlertDialogDescription>
+                Please provide the following temporary password to <strong>{newPasswordInfo?.userName}</strong>. They will be required to change it upon their first login.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="p-4 bg-muted rounded-md text-center">
+            <p className="text-lg font-mono font-bold tracking-widest">{newPasswordInfo?.password}</p>
+          </div>
+          <AlertDialogFooter>
+            <Button onClick={() => {
+                navigator.clipboard.writeText(newPasswordInfo?.password || '');
+                toast({ title: 'Copied!', description: 'Password copied to clipboard.' });
+            }}><Copy className="mr-2 h-4 w-4"/> Copy Password</Button>
+            <AlertDialogAction onClick={() => {
+                setNewPasswordInfo(null);
+                router.push('/settings');
+            }}>Done</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
