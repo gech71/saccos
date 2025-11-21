@@ -8,6 +8,7 @@ import type { AuthUser, MemberAuthUser } from "./types";
 import type { Role } from '@prisma/client';
 import { permissionsList } from "./app/(app)/settings/permissions";
 import { differenceInMinutes } from 'date-fns';
+import { Prisma } from "@prisma/client";
 
 function toLocalPhone(phone?: string | null) {
   if (!phone) return "";
@@ -98,7 +99,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ipLoginAttempts = await prisma.auditLog.count({
             where: {
                 action: 'AUTH_LOGIN_FAIL',
-                details: { path: 'ip', equals: ip },
+                details: { path: ['ip'], equals: ip },
                 timestamp: { gte: ipWindowStart }
             }
         });
