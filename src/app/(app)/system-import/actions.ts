@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -18,7 +17,7 @@ export interface ImportPageData {
 }
 
 export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 'salary' | 'memberId'> & {
-    memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
+    memberSavingAccounts: Pick<MemberSavingAccount, 'id' | 'savingAccountTypeId' | 'expectedMonthlySaving' | 'balance'>[],
     memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId' | 'status'> & {shareType: {monthlyPayment: number | null, paymentType: 'ONCE' | 'INSTALLMENT'}})[],
     loans: (Pick<Loan, 'id' | 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'> & {loanType: Pick<LoanType, 'name'>})[],
     appliedServiceCharges: Pick<AppliedServiceCharge, 'serviceChargeTypeId' | 'status'>[]
@@ -41,8 +40,10 @@ export async function getImportPageData(): Promise<ImportPageData> {
             memberId: true,
             memberSavingAccounts: {
                 select: {
+                    id: true,
                     savingAccountTypeId: true,
-                    expectedMonthlySaving: true
+                    expectedMonthlySaving: true,
+                    balance: true,
                 }
             },
             memberShareCommitments: {
@@ -74,7 +75,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
             }
         },
         orderBy: {
-            id: 'asc'
+            memberId: 'asc'
         }
     })
   ]);
@@ -175,19 +176,36 @@ export async function processImport(payload: ImportPayload): Promise<{ success: 
                 savingAccountsMap.set(id, account);
               }
 
-              await tx.saving.create({
-                data: {
-                  memberId,
-                  memberSavingAccountId: account.id,
-                  amount: value as number,
-                  date: importDate,
-                  month: `${collectionMonth} ${collectionYear}`,
-                  transactionType: 'deposit',
-                  status: 'pending',
-                  depositMode: 'Cash',
-                  notes: 'Bulk data import',
-                }
-              });
+              // Check if this is the very first transaction for this account
+              const isInitialDeposit = account.balance === 0;
+
+              if (isInitialDeposit && typeof value === 'number') {
+                // Treat this as the initial balance
+                await tx.memberSavingAccount.update({
+                    where: { id: account.id },
+                    data: {
+                        initialBalance: value,
+                        balance: value,
+                    }
+                });
+                // Do not create a separate transaction record for the initial balance.
+                // We will add logic to approveTransaction to handle this.
+              } else {
+                // Record as a regular transaction
+                await tx.saving.create({
+                  data: {
+                    memberId,
+                    memberSavingAccountId: account.id,
+                    amount: value as number,
+                    date: importDate,
+                    month: `${collectionMonth} ${collectionYear}`,
+                    transactionType: 'deposit',
+                    status: 'pending',
+                    depositMode: 'Cash',
+                    notes: 'Bulk data import',
+                  }
+                });
+              }
 
             } else if (type === 'interest') {
                 const savingAccount = savingAccountsMap.get(id);

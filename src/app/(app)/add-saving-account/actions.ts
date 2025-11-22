@@ -4,7 +4,7 @@
 import prisma from '@/lib/prisma';
 import type { Member, SavingAccountType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { requireAuth, requirePermission } from '@/lib/authorization';
+import { requirePermission } from '@/lib/authorization';
 
 export async function getAccountCreationData(): Promise<{
   members: Pick<Member, 'id' | 'fullName' | 'salary'>[];
@@ -80,21 +80,41 @@ export async function createSavingAccount(data: AccountCreationData): Promise<{ 
         return { success: false, error: `Initial balance cannot be negative.` };
     }
 
-    // Create the new MemberSavingAccount with the initial balance set directly.
-    await prisma.memberSavingAccount.create({
+    // Create the new MemberSavingAccount with zero balance initially.
+    const newAccount = await prisma.memberSavingAccount.create({
       data: {
         memberId,
         savingAccountTypeId,
         accountNumber: finalAccountNumber,
         expectedMonthlySaving,
-        initialBalance: initialBalance,
-        balance: initialBalance, // Set the current balance to the initial balance
+        initialBalance: 0, // Always start at 0
+        balance: 0,
       }
     });
+    
+    // If there is an initial balance, create a pending transaction for it.
+    // This harmonizes the logic with bulk imports.
+    if (initialBalance > 0) {
+      await prisma.saving.create({
+        data: {
+          memberId,
+          memberSavingAccountId: newAccount.id,
+          amount: initialBalance,
+          date: new Date(),
+          month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+          transactionType: 'deposit',
+          status: 'pending',
+          notes: 'Initial opening balance.',
+          depositMode: 'Cash',
+        }
+      });
+    }
+
 
     revalidatePath('/members');
     revalidatePath('/savings-accounts');
     revalidatePath('/savings');
+    revalidatePath('/approve-transactions');
     return { success: true };
   } catch (error) {
       console.error('Failed to create saving account:', error);

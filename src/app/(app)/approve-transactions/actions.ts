@@ -151,27 +151,53 @@ export async function approveTransaction(txId: string, txType: string): Promise<
     await requirePermission('transactionApproval:edit');
     await prisma.$transaction(async (tx) => {
       if (txType === 'Savings' || txType === 'Saving Interest') {
-        const savingTx = await tx.saving.findUnique({ where: { id: txId } });
+        const savingTx = await tx.saving.findUnique({ where: { id: txId }, include: { memberSavingAccount: true } });
         if (!savingTx || savingTx.status !== 'pending') throw new Error('Transaction not found or not pending.');
         if (!savingTx.memberSavingAccountId) throw new Error('Transaction is not linked to a specific savings account.');
-
-        await tx.saving.update({ where: { id: txId }, data: { status: 'approved' } });
         
-        const amountChange = savingTx.transactionType === 'deposit' ? savingTx.amount : -savingTx.amount;
-        
-        await tx.memberSavingAccount.update({
-          where: { id: savingTx.memberSavingAccountId },
-          data: { balance: { increment: amountChange } },
-        });
+        const account = savingTx.memberSavingAccount;
+        if (!account) throw new Error('Associated savings account not found.');
 
-        // Check if this is a share refund withdrawal
-        if (savingTx.transactionType === 'withdrawal' && savingTx.notes?.startsWith('Share refund for commitment ID:')) {
-            const commitmentId = savingTx.notes.split(': ')[1];
-            if (commitmentId) {
-                await tx.memberShareCommitment.update({
-                    where: { id: commitmentId },
-                    data: { status: 'REFUNDED' }
-                });
+        // Logic for setting initial balance
+        if (account.balance === 0 && account.initialBalance === 0) {
+            await tx.memberSavingAccount.update({
+                where: { id: savingTx.memberSavingAccountId },
+                data: {
+                    initialBalance: savingTx.amount,
+                    balance: savingTx.amount,
+                }
+            });
+            // Mark the transaction as approved but don't double-count by adding to balance again.
+            // Or, we can delete the transaction after setting the initial balance.
+            // Let's mark as approved and add a note.
+             await tx.saving.update({ 
+                where: { id: txId }, 
+                data: { 
+                    status: 'approved',
+                    notes: `Approved as initial opening balance. ${savingTx.notes || ''}`.trim()
+                } 
+            });
+
+        } else {
+            // Standard transaction logic
+            await tx.saving.update({ where: { id: txId }, data: { status: 'approved' } });
+            
+            const amountChange = savingTx.transactionType === 'deposit' ? savingTx.amount : -savingTx.amount;
+            
+            await tx.memberSavingAccount.update({
+              where: { id: savingTx.memberSavingAccountId },
+              data: { balance: { increment: amountChange } },
+            });
+
+            // Check if this is a share refund withdrawal
+            if (savingTx.transactionType === 'withdrawal' && savingTx.notes?.startsWith('Share refund for commitment ID:')) {
+                const commitmentId = savingTx.notes.split(': ')[1];
+                if (commitmentId) {
+                    await tx.memberShareCommitment.update({
+                        where: { id: commitmentId },
+                        data: { status: 'REFUNDED' }
+                    });
+                }
             }
         }
 
@@ -307,5 +333,3 @@ export async function rejectMultipleTransactions(
     return { success: false, message: 'One or more transactions failed to reject during bulk operation.' };
   }
 }
-
-    
