@@ -455,9 +455,13 @@ export default function MembersPage() {
         const validatedData: ParsedMember[] = dataRows.map(row => {
           const memberId = row['MemberID']?.toString().trim();
           const fullName = row['MemberFullName']?.toString().trim();
-          const phoneNumber = row['PhoneNumber']?.toString().trim();
+          const rawPhone = row['PhoneNumber']?.toString().trim().replace(/\s+/g, '');
           const schoolId = row['SchoolID']?.toString().trim();
           const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
+
+          // Normalize phone number: add leading '0' if it's a 9-digit number not starting with '0'
+          const phoneNumber = rawPhone && rawPhone.length === 9 && /^[1-9]/.test(rawPhone) ? `0${rawPhone}` : rawPhone;
+
 
           if (!memberId || !fullName || !schoolId || !phoneNumber) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid ID or Name' };
@@ -465,7 +469,7 @@ export default function MembersPage() {
           if (!existingSchoolIds.has(schoolId)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
           }
-          if (!/^09\d{8}$/.test(phoneNumber)) {
+          if (!/^0[79]\d{8}$/.test(phoneNumber)) {
               return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
           }
 
@@ -533,11 +537,11 @@ export default function MembersPage() {
   
   const handleDownloadTemplate = () => {
     const templateData = [{
-      MemberID: 'EMP001',
-      MemberFullName: 'John Doe',
-      PhoneNumber: '0912345678',
-      SchoolID: 'school-id-1',
-      Salary: 50000,
+      'MemberID': 'EMP001',
+      'MemberFullName': 'John Doe',
+      'PhoneNumber': '0912345678',
+      'SchoolID': 'school-id-1',
+      'Salary': 50000,
     }];
     exportToExcel(templateData, 'member_import_template');
   };
@@ -938,3 +942,4 @@ export default function MembersPage() {
     </div>
   );
 }
+

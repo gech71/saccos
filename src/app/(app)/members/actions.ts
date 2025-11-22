@@ -15,10 +15,13 @@ import { requirePermission } from '@/lib/authorization';
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
     if (!phone) return '';
-    const p = phone.trim();
+    const p = phone.trim().replace(/\s+/g, '');
     if (p.startsWith('+251')) {
         const rest = p.slice(4);
         return rest ? `0${rest}` : p;
+    }
+    if (p.length === 9 && /^[1-9]/.test(p)) {
+        return `0${p}`;
     }
     return p;
 }
@@ -559,3 +562,4 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
+
