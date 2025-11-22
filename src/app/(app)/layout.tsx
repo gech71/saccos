@@ -246,12 +246,12 @@ const navItems: NavItem[] = [
     icon: ReceiptText,
     permission: 'configuration:view',
   },
-  {
-    title: 'SMS Notifications',
-    href: '/settings/sms',
-    icon: ReceiptText, // Using existing icon, can be changed
-    permission: 'setting:view',
-  },
+  // {
+  //   title: 'SMS Notifications',
+  //   href: '/settings/sms',
+  //   icon: ReceiptText, // Using existing icon, can be changed
+  //   permission: 'setting:view',
+  // },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
