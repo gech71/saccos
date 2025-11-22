@@ -486,7 +486,7 @@ export interface CreatedMemberInfo {
 export async function importMembers(
   members: ImportedMember[]
 ): Promise<{ success: boolean; message: string; createdMembers?: CreatedMemberInfo[] }> {
-        await requirePermission('member:import');
+        await requirePermission('member:create');
     
   if (members.length === 0) {
     return { success: true, message: 'No new members to import.' };
