@@ -17,7 +17,7 @@ export interface ImportPageData {
   members: MemberDataForImport[];
 }
 
-export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 'salary'> & {
+export type MemberDataForImport = Pick<Member, 'id' | 'fullName' | 'schoolId' | 'salary' | 'memberId'> & {
     memberSavingAccounts: Pick<MemberSavingAccount, 'savingAccountTypeId' | 'expectedMonthlySaving'>[],
     memberShareCommitments: (Pick<MemberShareCommitment, 'shareTypeId' | 'status'> & {shareType: {monthlyPayment: number | null, paymentType: 'ONCE' | 'INSTALLMENT'}})[],
     loans: (Pick<Loan, 'id' | 'loanTypeId' | 'principalAmount' | 'loanTerm' | 'interestRate' | 'remainingBalance'> & {loanType: Pick<LoanType, 'name'>})[],
@@ -38,6 +38,7 @@ export async function getImportPageData(): Promise<ImportPageData> {
             fullName: true,
             schoolId: true,
             salary: true,
+            memberId: true,
             memberSavingAccounts: {
                 select: {
                     savingAccountTypeId: true,
