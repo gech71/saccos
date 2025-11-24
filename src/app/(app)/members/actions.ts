@@ -106,12 +106,16 @@ const addressSchema = z.object({
   wereda: z.string().optional(),
   kebele: z.string().optional(),
   houseNumber: z.string().optional(),
-}).optional();
+})
+  .optional()
+  .nullable();
 
 const emergencyContactSchema = z.object({
     name: z.string().optional(),
     phone: z.string().optional(),
-}).optional();
+})
+  .optional()
+  .nullable();
 
 // Zod schema for robust validation
 const memberInputSchema = z.object({
