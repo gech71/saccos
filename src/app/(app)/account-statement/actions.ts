@@ -100,7 +100,17 @@ export async function generateStatement(
     return null;
   }
   
-  // 1. Fetch all approved transactions that occurred *before* the statement's start date
+  // 1. Check whether the initial balance has already been represented by an approved transaction.
+  const initialBalanceTransaction = await prisma.saving.findFirst({
+    where: {
+      memberSavingAccountId: accountId,
+      status: 'approved',
+      notes: { contains: 'initial opening balance', mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+
+  // 2. Fetch all approved transactions that occurred *before* the statement's start date
   const transactionsBeforeRange = await prisma.saving.findMany({
     where: {
         memberSavingAccountId: accountId,
@@ -112,16 +122,17 @@ export async function generateStatement(
     orderBy: { date: 'asc' },
   });
   
-  // 2. Calculate Balance Brought Forward by starting with the account's initial balance
-  //    and then applying all transactions that happened BEFORE the statement period.
-  let balanceBroughtForward = account.initialBalance;
+  // 3. Calculate Balance Brought Forward. Only seed with the stored initial balance
+  //    if it hasn't already been captured as a transaction (to avoid double counting).
+  const shouldSeedInitialBalance = !initialBalanceTransaction;
+  let balanceBroughtForward = shouldSeedInitialBalance ? account.initialBalance : 0;
   balanceBroughtForward = transactionsBeforeRange.reduce((balance, tx) => {
     if (tx.transactionType === 'deposit') return balance + tx.amount;
     if (tx.transactionType === 'withdrawal') return balance - tx.amount;
     return balance;
   }, balanceBroughtForward); 
 
-  // 3. Fetch transactions *within* the date range for the main statement body
+  // 4. Fetch transactions *within* the date range for the main statement body
   let transactionsInPeriodRaw = await prisma.saving.findMany({
       where: {
           memberSavingAccountId: accountId,
@@ -134,7 +145,7 @@ export async function generateStatement(
       orderBy: { date: 'asc' },
   });
   
-  // 4. Process transactions for the statement, starting with the correctly calculated BBF
+  // 5. Process transactions for the statement, starting with the correctly calculated BBF
   let runningBalance = balanceBroughtForward;
   let totalDeposits = 0;
   let totalWithdrawals = 0;
