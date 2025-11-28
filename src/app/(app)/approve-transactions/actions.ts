@@ -255,7 +255,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
             where: { id: repaymentTx.loanId },
             data: {
                 remainingBalance: newBalance,
-                status: newBalance < 0.01 ? 'paid_off' : loan.status,
+                status: newBalance <= 0.01 ? 'paid_off' : loan.status,
             }
         });
       } else if (txType === 'Service Charges') {
@@ -301,15 +301,65 @@ export async function rejectTransaction(txId: string, txType: string, reason: st
 export async function approveMultipleTransactions(
   transactions: { txId: string; txType: string }[]
 ): Promise<{ success: boolean; message: string }> {
+  await requirePermission('transactionApproval:edit');
+  
+  const loanRepaymentIds = transactions.filter(t => t.txType === 'Loan Repayments' || t.txType === 'Loan Interest').map(t => t.txId);
+  const otherTransactions = transactions.filter(t => t.txType !== 'Loan Repayments' && t.txType !== 'Loan Interest');
+
   try {
-    await requirePermission('transactionApproval:edit');
-    for (const { txId, txType } of transactions) {
-      // Re-using the single approval logic for atomicity and validation
+    // Process non-loan repayments first
+    for (const { txId, txType } of otherTransactions) {
       const result = await approveTransaction(txId, txType);
       if (!result.success) {
         throw new Error(`Failed to approve transaction ${txId}: ${result.message}`);
       }
     }
+    
+    // Group and process loan repayments
+    if (loanRepaymentIds.length > 0) {
+      const repayments = await prisma.loanRepayment.findMany({
+        where: { id: { in: loanRepaymentIds }, status: 'pending' },
+        orderBy: { paymentDate: 'asc' }, // Process in chronological order
+      });
+      
+      const repaymentsByLoan = repayments.reduce((acc, repayment) => {
+        if (!acc[repayment.loanId]) {
+          acc[repayment.loanId] = [];
+        }
+        acc[repayment.loanId].push(repayment);
+        return acc;
+      }, {} as Record<string, typeof repayments>);
+
+      await prisma.$transaction(async (tx) => {
+        for (const loanId in repaymentsByLoan) {
+          const loan = await tx.loan.findUnique({ where: { id: loanId } });
+          if (!loan) throw new Error(`Loan ${loanId} not found during bulk approval.`);
+
+          let currentBalance = loan.remainingBalance;
+          const repaymentIdsToUpdate: string[] = [];
+          
+          for (const repayment of repaymentsByLoan[loanId]) {
+            currentBalance -= repayment.principalPaid;
+            repaymentIdsToUpdate.push(repayment.id);
+          }
+
+          await tx.loan.update({
+            where: { id: loanId },
+            data: {
+              remainingBalance: currentBalance,
+              status: currentBalance <= 0.01 ? 'paid_off' : loan.status,
+            },
+          });
+          
+          await tx.loanRepayment.updateMany({
+            where: { id: { in: repaymentIdsToUpdate } },
+            data: { status: 'approved' },
+          });
+        }
+      });
+    }
+
+    revalidateAllPaths();
     return { success: true, message: `${transactions.length} transactions approved successfully.` };
   } catch (error) {
     console.error('Bulk Approval Error:', error);
