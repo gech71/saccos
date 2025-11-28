@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -254,7 +255,7 @@ export async function approveTransaction(txId: string, txType: string): Promise<
             where: { id: repaymentTx.loanId },
             data: {
                 remainingBalance: newBalance,
-                status: newBalance <= 0 ? 'paid_off' : loan.status,
+                status: newBalance < 0.01 ? 'paid_off' : loan.status,
             }
         });
       } else if (txType === 'Service Charges') {
