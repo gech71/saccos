@@ -24,7 +24,7 @@ This layer contains the core business logic, data processing, and server-side op
 
 - **Framework**: **Next.js Server Actions** (`'use server'`). Business logic, database mutations, and validations are encapsulated within server actions located in `src/app/(app)/**/actions.ts` files. This co-location of logic with features simplifies development and maintenance.
 - **Routing**: **Next.js App Router** handles all routing, including dynamic routes for member profiles.
-- **API Endpoints**: Traditional API routes are used for specific integrations, such as authentication callbacks (`/api/auth`), file uploads (`/api/upload`), and third-party webhooks (`/api/minapp/callback`).
+- **API Endpoints**: Traditional API routes are used for specific integrations, such as authentication callbacks (`/api/auth`) and file uploads (`/api/upload`).
 
 #### 1.1.3. Data Layer
 
@@ -38,7 +38,6 @@ This layer is responsible for data persistence and retrieval.
 This layer handles communication with external services.
 
 - **Email**: **Nodemailer** is used for sending transactional emails, such as password reset links.
-- **Mini-App Integration**: The system includes a dedicated module (`/minapp`) to integrate with the **NIBtera Super App**, handling token validation and payment requests via a secure callback mechanism.
 
 #### 1.1.5. Security Layer
 
@@ -83,9 +82,9 @@ This layer provides visibility into system activities.
 |    +---------+-------------+                                                         |
 |              | (Internal VPC Network)                                                 |
 |              |                                                                        |
-|    +---------v-------------+      +-------------------------+      +-----------------+
-|    |  PostgreSQL Database  |      |   Email Service (SMTP)  |      |  NIBtera API    |
-|    | (e.g., Cloud SQL)     |      +-------------------------+      +-----------------+
+|    +---------v-------------+      +-------------------------+
+|    |  PostgreSQL Database  |      |   Email Service (SMTP)  |
+|    | (e.g., Cloud SQL)     |      +-------------------------+
 |    +-----------------------+                                                         |
 | (Private Subnet)                                                                      |
 |                                                                                       |
@@ -101,20 +100,11 @@ This layer provides visibility into system activities.
 The context diagram provides a high-level overview of the entire system and its interaction with external entities.
 
 ```plaintext
-                                    +-----------------+
-+----------------+                  |                 |                  +-----------------+
++----------------+                  +-----------------+                  +-----------------+
 |      Admin     |<---------------->|      SACCO      |<---------------->|      Member     |
 +----------------+   (Admin Portal) |    Management   |   (Member Portal)  +-----------------+
                                     |      System     |
                                     |                 |
-                                    +-------+---------+
-                                            |
-                                            | (API Calls, Callbacks)
-                                            |
-                                    +-------v---------+
-                                    |                 |
-                                    |  NIBtera Super  |
-                                    |       App       |
                                     +-----------------+
 ```
 
@@ -138,12 +128,7 @@ This diagram breaks down the main system into its primary processes and shows th
 +----------+      +----------+----------+      +----------+
 |  Member  |----->|   Savings & Loans   |----->| Transact-|
 +----------+      |   (Process 3.0)     |      | ions (D2)|
-                  +----------+----------+      +----------+
-                             ^
-                             |
-+-----------------+          | (API Requests & Callbacks)
-| NIBtera SuperApp|<---------+
-+-----------------+
+                  +---------------------+      +----------+
 
 Data Stores:
 (D1) SACCO DB: Main PostgreSQL database (Users, Members, Schools, Accounts, etc.)
