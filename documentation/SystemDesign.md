@@ -96,7 +96,6 @@ This diagram illustrates the high-level infrastructure, showing how components i
   - The Load Balancer and Firewall reside in the public-facing zone.
   - Application Servers reside in a private subnet, only accepting traffic from the load balancer.
   - The PostgreSQL Database is placed in a more restricted private subnet, only accessible by the application servers, isolating it from public access.
-- **Containerization**: While not explicitly implemented, the Next.js application is well-suited for containerization (e.g., using Docker). This would package the app and its dependencies, ensuring consistent deployment across different environments (development, staging, production) and simplifying management.
 
 ---
 
@@ -105,27 +104,28 @@ This diagram illustrates the high-level infrastructure, showing how components i
 This Level-2 DFD provides a detailed view of a specific, critical process: **Loan Application, Approval, and Repayment**.
 
 ```plaintext
-+----------+   (1. Apply for Loan)    +------------------------+  (2. Check Eligibility)
-|  Member  |------------------------->|   Loan Application     |----------------------+
-+----------+                          |      (Process 3.1)     |                      |
-                                      +------------------------+                      |
-                                                 | (3. Create Loan Record)            v
-                                                 v                               +----------+
-                                      +----------+----------+                    | SACCO DB |
-                                      | Transaction Approval |<--(4. Review)--+    | (D1, D2) |
-                                      |    (Process 3.2)     |                |    +----------+
-                                      +----------+----------+                |         ^
-                                                 | (5. Approve/Reject)        |         | (7. Fetch Loan Data)
-                                                 |                            |         |
-                                                 v                            |         |
-+----------+   (6. Disbursement)      +----------+----------+   (Admin)      |         |
-| SACCO DB |<-------------------------|  Update Loan Status  |-------------+--+---------+
-| (D1, D2) |                          |    (Process 3.3)     |             |            |
-+----------+                          +------------------------+             |            |
-     ^                                         ^                             | (8. Submit Repayment)
-     | (10. Update Balance)                    | (9. Repayment Approval)     |
-     |                                         |                             |
-     +-----------------------------------------+-----------------------------+
++----------+ (1. Apply for Loan on behalf of Member) +------------------------+ (2. Check Eligibility)
+|  Admin   |---------------------------------------->|   Loan Application     |----------------------+
++----------+                                         |      (Process 3.1)     |                      |
+     ^                                               +------------------------+                      |
+     | (4. Review Loan)                                        | (3. Create Loan Record)            v
+     |                                                         v                               +----------+
+     +----------------------------------------------+----------+----------+                    | SACCO DB |
+                                                    | Transaction Approval |<-------------------+ (D1, D2) |
+                                                    |    (Process 3.2)     |                    +----------+
+                                                    +----------+----------+                         ^
+                                                               | (5. Approve/Reject)               | (7. Fetch Loan Data)
+                                                               |                                   |
+                                                               v                                   |
++----------+ (6. Disbursement)      +------------------------+             (Member)          |
+| SACCO DB |<------------------------|   Update Loan Status   |<----------------------------------+
+| (D1, D2) |                         |      (Process 3.3)     |                                    |
++----------+                         +------------------------+                                    |
+     ^                                         ^                                                   |
+     | (10. Update Balance)                    | (9. Repayment Approval)                           |
+     |                                         |                                                   |
+     +-----------------------------------------+---------------------------------------------------+
+       (8. Submit Repayment on behalf of Member)
 ```
 
 **Data Stores:**
@@ -133,14 +133,14 @@ This Level-2 DFD provides a detailed view of a specific, critical process: **Loa
 - **(D2) Transactions**: Tables for Loan Repayments within SACCO DB.
 
 **Flow Description:**
-1.  A member submits a loan application via the UI.
+1.  An **Admin** submits a loan application via the UI on behalf of a member.
 2.  The system checks the member's eligibility against business rules in the database (e.g., savings balance, membership duration). This happens within the `addLoan` server action.
 3.  A `Loan` record is created with a `pending` status.
 4.  An admin reviews the pending loan application on the "Approve Transactions" page.
 5.  The admin approves or rejects the application.
 6.  Upon approval (`approveTransaction` action), the system updates the loan status to `active` and logs the disbursement details. An audit log is created.
-7.  The member views their loan balance and repayment schedule on their profile.
-8.  The member (or an admin on their behalf) submits a repayment through the "Loan Repayments" page (`addLoanRepayment` action). A `LoanRepayment` record is created with `pending` status.
+7.  The **Member** views their loan balance and repayment schedule on their profile.
+8.  An **Admin** submits a repayment through the "Loan Repayments" page on behalf of a member. A `LoanRepayment` record is created with `pending` status.
 9.  The repayment is reviewed and approved by an admin on the "Approve Transactions" page.
 10. Upon approval, the `Loan`'s `remainingBalance` is updated in the database, and an audit log is created.
 
