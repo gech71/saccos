@@ -57,15 +57,9 @@ This layer provides visibility into system activities.
 
 - **Auditing**: A dedicated `AuditLog` model in the database records all significant actions (e.g., creations, updates, deletions, logins). The `logAudit` function in `src/lib/audit-log.ts` provides a centralized way to create audit entries.
 
-### 1.2. Infrastructure and Deployment
+### 1.2. Infrastructure Topology Diagram
 
-- **Deployment**: The system is designed for scalable cloud deployment and is configured for **Firebase App Hosting** via the `apphosting.yaml` file. It can also be containerized using Docker for on-premises or other cloud provider deployments.
-- **Containerization**: A `Dockerfile` can be easily created to build a production-ready image of the Next.js application.
-- **Scalability**: Firebase App Hosting allows for automatic scaling of instances (`maxInstances`) based on traffic. The PostgreSQL database can be scaled independently.
-- **High Availability & Load Balancing**: When deployed to a managed cloud platform like Firebase App Hosting, Vercel, or a container orchestration service (e.g., Kubernetes), high availability and load balancing are handled automatically.
-- **Network Segmentation**: In a typical cloud deployment, the Next.js application server would reside in a managed, secure VPC. The database would be in a separate, private subnet, accessible only by the application server, ensuring the data layer is not exposed to the public internet.
-
-### 1.3. Infrastructure Topology Diagram
+This diagram illustrates the high-level infrastructure, showing how components interact within a scalable deployment environment.
 
 ```plaintext
                                +-------------------------+
@@ -74,71 +68,41 @@ This layer provides visibility into system activities.
                                            | (HTTPS)
                                            |
 +------------------------------------------v------------------------------------------+
-|  Cloud Provider (e.g., Google Cloud / Firebase)                                       |
+|  Cloud Provider / On-Premises Network                                                 |
 |                                                                                       |
 |    +-----------------------+       +-------------------------+       +---------------+
-|    | Firebase App Hosting  |<----->|  Load Balancer / CDN    |<----->|   Internet    |
-|    | (Next.js Application) |       +-------------------------+       +---------------+
+|    |   Web Server / LB     |<----->|  Firewall / CDN / WAF   |<----->|   Internet    |
+|    +-----------------------+       +-------------------------+       +---------------+
+|              |                                                                        |
+|    +---------v-------------+                                                         |
+|    |  Application Server   |                                                         |
+|    |   (Next.js App)       |                                                         |
 |    +---------+-------------+                                                         |
-|              | (Internal VPC Network)                                                 |
+|              | (Internal VPC / Private Network)                                       |
 |              |                                                                        |
 |    +---------v-------------+      +-------------------------+
 |    |  PostgreSQL Database  |      |   Email Service (SMTP)  |
-|    | (e.g., Cloud SQL)     |      +-------------------------+
-|    +-----------------------+                                                         |
+|    +-----------------------+      +-------------------------+
 | (Private Subnet)                                                                      |
 |                                                                                       |
 +---------------------------------------------------------------------------------------+
 ```
 
+**Deployment Design:**
+
+- **Scalable Deployment**: The application server is stateless and can be scaled horizontally. Multiple instances can be run behind a Load Balancer (LB) to distribute traffic. This setup works for both cloud-based auto-scaling groups and on-premises server clusters.
+- **High Availability**: High availability is achieved by deploying redundant application servers and a clustered/replicated PostgreSQL database across different availability zones or physical racks. The load balancer manages health checks and routes traffic away from failed instances.
+- **Network Segmentation**: In a typical secure deployment, the infrastructure is segmented into public and private subnets (or VLANs).
+  - The Load Balancer and Firewall reside in the public-facing zone.
+  - Application Servers reside in a private subnet, only accepting traffic from the load balancer.
+  - The PostgreSQL Database is placed in a more restricted private subnet, only accessible by the application servers, isolating it from public access.
+- **Containerization**: While not explicitly implemented, the Next.js application is well-suited for containerization (e.g., using Docker). This would package the app and its dependencies, ensuring consistent deployment across different environments (development, staging, production) and simplifying management.
+
 ---
 
-## 2. Data Flow Diagrams (DFD)
+## 2. Data Flow Diagram (DFD)
 
-### 2.1. Level 0 - Context Diagram
-
-The context diagram provides a high-level overview of the entire system and its interaction with external entities.
-
-```plaintext
-+----------------+                  +-----------------+                  +-----------------+
-|      Admin     |<---------------->|      SACCO      |<---------------->|      Member     |
-+----------------+   (Admin Portal) |    Management   |   (Member Portal)  +-----------------+
-                                    |      System     |
-                                    |                 |
-                                    +-----------------+
-```
-
-### 2.2. Level 1 - High-Level Diagram
-
-This diagram breaks down the main system into its primary processes and shows the data flows between them and the data stores.
-
-```plaintext
-+----------+      +---------------------+      +----------+
-|  Admin   |----->|   User & Role Mgmt  |----->| Audit    |
-+----------+      |    (Process 1.0)    |      | Log      |
-                  +----------+----------+      |(D3)      |
-                             |                 +----------+
-                             v
-                  +----------+----------+      +----------+
-                  |  Member & Account   |----->| SACCO DB |
-                  |  Mgmt (Process 2.0) |      | (D1)     |
-                  +----------+----------+      +----------+
-                             ^
-                             |
-+----------+      +----------+----------+      +----------+
-|  Member  |----->|   Savings & Loans   |----->| Transact-|
-+----------+      |   (Process 3.0)     |      | ions (D2)|
-                  +---------------------+      +----------+
-
-Data Stores:
-(D1) SACCO DB: Main PostgreSQL database (Users, Members, Schools, Accounts, etc.)
-(D2) Transactions: Tables for Savings, Loans, Shares, etc. within SACCO DB.
-(D3) Audit Log: Table for logging all system actions.
-```
-
-### 2.3. Level 2 - Detailed DFD (Example: Loan Application & Repayment)
-
-This diagram details a specific process, showing granular data movements.
+This Level-2 DFD provides a detailed view of a specific, critical process: **Loan Application, Approval, and Repayment**.
 
 ```plaintext
 +----------+   (1. Apply for Loan)    +------------------------+  (2. Check Eligibility)
@@ -151,8 +115,8 @@ This diagram details a specific process, showing granular data movements.
                                       | Transaction Approval |<--(4. Review)--+    | (D1, D2) |
                                       |    (Process 3.2)     |                |    +----------+
                                       +----------+----------+                |         ^
-                                                 | (5. Approve/Reject)        |         |
-                                                 |                            |         | (7. Fetch Loan Data)
+                                                 | (5. Approve/Reject)        |         | (7. Fetch Loan Data)
+                                                 |                            |         |
                                                  v                            |         |
 +----------+   (6. Disbursement)      +----------+----------+   (Admin)      |         |
 | SACCO DB |<-------------------------|  Update Loan Status  |-------------+--+---------+
@@ -164,17 +128,21 @@ This diagram details a specific process, showing granular data movements.
      +-----------------------------------------+-----------------------------+
 ```
 
+**Data Stores:**
+- **(D1) SACCO DB**: Main PostgreSQL database (Users, Members, Loans, etc.).
+- **(D2) Transactions**: Tables for Loan Repayments within SACCO DB.
+
 **Flow Description:**
-1.  A member submits a loan application.
-2.  The system checks the member's eligibility against business rules in the database (e.g., savings balance, membership duration).
-3.  A `Loan` record is created with `pending` status.
-4.  An admin reviews the pending loan application.
+1.  A member submits a loan application via the UI.
+2.  The system checks the member's eligibility against business rules in the database (e.g., savings balance, membership duration). This happens within the `addLoan` server action.
+3.  A `Loan` record is created with a `pending` status.
+4.  An admin reviews the pending loan application on the "Approve Transactions" page.
 5.  The admin approves or rejects the application.
-6.  Upon approval, the system updates the loan status to `active` and logs the disbursement.
-7.  The member views their loan balance and repayment schedule.
-8.  The member (or an admin on their behalf) submits a repayment.
-9.  The repayment is recorded as a `pending` transaction and approved by an admin.
-10. Upon approval, the loan's `remainingBalance` is updated in the database.
+6.  Upon approval (`approveTransaction` action), the system updates the loan status to `active` and logs the disbursement details. An audit log is created.
+7.  The member views their loan balance and repayment schedule on their profile.
+8.  The member (or an admin on their behalf) submits a repayment through the "Loan Repayments" page (`addLoanRepayment` action). A `LoanRepayment` record is created with `pending` status.
+9.  The repayment is reviewed and approved by an admin on the "Approve Transactions" page.
+10. Upon approval, the `Loan`'s `remainingBalance` is updated in the database, and an audit log is created.
 
 ---
 
@@ -190,14 +158,14 @@ The system's business logic is primarily enforced within the **Next.js Server Ac
   - A member's savings duration and balance are checked against the `LoanType` requirements (`minSavingMonths`, `minSavingBalance`).
   - The requested loan amount must be within the `minLoanAmount` and `maxLoanAmount` defined for the `LoanType`.
   - The repayment term must be within the defined `minRepaymentPeriod` and `maxRepaymentPeriod`.
-- **Guarantor Limits**: A member cannot guarantee more than two active loans simultaneously. This is checked during the loan application process.
+- **Guarantor Limits**: A member cannot guarantee more than a set number of active loans simultaneously (currently hardcoded to 2). This is checked during the loan application process.
 - **Rate Limiting**: Login attempts are limited per IP and per phone number to prevent brute-force attacks. Lockouts are temporary and tracked in the `RateLimit` table.
 
 ### 3.2. Workflows
 
 #### 3.2.1. Member & User Onboarding
 
-1.  An admin creates a new member or user via the Settings or Members page.
+1.  An admin creates a new member or user via the UI.
 2.  The system generates a secure, random temporary password.
 3.  The `mustChangePassword` flag is set to `true` for the new user/member.
 4.  The creating admin is shown the temporary password to securely communicate to the new user.
@@ -215,7 +183,7 @@ All financial transactions (savings deposits, share payments, loan disbursements
 
 ### 3.3. Configurable Business Rules
 
-While many core rules are in the source code for security and stability, the following are designed to be configurable by an administrator through the UI without code changes:
+While many core rules are hardcoded for security and stability, the following are designed to be configurable by an administrator through the UI without code changes:
 
 - **Loan Types**: All loan parameters (interest rates, amounts, terms, collateral logic) are stored in the `LoanType` model and are fully configurable.
 - **Saving Account Types**: Interest rates and contribution rules (fixed vs. percentage) are configurable.
@@ -226,6 +194,6 @@ While many core rules are in the source code for security and stability, the fol
 ### 3.4. Traceability, Logging, and Auditing
 
 - **Traceability**: Every significant database record (e.g., `Loan`, `Saving`, `Member`) has a unique ID and timestamps (`createdAt`, `updatedAt`). Financial transactions are linked directly to the member who initiated them.
-- **Logging**: All critical operations, from user creation to transaction approvals, are logged in the `AuditLog` table.
+- **Logging**: All critical operations, from user creation to transaction approvals, are logged in the `AuditLog` table via the `logAudit` function.
 - **Auditing**: The Audit Log page provides admins with a searchable and filterable view of all actions performed in the system, showing who did what, and when. This ensures full accountability.
 - **Exception Handling**: Server actions use `try...catch` blocks to handle errors gracefully, providing clear feedback to the user via toast notifications without exposing sensitive system details.
