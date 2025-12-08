@@ -68,10 +68,10 @@ This diagram illustrates the high-level infrastructure, showing how components i
                                            | (HTTPS)
                                            |
 +------------------------------------------v------------------------------------------+
-|  Cloud Provider / On-Premises Network                                                 |
+|  On-Premises Network / Datacenter                                                     |
 |                                                                                       |
 |    +-----------------------+       +-------------------------+       +---------------+
-|    |   Web Server / LB     |<----->|  Firewall / CDN / WAF   |<----->|   Internet    |
+|    |  Load Balancer / IIS  |<----->|    Firewall / WAF       |<----->|   Internet    |
 |    +-----------------------+       +-------------------------+       +---------------+
 |              |                                                                        |
 |    +---------v-------------+                                                         |
