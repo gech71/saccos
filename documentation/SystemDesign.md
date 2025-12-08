@@ -111,21 +111,22 @@ This Level-2 DFD provides a detailed view of a specific, critical process: **Loa
      | (4. Review Loan)                                        | (3. Create Loan Record)            v
      |                                                         v                               +----------+
      +----------------------------------------------+----------+----------+                    | SACCO DB |
-                                                    | Transaction Approval |<-------------------+ (D1, D2) |
-                                                    |    (Process 3.2)     |                    +----------+
-                                                    +----------+----------+                         ^
-                                                               | (5. Approve/Reject)               | (7. Fetch Loan Data)
-                                                               |                                   |
-                                                               v                                   |
-+----------+ (6. Disbursement)      +------------------------+             (Member)          |
-| SACCO DB |<------------------------|   Update Loan Status   |<----------------------------------+
-| (D1, D2) |                         |      (Process 3.3)     |                                    |
-+----------+                         +------------------------+                                    |
-     ^                                         ^                                                   |
-     | (10. Update Balance)                    | (9. Repayment Approval)                           |
-     |                                         |                                                   |
-     +-----------------------------------------+---------------------------------------------------+
-       (8. Submit Repayment on behalf of Member)
+       |                                            | Transaction Approval |<-------------------+ (D1, D2) |
+       | (8. Submit Repayment on behalf of Member)    |    (Process 3.2)     |                    +----------+
+       |                                            +----------+----------+                         ^
+       |                                                       | (5. Approve/Reject)               | (7. Fetch Loan Data)
+       |                                                       |                                   |
+       +---------------------------->+------------------------+<----------+                       |
+                                     |   Update Loan Status   |           | (Member)              |
+                                     |      (Process 3.3)     |           |                       |
+                                     +------------+-----------+           +-----------------------+
+                                                  | (6. Disbursement)      (9. Repayment Approval)
+                                                  |
+                                                  v
+                                             +----------+ (10. Update Balance)
+                                             | SACCO DB |
+                                             | (D1, D2) |
+                                             +----------+
 ```
 
 **Data Stores:**
