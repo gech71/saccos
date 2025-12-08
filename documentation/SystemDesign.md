@@ -68,23 +68,20 @@ This diagram illustrates the high-level infrastructure, showing how components i
                                            | (HTTPS)
                                            |
 +------------------------------------------v------------------------------------------+
-|  On-Premises Network / Datacenter                                                     |
+|  Public Subnet                                                                        |
 |                                                                                       |
 |    +-----------------------+       +-------------------------+       +---------------+
 |    |  Load Balancer / IIS  |<----->|    Firewall / WAF       |<----->|   Internet    |
 |    +-----------------------+       +-------------------------+       +---------------+
 |              |                                                                        |
-|    +---------v-------------+                                                         |
-|    |  Application Server   |                                                         |
-|    |   (Next.js App)       |                                                         |
-|    +---------+-------------+                                                         |
-|              | (Internal VPC / Private Network)                                       |
+|    +---------v-------------------+--------------------------+       +---------------+
+|    |  Application Server (Next.js)|                          |       | Email Service |
+|    +-----------------------------+                          |       +---------------+
 |              |                                                                        |
-|    +---------v-------------+      +-------------------------+
-|    |  PostgreSQL Database  |      |   Email Service (SMTP)  |
-|    +-----------------------+      +-------------------------+
+|    +---------v-------------+                                                          |
+|    |  PostgreSQL Database  |                                                          |
+|    +-----------------------+                                                          |
 | (Private Subnet)                                                                      |
-|                                                                                       |
 +---------------------------------------------------------------------------------------+
 ```
 
@@ -92,10 +89,9 @@ This diagram illustrates the high-level infrastructure, showing how components i
 
 - **Scalable Deployment**: The application server is stateless and can be scaled horizontally. Multiple instances can be run behind a Load Balancer (LB) to distribute traffic. This setup works for both cloud-based auto-scaling groups and on-premises server clusters.
 - **High Availability**: High availability is achieved by deploying redundant application servers and a clustered/replicated PostgreSQL database across different availability zones or physical racks. The load balancer manages health checks and routes traffic away from failed instances.
-- **Network Segmentation**: In a typical secure deployment, the infrastructure is segmented into public and private subnets (or VLANs).
-  - The Load Balancer and Firewall reside in the public-facing zone.
-  - Application Servers reside in a private subnet, only accepting traffic from the load balancer.
-  - The PostgreSQL Database is placed in a more restricted private subnet, only accessible by the application servers, isolating it from public access.
+- **Network Segmentation**: The system is deployed across two main network segments: a Public Subnet and a Private Subnet, ensuring a secure and layered architecture.
+  - **Public Subnet**: This is the public-facing zone accessible from the internet. It contains the Firewall/WAF and the Load Balancer/IIS. These components handle incoming user traffic, provide security screening, and distribute requests. The Email Service also resides in or is accessible from this subnet.
+  - **Private Subnet**: This isolated network is not directly accessible from the internet. It hosts the core components: the Application Server (Next.js App) and the PostgreSQL Database. The Application Server only accepts traffic from the Load Balancer, and the Database only accepts connections from the Application Server, providing a high level of security.
 
 ---
 
