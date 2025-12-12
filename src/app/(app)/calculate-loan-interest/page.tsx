@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown, ReceiptText, Calendar, Printer } from 'lucide-react';
+import { Loader2, Percent, Calculator, CheckCircle, Check, ChevronsUpDown, ReceiptText, Calendar, Printer, FileDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getCalculationPageData, calculateInterest, postInterestCharges, type CalculationPageData, type InterestCalculationResult } from './actions';
@@ -36,7 +36,9 @@ import { calculateRepaymentSchedule, type AmortizationRow } from '@/lib/loan-cal
 import { useAuth } from '@/contexts/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useReactToPrint } from 'react-to-print';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import Script from 'next/script';
 import { Logo } from '@/components/logo';
 
 const currentYear = new Date().getFullYear();
@@ -114,9 +116,9 @@ export default function CalculateLoanInterestPage() {
 
         setCalculationResults(results);
         if (results.length > 0) {
-            toast({ title: 'Calculation Complete', description: `Interest calculated for ${results.length} active loans based on your criteria.` });
+            toast({ title: 'Calculation Complete', description: `Repayment history retrieved for ${results.length} active loans.` });
         } else {
-            toast({ title: 'Calculation Complete', description: 'No loans were eligible for interest calculation for the selected criteria.' });
+            toast({ title: 'Calculation Complete', description: 'No loan repayments found for the selected criteria.' });
         }
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to calculate interest.' });
@@ -137,25 +139,31 @@ export default function CalculateLoanInterestPage() {
     
     setIsPosting(true);
     
-    const result = await postInterestCharges(calculationResults, { 
-        month: selectedMonth, 
-        year: selectedYear 
-    }, selectedServiceChargeTypeId);
+    // const result = await postInterestCharges(calculationResults, { 
+    //     month: selectedMonth, 
+    //     year: selectedYear 
+    // }, selectedServiceChargeTypeId);
 
-    if (result.success) {
-        toast({ title: 'Loan Interest Posted', description: result.message });
-        setCalculationResults(null); 
-    } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.message });
-    }
+    // if (result.success) {
+    //     toast({ title: 'Loan Interest Posted', description: result.message });
+    //     setCalculationResults(null); 
+    // } else {
+    //     toast({ variant: 'destructive', title: 'Error', description: result.message });
+    // }
     
     setIsPosting(false);
   };
   
-  const totalCalculatedInterest = useMemo(() => {
+  const totalPrincipalPaid = useMemo(() => {
     if (!calculationResults) return 0;
-    return calculationResults.reduce((sum, res) => sum + res.calculatedInterest, 0);
+    return calculationResults.reduce((sum, res) => sum + res.principalPaid, 0);
   }, [calculationResults]);
+
+  const totalInterestPaid = useMemo(() => {
+    if (!calculationResults) return 0;
+    return calculationResults.reduce((sum, res) => sum + res.interestPaid, 0);
+  }, [calculationResults]);
+
 
   const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType') => {
     setCalculationScope(value);
@@ -176,9 +184,40 @@ export default function CalculateLoanInterestPage() {
     setIsCalculating(false);
   };
 
-  const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-  });
+  const handleDownloadPdf = async () => {
+    const reportElement = printRef.current;
+    if (!amortizationSchedule.length || !reportElement) {
+        toast({ variant: 'destructive', title: 'No Schedule', description: 'Please calculate a schedule before downloading.' });
+        return;
+    }
+
+    setIsCalculating(true);
+
+    try {
+        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pdfWidth - 40;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let position = 20;
+
+        pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
+        
+        const fileName = `Loan-Amortization-Schedule-${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(fileName);
+
+        toast({ title: 'Download Started', description: 'Your PDF schedule is being downloaded.' });
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast({ variant: 'destructive', title: 'Download Failed', description: 'An error occurred while generating the PDF.' });
+    } finally {
+        setIsCalculating(false);
+    }
+};
 
 
   if (isPageLoading) {
@@ -187,18 +226,19 @@ export default function CalculateLoanInterestPage() {
 
   return (
     <div className="space-y-8">
+      <Script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" strategy="lazyOnload" />
       <PageTitle title="Calculate Loan Interest" subtitle="Calculate and post monthly interest charges for active loans." />
 
       <Tabs defaultValue="monthly-range">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="monthly-range">Monthly Calculation</TabsTrigger>
+            <TabsTrigger value="monthly-range">Repayment History</TabsTrigger>
             <TabsTrigger value="calculator">Repayment Calculator</TabsTrigger>
         </TabsList>
         <TabsContent value="monthly-range">
             <Card className="shadow-lg">
                 <CardHeader>
-                <CardTitle className="font-headline text-primary">Interest Calculation Criteria</CardTitle>
-                <CardDescription>Select the period and scope for which you want to calculate loan interest.</CardDescription>
+                <CardTitle className="font-headline text-primary">Repayment History Criteria</CardTitle>
+                <CardDescription>Select the period and scope to view historical loan repayments.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -221,9 +261,9 @@ export default function CalculateLoanInterestPage() {
                 <Separator />
                 
                 <div>
-                    <Label className="font-medium">Calculation Scope</Label>
+                    <Label className="font-medium">Filter Scope</Label>
                     <RadioGroup value={calculationScope} onValueChange={handleScopeChange} className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="all" id="scope-all" /><Label htmlFor="scope-all">All Active Loans</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="all" id="scope-all" /><Label htmlFor="scope-all">All Loans</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="school" id="scope-school" /><Label htmlFor="scope-school">By School</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="member" id="scope-member" /><Label htmlFor="scope-member">By Member</Label></div>
                     <div className="flex items-center space-x-2"><RadioGroupItem value="loanType" id="scope-loanType" /><Label htmlFor="scope-loanType">By Loan Type</Label></div>
@@ -301,23 +341,22 @@ export default function CalculateLoanInterestPage() {
                 </div>
                 
                 </CardContent>
-                {canCreate && (
                 <CardFooter>
                     <Button onClick={handleCalculateInterest} disabled={isLoading} className="w-full md:w-auto ml-auto">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-                        Calculate Loan Interest
+                        View Repayment History
                     </Button>
                 </CardFooter>
-                )}
             </Card>
             
             {calculationResults && (
                 <Card className="shadow-lg animate-in fade-in duration-300 mt-8">
                     <CardHeader>
-                        <CardTitle className="font-headline text-primary">Calculation Results</CardTitle>
+                        <CardTitle className="font-headline text-primary">Repayment History</CardTitle>
                         <CardDescription>
-                            Loan interest calculation for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
-                            Total calculated interest: <span className="font-bold text-primary">{totalCalculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</span>
+                            Actual principal and interest paid for {months.find(m => m.value === selectedMonth)?.label}, {selectedYear}.
+                            Total Principal Paid: <span className="font-bold text-green-600">{totalPrincipalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</span> |
+                            Total Interest Paid: <span className="font-bold text-orange-600">{totalInterestPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })} Birr</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -327,9 +366,8 @@ export default function CalculateLoanInterestPage() {
                                     <TableRow>
                                         <TableHead>Member Name</TableHead>
                                         <TableHead>Loan Acct. #</TableHead>
-                                        <TableHead className="text-right">Balance Before Interest (Birr)</TableHead>
-                                        <TableHead className="text-center">Interest Rate (Annual)</TableHead>
-                                        <TableHead className="text-right">Calculated Interest (Birr)</TableHead>
+                                        <TableHead className="text-right">Principal Paid</TableHead>
+                                        <TableHead className="text-right">Interest Paid</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -337,19 +375,13 @@ export default function CalculateLoanInterestPage() {
                                         <TableRow key={result.loanId}>
                                             <TableCell className="font-medium">{result.fullName}</TableCell>
                                             <TableCell className="font-mono text-xs">{result.loanAccountNumber || 'N/A'}</TableCell>
-                                            <TableCell className="text-right">{result.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
-                                            <TableCell className="text-center">
-                                                <Badge variant="secondary">
-                                                    <Percent className="mr-1.5 h-3 w-3"/>
-                                                    {(result.interestRate * 100).toFixed(2)}%
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-semibold text-destructive">{result.calculatedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                                            <TableCell className="text-right text-green-600">{result.principalPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                            <TableCell className="text-right text-orange-600">{result.interestPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
-                                                No active loans were eligible for interest in this period.
+                                            <TableCell colSpan={4} className="h-24 text-center">
+                                                No repayments found for the selected criteria and period.
                                             </TableCell>
                                         </TableRow>
                                     )}
@@ -357,28 +389,6 @@ export default function CalculateLoanInterestPage() {
                             </Table>
                         </div>
                     </CardContent>
-                    {canCreate && (
-                    <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4">
-                        <div className="grid w-full sm:w-auto sm:max-w-xs gap-1.5">
-                            <Label htmlFor="interestChargeType">Post Interest As <span className="text-destructive">*</span></Label>
-                            <Select value={selectedServiceChargeTypeId} onValueChange={setSelectedServiceChargeTypeId}>
-                                <SelectTrigger id="interestChargeType" className="w-full">
-                                    <ReceiptText className="mr-2 h-4 w-4" />
-                                    <SelectValue placeholder="Select Service Charge Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {pageData.serviceChargeTypes.map(sct => (
-                                        <SelectItem key={sct.id} value={sct.id}>{sct.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button onClick={handlePostInterest} disabled={isPosting || calculationResults.length === 0 || !selectedServiceChargeTypeId} className="w-full sm:w-auto self-end">
-                            {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            Post Interest Charges
-                        </Button>
-                    </CardFooter>
-                    )}
                 </Card>
             )}
         </TabsContent>
@@ -418,32 +428,36 @@ export default function CalculateLoanInterestPage() {
                                 <CardTitle className="font-headline text-primary">Amortization Schedule</CardTitle>
                                 <CardDescription>A month-by-month breakdown of the loan repayment.</CardDescription>
                             </div>
-                             <Button onClick={handlePrint} variant="outline" size="sm">
-                                <Printer className="mr-2 h-4 w-4" /> Print Schedule
+                             <Button onClick={handleDownloadPdf} variant="outline" size="sm" disabled={isCalculating}>
+                                {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                Download PDF
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div ref={printRef} className="printable-report p-4 bg-background">
-                            <div className="print-header hidden print:block text-center mb-6">
+                        <div ref={printRef} className="printable-report p-6 bg-white text-black">
+                            <div className="print-header flex justify-between items-center mb-6 pb-4 border-b">
                                 <Logo logo={content?.logo} saccoName={content?.saccoName} />
-                                <h2 className="text-2xl font-bold mt-4">Loan Amortization Schedule</h2>
+                                <div className="text-right">
+                                    <h2 className="text-xl font-bold text-primary">Loan Amortization Schedule</h2>
+                                    <p className="text-sm text-muted-foreground">Generated on: {new Date().toLocaleDateString()}</p>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 border-y py-4">
-                                <div className="space-y-1"><p className="text-sm text-muted-foreground">Loan Amount</p><p className="font-semibold">{calculatorPrincipal?.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
-                                <div className="space-y-1"><p className="text-sm text-muted-foreground">Annual Rate</p><p className="font-semibold">{calculatorInterest}%</p></div>
-                                <div className="space-y-1"><p className="text-sm text-muted-foreground">Term</p><p className="font-semibold">{calculatorTerm} Months</p></div>
-                                <div className="space-y-1"><p className="text-sm text-muted-foreground">Monthly Payment</p><p className="font-semibold text-primary">{amortizationSchedule[0]?.payment.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
+                                <div className="space-y-1"><p className="text-sm text-gray-500">Loan Amount</p><p className="font-semibold">{calculatorPrincipal?.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
+                                <div className="space-y-1"><p className="text-sm text-gray-500">Annual Rate</p><p className="font-semibold">{calculatorInterest}%</p></div>
+                                <div className="space-y-1"><p className="text-sm text-gray-500">Term</p><p className="font-semibold">{calculatorTerm} Months</p></div>
+                                <div className="space-y-1"><p className="text-sm text-gray-500">Monthly Payment</p><p className="font-semibold text-primary">{amortizationSchedule[0]?.payment.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
                             </div>
-                            <div className="overflow-x-auto rounded-lg border shadow-sm">
+                            <div className="overflow-x-auto rounded-lg border">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[100px] text-center">Month</TableHead>
-                                            <TableHead className="text-right">Payment</TableHead>
-                                            <TableHead className="text-right">Principal</TableHead>
-                                            <TableHead className="text-right">Interest</TableHead>
-                                            <TableHead className="text-right">Remaining Balance</TableHead>
+                                        <TableRow className="bg-gray-100">
+                                            <TableHead className="w-[100px] text-center text-gray-600">Month</TableHead>
+                                            <TableHead className="text-right text-gray-600">Payment</TableHead>
+                                            <TableHead className="text-right text-gray-600">Principal</TableHead>
+                                            <TableHead className="text-right text-gray-600">Interest</TableHead>
+                                            <TableHead className="text-right text-gray-600">Remaining Balance</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -458,7 +472,7 @@ export default function CalculateLoanInterestPage() {
                                         ))}
                                     </TableBody>
                                      <TableFooter>
-                                        <TableRow className="font-bold text-base">
+                                        <TableRow className="font-bold text-base bg-gray-100">
                                             <TableCell colSpan={2}>Totals</TableCell>
                                             <TableCell className="text-right">{amortizationSchedule.reduce((sum, row) => sum + row.principal, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell className="text-right">{amortizationSchedule.reduce((sum, row) => sum + row.interest, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
