@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -243,17 +244,17 @@ export default function CalculateLoanInterestPage() {
         const imgWidth = pdfWidth - 40;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
-        let position = 0;
+        let position = 20;
         let heightLeft = imgHeight;
         
         pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        heightLeft -= (pdfHeight - 40);
 
         while (heightLeft > 0) {
             position = heightLeft - imgHeight;
             pdf.addPage();
             pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-            heightLeft -= pdfHeight;
+            heightLeft -= (pdfHeight - 40);
         }
         
         const fileName = `Loan-Amortization-Schedule-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -484,8 +485,9 @@ export default function CalculateLoanInterestPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="printable-container overflow-x-auto rounded-lg border">
-                          <div ref={printRef} className="printable-report p-6 bg-white text-black">
+                        {/* Hidden element for PDF generation */}
+                        <div className="absolute -left-[9999px] -top-[9999px] printable-container">
+                          <div ref={printRef} className="printable-report p-6 bg-white text-black w-[800px]">
                               <div className="print-header flex justify-between items-center mb-6 pb-4 border-b">
                                   <Logo logo={content?.logo} saccoName={content?.saccoName} />
                                   <div className="text-right">
@@ -494,10 +496,10 @@ export default function CalculateLoanInterestPage() {
                                   </div>
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 border-y py-4">
-                                  <div className="space-y-1"><p className="text-sm text-gray-500">Loan Amount</p><p className="font-semibold">{calculatorPrincipal?.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
+                                  <div className="space-y-1"><p className="text-sm text-gray-500">Loan Amount</p><p className="font-semibold">{calculatorPrincipal?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Birr</p></div>
                                   <div className="space-y-1"><p className="text-sm text-gray-500">Annual Rate</p><p className="font-semibold">{calculatorInterest}%</p></div>
                                   <div className="space-y-1"><p className="text-sm text-gray-500">Term</p><p className="font-semibold">{calculatorTerm} Months</p></div>
-                                  <div className="space-y-1"><p className="text-sm text-gray-500">Monthly Payment</p><p className="font-semibold text-primary">{amortizationSchedule[0]?.payment.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</p></div>
+                                  <div className="space-y-1"><p className="text-sm text-gray-500">Monthly Payment</p><p className="font-semibold text-primary">{amortizationSchedule[0]?.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Birr</p></div>
                               </div>
                               <div className="overflow-x-auto rounded-lg border">
                                   <Table>
@@ -511,27 +513,60 @@ export default function CalculateLoanInterestPage() {
                                           </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                          {paginatedSchedule.map(row => (
+                                          {amortizationSchedule.map(row => (
                                               <TableRow key={row.month}>
                                                   <TableCell className="text-center">{row.month}</TableCell>
-                                                  <TableCell className="text-right font-semibold">{row.payment.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                                  <TableCell className="text-right text-green-600">{row.principal.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                                  <TableCell className="text-right text-orange-600">{row.interest.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                                  <TableCell className="text-right font-bold">{row.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                                  <TableCell className="text-right font-semibold">{row.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                  <TableCell className="text-right text-green-600">{row.principal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                  <TableCell className="text-right text-orange-600">{row.interest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                  <TableCell className="text-right font-bold">{row.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                               </TableRow>
                                           ))}
                                       </TableBody>
                                        <TableFooter>
                                           <TableRow className="font-bold text-base bg-gray-100">
                                               <TableCell colSpan={2}>Totals</TableCell>
-                                              <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.principal, 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                              <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.interest, 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                              <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.principal, 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                              <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.interest, 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                               <TableCell></TableCell>
                                           </TableRow>
                                       </TableFooter>
                                   </Table>
                               </div>
                           </div>
+                        </div>
+                        {/* Visible paginated table */}
+                        <div className="overflow-x-auto rounded-lg border">
+                           <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[100px] text-center">Month</TableHead>
+                                        <TableHead className="text-right">Payment</TableHead>
+                                        <TableHead className="text-right">Principal</TableHead>
+                                        <TableHead className="text-right">Interest</TableHead>
+                                        <TableHead className="text-right">Remaining Balance</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paginatedSchedule.map(row => (
+                                        <TableRow key={row.month}>
+                                            <TableCell className="text-center">{row.month}</TableCell>
+                                            <TableCell className="text-right font-semibold">{row.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right text-green-600">{row.principal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right text-orange-600">{row.interest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right font-bold">{row.remainingBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                 <TableFooter>
+                                    <TableRow className="font-bold text-base bg-muted/50">
+                                        <TableCell colSpan={2}>Totals</TableCell>
+                                        <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.principal, 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                        <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.interest, 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
                         </div>
                     </CardContent>
                      {totalPages > 1 && (
@@ -608,4 +643,3 @@ export default function CalculateLoanInterestPage() {
     </div>
   );
 }
-
