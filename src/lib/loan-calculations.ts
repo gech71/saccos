@@ -31,27 +31,30 @@ export function calculateRepaymentSchedule(
 
   for (let i = 1; i <= termInMonths; i++) {
     const interestPayment = roundToTwo(remainingBalance * monthlyRate);
-    const principalPayment = roundToTwo(monthlyPayment - interestPayment);
-    remainingBalance = roundToTwo(remainingBalance - principalPayment);
+    let principalPayment = roundToTwo(monthlyPayment - interestPayment);
     
-    // Ensure last payment clears the balance exactly
-    if (i === termInMonths && Math.abs(remainingBalance) > 0.01) {
-        const finalPrincipal = roundToTwo(principalPayment + remainingBalance);
-        remainingBalance = 0;
+    // On the final month, adjust the principal payment to exactly clear the remaining balance
+    if (i === termInMonths) {
+        const finalPrincipalPayment = roundToTwo(remainingBalance);
+        // Adjust the final payment amount as well
+        const finalPayment = roundToTwo(finalPrincipalPayment + interestPayment);
         schedule.push({
             month: i,
-            payment: roundToTwo(finalPrincipal + interestPayment),
-            principal: finalPrincipal,
+            payment: finalPayment,
+            principal: finalPrincipalPayment,
             interest: interestPayment,
             remainingBalance: 0,
         });
+        remainingBalance = 0;
+
     } else {
+        remainingBalance = roundToTwo(remainingBalance - principalPayment);
         schedule.push({
             month: i,
             payment: roundToTwo(monthlyPayment),
             principal: principalPayment,
             interest: interestPayment,
-            remainingBalance: roundToTwo(remainingBalance < 0 ? 0 : remainingBalance),
+            remainingBalance: remainingBalance,
         });
     }
   }
