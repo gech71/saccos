@@ -165,7 +165,7 @@ export default function CalculateLoanInterestPage() {
   }, [calculationResults]);
 
 
-  const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType'>) => {
+    const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType') => {
     setCalculationScope(value);
     setSelectedSchoolId('');
     setSelectedMemberId('');
