@@ -1,3 +1,4 @@
+
 export type AmortizationRow = {
   month: number;
   payment: number;
@@ -5,6 +6,11 @@ export type AmortizationRow = {
   interest: number;
   remainingBalance: number;
 };
+
+function roundToTwo(num: number): number {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
 
 export function calculateRepaymentSchedule(
   principal: number,
@@ -24,17 +30,17 @@ export function calculateRepaymentSchedule(
   let remainingBalance = principal;
 
   for (let i = 1; i <= termInMonths; i++) {
-    const interestPayment = remainingBalance * monthlyRate;
-    const principalPayment = monthlyPayment - interestPayment;
-    remainingBalance -= principalPayment;
+    const interestPayment = roundToTwo(remainingBalance * monthlyRate);
+    const principalPayment = roundToTwo(monthlyPayment - interestPayment);
+    remainingBalance = roundToTwo(remainingBalance - principalPayment);
     
     // Ensure last payment clears the balance exactly
     if (i === termInMonths && Math.abs(remainingBalance) > 0.01) {
-        const finalPrincipal = principalPayment + remainingBalance;
+        const finalPrincipal = roundToTwo(principalPayment + remainingBalance);
         remainingBalance = 0;
         schedule.push({
             month: i,
-            payment: finalPrincipal + interestPayment,
+            payment: roundToTwo(finalPrincipal + interestPayment),
             principal: finalPrincipal,
             interest: interestPayment,
             remainingBalance: 0,
@@ -42,10 +48,10 @@ export function calculateRepaymentSchedule(
     } else {
         schedule.push({
             month: i,
-            payment: monthlyPayment,
+            payment: roundToTwo(monthlyPayment),
             principal: principalPayment,
             interest: interestPayment,
-            remainingBalance: remainingBalance < 0 ? 0 : remainingBalance,
+            remainingBalance: roundToTwo(remainingBalance < 0 ? 0 : remainingBalance),
         });
     }
   }

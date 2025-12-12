@@ -165,7 +165,7 @@ export default function CalculateLoanInterestPage() {
   }, [calculationResults]);
 
 
-  const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType') => {
+  const handleScopeChange = (value: 'all' | 'school' | 'member' | 'loanType'>) => {
     setCalculationScope(value);
     setSelectedSchoolId('');
     setSelectedMemberId('');
@@ -474,8 +474,8 @@ export default function CalculateLoanInterestPage() {
                                      <TableFooter>
                                         <TableRow className="font-bold text-base bg-gray-100">
                                             <TableCell colSpan={2}>Totals</TableCell>
-                                            <TableCell className="text-right">{amortizationSchedule.reduce((sum, row) => sum + row.principal, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
-                                            <TableCell className="text-right">{amortizationSchedule.reduce((sum, row) => sum + row.interest, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.principal, 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
+                                            <TableCell className="text-right">{(amortizationSchedule.reduce((sum, row) => sum + row.interest, 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell></TableCell>
                                         </TableRow>
                                     </TableFooter>
@@ -491,3 +491,4 @@ export default function CalculateLoanInterestPage() {
     </div>
   );
 }
+
