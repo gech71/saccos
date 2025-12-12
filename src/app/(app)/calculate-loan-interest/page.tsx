@@ -241,20 +241,39 @@ export default function CalculateLoanInterestPage() {
 
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth - 40;
+        const margin = 20;
+        const imgWidth = pdfWidth - margin * 2;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        let position = 20;
-        let heightLeft = imgHeight;
-        
-        pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-        heightLeft -= (pdfHeight - 40);
+        const usablePageHeight = pdfHeight - margin * 2;
 
-        while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 20, position, imgWidth, imgHeight);
-            heightLeft -= (pdfHeight - 40);
+        // Calculate how many canvas pixels correspond to one PDF page's usable height
+        const scaleFactor = imgWidth / canvas.width; // pdf points per canvas pixel
+        const sliceHeightPx = Math.floor(usablePageHeight / scaleFactor);
+
+        let yPosPx = 0;
+        let page = 0;
+        while (yPosPx < canvas.height) {
+            // Compute height for this slice in pixels (may be shorter on last slice)
+            const thisSliceHeight = Math.min(sliceHeightPx, canvas.height - yPosPx);
+
+            // Create a temporary canvas for the slice to avoid drawing overlapping areas
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = canvas.width;
+            sliceCanvas.height = thisSliceHeight;
+            const sliceCtx = sliceCanvas.getContext('2d');
+            if (!sliceCtx) break;
+
+            // Draw the slice from the main canvas into the slice canvas
+            sliceCtx.drawImage(canvas, 0, yPosPx, canvas.width, thisSliceHeight, 0, 0, canvas.width, thisSliceHeight);
+
+            const sliceImgData = sliceCanvas.toDataURL('image/png');
+            const sliceImgHeightPdf = thisSliceHeight * scaleFactor;
+
+            if (page > 0) pdf.addPage();
+            pdf.addImage(sliceImgData, 'PNG', margin, margin, imgWidth, sliceImgHeightPdf);
+
+            yPosPx += thisSliceHeight;
+            page += 1;
         }
         
         const fileName = `Loan-Amortization-Schedule-${new Date().toISOString().split('T')[0]}.pdf`;
