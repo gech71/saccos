@@ -1,5 +1,5 @@
 
-import NextAuth from "next-auth";
+import NextAuth, { getServerSession, type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "./lib/prisma";
@@ -155,7 +155,7 @@ async function resetRateLimit(type: 'PHONE' | 'IP', identifier: string) {
     });
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET,
@@ -248,6 +248,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
-});
+};
 
-export const { GET, POST } = handlers;
+const handler = NextAuth(authOptions);
+
+// Route handlers for /api/auth/[...nextauth]
+export { handler as GET, handler as POST };
+
+// Helper to fetch the server session (keeps existing `auth()` call sites working)
+export async function auth() {
+  return getServerSession(authOptions);
+}
