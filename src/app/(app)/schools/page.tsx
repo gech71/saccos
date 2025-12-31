@@ -55,6 +55,7 @@ import { useAuth } from '@/contexts/auth-context';
 import ExcelJS from 'exceljs';
 import { Badge } from '@/components/ui/badge';
 import type { School } from '@prisma/client';
+import { validateExcelFileSize, shouldProcessServerSide } from '@/lib/file-upload-constants';
 
 
 const initialSchoolFormState: Partial<School> = {
@@ -256,9 +257,44 @@ export default function SchoolsPage() {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setIsParsing(true);
-      try {
+    if (!file) return;
+
+    // Validate file size before processing
+    const sizeValidation = validateExcelFileSize(file);
+    if (!sizeValidation.valid) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'File Too Large', 
+        description: sizeValidation.error 
+      });
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      let dataRows: any[] = [];
+      let headers: string[] = [];
+
+      // Use server-side processing for large files to prevent browser freezes
+      if (shouldProcessServerSide(file)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/excel/parse', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to parse file on server');
+        }
+
+        headers = result.headers || [];
+        dataRows = result.data || [];
+      } else {
+        // Client-side processing for smaller files (better UX, faster)
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(buffer);
@@ -269,50 +305,55 @@ export default function SchoolsPage() {
         }
 
         const headerRow = worksheet.getRow(1);
-        const headers = headerRow.values as string[];
+        headers = headerRow.values as string[];
+        // Filter out undefined/null headers
+        headers = headers.filter((h): h is string => typeof h === 'string' && h.trim() !== '');
 
-        const dataRows: any[] = [];
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
                 row.eachCell((cell, colNumber) => {
-                    rowData[headers[colNumber]] = cell.value;
+                    const headerIndex = colNumber - 1;
+                    if (headerIndex < headers.length) {
+                        rowData[headers[headerIndex]] = cell.value;
+                    }
                 });
                 dataRows.push(rowData);
             }
         });
-        
-        const existingSchoolIds = new Set(schools.map(s => s.id));
-        const seenInFile = new Set<string>();
-
-        const validatedData: ParsedSchool[] = dataRows.map(row => {
-          const id = row['School ID']?.toString().trim();
-          const name = row['School Name']?.toString().trim();
-          const address = row['Address']?.toString().trim();
-          const contactPerson = row['Contact Person']?.toString().trim();
-
-          if (!id || !name) {
-            return { id, name, status: 'Invalid ID or Name' };
-          }
-
-          let status: ParsedSchool['status'] = 'Ready to import';
-          if (existingSchoolIds.has(id)) {
-            status = 'Already exists in DB';
-          } else if (seenInFile.has(id)) {
-            status = 'Duplicate in file';
-          }
-          seenInFile.add(id);
-
-          return { id, name, address, contactPerson, status };
-        });
-        
-        setParsedSchools(validatedData);
-
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "School ID" and "School Name".' });
-      } finally {
-        setIsParsing(false);
       }
+        
+      const existingSchoolIds = new Set(schools.map(s => s.id));
+      const seenInFile = new Set<string>();
+
+      const validatedData: ParsedSchool[] = dataRows.map(row => {
+        const id = row['School ID']?.toString().trim();
+        const name = row['School Name']?.toString().trim();
+        const address = row['Address']?.toString().trim();
+        const contactPerson = row['Contact Person']?.toString().trim();
+
+        if (!id || !name) {
+          return { id, name, status: 'Invalid ID or Name' };
+        }
+
+        let status: ParsedSchool['status'] = 'Ready to import';
+        if (existingSchoolIds.has(id)) {
+          status = 'Already exists in DB';
+        } else if (seenInFile.has(id)) {
+          status = 'Duplicate in file';
+        }
+        seenInFile.add(id);
+
+        return { id, name, address, contactPerson, status };
+      });
+      
+      setParsedSchools(validatedData);
+
+    } catch (error: any) {
+      const errorMessage = error.message || 'Could not process file. Ensure it has columns: "School ID" and "School Name".';
+      toast({ variant: 'destructive', title: 'Parsing Error', description: errorMessage });
+    } finally {
+      setIsParsing(false);
     }
   };
 

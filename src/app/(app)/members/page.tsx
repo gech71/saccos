@@ -64,6 +64,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { validateExcelFileSize, shouldProcessServerSide, formatFileSize, MAX_EXCEL_FILE_SIZE } from '@/lib/file-upload-constants';
 
 const subcities = [
   "Arada", "Akaky Kaliti", "Bole", "Gullele", "Kirkos", "Kolfe Keranio", "Lideta", "Nifas Silk", "Yeka", "Lemi Kura", "Addis Ketema"
@@ -421,9 +422,44 @@ export default function MembersPage() {
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setIsParsing(true);
-      try {
+    if (!file) return;
+
+    // Validate file size before processing
+    const sizeValidation = validateExcelFileSize(file);
+    if (!sizeValidation.valid) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'File Too Large', 
+        description: sizeValidation.error 
+      });
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      let dataRows: any[] = [];
+      let headers: string[] = [];
+
+      // Use server-side processing for large files to prevent browser freezes
+      if (shouldProcessServerSide(file)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/excel/parse', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to parse file on server');
+        }
+
+        headers = result.headers || [];
+        dataRows = result.data || [];
+      } else {
+        // Client-side processing for smaller files (better UX, faster)
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(buffer);
@@ -434,70 +470,76 @@ export default function MembersPage() {
         }
 
         const headerRow = worksheet.getRow(1);
-        const headers = headerRow.values as string[];
+        headers = headerRow.values as string[];
+        // Filter out undefined/null headers
+        headers = headers.filter((h): h is string => typeof h === 'string' && h.trim() !== '');
 
-        const dataRows: any[] = [];
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
                 row.eachCell((cell, colNumber) => {
-                    rowData[headers[colNumber]] = cell.value;
+                    const headerIndex = colNumber - 1;
+                    if (headerIndex < headers.length) {
+                        rowData[headers[headerIndex]] = cell.value;
+                    }
                 });
                 dataRows.push(rowData);
             }
         });
-
-        const existingMemberIds = new Set(members.map(m => m.memberId));
-        const existingMemberPhones = new Set(members.map(m => m.phoneNumber));
-        const existingSchoolIds = new Set(schools.map(s => s.id));
-        const seenInFile = new Set<string>();
-
-        const validatedData: ParsedMember[] = dataRows.map(row => {
-          const memberId = row['MemberID']?.toString().trim();
-          const fullName = row['MemberFullName']?.toString().trim();
-          const rawPhone = row['PhoneNumber']?.toString().trim().replace(/\s+/g, '');
-          const schoolId = row['SchoolID']?.toString().trim();
-          const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
-
-          // Normalize phone number: add leading '0' if it's a 9-digit number not starting with '0'
-          const phoneNumber = rawPhone && rawPhone.length === 9 && /^[1-9]/.test(rawPhone) ? `0${rawPhone}` : rawPhone;
-
-
-          if (!memberId || !fullName || !schoolId || !phoneNumber) {
-              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid ID or Name' };
-          }
-          if (!existingSchoolIds.has(schoolId)) {
-              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
-          }
-          if (!/^0[79]\d{8}$/.test(phoneNumber)) {
-              return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
-          }
-
-          let status: ParsedMember['status'] = 'Ready to import';
-          if (existingMemberIds.has(memberId) || existingMemberPhones.has(phoneNumber)) {
-            status = 'Already exists in DB';
-          } else if (seenInFile.has(memberId) || seenInFile.has(phoneNumber)) {
-            status = 'Duplicate in file';
-          }
-          seenInFile.add(memberId);
-          seenInFile.add(phoneNumber);
-
-          return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, PhoneNumber: phoneNumber, Salary: salary, status };
-        });
-        
-        setParsedMembers(validatedData);
-        const validCount = validatedData.filter(v => v.status === 'Ready to import').length;
-        setValidationSummary({
-            valid: validCount,
-            invalid: validatedData.length - validCount,
-            total: validatedData.length,
-        });
-
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "PhoneNumber", and "SchoolID".' });
-      } finally {
-        setIsParsing(false);
       }
+
+      // Validate and process the data
+      const existingMemberIds = new Set(members.map(m => m.memberId));
+      const existingMemberPhones = new Set(members.map(m => m.phoneNumber));
+      const existingSchoolIds = new Set(schools.map(s => s.id));
+      const seenInFile = new Set<string>();
+
+      const validatedData: ParsedMember[] = dataRows.map(row => {
+        const memberId = row['MemberID']?.toString().trim();
+        const fullName = row['MemberFullName']?.toString().trim();
+        const rawPhone = row['PhoneNumber']?.toString().trim().replace(/\s+/g, '');
+        const schoolId = row['SchoolID']?.toString().trim();
+        const salary = row['Salary'] ? parseFloat(row['Salary']) : undefined;
+
+        // Normalize phone number: add leading '0' if it's a 9-digit number not starting with '0'
+        const phoneNumber = rawPhone && rawPhone.length === 9 && /^[1-9]/.test(rawPhone) ? `0${rawPhone}` : rawPhone;
+
+
+        if (!memberId || !fullName || !schoolId || !phoneNumber) {
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid ID or Name' };
+        }
+        if (!existingSchoolIds.has(schoolId)) {
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid School ID' };
+        }
+        if (!/^0[79]\d{8}$/.test(phoneNumber)) {
+            return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, Salary: salary, PhoneNumber: phoneNumber, status: 'Invalid Phone' };
+        }
+
+        let status: ParsedMember['status'] = 'Ready to import';
+        if (existingMemberIds.has(memberId) || existingMemberPhones.has(phoneNumber)) {
+          status = 'Already exists in DB';
+        } else if (seenInFile.has(memberId) || seenInFile.has(phoneNumber)) {
+          status = 'Duplicate in file';
+        }
+        seenInFile.add(memberId);
+        seenInFile.add(phoneNumber);
+
+        return { MemberID: memberId, MemberFullName: fullName, SchoolID: schoolId, PhoneNumber: phoneNumber, Salary: salary, status };
+      });
+      
+      setParsedMembers(validatedData);
+      const validCount = validatedData.filter(v => v.status === 'Ready to import').length;
+      setValidationSummary({
+          valid: validCount,
+          invalid: validatedData.length - validCount,
+          total: validatedData.length,
+      });
+
+    } catch (error: any) {
+      const errorMessage = error.message || 'Could not process file. Ensure it has required columns: "MemberID", "MemberFullName", "PhoneNumber", and "SchoolID".';
+      toast({ variant: 'destructive', title: 'Parsing Error', description: errorMessage });
+    } finally {
+      setIsParsing(false);
     }
   };
   

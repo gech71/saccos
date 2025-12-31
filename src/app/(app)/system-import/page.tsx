@@ -30,6 +30,7 @@ import { getImportPageData, processImport, type ImportPageData, type MemberDataF
 import ExcelJS from 'exceljs';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { validateExcelFileSize, shouldProcessServerSide } from '@/lib/file-upload-constants';
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 11 }, (_, i) => currentYear - 10 + i).reverse();
@@ -181,34 +182,74 @@ export default function SystemImportPage() {
         return;
     }
 
+    // Validate file size before processing
+    const sizeValidation = validateExcelFileSize(excelFile);
+    if (!sizeValidation.valid) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'File Too Large', 
+        description: sizeValidation.error 
+      });
+      return;
+    }
+
     setIsParsing(true);
     try {
-        const buffer = await excelFile.arrayBuffer();
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const worksheet = workbook.getWorksheet(1);
-        
-        if (!worksheet) {
-            throw new Error("No worksheet found in the Excel file.");
+        let dataRows: any[] = [];
+        let originalHeaders: string[] = [];
+
+        // Use server-side processing for large files to prevent browser freezes
+        if (shouldProcessServerSide(excelFile)) {
+          const formData = new FormData();
+          formData.append('file', excelFile);
+
+          const response = await fetch('/api/excel/parse', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to parse file on server');
+          }
+
+          originalHeaders = result.headers || [];
+          dataRows = result.data || [];
+        } else {
+          // Client-side processing for smaller files (better UX, faster)
+          const buffer = await excelFile.arrayBuffer();
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(buffer);
+          const worksheet = workbook.getWorksheet(1);
+          
+          if (!worksheet) {
+              throw new Error("No worksheet found in the Excel file.");
+          }
+
+          const headerRow = worksheet.getRow(1);
+          originalHeaders = headerRow.values as string[];
+          // Filter out undefined/null headers
+          originalHeaders = originalHeaders.filter((h): h is string => typeof h === 'string' && h.trim() !== '');
+          
+          worksheet.eachRow((row, rowNumber) => {
+              if (rowNumber > 1) {
+                  const rowData: any = {};
+                  row.eachCell((cell, colNumber) => {
+                      const headerIndex = colNumber - 1;
+                      if (headerIndex < originalHeaders.length) {
+                          rowData[originalHeaders[headerIndex]] = cell.value;
+                      }
+                  });
+                  dataRows.push(rowData);
+              }
+          });
         }
 
-        const headerRow = worksheet.getRow(1);
-        const originalHeaders = headerRow.values as string[];
         setFileHeaders(originalHeaders);
         
         const headerMap: { [key: string]: string } = {};
         originalHeaders.forEach(h => headerMap[standardizeHeader(h)] = h);
-        
-        const dataRows: any[] = [];
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
-                const rowData: any = {};
-                row.eachCell((cell, colNumber) => {
-                    rowData[originalHeaders[colNumber]] = cell.value;
-                });
-                dataRows.push(rowData);
-            }
-        });
 
         // Create standardized maps for system data
         const savingTypesMap = new Map(pageData.savingTypes.map(t => [standardizeHeader(t.name), `saving_${t.id}`]));
@@ -293,8 +334,9 @@ export default function SystemImportPage() {
         setValidationSummary({ valid, invalid, total: dataRows.length });
         toast({ title: "File Processed", description: `Found ${valid} valid record(s) and ${invalid} invalid record(s).` });
 
-    } catch (error) {
-         toast({ variant: 'destructive', title: 'File Read Error', description: 'There was an issue reading the Excel file. Please check its format.' });
+    } catch (error: any) {
+         const errorMessage = error.message || 'There was an issue reading the Excel file. Please check its format.';
+         toast({ variant: 'destructive', title: 'File Read Error', description: errorMessage });
     } finally {
         setIsParsing(false);
     }

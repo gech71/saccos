@@ -62,6 +62,7 @@ import { useAuth } from '@/contexts/auth-context';
 import ExcelJS from 'exceljs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { validateExcelFileSize, shouldProcessServerSide } from '@/lib/file-upload-constants';
 
 const initialDividendFormState: Partial<DividendInput> = {
   memberId: '',
@@ -284,9 +285,44 @@ export default function DividendsPage() {
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setIsParsing(true);
-      try {
+    if (!file) return;
+
+    // Validate file size before processing
+    const sizeValidation = validateExcelFileSize(file);
+    if (!sizeValidation.valid) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'File Too Large', 
+        description: sizeValidation.error 
+      });
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      let dataRows: any[] = [];
+      let headerRow: string[] = [];
+
+      // Use server-side processing for large files to prevent browser freezes
+      if (shouldProcessServerSide(file)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/excel/parse', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to parse file on server');
+        }
+
+        headerRow = result.headers || [];
+        dataRows = result.data || [];
+      } else {
+        // Client-side processing for smaller files (better UX, faster)
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(buffer);
@@ -294,47 +330,53 @@ export default function DividendsPage() {
         
         if (!worksheet) throw new Error("No worksheet found.");
 
-        const headerRow = worksheet.getRow(1).values as string[];
-        const dataRows: any[] = [];
+        headerRow = worksheet.getRow(1).values as string[];
+        // Filter out undefined/null headers
+        headerRow = headerRow.filter((h): h is string => typeof h === 'string' && h.trim() !== '');
+
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
                 row.eachCell((cell, colNumber) => {
-                    rowData[headerRow[colNumber]] = cell.value;
+                    const headerIndex = colNumber - 1;
+                    if (headerIndex < headerRow.length) {
+                        rowData[headerRow[headerIndex]] = cell.value;
+                    }
                 });
                 dataRows.push(rowData);
             }
         });
-
-        const memberMap = new Map(members.map(m => [String(m.memberId), m.id]));
-        const validatedData: ParsedDividend[] = dataRows.map(row => {
-          const providedId = row['Member ID']?.toString().trim();
-          const amount = parseFloat(row['Amount (Birr)']);
-          const shareCount = parseInt(row['Shares Held'], 10);
-          const date = row['Distribution Date'] instanceof Date ? row['Distribution Date'] : new Date();
-
-          let status: ParsedDividend['status'] = 'Ready to import';
-          const dbMemberId = memberMap.get(providedId);
-          
-          if (!dbMemberId) status = 'Invalid Member ID';
-          else if (isNaN(amount) || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
-          
-          return {
-            memberId: dbMemberId || providedId,
-            amount,
-            shareCountAtDistribution: shareCount,
-            distributionDate: date,
-            notes: row['Notes'] || 'Bulk import',
-            status
-          };
-        });
-        
-        setParsedDividends(validatedData);
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Parsing Error', description: 'Could not process file. Ensure it has columns: "Member ID", "Amount (Birr)", "Shares Held", "Distribution Date".' });
-      } finally {
-        setIsParsing(false);
       }
+
+      const memberMap = new Map(members.map(m => [String(m.memberId), m.id]));
+      const validatedData: ParsedDividend[] = dataRows.map(row => {
+        const providedId = row['Member ID']?.toString().trim();
+        const amount = parseFloat(row['Amount (Birr)']);
+        const shareCount = parseInt(row['Shares Held'], 10);
+        const date = row['Distribution Date'] instanceof Date ? row['Distribution Date'] : new Date();
+
+        let status: ParsedDividend['status'] = 'Ready to import';
+        const dbMemberId = memberMap.get(providedId);
+        
+        if (!dbMemberId) status = 'Invalid Member ID';
+        else if (isNaN(amount) || isNaN(shareCount) || shareCount < 0) status = 'Invalid Data';
+        
+        return {
+          memberId: dbMemberId || providedId,
+          amount,
+          shareCountAtDistribution: shareCount,
+          distributionDate: date,
+          notes: row['Notes'] || 'Bulk import',
+          status
+        };
+      });
+      
+      setParsedDividends(validatedData);
+    } catch (error: any) {
+      const errorMessage = error.message || 'Could not process file. Ensure it has columns: "Member ID", "Amount (Birr)", "Shares Held", "Distribution Date".';
+      toast({ variant: 'destructive', title: 'Parsing Error', description: errorMessage });
+    } finally {
+      setIsParsing(false);
     }
   };
   

@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
 
+  // Configure API route body size limits
+  // This allows larger Excel file uploads (up to 50MB) while preventing abuse
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
+
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "play-lh.googleusercontent.com" },
