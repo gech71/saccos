@@ -18,11 +18,18 @@ export async function validateResetToken(token: string): Promise<{ success: bool
     try {
         const hashedToken = hashToken(token);
 
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug('[dev] validateResetToken: incoming token hashed:', hashedToken);
+        }
+
         const user = await prisma.user.findFirst({
             where: { passwordResetToken: hashedToken },
         });
 
         if (user) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[dev] validateResetToken: matched user', { id: user.id, email: user.email, expires: user.passwordResetTokenExpires });
+            }
             if (!user.passwordResetTokenExpires || user.passwordResetTokenExpires < new Date()) {
                 return { success: false, message: "Token has expired." };
             }
@@ -34,12 +41,18 @@ export async function validateResetToken(token: string): Promise<{ success: bool
         });
 
         if (member) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[dev] validateResetToken: matched member', { id: member.id, email: member.email, expires: member.passwordResetTokenExpires });
+            }
             if (!member.passwordResetTokenExpires || member.passwordResetTokenExpires < new Date()) {
                 return { success: false, message: "Token has expired." };
             }
             return { success: true, message: "Token is valid." };
         }
 
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug('[dev] validateResetToken: no match for hashed token', hashedToken);
+        }
         return { success: false, message: "Invalid token." };
     } catch (error) {
         console.error('Token validation error:', error);
@@ -55,6 +68,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
     try {
         const validationResult = await validateResetToken(token);
         if (!validationResult.success) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[dev] resetPassword: token validation failed', { message: validationResult.message });
+            }
             return validationResult;
         }
         
@@ -66,14 +82,22 @@ export async function resetPassword(token: string, newPassword: string): Promise
         });
 
         if (user) {
-             await prisma.user.update({
+            // Update the user's password locally and clear token
+            await prisma.user.update({
                 where: { id: user.id },
                 data: {
+                    password: hashedPassword,
                     passwordResetToken: null,
                     passwordResetTokenExpires: null,
+                    mustChangePassword: false,
                 },
             });
-             return { success: true, message: "This flow is for an admin. In a real app, you would now integrate with the external provider's password change API. For now, the token is cleared." };
+
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[dev] resetPassword: updated user password and cleared token', { id: user.id, email: user.email });
+            }
+
+            return { success: true, message: "Password has been reset successfully." };
         }
 
         const member = await prisma.member.findFirst({

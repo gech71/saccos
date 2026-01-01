@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import { logAudit } from '@/lib/audit-log';
 import { requirePermission } from '@/lib/authorization';
 import { randomBytes } from 'crypto';
+import { sanitizeUsers } from '@/lib/sanitize-user-data';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -44,7 +45,10 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
       }),
     ]);
 
-    return { users, roles };
+    // Sanitize users to remove sensitive fields (passwordResetToken, password, etc.)
+    const sanitizedUsers = sanitizeUsers(users);
+
+    return { users: sanitizedUsers, roles };
   } catch (error) {
     console.error('Failed to get settings page data:', error);
     throw new Error('Could not load settings. Please try again later.');

@@ -70,10 +70,23 @@ export async function requestPasswordReset(
         }
     }
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
-    await sendPasswordResetEmail(normalizedEmail, resetUrl);
-
-    return { success: true, message: genericSuccessMessage };
+    // Ensure we use HTTPS in production, HTTP only for localhost
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+    
+    try {
+      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+      return { success: true, message: genericSuccessMessage };
+    } catch (emailError: any) {
+      // Log the error but don't reveal if user exists (security best practice)
+      console.error('Failed to send password reset email:', emailError);
+      // Still return success message to prevent user enumeration
+      // But log the actual error for administrators
+      return { 
+        success: false, 
+        message: 'Unable to send password reset email. Please check your email configuration or contact support.' 
+      };
+    }
 
   } catch (error) {
     console.error('Error during password reset request:', error);

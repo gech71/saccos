@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
+import { sanitizeMembers } from '@/lib/sanitize-user-data';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -91,8 +92,11 @@ export async function getMembersPageData(): Promise<MembersPageData> {
         totalSavingsBalance: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     }));
 
+    // Sanitize members to remove sensitive fields (passwordResetToken, password, etc.)
+    const sanitizedMembers = sanitizeMembers(formattedMembers);
+
     return {
-        members: formattedMembers,
+        members: sanitizedMembers,
         schools,
         shareTypes,
         savingAccountTypes,

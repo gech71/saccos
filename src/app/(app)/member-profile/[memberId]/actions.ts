@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { requireAuth, requirePermission } from '@/lib/authorization';
 import { format, compareDesc } from 'date-fns';
 import type { Member, School, Address, EmergencyContact, MemberSavingAccount, Loan, LoanRepayment, AppliedServiceCharge, Saving, SchoolHistory, Dividend, MemberShareCommitment, SharePayment, ShareType, LoanType, ServiceChargeType, SavingAccountType } from '@prisma/client';
+import { sanitizeMember } from '@/lib/sanitize-user-data';
 
 type GuaranteedLoan = Loan & { member: { fullName: string }, loanType: { name: string } | null };
 export interface MemberDetails {
@@ -209,8 +210,11 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         return loanWithoutRepayments;
     });
 
+    // Sanitize member to remove sensitive fields (passwordResetToken, password, etc.)
+    const sanitizedMember = sanitizeMember(member);
+
     return {
-        member,
+        member: sanitizedMember,
         school: member.school,
         address: member.address,
         emergencyContact: member.emergencyContact,
