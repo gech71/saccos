@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
-import React, { useState, FormEvent, useEffect, Suspense } from 'react';
+import React, { useState, FormEvent, useEffect, useRef, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -78,44 +78,54 @@ function LoginForm() {
     }
   }, [callbackError]);
   
-   useEffect(() => {
-  if (status === 'authenticated' && session?.user) {
-    (async () => {
-      try {
-        // Create refresh token cookie for long-lived refresh (7 days)
-        await fetch('/api/auth/create-refresh', { method: 'POST' });
-      } catch (err) {
-        console.error('Failed to create refresh token', err);
-      }
+  const didProcessLoginRef = useRef(false);
 
-      const user = session.user as any;
-      if (user.isMember) {
-        if(user.mustChangePassword) {
-          router.replace('/member-change-password');
-        } else {
-          router.replace(`/member-profile/${user.id}`);
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user && !didProcessLoginRef.current) {
+      didProcessLoginRef.current = true;
+
+      (async () => {
+        try {
+          // Create refresh token cookie for long-lived refresh (7 days) only once per session
+          const user = session.user as any;
+          const key = `refresh_created_${user.sessionId ?? user.id}`;
+          if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+            await fetch('/api/auth/create-refresh', { method: 'POST', credentials: 'same-origin' });
+            sessionStorage.setItem(key, '1');
+          }
+        } catch (err) {
+          console.error('Failed to create refresh token', err);
         }
-        return;
-      }
 
-      // For admin users, redirect to the first page they have access to.
-      const perms: string[] = Array.isArray(user.permissions)
-        ? user.permissions
-        : [];
+        const user = session.user as any;
+        let target: string | null = null;
 
-      if (perms.includes('dashboard:view')) {
-        router.replace('/dashboard');
-      } else if (perms.includes('member:view')) {
-        router.replace('/members');
-      } else if (perms.includes('saving:view')) {
-        router.replace('/savings');
-      } else if (perms.includes('school:view')) {
-        router.replace('/schools');
-      } else {
-        router.replace('/settings'); // Fallback for admins with no specific view perms
-      }
-    })();
-  }
+        if (user.isMember) {
+          if (user.mustChangePassword) {
+            target = '/member-change-password';
+          } else {
+            target = `/member-profile/${user.id}`;
+          }
+        } else {
+          // For admin users, redirect to the first page they have access to.
+          const perms: string[] = Array.isArray(user.permissions) ? user.permissions : [];
+          if (perms.includes('dashboard:view')) target = '/dashboard';
+          else if (perms.includes('member:view')) target = '/members';
+          else if (perms.includes('saving:view')) target = '/savings';
+          else if (perms.includes('school:view')) target = '/schools';
+          else target = '/settings';
+        }
+
+        // Avoid repeated router replaces (can cause navigation loops on some platforms)
+        try {
+          if (target && typeof window !== 'undefined' && window.location.pathname !== target) {
+            router.replace(target);
+          }
+        } catch (e) {
+          console.error('Redirect error', e);
+        }
+      })();
+    }
   }, [status, session, router]);
 
 

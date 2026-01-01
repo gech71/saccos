@@ -94,7 +94,8 @@ const LOCKOUT_DURATION_MINUTES = 15;
 
 function setAuthErrorCookie(message: string) {
   try {
-    cookies().set({
+    // Cast to any because types in this environment may not expose .set() on the Cookies object
+    (cookies() as any).set({
       name: "auth_error",
       value: message,
       path: "/",
@@ -196,7 +197,68 @@ export const authOptions: NextAuthOptions = {
                     } else {
                         userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
-                    return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+
+                    // Concurrency control: find an existing active session from the same device and reuse it; if none, create one.
+                    try {
+                      const allowConcurrent = process.env.ALLOW_CONCURRENT_SESSIONS === 'true';
+                      const userAgent = getHeaderValue(req.headers, 'user-agent') ?? undefined;
+
+                      // Prefer reusing an existing active session from the same IP + user-agent (same browser/device)
+                      let existingSameDevice = null as any | null;
+                      try {
+                        existingSameDevice = await (prisma as any).userSession.findFirst({
+                          where: {
+                            userId: user.id,
+                            revoked: false,
+                            ip,
+                            ...(userAgent ? { userAgent } : {}),
+                          },
+                          orderBy: { createdAt: 'desc' },
+                        });
+                      } catch (e) {
+                        // If Prisma client missing or table isn't present yet, ignore and continue
+                        existingSameDevice = null;
+                      }
+
+                      if (existingSameDevice) {
+                        // Update the existing session's expiry/last active time instead of creating a duplicate
+                        await (prisma as any).userSession.update({
+                          where: { id: existingSameDevice.id },
+                          data: { lastActiveAt: new Date(), expiresAt: new Date(Date.now() + 15 * 60 * 1000), userAgent },
+                        });
+
+                        // Clean up any other duplicate sessions for this same device (keep the updated record)
+                        try {
+                          await (prisma as any).userSession.deleteMany({ where: { userId: user.id, ip, userAgent, NOT: { id: existingSameDevice.id } } });
+                        } catch (e) {
+                          // Non-fatal
+                        }
+
+                        return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sessionId: existingSameDevice.id } as any;
+                      }
+
+                      // No existing same-device session found
+                      if (!allowConcurrent) {
+                        // Revoke other active sessions for this user (single-session policy)
+                        await (prisma as any).userSession.updateMany({ where: { userId: user.id, revoked: false }, data: { revoked: true } });
+                      }
+
+                      const createdSession = await (prisma as any).userSession.create({
+                        data: {
+                          userId: user.id,
+                          ip,
+                          userAgent: userAgent ?? undefined,
+                          expiresAt: new Date(Date.now() + (15 * 60 * 1000)), // 15 minutes, align with access token
+                        }
+                      });
+
+                      // Return the user payload including the session id so it can be embedded in tokens
+                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sessionId: createdSession.id } as any;
+                    } catch (err) {
+                      console.error('Session creation error:', err);
+                      // Fallback: still return user without sessionId
+                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+                    }
                 }
             }
             
@@ -235,12 +297,22 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.user = user;
+      if (user) {
+        token.user = user;
+        // If the authorize flow created a server-tracked session, capture its id as 'sid'
+        if ((user as any).sessionId) {
+          token.sid = (user as any).sessionId;
+        }
+      }
       return token;
     },
 
     async session({ session, token }) {
       session.user = token.user as any;
+      // Surface the session id to the client session object for use in refresh/create-refresh flows
+      if ((token as any).sid) {
+        (session.user as any).sessionId = (token as any).sid;
+      }
       return session;
     },
 

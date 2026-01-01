@@ -35,6 +35,24 @@ export async function POST(req: NextRequest) {
 
     const userId = payload.sub as string;
 
+    // Validate server-side session id (sid) to ensure refresh token is tied to an active session
+    const sid = payload.sid as string | undefined;
+    if (!sid) {
+      return NextResponse.json({ error: 'Invalid refresh token (no session)' }, { status: 401 });
+    }
+
+    const sessionRecord = await (prisma as any).userSession.findUnique({ where: { id: sid } });
+    if (!sessionRecord || sessionRecord.userId !== userId || sessionRecord.revoked) {
+      return NextResponse.json({ error: 'Session invalid or revoked' }, { status: 401 });
+    }
+
+    if (sessionRecord.expiresAt && sessionRecord.expiresAt < new Date()) {
+      return NextResponse.json({ error: 'Session expired' }, { status: 401 });
+    }
+
+    // Update last active timestamp
+    await (prisma as any).userSession.update({ where: { id: sid }, data: { lastActiveAt: new Date() } });
+
     // Rebuild the user payload for access token. Prefer admin user then member.
     let userRecord = await prisma.user.findUnique({ where: { id: userId } });
     let tokenPayload: any = null;
@@ -44,14 +62,14 @@ export async function POST(req: NextRequest) {
       const permissions = new Set<string>();
       const isAdmin = userRoles.some(r => r.name === 'Admin');
       if (isAdmin) permissions.add('admin');
-      userRecord.roles = userRoles.map(r => r.name) as any;
+      const roles = userRoles.map(r => r.name);
       tokenPayload = {
         id: userRecord.id,
         name: userRecord.name,
         email: userRecord.email,
         phoneNumber: userRecord.phoneNumber,
         isMember: false,
-        roles: userRecord.roles,
+        roles,
         permissions: Array.from(permissions),
       };
     } else {
@@ -68,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Sign new access token (15 minutes)
-    const accessToken = jwt.sign({ user: tokenPayload }, signingKey as string, {
+    const accessToken = jwt.sign({ user: tokenPayload, sid }, signingKey as string, {
       algorithm: 'HS256',
       expiresIn: '15m',
     });

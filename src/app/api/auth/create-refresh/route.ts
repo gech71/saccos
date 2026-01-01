@@ -17,7 +17,11 @@ export async function POST(req: NextRequest) {
   }
 
   const user = session.user as any;
-  const refreshToken = jwt.sign({ sub: user.id, type: 'refresh' }, signingKey as string, {
+  // Include the server session id (sid) so refreshes can be validated against active sessions
+  const refreshPayload: any = { sub: user.id, type: 'refresh' };
+  if (user.sessionId) refreshPayload.sid = user.sessionId;
+
+  const refreshToken = jwt.sign(refreshPayload, signingKey as string, {
     algorithm: 'HS256',
     expiresIn: '7d',
   });

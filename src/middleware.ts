@@ -72,6 +72,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Server-side validation: call the validate-session endpoint (server runtime) to ensure the session
+  // referenced by the cookie is active and not revoked. We forward cookies so the server can inspect them.
+  try {
+    const validateUrl = new URL('/api/auth/validate-session', request.url).toString();
+    const validation = await fetch(validateUrl, {
+      method: 'POST',
+      headers: {
+        cookie: request.headers.get('cookie') ?? '',
+      },
+    });
+
+    if (!validation.ok) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+  } catch (err) {
+    // If validation fails unexpectedly, treat as unauthenticated to be safe
+    console.error('Session validation failed:', err);
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return response;
 }
 
