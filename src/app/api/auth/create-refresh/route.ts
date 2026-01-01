@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { auth } from '@/auth';
@@ -17,7 +18,14 @@ export async function POST(req: NextRequest) {
   }
 
   const user = session.user as any;
-  const refreshToken = jwt.sign({ sub: user.id, type: 'refresh' }, signingKey as string, {
+  const refreshTokenPayload = { 
+    sub: user.id, 
+    type: 'refresh',
+    sessionVersion: user.sessionVersion, // Ensure sessionVersion is included
+  };
+
+  console.log(`[CREATE_REFRESH_API] Creating refresh token for user ${user.id} with sessionVersion: ${user.sessionVersion}`);
+  const refreshToken = jwt.sign(refreshTokenPayload, signingKey as string, {
     algorithm: 'HS256',
     expiresIn: '7d',
   });

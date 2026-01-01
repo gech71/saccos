@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext } from 'react';
@@ -33,7 +34,10 @@ const AuthProviderContent = ({
   const user = session?.user?.isMember ? null : (session?.user as AuthUser | null);
   const member = session?.user?.isMember ? (session?.user as MemberAuthUser | null) : null;
 
-  const logout = () => {
+  const logout = async () => {
+    // Invalidate the refresh token on the server first
+    await fetch('/api/auth/clear-refresh', { method: 'POST' });
+    // Then sign out on the client
     signOut({ callbackUrl: '/login' });
   };
 
