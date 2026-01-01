@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
   const isProd = process.env.NODE_ENV === 'production';
   const maxAge = 7 * 24 * 60 * 60; // 7 days
-  const cookie = `${REFRESH_COOKIE_NAME}=${refreshToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isProd ? '; Secure; SameSite=Lax' : ''}`;
+  const sameSite = 'SameSite=Strict';
+  const securePart = isProd ? '; Secure' : '';
+  const cookie = `${REFRESH_COOKIE_NAME}=${refreshToken}; Path=/; HttpOnly; ${sameSite}; Max-Age=${maxAge}${securePart}`;
   res.headers.append('Set-Cookie', cookie);
   return res;
 }

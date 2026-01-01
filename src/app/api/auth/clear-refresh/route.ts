@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
   }
   
   const res = NextResponse.json({ ok: true });
+  const isProd = process.env.NODE_ENV === 'production';
   // Clear cookie
-  res.headers.append('Set-Cookie', `${REFRESH_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax`);
+  res.headers.append('Set-Cookie', `${REFRESH_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0; SameSite=Strict${isProd ? '; Secure' : ''}`);
   return res;
 }

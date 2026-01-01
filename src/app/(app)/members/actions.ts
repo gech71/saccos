@@ -252,12 +252,16 @@ export async function addMember(data: MemberInput, csrfToken?: string): Promise<
         const temporaryPassword = randomBytes(12).toString('hex');
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
+        const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
+        const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
         const newMember = await prisma.member.create({
             data: {
                 memberId,
                 ...memberData,
                 password: hashedPassword,
                 temporaryPassword: temporaryPassword,
+                temporaryPasswordExpires: expiresAt,
                 mustChangePassword: true,
                 status: 'active',
                 joinDate: new Date(memberData.joinDate),
@@ -534,6 +538,9 @@ export async function importMembers(
       const temporaryPassword = randomBytes(12).toString('hex');
       const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
       
+      const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
+      const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+      
       const newMember = await prisma.member.create({
         data: {
           memberId: memberId,
@@ -541,6 +548,7 @@ export async function importMembers(
           email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Generate unique email
           password: hashedPassword,
           temporaryPassword,
+          temporaryPasswordExpires: expiresAt,
           mustChangePassword: true,
           sex: 'Male', // Default, can be updated later
           phoneNumber: toLocalPhone(m.PhoneNumber),

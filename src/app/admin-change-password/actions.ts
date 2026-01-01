@@ -42,6 +42,7 @@ export async function changeAdminPassword(
         password: hashedNewPassword,
         mustChangePassword: false,
         temporaryPassword: null,
+        temporaryPasswordExpires: null,
       },
     });
 

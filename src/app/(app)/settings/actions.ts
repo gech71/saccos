@@ -242,6 +242,9 @@ export async function registerUserByAdmin(
     const temporaryPassword = data.password; // Use the password from the form as the temp pass
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
+    const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
+    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
     const newUser = await prisma.user.create({
       data: {
         name: `${data.firstName} ${data.lastName}`,
@@ -252,6 +255,7 @@ export async function registerUserByAdmin(
         password: hashedPassword,
         mustChangePassword: true, // Enforce password change on first login
         temporaryPassword: temporaryPassword,
+        temporaryPasswordExpires: expiresAt,
         roles: {
           connect: roleIds.map((id) => ({ id })),
         },

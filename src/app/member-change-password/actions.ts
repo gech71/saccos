@@ -47,6 +47,7 @@ export async function changeMemberPassword(
         password: hashedNewPassword,
         mustChangePassword: false,
         temporaryPassword: null, // Clear the temporary password
+        temporaryPasswordExpires: null,
       },
     });
 

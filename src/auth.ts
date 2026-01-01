@@ -95,12 +95,15 @@ const LOCKOUT_DURATION_MINUTES = 15;
 
 function setAuthErrorCookie(message: string) {
   try {
+    const isProd = process.env.NODE_ENV === 'production';
     cookies().set({
       name: "auth_error",
       value: message,
       path: "/",
       maxAge: 60, // Cookie lasts for 1 minute
-      sameSite: "lax",
+      sameSite: "strict",
+      secure: isProd,
+      httpOnly: false,
     });
   } catch (e) {
     console.error('Failed to set auth error cookie:', e);
@@ -164,6 +167,13 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 15 * 60, // 15 minutes
   },
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: { httpOnly: true, sameSite: 'strict', path: '/', secure: process.env.NODE_ENV === 'production' }
+    }
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -189,6 +199,32 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 const match = user.password && (await bcrypt.compare(password, user.password));
                 if (match) {
+                    // If this account requires a password change, validate the temporary password expiry and enforce single-use.
+                    if (user.mustChangePassword) {
+                      const now = new Date();
+                      if (!user.temporaryPasswordExpires || user.temporaryPasswordExpires < now) {
+                        setAuthErrorCookie('Temporary password has expired. Please request a password reset.');
+                        return null;
+                      }
+
+                      // Temp password is valid; invalidate it immediately to enforce single-use
+                      try {
+                        await prisma.user.update({ where: { id: user.id }, data: { temporaryPassword: null, temporaryPasswordExpires: null } });
+                      } catch (e) {
+                        console.error('Failed to clear temporary password after login:', e);
+                      }
+
+                      await resetRateLimit('PHONE', phoneLocal);
+                      const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
+                      const permissions = new Set<string>();
+                      if (userRoles.some(r => r.name === "Admin")) {
+                          permissionsList.forEach(p => permissions.add(p.id));
+                      } else {
+                          userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
+                      }
+                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+                    }
+
                     await resetRateLimit('PHONE', phoneLocal);
                     const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
                     const permissions = new Set<string>();
@@ -205,6 +241,24 @@ export const authOptions: NextAuthOptions = {
             if (member) {
                 const match = member.password && (await bcrypt.compare(password, member.password));
                 if (match) {
+                    // Enforce temporary password expiry and single-use if member must change password
+                    if (member.mustChangePassword) {
+                      const now = new Date();
+                      if (!member.temporaryPasswordExpires || member.temporaryPasswordExpires < now) {
+                        setAuthErrorCookie('Temporary password has expired. Please request a password reset.');
+                        return null;
+                      }
+
+                      try {
+                        await prisma.member.update({ where: { id: member.id }, data: { temporaryPassword: null, temporaryPasswordExpires: null } });
+                      } catch (e) {
+                        console.error('Failed to clear temporary password after member login:', e);
+                      }
+
+                      await resetRateLimit('PHONE', phoneLocal);
+                      return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
+                    }
+
                     await resetRateLimit('PHONE', phoneLocal);
                     return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
                 }

@@ -11,7 +11,7 @@ function buildSessionCookie(token: string) {
   const isProd = process.env.NODE_ENV === 'production';
   const maxAge = 15 * 60; // 15 minutes
   // NextAuth uses httpOnly session cookies; mirror similar attributes
-  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${isProd ? '; Secure' : ''}`;
+  return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isProd ? '; Secure' : ''}`;
 }
 
 export async function POST(req: NextRequest) {
