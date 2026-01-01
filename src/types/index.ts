@@ -68,6 +68,7 @@ export interface Member {
   closureDate?: string; // ISO date string
   memberSavingAccounts?: any[]; // To hold the relation
   shareCommitments?: MemberShareCommitment[];
+  sessionVersion?: number;
 }
 
 export interface Saving {
@@ -216,6 +217,7 @@ export interface AuthUser {
   isMember: false; // Discriminator
   roles: string[];
   permissions: string[];
+  sessionVersion: number;
 }
 
 export interface MemberAuthUser {
@@ -225,6 +227,7 @@ export interface MemberAuthUser {
   phoneNumber?: string | null;
   isMember: true; // Discriminator
   mustChangePassword?: boolean | null;
+  sessionVersion: number;
 }
 
 export interface WebsiteContent extends Prisma.WebsiteContentGetPayload<{
@@ -234,3 +237,4 @@ export interface WebsiteContent extends Prisma.WebsiteContentGetPayload<{
     heroSlides: true;
   }
 }> {}
+```

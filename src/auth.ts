@@ -189,6 +189,11 @@ export const authOptions: NextAuthOptions = {
                 const match = user.password && (await bcrypt.compare(password, user.password));
                 if (match) {
                     await resetRateLimit('PHONE', phoneLocal);
+                    // Increment session version on successful login
+                    const updatedUser = await prisma.user.update({
+                      where: { id: user.id },
+                      data: { sessionVersion: { increment: 1 } },
+                    });
                     const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
                     const permissions = new Set<string>();
                     if (userRoles.some(r => r.name === "Admin")) {
@@ -196,7 +201,7 @@ export const authOptions: NextAuthOptions = {
                     } else {
                         userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
-                    return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+                    return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sessionVersion: updatedUser.sessionVersion } as AuthUser;
                 }
             }
             
@@ -205,7 +210,12 @@ export const authOptions: NextAuthOptions = {
                 const match = member.password && (await bcrypt.compare(password, member.password));
                 if (match) {
                     await resetRateLimit('PHONE', phoneLocal);
-                    return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
+                    // Increment session version on successful login
+                    const updatedMember = await prisma.member.update({
+                      where: { id: member.id },
+                      data: { sessionVersion: { increment: 1 } },
+                    });
+                    return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false, sessionVersion: updatedMember.sessionVersion } as MemberAuthUser;
                 }
             }
 
@@ -289,3 +299,4 @@ export { handler as GET, handler as POST };
 export async function auth() {
   return getServerSession(authOptions);
 }
+```
