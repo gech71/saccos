@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { PageTitle } from '@/components/page-title';
@@ -10,8 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import React, { useState } from 'react';
-import { UserCircle, Camera } from 'lucide-react';
+import { UserCircle, Camera, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+const passwordSchema = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 export default function ProfileSettingsPage() {
   const { toast } = useToast();
@@ -24,6 +26,11 @@ export default function ProfileSettingsPage() {
     avatarUrl: user?.image || '',
   });
   
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -33,21 +40,39 @@ export default function ProfileSettingsPage() {
   };
   
   const handleProfileSave = () => {
+    setIsSavingProfile(true);
     // Simulate API call
-    toast({ title: 'Profile Updated', description: 'Your profile information has been saved.' });
+    setTimeout(() => {
+      toast({ title: 'Profile Updated', description: 'Your profile information has been saved.' });
+      setIsSavingProfile(false);
+    }, 1000);
   };
 
   const handlePasswordChange = () => {
-    if (newPassword && newPassword === confirmPassword) {
-      // Simulate API call
-      toast({ title: 'Password Changed', description: 'Your password has been updated successfully.' });
-      setNewPassword('');
-      setConfirmPassword('');
-    } else if (newPassword !== confirmPassword) {
-      toast({ variant: 'destructive', title: 'Error', description: 'New passwords do not match.' });
-    } else {
-       toast({ variant: 'destructive', title: 'Error', description: 'Please enter a new password.' });
+    setPasswordError(null);
+
+    if (!currentPassword) {
+      setPasswordError('Please enter your current password.');
+      return;
     }
+    if (!passwordSchema.test(newPassword)) {
+      setPasswordError('New password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    // Simulate API call
+    setTimeout(() => {
+        toast({ title: 'Password Changed', description: 'Your password has been updated successfully.' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setIsChangingPassword(false);
+    }, 1500)
   };
 
   return (
@@ -88,7 +113,10 @@ export default function ProfileSettingsPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleProfileSave} className="ml-auto">Save Profile Changes</Button>
+          <Button onClick={handleProfileSave} className="ml-auto" disabled={isSavingProfile}>
+            {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+            Save Profile Changes
+          </Button>
         </CardFooter>
       </Card>
 
@@ -98,21 +126,32 @@ export default function ProfileSettingsPage() {
           <CardDescription>Update your account password. For security, choose a strong, unique password.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+           {passwordError && (
+            <Alert variant="destructive">
+              <AlertDescription>{passwordError}</AlertDescription>
+            </Alert>
+          )}
           <div>
             <Label htmlFor="currentPassword">Current Password</Label>
-            <Input id="currentPassword" type="password" placeholder="Enter your current password" />
+            <Input id="currentPassword" type="password" placeholder="Enter your current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
           </div>
           <div>
             <Label htmlFor="newPassword">New Password</Label>
-            <Input id="newPassword" type="password" placeholder="Enter new password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <Input id="newPassword" type="password" placeholder="Enter new password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+            <p className="text-xs text-muted-foreground mt-2">
+              Must be at least 8 characters and include uppercase, lowercase, number, and special character.
+            </p>
           </div>
           <div>
             <Label htmlFor="confirmPassword">Confirm New Password</Label>
-            <Input id="confirmPassword" type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            <Input id="confirmPassword" type="password" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handlePasswordChange} className="ml-auto">Change Password</Button>
+          <Button onClick={handlePasswordChange} className="ml-auto" disabled={isChangingPassword}>
+             {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+            Change Password
+          </Button>
         </CardFooter>
       </Card>
     </div>

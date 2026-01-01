@@ -21,6 +21,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { changeAdminPassword } from './actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+const passwordSchema = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 export default function AdminChangePasswordPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -35,8 +37,8 @@ export default function AdminChangePasswordPage() {
     event.preventDefault();
     setError(null);
 
-    if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long.');
+    if (!passwordSchema.test(newPassword)) {
+      setError('Password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -87,6 +89,9 @@ export default function AdminChangePasswordPage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
               />
+               <p className="text-xs text-muted-foreground">
+                Must be at least 8 characters and include uppercase, lowercase, number, and special character.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm New Password</Label>

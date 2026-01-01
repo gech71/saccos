@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,6 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
+const passwordSchema = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 const initialFormState = {
   firstName: '',
@@ -71,6 +74,10 @@ export default function RegisterUserPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields and select at least one role.' });
       return;
     }
+    if (!passwordSchema.test(formState.password)) {
+      toast({ variant: 'destructive', title: 'Weak Password', description: 'Password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.' });
+      return;
+    }
     
     setIsSubmitting(true);
     const result = await registerUserByAdmin(formState, formState.roleIds);
@@ -122,6 +129,9 @@ export default function RegisterUserPage() {
             <div>
               <Label htmlFor="password">Temporary Password <span className="text-destructive">*</span></Label>
               <Input id="password" name="password" type="password" value={formState.password} onChange={handleInputChange} required />
+              <p className="text-xs text-muted-foreground mt-2">
+                Must be at least 8 characters and include uppercase, lowercase, number, and special character.
+              </p>
             </div>
             
             <Separator />

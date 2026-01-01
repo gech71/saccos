@@ -15,6 +15,8 @@ import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import { validateResetToken, resetPassword } from './actions';
 
+const passwordSchema = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 function ResetPasswordComponent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -59,8 +61,8 @@ function ResetPasswordComponent() {
             toast({ variant: 'destructive', title: 'Error', description: 'The password reset link is invalid or has expired.' });
             return;
         }
-        if (newPassword.length < 6) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters long.' });
+        if (!passwordSchema.test(newPassword)) {
+            toast({ variant: 'destructive', title: 'Invalid Password', description: 'Password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.' });
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -104,6 +106,9 @@ function ResetPasswordComponent() {
                             onChange={(e) => setNewPassword(e.target.value)}
                             required
                         />
+                         <p className="text-xs text-muted-foreground">
+                            Must be at least 8 characters and include uppercase, lowercase, number, and special character.
+                        </p>
                         </div>
                         <div className="space-y-2">
                         <Label htmlFor="confirmPassword">Confirm New Password</Label>
