@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import prisma from '@/lib/prisma';
+import { validateRefreshToken } from '@/lib/session-management';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
 const SESSION_COOKIE_NAME = 'authjs.session-token';
@@ -35,8 +36,26 @@ export async function POST(req: NextRequest) {
 
     const userId = payload.sub as string;
 
-    // Rebuild the user payload for access token. Prefer admin user then member.
+    // Determine user type and validate refresh token against database
     let userRecord = await prisma.user.findUnique({ where: { id: userId } });
+    let memberRecord = null;
+    let userType: 'user' | 'member' = 'user';
+    
+    if (userRecord) {
+      userType = 'user';
+    } else {
+      memberRecord = await prisma.member.findUnique({ where: { id: userId } });
+      if (!memberRecord) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      userType = 'member';
+    }
+    
+    // Security: Validate refresh token exists in database (prevents use of revoked tokens)
+    const isValidSession = await validateRefreshToken(refresh, userId, userType);
+    if (!isValidSession) {
+      return NextResponse.json({ error: 'Session expired or invalid' }, { status: 401 });
+    }
+
+    // Rebuild the user payload for access token. Prefer admin user then member.
     let tokenPayload: any = null;
     if (userRecord) {
       // admin user
@@ -54,16 +73,14 @@ export async function POST(req: NextRequest) {
         roles: userRecord.roles,
         permissions: Array.from(permissions),
       };
-    } else {
-      const member = await prisma.member.findUnique({ where: { id: userId } });
-      if (!member) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    } else if (memberRecord) {
       tokenPayload = {
-        id: member.id,
-        name: member.fullName,
-        email: member.email,
-        phoneNumber: member.phoneNumber,
+        id: memberRecord.id,
+        name: memberRecord.fullName,
+        email: memberRecord.email,
+        phoneNumber: memberRecord.phoneNumber,
         isMember: true,
-        mustChangePassword: member.mustChangePassword,
+        mustChangePassword: memberRecord.mustChangePassword,
       };
     }
 

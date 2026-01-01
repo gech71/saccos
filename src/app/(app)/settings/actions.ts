@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import { logAudit } from '@/lib/audit-log';
 import { requirePermission } from '@/lib/authorization';
 import { randomBytes } from 'crypto';
-import { sanitizeUsers } from '@/lib/sanitize-user-data';
+import { sanitizeUsers, sanitizeUser } from '@/lib/sanitize-user-data';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -79,7 +79,7 @@ export async function updateUserRoles(
     });
 
     revalidatePath('/settings');
-    return updatedUser;
+    return sanitizeUser(updatedUser) as User;
   } catch (error) {
     console.error('Failed to update user roles:', error);
     throw new Error('An unexpected error occurred while updating roles.');
@@ -247,7 +247,7 @@ export async function registerUserByAdmin(
     });
 
     revalidatePath('/settings');
-    return { success: true, user: newUser, temporaryPassword };
+    return { success: true, user: sanitizeUser(newUser) as User, temporaryPassword };
   } catch (error) {
     console.error('Error during user registration:', error);
     if (

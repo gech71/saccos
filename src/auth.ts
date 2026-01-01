@@ -10,6 +10,7 @@ import { permissionsList } from "./app/(app)/settings/permissions";
 import { differenceInMinutes } from 'date-fns';
 import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 
 function toLocalPhone(phone?: string | null) {
   if (!phone) return "";
@@ -234,15 +235,63 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.user = user;
-      return token;
-    },
+    async jwt({ token, user, trigger }) {
+      if (user) {
+        token.user = user;
+        // Generate a unique session ID (jti) for tracking concurrent sessions
+        if (!token.jti) {
+          token.jti = crypto.randomUUID();
+        }
+      }
 
-    async session({ session, token }) {
-      session.user = token.user as any;
-      return session;
-    },
+      // Concurrent Session Enforcement
+      // Only check existing tokens (not new logins) - skip when user is present (new login)
+      // When MAX_CONCURRENT_SESSIONS = 1, only one session can be active at a time
+      // If the jti doesn't match the active session, it was invalidated by a new login
+      if (token.jti && token.user && !user) {
+        // This is an existing token being validated (not a new login)
+        // Check if this session is still active in the database
+        try {
+          // Allow a grace period for very new tokens (120 seconds) to handle race conditions
+          // where create-refresh hasn't been called yet
+          const isVeryNewToken = token.iat && (Date.now() / 1000 - token.iat < 120);
+          
+          if (!isVeryNewToken) {
+            const userData = token.user as any;
+            const userType = userData.isMember ? 'member' : 'user';
+            
+            // Import here to avoid circular dependencies
+            const { isActiveSession } = await import('./lib/session-management');
+            const isActive = await isActiveSession(token.jti, userData.id, userType);
+            
+            if (!isActive) {
+              // This session was invalidated (e.g., by a new login on another device)
+              console.warn(`[AUTH] Session invalidated - jti ${token.jti} is not the active session for user ${userData.id}`);
+              return { ...token, error: "SessionInvalidated" };
+            }
+          }
+        } catch (error) {
+          // If there's an error checking, log it but don't block the request
+          // This prevents database issues from breaking authentication
+          console.error('[AUTH] Error checking active session:', error);
+        }
+      }
+      
+      return token;
+      },
+  
+      async session({ session, token }) {
+        // Handle invalidated sessions
+        if (token.error === "SessionInvalidated" || !token.user) {
+          // Returning null forces the client to sign out
+          return null as any;
+        }
+
+        session.user = token.user as any;
+        // Expose the session ID (jti) to the client and other server-side calls
+        (session as any).jti = token.jti;
+        return session;
+      },
 
     async redirect({ url, baseUrl }) {
       // Security: Validate callback URL to prevent open redirect attacks

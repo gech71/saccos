@@ -4,6 +4,7 @@
 import { requireAuth } from '@/lib/authorization';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { invalidateAllUserSessions } from '@/lib/session-management';
 
 export async function changeAdminPassword(
   newPassword: string
@@ -43,6 +44,9 @@ export async function changeAdminPassword(
         temporaryPassword: null,
       },
     });
+
+    // Security: Invalidate all active sessions for this user after password change
+    await invalidateAllUserSessions(userId, 'user');
 
     return { success: true };
   } catch (error) {

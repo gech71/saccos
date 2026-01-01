@@ -93,6 +93,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
                 },
             });
 
+            // Security: Invalidate all active sessions after password reset
+            const { invalidateAllUserSessions } = await import('@/lib/session-management');
+            await invalidateAllUserSessions(user.id, 'user');
+
             if (process.env.NODE_ENV !== 'production') {
                 console.debug('[dev] resetPassword: updated user password and cleared token', { id: user.id, email: user.email });
             }
@@ -114,6 +118,11 @@ export async function resetPassword(token: string, newPassword: string): Promise
                     mustChangePassword: false,
                 },
             });
+
+            // Security: Invalidate all active sessions after password reset
+            const { invalidateAllUserSessions } = await import('@/lib/session-management');
+            await invalidateAllUserSessions(member.id, 'member');
+
              return { success: true, message: "Password has been reset successfully." };
         }
 

@@ -439,3 +439,19 @@ model RateLimit {
   
   @@unique([identifier, type])
 }
+
+model ActiveSession {
+  id            String   @id @default(cuid())
+  sessionId     String   @unique // JWT ID (jti) or session identifier
+  userId        String   // Can be User.id or Member.id
+  userType      String   // 'user' or 'member'
+  refreshToken  String   @unique @db.Text // Hashed refresh token
+  ipAddress     String?
+  userAgent     String?  @db.Text
+  createdAt     DateTime @default(now())
+  lastActiveAt  DateTime @default(now())
+  expiresAt     DateTime
+  
+  @@index([userId, userType])
+  @@index([expiresAt])
+}

@@ -33,8 +33,15 @@ const AuthProviderContent = ({
   const user = session?.user?.isMember ? null : (session?.user as AuthUser | null);
   const member = session?.user?.isMember ? (session?.user as MemberAuthUser | null) : null;
 
-  const logout = () => {
-    signOut({ callbackUrl: '/login' });
+  const logout = async () => {
+    try {
+      // Invalidate refresh token server-side and clear refresh cookie
+      await fetch('/api/auth/clear-refresh', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to clear refresh token on logout', err);
+    } finally {
+      await signOut({ callbackUrl: '/login' });
+    }
   };
 
   const value: AuthContextType = {
