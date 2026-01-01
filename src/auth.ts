@@ -306,9 +306,10 @@ export const authOptions: NextAuthOptions = {
         // This is an existing token being validated (not a new login)
         // Check if this session is still active in the database
         try {
-          // Allow a grace period for very new tokens (120 seconds) to handle race conditions
-          // where create-refresh hasn't been called yet
-          const isVeryNewToken = token.iat && (Date.now() / 1000 - token.iat < 120);
+          // Allow a short grace period for very new tokens (30 seconds) to handle race conditions
+          // where create-refresh hasn't been called yet. This is a minimal window to prevent
+          // blocking legitimate new sessions while still catching revoked sessions quickly.
+          const isVeryNewToken = token.iat && (Date.now() / 1000 - token.iat < 30);
           
           if (!isVeryNewToken) {
             const userData = token.user as any;
@@ -327,6 +328,7 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           // If there's an error checking, log it but don't block the request
           // This prevents database issues from breaking authentication
+          // Note: requireAuth() will perform additional validation on every API call
           console.error('[AUTH] Error checking active session:', error);
         }
       }

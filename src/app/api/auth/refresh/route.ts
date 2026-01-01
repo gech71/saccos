@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = payload.sub as string;
+    const sessionId = payload.sessionId as string | undefined;
 
     // Determine user type and validate refresh token against database
     let userRecord = await prisma.user.findUnique({ where: { id: userId } });
@@ -49,8 +50,9 @@ export async function POST(req: NextRequest) {
       userType = 'member';
     }
     
-    // Security: Validate refresh token exists in database (prevents use of revoked tokens)
-    const isValidSession = await validateRefreshToken(refresh, userId, userType);
+    // Security: Validate refresh token exists in database and is bound to the correct session
+    // This prevents use of revoked tokens and ensures sessionId binding is enforced
+    const isValidSession = await validateRefreshToken(refresh, userId, userType, sessionId);
     if (!isValidSession) {
       return NextResponse.json({ error: 'Session expired or invalid' }, { status: 401 });
     }
@@ -84,11 +86,19 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Sign new access token (15 minutes)
-    const accessToken = jwt.sign({ user: tokenPayload }, signingKey as string, {
-      algorithm: 'HS256',
-      expiresIn: '15m',
-    });
+    // Sign new access token (15 minutes) with sessionId (jti) for session validation
+    // The sessionId binding ensures access tokens are immediately invalidated when the session is revoked
+    const accessToken = jwt.sign(
+      { 
+        user: tokenPayload,
+        jti: sessionId, // Include sessionId (jti) to bind access token to the active session
+      }, 
+      signingKey as string, 
+      {
+        algorithm: 'HS256',
+        expiresIn: '15m',
+      }
+    );
 
     const res = NextResponse.json({ ok: true });
     // Set session cookie

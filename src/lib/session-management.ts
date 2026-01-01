@@ -91,11 +91,14 @@ export async function createActiveSession(params: {
 
 /**
  * Validate if a refresh token exists and is active
+ * Also validates that the sessionId from the token payload matches the database record
+ * This ensures refresh tokens are bound to specific sessions and prevents token reuse
  */
 export async function validateRefreshToken(
   refreshToken: string,
   userId: string,
-  userType: 'user' | 'member'
+  userType: 'user' | 'member',
+  expectedSessionId?: string
 ): Promise<boolean> {
   const hashedToken = hashRefreshToken(refreshToken);
   const now = new Date();
@@ -110,6 +113,13 @@ export async function validateRefreshToken(
   });
   
   if (session) {
+    // Additional security: Verify sessionId binding if provided
+    // This ensures the refresh token is bound to the specific session
+    if (expectedSessionId && session.sessionId !== expectedSessionId) {
+      console.warn(`[session-management] Session ID mismatch - expected ${expectedSessionId}, found ${session.sessionId}`);
+      return false;
+    }
+    
     // Update last active timestamp
     await prisma.activeSession.update({
       where: { id: session.id },
