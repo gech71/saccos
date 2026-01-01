@@ -188,12 +188,14 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 const match = user.password && (await bcrypt.compare(password, user.password));
                 if (match) {
+                    console.log(`[AUTH] User login success for: ${user.email}. Old sessionVersion: ${user.sessionVersion}`);
                     await resetRateLimit('PHONE', phoneLocal);
-                    // Increment session version on successful login
                     const updatedUser = await prisma.user.update({
                       where: { id: user.id },
                       data: { sessionVersion: { increment: 1 } },
                     });
+                    console.log(`[AUTH] New sessionVersion for ${user.email}: ${updatedUser.sessionVersion}`);
+
                     const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
                     const permissions = new Set<string>();
                     if (userRoles.some(r => r.name === "Admin")) {
@@ -201,7 +203,10 @@ export const authOptions: NextAuthOptions = {
                     } else {
                         userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
-                    return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sessionVersion: updatedUser.sessionVersion } as AuthUser;
+
+                    const authPayload: AuthUser = { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sessionVersion: updatedUser.sessionVersion };
+                    console.log('[AUTH] Returning user payload:', JSON.stringify(authPayload));
+                    return authPayload;
                 }
             }
             
@@ -209,13 +214,17 @@ export const authOptions: NextAuthOptions = {
             if (member) {
                 const match = member.password && (await bcrypt.compare(password, member.password));
                 if (match) {
+                    console.log(`[AUTH] Member login success for: ${member.email}. Old sessionVersion: ${member.sessionVersion}`);
                     await resetRateLimit('PHONE', phoneLocal);
-                    // Increment session version on successful login
                     const updatedMember = await prisma.member.update({
                       where: { id: member.id },
                       data: { sessionVersion: { increment: 1 } },
                     });
-                    return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false, sessionVersion: updatedMember.sessionVersion } as MemberAuthUser;
+                     console.log(`[AUTH] New sessionVersion for ${member.email}: ${updatedMember.sessionVersion}`);
+
+                    const authPayload: MemberAuthUser = { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false, sessionVersion: updatedMember.sessionVersion };
+                     console.log('[AUTH] Returning member payload:', JSON.stringify(authPayload));
+                    return authPayload;
                 }
             }
 
@@ -245,12 +254,18 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.user = user;
+      if (user) {
+        console.log('[AUTH_JWT] New JWT created. User:', JSON.stringify(user));
+        token.user = user;
+      } else {
+        console.log('[AUTH_JWT] JWT callback without new user. Token:', JSON.stringify(token));
+      }
       return token;
     },
 
     async session({ session, token }) {
       session.user = token.user as any;
+      console.log('[AUTH_SESSION] Session created/updated. User from token:', JSON.stringify(session.user));
       return session;
     },
 
@@ -299,4 +314,3 @@ export { handler as GET, handler as POST };
 export async function auth() {
   return getServerSession(authOptions);
 }
-```

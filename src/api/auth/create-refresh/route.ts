@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     sessionVersion: user.sessionVersion,
   };
 
+  console.log(`[CREATE_REFRESH_API] Creating refresh token for user ${user.id} with sessionVersion: ${user.sessionVersion}`);
   const refreshToken = jwt.sign(refreshTokenPayload, signingKey as string, {
     algorithm: 'HS256',
     expiresIn: '7d',
@@ -36,4 +37,3 @@ export async function POST(req: NextRequest) {
   res.headers.append('Set-Cookie', cookie);
   return res;
 }
-```
