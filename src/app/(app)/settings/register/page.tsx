@@ -36,6 +36,7 @@ export default function RegisterUserPage() {
   const router = useRouter();
 
   const [newPasswordInfo, setNewPasswordInfo] = useState<{ userName: string } | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -43,6 +44,17 @@ export default function RegisterUserPage() {
       try {
         const rolesData = await getRolesForRegistration();
         setRoles(rolesData);
+
+        // Fetch CSRF token for protected server actions
+        try {
+          const res = await fetch('/api/csrf');
+          if (res.ok) {
+            const data = await res.json();
+            setCsrfToken(data.csrfToken || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch CSRF token', e);
+        }
       } catch {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load roles.' });
       }
@@ -80,7 +92,7 @@ export default function RegisterUserPage() {
     }
     
     setIsSubmitting(true);
-    const result = await registerUserByAdmin(formState, formState.roleIds);
+    const result = await registerUserByAdmin(formState, formState.roleIds, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Success', description: 'New user has been registered successfully.' });
       setNewPasswordInfo({ userName: result.user!.name! });

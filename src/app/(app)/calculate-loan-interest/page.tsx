@@ -70,6 +70,7 @@ export default function CalculateLoanInterestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   // State for Calculator Tab
   const [calculatorPrincipal, setCalculatorPrincipal] = useState<number | undefined>();
@@ -92,6 +93,19 @@ export default function CalculateLoanInterestPage() {
         setIsPageLoading(false);
     }
     fetchData();
+
+    // Fetch CSRF token for protected server actions
+    (async function fetchCsrf() {
+      try {
+        const res = await fetch('/api/csrf');
+        if (res.ok) {
+          const data = await res.json();
+          setCsrfToken(data.csrfToken || null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch CSRF token', e);
+      }
+    })();
   }, []);
 
   const handleCalculateInterest = async () => {
@@ -142,20 +156,23 @@ export default function CalculateLoanInterestPage() {
     }
     
     setIsPosting(true);
-    
-    // const result = await postInterestCharges(calculationResults, { 
-    //     month: selectedMonth, 
-    //     year: selectedYear 
-    // }, selectedServiceChargeTypeId);
 
-    // if (result.success) {
-    //     toast({ title: 'Loan Interest Posted', description: result.message });
-    //     setCalculationResults(null); 
-    // } else {
-    //     toast({ variant: 'destructive', title: 'Error', description: result.message });
-    // }
-    
-    setIsPosting(false);
+    try {
+      const payload = calculationResults!.map(r => ({ loanId: r.loanId, memberId: r.memberId, calculatedInterest: r.interestPaid }));
+      const result = await postInterestCharges(payload, { month: selectedMonth, year: selectedYear }, selectedServiceChargeTypeId, csrfToken || undefined);
+
+      if (result.success) {
+          toast({ title: 'Loan Interest Posted', description: result.message });
+          setCalculationResults(null);
+      } else {
+          toast({ variant: 'destructive', title: 'Error', description: result.message });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to post interest charges.' });
+      console.error('Failed to post interest charges:', e);
+    } finally {
+      setIsPosting(false);
+    }
   };
   
   const totalPrincipalPaid = useMemo(() => {

@@ -101,6 +101,8 @@ export default function SharePaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+
   const fetchPageData = async () => {
     setIsLoading(true);
     try {
@@ -115,6 +117,19 @@ export default function SharePaymentsPage() {
 
   useEffect(() => {
     fetchPageData();
+
+    // Fetch CSRF token for protected server actions
+    (async function fetchCsrf() {
+      try {
+        const res = await fetch('/api/csrf');
+        if (res.ok) {
+          const data = await res.json();
+          setCsrfToken(data.csrfToken || null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch CSRF token', e);
+      }
+    })();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +157,7 @@ export default function SharePaymentsPage() {
     }
     
     setIsSubmitting(true);
-    const result = await addSharePayment(currentPayment as SharePaymentInput);
+    const result = await addSharePayment(currentPayment as SharePaymentInput, csrfToken || undefined);
 
     if(result.success) {
         toast({ title: 'Submitted for Approval', description: `Share payment submitted.` });
@@ -168,7 +183,7 @@ export default function SharePaymentsPage() {
       if (!commitmentToRefund) return;
       setIsSubmitting(true);
       try {
-          const result = await refundShareCommitment(commitmentToRefund.id);
+          const result = await refundShareCommitment(commitmentToRefund.id, csrfToken || undefined);
           if (result.success) {
               toast({ title: 'Refund Submitted', description: result.message });
               await fetchPageData();

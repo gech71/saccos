@@ -82,6 +82,7 @@ export default function SchoolsPage() {
 
   const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -109,6 +110,18 @@ export default function SchoolsPage() {
   useEffect(() => {
     if (user) {
       fetchSchools();
+
+      (async function fetchCsrf() {
+        try {
+          const res = await fetch('/api/csrf');
+          if (res.ok) {
+            const d = await res.json();
+            setCsrfToken(d.csrfToken || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch CSRF token', e);
+        }
+      })();
     }
   }, [user]);
   
@@ -135,14 +148,14 @@ export default function SchoolsPage() {
         name: currentSchool.name,
         address: currentSchool.address,
         contactPerson: currentSchool.contactPerson,
-        });
+        }, csrfToken || undefined);
     } else {
         result = await addSchool({
         id: currentSchool.id,
         name: currentSchool.name,
         address: currentSchool.address,
         contactPerson: currentSchool.contactPerson,
-        });
+        }, csrfToken || undefined);
     }
     
     if (result.success) {
@@ -171,7 +184,7 @@ export default function SchoolsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!schoolToDelete) return;
-    const result = await deleteSchool(schoolToDelete);
+    const result = await deleteSchool(schoolToDelete, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Success', description: result.message });
       await fetchSchools(); // Refresh data
@@ -368,7 +381,7 @@ export default function SchoolsPage() {
     }
     
     setIsSubmitting(true);
-    const result = await importSchools(schoolsToImport);
+    const result = await importSchools(schoolsToImport, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Import Complete', description: result.message });
       await fetchSchools();

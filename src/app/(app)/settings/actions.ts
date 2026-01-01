@@ -9,6 +9,7 @@ import { logAudit } from '@/lib/audit-log';
 import { requirePermission } from '@/lib/authorization';
 import { randomBytes } from 'crypto';
 import { sanitizeUsers, sanitizeUser } from '@/lib/sanitize-user-data';
+import { requireCsrf } from '@/lib/csrf';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -69,9 +70,11 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
 // User-related actions
 export async function updateUserRoles(
   userId: string,
-  roleIds: string[]
+  roleIds: string[],
+  csrfToken?: string
 ): Promise<User> {
   await requirePermission('setting:edit');
+  await requireCsrf(csrfToken);
   try {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -134,9 +137,11 @@ async function checkUserDuplicates(
 
 export async function updateUser(
   userId: string,
-  data: Pick<User, 'firstName' | 'lastName' | 'email' | 'phoneNumber'>
+  data: Pick<User, 'firstName' | 'lastName' | 'email' | 'phoneNumber'>,
+  csrfToken?: string
 ): Promise<{ success: boolean; error?: string }> {
   await requirePermission('setting:edit');
+  await requireCsrf(csrfToken);
   try {
     const duplicateError = await checkUserDuplicates(
       data.email,
@@ -173,9 +178,11 @@ export async function updateUser(
 }
 
 export async function deleteUser(
-  userId: string
+  userId: string,
+  csrfToken?: string
 ): Promise<{ success: boolean; message: string }> {
   await requirePermission('setting:delete');
+  await requireCsrf(csrfToken);
   try {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -201,13 +208,15 @@ export async function deleteUser(
 
 export async function registerUserByAdmin(
   data: any,
-  roleIds: string[]
+  roleIds: string[],
+  csrfToken?: string
 ): Promise<{
   success: boolean;
   user?: User;
   error?: string;
 }> {
   await requirePermission('setting:create');
+  await requireCsrf(csrfToken);
   try {
     if (!data.email || !data.password || !data.phoneNumber) {
       return {
@@ -284,11 +293,13 @@ export async function registerUserByAdmin(
 export type RoleInput = Omit<Role, 'id' | 'createdAt' | 'updatedAt'>;
 
 export async function createOrUpdateRole(
-  data: Partial<RoleInput> & { id?: string }
+  data: Partial<RoleInput> & { id?: string },
+  csrfToken?: string
 ): Promise<Role> {
   // create -> setting:create, update -> setting:edit
   if (data.id) await requirePermission('setting:edit');
   else await requirePermission('setting:create');
+  await requireCsrf(csrfToken);
   try {
     const { id, ...roleData } = data;
 
@@ -332,9 +343,11 @@ export async function createOrUpdateRole(
 }
 
 export async function deleteRole(
-  roleId: string
+  roleId: string,
+  csrfToken?: string
 ): Promise<{ success: boolean; message: string }> {
   await requirePermission('setting:delete');
+  await requireCsrf(csrfToken);
   try {
     const role = await prisma.role.findUnique({ where: { id: roleId } });
     if (!role) return { success: false, message: 'Role not found.' };

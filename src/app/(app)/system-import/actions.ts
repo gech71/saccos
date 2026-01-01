@@ -107,8 +107,9 @@ function roundToTwo(num: number) {
     return Math.round(num * 100) / 100;
 }
 
-export async function processImport(payload: ImportPayload): Promise<{ success: boolean, error?: string }> {
+export async function processImport(payload: ImportPayload, csrfToken?: string): Promise<{ success: boolean, error?: string }> {
   await requirePermission('systemImport:create');
+  await requireCsrf(csrfToken);
   const { collections, collectionMonth, collectionYear } = payload;
   const firstDayOfMonth = new Date(`${collectionMonth} 1, ${collectionYear}`);
   const importDate = endOfMonth(firstDayOfMonth);

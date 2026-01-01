@@ -12,6 +12,7 @@ import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
 import { sanitizeMembers, sanitizeMember } from '@/lib/sanitize-user-data';
+import { requireCsrf } from '@/lib/csrf';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -201,7 +202,7 @@ async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: 
 }
 
 
-export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string }> {
+export async function addMember(data: MemberInput, csrfToken?: string): Promise<{ member?: Member; error?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -209,6 +210,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     }
     
         await requirePermission('member:create');
+        await requireCsrf(csrfToken);
 
     try {
     const { memberId, address, emergencyContact, shareCommitmentIds, serviceChargeIds, ...memberData } = validationResult.data;
@@ -308,7 +310,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
     }
 }
 
-export async function updateMember(id: string, data: MemberInput): Promise<{ success: boolean; error?: string }> {
+export async function updateMember(id: string, data: MemberInput, csrfToken?: string): Promise<{ success: boolean; error?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -316,6 +318,7 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
     }
     
         await requirePermission('member:edit');
+        await requireCsrf(csrfToken);
 
     try {
     const { address, emergencyContact, shareCommitmentIds, serviceChargeIds, salary, ...memberData } = validationResult.data;
@@ -403,9 +406,10 @@ export async function updateMember(id: string, data: MemberInput): Promise<{ suc
 }
 
 
-export async function deleteMember(id: string): Promise<{ success: boolean; message: string }> {
+export async function deleteMember(id: string, csrfToken?: string): Promise<{ success: boolean; message: string }> {
     try {
         await requirePermission('member:delete');
+        await requireCsrf(csrfToken);
         const member = await prisma.member.findUnique({ where: { id } });
         if (!member) {
             return { success: false, message: 'Member not found.' };
@@ -437,8 +441,9 @@ export async function deleteMember(id: string): Promise<{ success: boolean; mess
     }
 }
 
-export async function transferMember(memberId: string, newSchoolId: string, reason?: string): Promise<{ success: boolean, message: string }> {
+export async function transferMember(memberId: string, newSchoolId: string, reason?: string, csrfToken?: string): Promise<{ success: boolean, message: string }> {
         await requirePermission('member:transfer');
+        await requireCsrf(csrfToken);
     
     try {
         const transferDate = new Date();
@@ -504,9 +509,11 @@ export interface CreatedMemberInfo {
 }
 
 export async function importMembers(
-  members: ImportedMember[]
+  members: ImportedMember[],
+  csrfToken?: string
 ): Promise<{ success: boolean; message: string; createdMembers?: CreatedMemberInfo[] }> {
         await requirePermission('member:create');
+        await requireCsrf(csrfToken);
     
   if (members.length === 0) {
     return { success: true, message: 'No new members to import.' };

@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [roles, setRoles] = useState<RoleWithUserCount[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
@@ -66,6 +67,18 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       fetchPageData();
+
+      (async function fetchCsrf() {
+        try {
+          const res = await fetch('/api/csrf');
+          if (res.ok) {
+            const data = await res.json();
+            setCsrfToken(data.csrfToken || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch CSRF token', e);
+        }
+      })();
     }
   }, [user, toast]);
   
@@ -89,7 +102,7 @@ export default function SettingsPage() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
-        await updateUserRoles(selectedUser.id, Array.from(selectedRoleIds));
+        await updateUserRoles(selectedUser.id, Array.from(selectedRoleIds), csrfToken || undefined);
         toast({ title: 'Success', description: `Roles for ${selectedUser.name} have been updated.` });
         await fetchPageData();
         setIsUserModalOpen(false);
@@ -114,7 +127,7 @@ export default function SettingsPage() {
     if (!currentUserToEdit.id) return;
     setIsSubmitting(true);
     const { firstName, lastName, email, phoneNumber } = currentUserToEdit;
-    const result = await updateUser(currentUserToEdit.id, { firstName, lastName, email, phoneNumber } as any);
+    const result = await updateUser(currentUserToEdit.id, { firstName, lastName, email, phoneNumber } as any, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Success', description: 'User details updated.' });
       await fetchPageData();
@@ -176,7 +189,7 @@ export default function SettingsPage() {
             name: currentRole.name,
             description: currentRole.description,
             permissions: currentRole.permissions as string[] || [],
-        });
+        }, csrfToken || undefined);
         toast({ title: 'Success', description: `Role '${currentRole.name}' saved successfully.` });
         await fetchPageData();
         setIsRoleModalOpen(false);
@@ -205,9 +218,9 @@ export default function SettingsPage() {
 
     let result;
     if (itemToDelete.type === 'user') {
-      result = await deleteUser(itemToDelete.id);
+      result = await deleteUser(itemToDelete.id, csrfToken || undefined);
     } else {
-      result = await deleteRole(itemToDelete.id);
+      result = await deleteRole(itemToDelete.id, csrfToken || undefined);
     }
     
     if (result.success) {

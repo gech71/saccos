@@ -98,6 +98,7 @@ type ParsedMember = {
 export default function MembersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   
   const [members, setMembers] = useState<MemberWithDetails[]>([]);
   const [schools, setSchools] = useState<MembersPageData['schools']>([]);
@@ -163,6 +164,19 @@ export default function MembersPage() {
 
   useEffect(() => {
     fetchPageData();
+
+    // Fetch CSRF token for protected server actions
+    (async function fetchCsrf() {
+      try {
+        const res = await fetch('/api/csrf');
+        if (res.ok) {
+          const data = await res.json();
+          setCsrfToken(data.csrfToken || null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch CSRF token', e);
+      }
+    })();
   }, [toast]);
 
   const handleMemberInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -252,7 +266,7 @@ export default function MembersPage() {
     };
 
     if (isEditingMember && currentMember.id) {
-        const result = await updateMember(currentMember.id, memberInputData);
+        const result = await updateMember(currentMember.id, memberInputData, csrfToken || undefined);
         if (result.success) {
             toast({ title: 'Success', description: 'Member updated successfully.' });
             setIsMemberModalOpen(false);
@@ -261,7 +275,7 @@ export default function MembersPage() {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
         }
     } else {
-        const result = await addMember(memberInputData);
+        const result = await addMember(memberInputData, csrfToken || undefined);
         if (result.error) {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
         } else {
@@ -298,7 +312,7 @@ export default function MembersPage() {
 
   const handleDeleteConfirm = async () => {
     if (!memberToDelete) return;
-    const result = await deleteMember(memberToDelete);
+    const result = await deleteMember(memberToDelete, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Success', description: result.message });
       await fetchPageData();
@@ -402,7 +416,7 @@ export default function MembersPage() {
       return;
     }
     setIsSubmitting(true);
-    const result = await transferMember(memberToTransfer.id, newSchoolId, transferReason);
+    const result = await transferMember(memberToTransfer.id, newSchoolId, transferReason, csrfToken || undefined);
     if (result.success) {
       toast({ title: 'Transfer Successful', description: result.message });
       await fetchPageData();
@@ -554,7 +568,7 @@ export default function MembersPage() {
     }
 
     setIsSubmitting(true);
-    const result = await importMembers(membersToImport);
+    const result = await importMembers(membersToImport, csrfToken || undefined);
     if (result.success) {
         toast({ title: 'Import Complete', description: result.message });
         setImportedMembersInfo(result.createdMembers || []);

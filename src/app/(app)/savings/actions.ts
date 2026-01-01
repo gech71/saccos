@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import type { Member, MemberSavingAccount, Saving } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
+import { requireCsrf } from '@/lib/csrf';
 
 export type SavingWithMemberName = Saving & { memberName: string | null; memberSeqId?: string | null };
 
@@ -72,8 +73,9 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
 
 export type SavingInput = Omit<Saving, 'id' | 'status'> & { memberName?: string };
 
-export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
+export async function addSavingTransaction(data: SavingInput, csrfToken?: string): Promise<Saving> {
   await requirePermission('saving:create');
+  await requireCsrf(csrfToken);
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
@@ -99,8 +101,9 @@ export async function addSavingTransaction(data: SavingInput): Promise<Saving> {
   return newSaving;
 }
 
-export async function updateSavingTransaction(id: string, data: SavingInput): Promise<Saving> {
+export async function updateSavingTransaction(id: string, data: SavingInput, csrfToken?: string): Promise<Saving> {
   await requirePermission('saving:edit');
+  await requireCsrf(csrfToken);
   const member = await prisma.member.findUnique({ where: { id: data.memberId } });
   if (!member) throw new Error('Member not found');
   
@@ -127,9 +130,10 @@ export async function updateSavingTransaction(id: string, data: SavingInput): Pr
   return updatedSaving;
 }
 
-export async function deleteSavingTransaction(id: string): Promise<{ success: boolean, message: string }> {
+export async function deleteSavingTransaction(id: string, csrfToken?: string): Promise<{ success: boolean, message: string }> {
   try {
     await requirePermission('saving:delete');
+    await requireCsrf(csrfToken);
     const saving = await prisma.saving.findUnique({ where: { id } });
     if (saving?.status === 'approved') {
         return { success: false, message: 'Cannot delete an approved transaction.' };

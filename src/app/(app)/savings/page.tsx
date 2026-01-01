@@ -84,6 +84,7 @@ export default function SavingsPage() {
   const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState<Partial<SavingInput & {id?: string}>>(initialTransactionFormState);
@@ -122,6 +123,18 @@ export default function SavingsPage() {
   useEffect(() => {
     if (user) {
       fetchPageData();
+
+      (async function fetchCsrf() {
+        try {
+          const res = await fetch('/api/csrf');
+          if (res.ok) {
+            const data = await res.json();
+            setCsrfToken(data.csrfToken || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch CSRF token', e);
+        }
+      })();
     }
   }, [user, toast]);
 
@@ -186,10 +199,10 @@ export default function SavingsPage() {
     
     try {
         if (isEditing && currentTransaction.id) {
-            await updateSavingTransaction(currentTransaction.id, currentTransaction as SavingInput);
+            await updateSavingTransaction(currentTransaction.id, currentTransaction as SavingInput, csrfToken || undefined);
             toast({ title: 'Success', description: `Savings transaction updated. It requires re-approval.` });
         } else {
-            await addSavingTransaction(currentTransaction as SavingInput);
+            await addSavingTransaction(currentTransaction as SavingInput, csrfToken || undefined);
             toast({ title: 'Transaction Submitted', description: `Savings transaction sent for approval.` });
         }
         
@@ -227,7 +240,7 @@ export default function SavingsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!transactionToDelete) return;
-    const result = await deleteSavingTransaction(transactionToDelete);
+    const result = await deleteSavingTransaction(transactionToDelete, csrfToken || undefined);
     if (result.success) {
         toast({ title: 'Success', description: result.message });
         const data = await getSavingsPageData();

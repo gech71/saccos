@@ -65,6 +65,7 @@ export default function SystemImportPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
   
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -80,6 +81,18 @@ export default function SystemImportPage() {
         const data = await getImportPageData();
         setPageData(data);
         setMembersData(data.members);
+
+        // fetch CSRF token for protected server actions
+        try {
+          const res = await fetch('/api/csrf');
+          if (res.ok) {
+            const d = await res.json();
+            setCsrfToken(d.csrfToken || null);
+          }
+        } catch (e) {
+          console.error('Failed to fetch CSRF token', e);
+        }
+
         setIsPageLoading(false);
     }
     fetchData();
@@ -110,7 +123,7 @@ export default function SystemImportPage() {
     
     setIsSubmitting(true);
     try {
-        await processImport(payload);
+        await processImport(payload, csrfToken || undefined);
         toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
         setExcelFile(null);
         setValidatedRows([]);

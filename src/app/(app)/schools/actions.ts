@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import type { School } from '@prisma/client';
 import { requirePermission } from '@/lib/authorization';
+import { requireCsrf } from '@/lib/csrf';
 import { revalidatePath } from 'next/cache';
 
 export type SchoolWithMemberCount = School & {
@@ -36,8 +37,9 @@ export async function getSchoolsWithMemberCount(): Promise<SchoolWithMemberCount
   }
 }
 
-export async function addSchool(data: Omit<School, 'id' | '_count'>): Promise<{ success: boolean; error?: string }> {
+export async function addSchool(data: Omit<School, 'id' | '_count'>, csrfToken?: string): Promise<{ success: boolean; error?: string }> {
   await requirePermission('school:create');
+  await requireCsrf(csrfToken);
   try {
     await prisma.school.create({
       data,
@@ -53,8 +55,9 @@ export async function addSchool(data: Omit<School, 'id' | '_count'>): Promise<{ 
   }
 }
 
-export async function updateSchool(id: string, data: Partial<Omit<School, 'id' | '_count'>>): Promise<{ success: boolean; error?: string }> {
+export async function updateSchool(id: string, data: Partial<Omit<School, 'id' | '_count'>>, csrfToken?: string): Promise<{ success: boolean; error?: string }> {
   await requirePermission('school:edit');
+  await requireCsrf(csrfToken);
   try {
     await prisma.school.update({
       where: { id },
@@ -68,9 +71,10 @@ export async function updateSchool(id: string, data: Partial<Omit<School, 'id' |
   }
 }
 
-export async function deleteSchool(id: string): Promise<{ success: boolean, message: string }> {
+export async function deleteSchool(id: string, csrfToken?: string): Promise<{ success: boolean, message: string }> {
   try {
     await requirePermission('school:delete');
+    await requireCsrf(csrfToken);
     const memberCount = await prisma.member.count({
       where: { schoolId: id },
     });
@@ -92,7 +96,7 @@ export async function deleteSchool(id: string): Promise<{ success: boolean, mess
 }
 
 
-export async function importSchools(schools: {id: string, name: string, address?: string, contactPerson?: string}[]): Promise<{ success: boolean, message: string }> {
+export async function importSchools(schools: {id: string, name: string, address?: string, contactPerson?: string}[], csrfToken?: string): Promise<{ success: boolean, message: string }> {
     if (!schools || schools.length === 0) {
         return { success: false, message: 'No school data provided for import.' };
     }

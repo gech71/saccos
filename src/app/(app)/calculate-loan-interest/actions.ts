@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import type { Member, Loan, School, LoanType, AppliedServiceCharge, Prisma, ServiceChargeType, LoanRepayment } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/authorization';
+import { requireCsrf } from '@/lib/csrf';
 import { eachMonthOfInterval, startOfMonth, endOfMonth, format, parse, differenceInMonths } from 'date-fns';
 
 function roundToTwo(num: number) {
@@ -167,10 +168,12 @@ const monthNames = ["January", "February", "March", "April", "May", "June", "Jul
 export async function postInterestCharges(
     charges: { loanId: string; memberId: string; calculatedInterest: number }[], 
     period: { month: string, year: string },
-    serviceChargeTypeIdForInterest: string
+    serviceChargeTypeIdForInterest: string,
+    csrfToken?: string
 ): Promise<{ success: boolean; message: string }> {
   // Authorization: ensure caller has permission to create service charge records
   await requirePermission('serviceCharge:create');
+  await requireCsrf(csrfToken);
 
   if (!serviceChargeTypeIdForInterest) {
     return { success: false, message: 'You must select a service charge type to post loan interest.' };
