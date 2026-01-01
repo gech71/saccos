@@ -243,6 +243,36 @@ export const authOptions: NextAuthOptions = {
       session.user = token.user as any;
       return session;
     },
+
+    async redirect({ url, baseUrl }) {
+      // Security: Validate callback URL to prevent open redirect attacks
+      // Only allow relative URLs (same origin)
+      
+      // If URL is relative (starts with /), construct full URL
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      
+      // If URL is absolute, validate it's from the same origin
+      try {
+        const urlObj = new URL(url);
+        const baseUrlObj = new URL(baseUrl);
+        
+        // Allow only same origin redirects
+        if (
+          urlObj.protocol === baseUrlObj.protocol &&
+          urlObj.hostname === baseUrlObj.hostname &&
+          urlObj.port === baseUrlObj.port
+        ) {
+          return url;
+        }
+      } catch {
+        // Invalid URL format, fall back to base URL
+      }
+      
+      // Default to base URL for any invalid or external URLs
+      return baseUrl;
+    },
   },
 
   pages: {
