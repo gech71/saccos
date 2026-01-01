@@ -70,9 +70,6 @@ export default function ChangePasswordPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
           <CardTitle className="font-headline text-3xl text-primary">Change Your Password</CardTitle>
-          <CardDescription>
-            For your security, you must change the temporary password provided to you.
-          </CardDescription>
         </CardHeader>
         <CardContent>
            {error && (

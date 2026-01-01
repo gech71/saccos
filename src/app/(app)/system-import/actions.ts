@@ -80,7 +80,18 @@ export async function getImportPageData(): Promise<ImportPageData> {
     })
   ]);
 
-  return { savingTypes, loanTypes, shareTypes, serviceChargeTypes, members };
+  const payload = { savingTypes, loanTypes, shareTypes, serviceChargeTypes, members };
+
+  try {
+    const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+    if (!assertNoSensitiveFields(payload, 'getImportPageData')) {
+      return deepSanitize(payload) as any;
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') throw e;
+  }
+
+  return payload;
 }
 
 export type ImportPayload = {

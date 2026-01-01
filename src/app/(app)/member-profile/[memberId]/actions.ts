@@ -213,7 +213,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
     // Sanitize member to remove sensitive fields (passwordResetToken, password, etc.)
     const sanitizedMember = sanitizeMember(member);
 
-    return {
+    const payload = {
         member: sanitizedMember,
         school: member.school,
         address: member.address,
@@ -231,4 +231,15 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetails 
         allSavingsTransactions: savingsWithBalance.sort((a, b) => compareDesc(new Date(a.date), new Date(b.date))),
         schoolHistory: member.schoolHistory || [],
     };
+
+    try {
+      const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+      if (!assertNoSensitiveFields(payload, 'getMemberDetails')) {
+        return deepSanitize(payload) as any;
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') throw e;
+    }
+
+    return payload;
 }

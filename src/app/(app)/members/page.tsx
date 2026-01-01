@@ -137,7 +137,7 @@ export default function MembersPage() {
   const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
   
   // New password state
-  const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string; password:  string} | null>(null);
+  const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string } | null>(null);
   const [importedMembersInfo, setImportedMembersInfo] = useState<CreatedMemberInfo[] | null>(null);
 
 
@@ -266,7 +266,7 @@ export default function MembersPage() {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
         } else {
             toast({ title: 'Success', description: `Member '${result.member?.fullName}' added.` });
-            setNewPasswordInfo({ memberName: result.member!.fullName, password: result.temporaryPassword! });
+            setNewPasswordInfo({ memberName: result.member!.fullName });
             setIsMemberModalOpen(false);
             await fetchPageData();
         }
@@ -686,13 +686,13 @@ export default function MembersPage() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2 group">
                         <span>{member.fullName}</span>
-                        {member.mustChangePassword && member.temporaryPassword && (
+                        {member.mustChangePassword && (
                            <Tooltip>
                             <TooltipTrigger asChild>
                               <KeyRound className="h-4 w-4 text-primary cursor-pointer" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Temp. Password: <strong>{member.temporaryPassword}</strong></p>
+                              <p>This member must change their temporary password on first login.</p>
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -762,7 +762,7 @@ export default function MembersPage() {
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
              {importedMembersInfo ? (
                 <DialogDescription>
-                    Import successful. Below are the newly created members and their temporary passwords.
+                    Import successful. Below are the newly created members. Temporary passwords are not displayed for security; distribute them securely out-of-band.
                 </DialogDescription>
              ) : (
                 <DialogDescription>
@@ -773,15 +773,14 @@ export default function MembersPage() {
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             {importedMembersInfo ? (
                 <div>
-                     <Label>Imported Members & Passwords</Label>
+                     <Label>Imported Members</Label>
                       <div className="mt-2 rounded-md border">
                         <Table>
-                            <TableHeader><TableRow><TableHead>Full Name</TableHead><TableHead>Temp. Password</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Full Name</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {importedMembersInfo.map(info => (
                                     <TableRow key={info.member.id}>
                                         <TableCell>{info.member.fullName}</TableCell>
-                                        <TableCell className="font-mono">{info.temporaryPassword}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

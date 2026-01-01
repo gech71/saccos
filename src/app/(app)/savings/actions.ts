@@ -53,10 +53,21 @@ export async function getSavingsPageData(): Promise<SavingsPageData> {
     };
   });
 
-  return {
+  const payload = {
     savings: formattedSavings,
     members,
   };
+
+  try {
+    const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+    if (!assertNoSensitiveFields(payload, 'getSavingsPageData')) {
+      return deepSanitize(payload) as any;
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') throw e;
+  }
+
+  return payload;
 }
 
 export type SavingInput = Omit<Saving, 'id' | 'status'> & { memberName?: string };

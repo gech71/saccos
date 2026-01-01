@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
-import { sanitizeMembers } from '@/lib/sanitize-user-data';
+import { sanitizeMembers, sanitizeMember } from '@/lib/sanitize-user-data';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -95,13 +95,26 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     // Sanitize members to remove sensitive fields (passwordResetToken, password, etc.)
     const sanitizedMembers = sanitizeMembers(formattedMembers);
 
-    return {
+    const payload = {
         members: sanitizedMembers,
         schools,
         shareTypes,
         savingAccountTypes,
         serviceChargeTypes,
     };
+
+    // Extra safety: assert no sensitive fields and fallback to deep sanitize if needed
+    try {
+      const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+      if (!assertNoSensitiveFields(payload, 'getMembersPageData')) {
+        return deepSanitize(payload) as any;
+      }
+    } catch (e) {
+      // If assertion throws (dev), bubble up so dev fails fast; in production, just continue
+      if (process.env.NODE_ENV !== 'production') throw e;
+    }
+
+    return payload;
 }
 
 const addressSchema = z.object({
@@ -188,7 +201,7 @@ async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: 
 }
 
 
-export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string; temporaryPassword?: string }> {
+export async function addMember(data: MemberInput): Promise<{ member?: Member; error?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -288,7 +301,7 @@ export async function addMember(data: MemberInput): Promise<{ member?: Member; e
         revalidatePath('/members');
         revalidatePath('/applied-service-charges');
         revalidatePath('/shares');
-        return { member: newMember, temporaryPassword };
+        return { member: sanitizeMember(newMember) };
     } catch (error) {
         console.error('Failed to add member:', error);
         return { error: 'An unexpected server error occurred. Please check the logs.' };
@@ -488,7 +501,6 @@ export interface ImportedMember {
 
 export interface CreatedMemberInfo {
     member: Member;
-    temporaryPassword?: string;
 }
 
 export async function importMembers(
@@ -549,7 +561,7 @@ export async function importMembers(
                 details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
             });
 
-      createdMembersInfo.push({ member: newMember, temporaryPassword });
+      createdMembersInfo.push({ member: sanitizeMember(newMember) });
       createdCount++;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

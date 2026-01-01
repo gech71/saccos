@@ -48,7 +48,18 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     // Sanitize users to remove sensitive fields (passwordResetToken, password, etc.)
     const sanitizedUsers = sanitizeUsers(users);
 
-    return { users: sanitizedUsers, roles };
+    const payload = { users: sanitizedUsers, roles };
+
+    try {
+      const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+      if (!assertNoSensitiveFields(payload, 'getSettingsPageData')) {
+        return deepSanitize(payload) as any;
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') throw e;
+    }
+
+    return payload;
   } catch (error) {
     console.error('Failed to get settings page data:', error);
     throw new Error('Could not load settings. Please try again later.');
@@ -194,7 +205,6 @@ export async function registerUserByAdmin(
 ): Promise<{
   success: boolean;
   user?: User;
-  temporaryPassword?: string;
   error?: string;
 }> {
   await requirePermission('setting:create');
@@ -247,7 +257,7 @@ export async function registerUserByAdmin(
     });
 
     revalidatePath('/settings');
-    return { success: true, user: sanitizeUser(newUser) as User, temporaryPassword };
+    return { success: true, user: sanitizeUser(newUser) as User };
   } catch (error) {
     console.error('Error during user registration:', error);
     if (

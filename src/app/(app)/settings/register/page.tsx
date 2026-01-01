@@ -32,7 +32,7 @@ export default function RegisterUserPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [newPasswordInfo, setNewPasswordInfo] = useState<{ userName: string; password:  string} | null>(null);
+  const [newPasswordInfo, setNewPasswordInfo] = useState<{ userName: string } | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -76,7 +76,7 @@ export default function RegisterUserPage() {
     const result = await registerUserByAdmin(formState, formState.roleIds);
     if (result.success) {
       toast({ title: 'Success', description: 'New user has been registered successfully.' });
-      setNewPasswordInfo({ userName: result.user!.name!, password: result.temporaryPassword! });
+      setNewPasswordInfo({ userName: result.user!.name! });
       setFormState(initialFormState); // Reset form
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.error });
@@ -160,17 +160,10 @@ export default function RegisterUserPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>User Created Successfully!</AlertDialogTitle>
             <AlertDialogDescription>
-                Please provide the following temporary password to <strong>{newPasswordInfo?.userName}</strong>. They will be required to change it upon their first login.
+                The user <strong>{newPasswordInfo?.userName}</strong> was created. Temporary passwords are not displayed here for security; deliver the initial password to the user via a secure, out-of-band channel (SMS/email).
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="p-4 bg-muted rounded-md text-center">
-            <p className="text-lg font-mono font-bold tracking-widest">{newPasswordInfo?.password}</p>
-          </div>
           <AlertDialogFooter>
-            <Button onClick={() => {
-                navigator.clipboard.writeText(newPasswordInfo?.password || '');
-                toast({ title: 'Copied!', description: 'Password copied to clipboard.' });
-            }}><Copy className="mr-2 h-4 w-4"/> Copy Password</Button>
             <AlertDialogAction onClick={() => {
                 setNewPasswordInfo(null);
                 router.push('/settings');

@@ -148,7 +148,17 @@ export async function getCalculationPageData(): Promise<CalculationPageData> {
     prisma.loanType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.serviceChargeType.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ]);
-  return { members, schools, loanTypes, serviceChargeTypes };
+  const payload = { members, schools, loanTypes, serviceChargeTypes };
+  try {
+    const { assertNoSensitiveFields, deepSanitize } = await import('@/lib/sanitize-user-data');
+    if (!assertNoSensitiveFields(payload, 'getCalculationPageData')) {
+      return deepSanitize(payload) as any;
+    }
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') throw e;
+  }
+
+  return payload;
 }
 
 
