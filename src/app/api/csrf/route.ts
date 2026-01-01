@@ -15,6 +15,7 @@ export async function GET() {
 
   const res = NextResponse.json({ csrfToken: token });
   // Set a readable cookie (double-submit cookie). Not httpOnly because client needs to read.
-  res.headers.append('Set-Cookie', `${CSRF.CSRF_COOKIE_NAME}=${token}; Path=/; SameSite=Strict; Max-Age=${CSRF.CSRF_TTL_SECONDS}; ${process.env.NODE_ENV === 'production' ? 'Secure' : ''}`);
+  const isProd = process.env.NODE_ENV === 'production';
+  res.headers.append('Set-Cookie', `${CSRF.CSRF_COOKIE_NAME}=${token}; Path=/; SameSite=Strict; Max-Age=${CSRF.CSRF_TTL_SECONDS}${isProd ? '; Secure' : ''}`);
   return res;
 }
