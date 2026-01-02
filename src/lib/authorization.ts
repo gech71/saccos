@@ -14,7 +14,7 @@ export async function requireAuth() {
 
   // Validate session against activeSession table to ensure it hasn't been revoked
   // This provides immediate revocation even for tokens that haven't expired
-  const sessionId = (session as any).jti as string | undefined;
+  const sessionId = (session as any).sid as string | undefined;
   const user = (session as any).user as any;
   
   if (sessionId && user?.id) {
@@ -23,7 +23,7 @@ export async function requireAuth() {
       const isActive = await isActiveSession(sessionId, user.id, userType);
       
       if (!isActive) {
-        console.warn(`[AUTH] Session invalidated - jti ${sessionId} is not active for user ${user.id}`);
+        console.warn(`[AUTH] Session invalidated - sid ${sessionId} is not active for user ${user.id}`);
         throw new Error('Session has been revoked. Please log in again.');
       }
     } catch (error) {

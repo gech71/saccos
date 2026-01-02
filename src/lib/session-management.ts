@@ -6,7 +6,8 @@
 import prisma from './prisma';
 import crypto from 'crypto';
 
-const MAX_CONCURRENT_SESSIONS = 1; // Maximum concurrent sessions per user
+const MAX_CONCURRENT_SESSIONS = parseInt(process.env.MAX_CONCURRENT_SESSIONS || '1', 10) || 1; // Maximum concurrent sessions per user
+const ALLOW_CONCURRENT_SESSIONS = (process.env.ALLOW_CONCURRENT_SESSIONS || 'false').toLowerCase() === 'true';
 
 /**
  * Hash a refresh token for secure storage
@@ -27,11 +28,32 @@ export async function createActiveSession(params: {
   ipAddress?: string;
   userAgent?: string;
   expiresAt: Date;
+  // If true, actively replace existing sessions to enforce the concurrency limit.
+  // When false (default) the function will avoid aggressive invalidation to
+  // prevent accidental revocation during refresh creation or parallel requests.
+  forceReplace?: boolean;
 }): Promise<void> {
   const { sessionId, userId, userType, refreshToken, ipAddress, userAgent, expiresAt } = params;
+  const forceReplace = !!(params as any).forceReplace;
   
   // Hash the refresh token before storing
   const hashedRefreshToken = hashRefreshToken(refreshToken);
+  
+  // Idempotency: If a session with the same sessionId already exists and is active,
+  // refresh that record instead of creating a new one. This avoids duplicate
+  // sessions and prevents unnecessary invalidation churn when multiple requests
+  // race to create a refresh token/session for the same user.
+  const existing = await prisma.activeSession.findFirst({
+    where: { sessionId, userId, userType, expiresAt: { gt: new Date() } },
+  });
+  if (existing) {
+    await prisma.activeSession.update({
+      where: { id: existing.id },
+      data: { refreshToken: hashedRefreshToken, ipAddress, userAgent, expiresAt, lastActiveAt: new Date() },
+    });
+    console.debug('[session-management] refreshed existing active session', { id: existing.id, sessionId: existing.sessionId, userId, userType, expiresAt });
+    return;
+  }
   
   // Check current active sessions for this user
   const activeSessions = await prisma.activeSession.findMany({
@@ -43,32 +65,42 @@ export async function createActiveSession(params: {
     orderBy: { createdAt: 'asc' }, // Oldest first
   });
   
-  // If we've reached or exceeded the limit, invalidate existing sessions
-  // When MAX_CONCURRENT_SESSIONS = 1, invalidate ALL existing sessions before creating new one
-  if (activeSessions.length >= MAX_CONCURRENT_SESSIONS) {
+  // If concurrency is allowed, skip invalidation entirely.
+  if (!ALLOW_CONCURRENT_SESSIONS && activeSessions.length >= MAX_CONCURRENT_SESSIONS) {
     if (MAX_CONCURRENT_SESSIONS === 1) {
-      // Special case: when limit is 1, invalidate ALL existing sessions
-      console.debug(`[session-management] invalidating all existing sessions for userId=${userId}, userType=${userType}`);
-      await prisma.activeSession.deleteMany({
-        where: {
-          userId,
-          userType,
-          expiresAt: { gt: new Date() },
-        },
-      });
-    } else {
-      // For limits > 1, keep the newest sessions and invalidate oldest
-      const sessionsToKeep = MAX_CONCURRENT_SESSIONS - 1;
-      const sessionsToInvalidateCount = activeSessions.length - sessionsToKeep;
-      
-      if (sessionsToInvalidateCount > 0) {
-        const sessionsToInvalidate = activeSessions.slice(0, sessionsToInvalidateCount);
-        console.debug('[session-management] invalidating oldest sessions', sessionsToInvalidate.map(s => s.id));
+      if (forceReplace) {
+        // Special case: when limit is 1 and caller requests replacement, invalidate ALL existing sessions
+        console.debug(`[session-management] force-replacing existing sessions for userId=${userId}, userType=${userType}`);
         await prisma.activeSession.deleteMany({
           where: {
-            id: { in: sessionsToInvalidate.map((s: { id: string }) => s.id) },
+            userId,
+            userType,
+            expiresAt: { gt: new Date() },
           },
         });
+      } else {
+        // Non-forcing path: avoid aggressive invalidation which can cause churn
+        // during page navigation or parallel refresh creation. Log and proceed
+        // to create the session (may temporarily exceed the configured limit),
+        // keeping the user experience stable.
+        console.debug('[session-management] concurrent limit reached but forceReplace not set — skipping invalidation to avoid churn');
+      }
+    } else {
+      if (forceReplace) {
+        // For limits > 1 and forced replacement, invalidate the oldest sessions
+        const sessionsToKeep = MAX_CONCURRENT_SESSIONS - 1;
+        const sessionsToInvalidateCount = activeSessions.length - sessionsToKeep;
+        if (sessionsToInvalidateCount > 0) {
+          const sessionsToInvalidate = activeSessions.slice(0, sessionsToInvalidateCount);
+          console.debug('[session-management] invalidating oldest sessions', sessionsToInvalidate.map(s => s.id));
+          await prisma.activeSession.deleteMany({
+            where: {
+              id: { in: sessionsToInvalidate.map((s: { id: string }) => s.id) },
+            },
+          });
+        }
+      } else {
+        console.debug('[session-management] concurrent limit reached and forceReplace not set — skipping invalidation');
       }
     }
   }
@@ -194,6 +226,9 @@ export async function isActiveSession(
       expiresAt: { gt: new Date() },
     },
   });
+  if (!session) {
+    console.debug('[session-management] isActiveSession: no active session found for', { sessionId, userId, userType });
+  }
   return !!session;
 }
 

@@ -21,7 +21,7 @@ import { getWebsiteContent } from '@/lib/website-actions';
 import type { WebsiteContent } from '@prisma/client';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
-import { signIn, useSession } from 'next-auth/react';
+import { signIn, useSession, getSession } from 'next-auth/react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AUTH_ERROR_COOKIE_NAME = 'auth_error';
@@ -82,8 +82,21 @@ function LoginForm() {
   if (status === 'authenticated' && session?.user) {
     (async () => {
       try {
-        // Create refresh token cookie for long-lived refresh (7 days)
-        await fetch('/api/auth/create-refresh', { method: 'POST' });
+        // Wait up to 2s for server session to include sid; poll via getSession()
+        const maxWait = 2000;
+        const interval = 200;
+        const start = Date.now();
+        let s = await getSession();
+        while ((!s || !(s as any).sid) && (Date.now() - start) < maxWait) {
+          await new Promise((r) => setTimeout(r, interval));
+          s = await getSession();
+        }
+        if ((s as any).sid) {
+          // Create refresh token cookie for long-lived refresh (7 days)
+          await fetch('/api/auth/create-refresh', { method: 'POST' });
+        } else {
+          console.warn('create-refresh: session.sid not available after wait — skipping creation to avoid session churn');
+        }
       } catch (err) {
         console.error('Failed to create refresh token', err);
       }

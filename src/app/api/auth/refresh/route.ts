@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { validateRefreshToken } from '@/lib/session-management';
 
@@ -86,14 +87,15 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Sign new access token (15 minutes) with sessionId (jti) for session validation
-    // The sessionId binding ensures access tokens are immediately invalidated when the session is revoked
+    // Sign new access token (15 minutes) embedding the stable server-side session id (`sid`)
+    // and a fresh `jti` for token uniqueness. Middleware and session checks should validate against `sid`.
     const accessToken = jwt.sign(
-      { 
+      {
         user: tokenPayload,
-        jti: sessionId, // Include sessionId (jti) to bind access token to the active session
-      }, 
-      signingKey as string, 
+        sid: sessionId,
+        jti: crypto.randomUUID(),
+      },
+      signingKey as string,
       {
         algorithm: 'HS256',
         expiresIn: '15m',

@@ -6,10 +6,10 @@ const CSRF_TTL_SECONDS = 15 * 60; // 15 minutes
 const CSRF_COOKIE_NAME = 'csrf_token';
 const SIGNING_KEY = process.env.CSRF_SIGNING_KEY || process.env.NEXTAUTH_SECRET || 'dev-secret';
 
-export function generateCsrfTokenForSession(jti: string, userId: string) {
+export function generateCsrfTokenForSession(sid: string, userId: string) {
   const now = Math.floor(Date.now() / 1000);
   const payload = {
-    jti,
+    sid,
     uid: userId,
     iat: now,
     exp: now + CSRF_TTL_SECONDS,
@@ -22,7 +22,7 @@ export function verifyCsrfToken(token: string) {
   try {
     const decoded = jwt.verify(token, SIGNING_KEY, { algorithms: ['HS256'] }) as any;
     if (decoded?.type !== 'csrf') throw new Error('Invalid CSRF token');
-    return decoded as { jti: string; uid: string; iat: number; exp: number };
+    return decoded as { sid: string; uid: string; iat: number; exp: number };
   } catch (err) {
     throw new Error('Invalid or expired CSRF token');
   }
@@ -35,9 +35,9 @@ export async function requireCsrf(tokenFromClient?: string) {
     throw new Error('Unauthorized');
   }
 
-  const jti = (session as any).jti as string | undefined;
+  const sid = (session as any).sid as string | undefined;
   const uid = (session as any).user?.id as string | undefined;
-  if (!jti || !uid) {
+  if (!sid || !uid) {
     throw new Error('Invalid session for CSRF validation');
   }
 
@@ -55,7 +55,7 @@ export async function requireCsrf(tokenFromClient?: string) {
   }
 
   const payload = verifyCsrfToken(tokenFromClient);
-  if (payload.jti !== jti || payload.uid !== uid) {
+  if (payload.sid !== sid || payload.uid !== uid) {
     throw new Error('CSRF token does not match session');
   }
 

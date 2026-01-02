@@ -7,11 +7,11 @@ export async function GET() {
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const jti = (session as any).jti as string;
+  const sid = (session as any).sid as string;
   const uid = (session as any).user?.id as string;
-  if (!jti || !uid) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  if (!sid || !uid) return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
 
-  const token = CSRF.generateCsrfTokenForSession(jti, uid);
+  const token = CSRF.generateCsrfTokenForSession(sid, uid);
 
   const res = NextResponse.json({ csrfToken: token });
   // Set a readable cookie (double-submit cookie). Not httpOnly because client needs to read.

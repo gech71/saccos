@@ -11,6 +11,8 @@ import { differenceInMinutes } from 'date-fns';
 import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import jwt from 'jsonwebtoken';
+import { createActiveSession } from './lib/session-management';
 
 function toLocalPhone(phone?: string | null) {
   if (!phone) return "";
@@ -233,6 +235,21 @@ export const authOptions: NextAuthOptions = {
                     } else {
                         userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
+                    // Create a server-side session (sid) and a refresh token bound to it
+                    try {
+                      const signingKey = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+                      const sessionId = crypto.randomUUID();
+                      const refreshToken = jwt.sign({ sub: user.id, type: 'refresh', sessionId }, signingKey as string, { algorithm: 'HS256', expiresIn: '7d' });
+                      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                      await createActiveSession({ sessionId, userId: user.id, userType: 'user', refreshToken, ipAddress: getClientIp(req), userAgent: getHeaderValue(req?.headers, 'user-agent') || undefined, expiresAt, forceReplace: true });
+                      // Set refresh cookie so client can call refresh endpoint
+                      try { cookies().set({ name: 'authjs.refresh-token', value: refreshToken, path: '/', httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60, secure: process.env.NODE_ENV === 'production' }); } catch (e) { console.error('Failed to set refresh cookie during login', e); }
+                      // Include sid on returned user so JWT callback can persist it
+                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sid: sessionId } as any as AuthUser;
+                    } catch (e) {
+                      console.error('Failed to create active session during login', e);
+                    }
+
                     return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
                 }
             }
@@ -257,6 +274,19 @@ export const authOptions: NextAuthOptions = {
 
                       await resetRateLimit('PHONE', phoneLocal);
                       return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
+                    }
+
+                    // Create server-side session for member login
+                    try {
+                      const signingKey = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+                      const sessionId = crypto.randomUUID();
+                      const refreshToken = jwt.sign({ sub: member.id, type: 'refresh', sessionId }, signingKey as string, { algorithm: 'HS256', expiresIn: '7d' });
+                      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                      await createActiveSession({ sessionId, userId: member.id, userType: 'member', refreshToken, ipAddress: getClientIp(req), userAgent: getHeaderValue(req?.headers, 'user-agent') || undefined, expiresAt, forceReplace: true });
+                      try { cookies().set({ name: 'authjs.refresh-token', value: refreshToken, path: '/', httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60, secure: process.env.NODE_ENV === 'production' }); } catch (e) { console.error('Failed to set refresh cookie during member login', e); }
+                      return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false, sid: sessionId } as any as MemberAuthUser;
+                    } catch (e) {
+                      console.error('Failed to create active session during member login', e);
                     }
 
                     await resetRateLimit('PHONE', phoneLocal);
@@ -292,36 +322,36 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }) {
       if (user) {
         token.user = user;
-        // Generate a unique session ID (jti) for tracking concurrent sessions
-        if (!token.jti) {
-          token.jti = crypto.randomUUID();
-        }
+        // Persist server-provided sid (session id) if returned by authorize
+        if ((user as any).sid) token.sid = (user as any).sid;
+        // Generate a unique jti for token uniqueness (not used for session identification)
+        if (!token.jti) token.jti = crypto.randomUUID();
       }
 
       // Concurrent Session Enforcement
       // Only check existing tokens (not new logins) - skip when user is present (new login)
       // When MAX_CONCURRENT_SESSIONS = 1, only one session can be active at a time
       // If the jti doesn't match the active session, it was invalidated by a new login
-      if (token.jti && token.user && !user) {
+      if ((token.sid || token.jti) && token.user && !user) {
         // This is an existing token being validated (not a new login)
         // Check if this session is still active in the database
         try {
-          // Allow a short grace period for very new tokens (30 seconds) to handle race conditions
-          // where create-refresh hasn't been called yet. This is a minimal window to prevent
-          // blocking legitimate new sessions while still catching revoked sessions quickly.
-          const isVeryNewToken = token.iat && (Date.now() / 1000 - token.iat < 30);
+          // Allow a short grace period for very new tokens to handle race conditions
+          // where create-refresh hasn't been called yet. Increase this window to account for
+          // slower client/server timings (e.g., slow networks or heavy page loads). This avoids
+          // falsely invalidating the newly-created session while the refresh token is still being stored.
+          const tokenIat = Number(token.iat || 0);
+          const isVeryNewToken = tokenIat > 0 && (Date.now() / 1000 - tokenIat < 120); // 2 minutes
           
           if (!isVeryNewToken) {
             const userData = token.user as any;
             const userType = userData.isMember ? 'member' : 'user';
-            
             // Import here to avoid circular dependencies
             const { isActiveSession } = await import('./lib/session-management');
-            const isActive = await isActiveSession(token.jti, userData.id, userType);
-            
+            const sessionToCheck = token.sid as string || token.jti as string;
+            const isActive = await isActiveSession(sessionToCheck, userData.id, userType);
             if (!isActive) {
-              // This session was invalidated (e.g., by a new login on another device)
-              console.warn(`[AUTH] Session invalidated - jti ${token.jti} is not the active session for user ${userData.id}`);
+              console.warn(`[AUTH] Session invalidated - sid/jti ${sessionToCheck} is not active for user ${userData.id}`);
               return { ...token, error: "SessionInvalidated" };
             }
           }
@@ -344,8 +374,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         session.user = token.user as any;
-        // Expose the session ID (jti) to the client and other server-side calls
-        (session as any).jti = token.jti;
+        // Expose the stable session id (sid) to the client and other server-side calls
+        (session as any).sid = token.sid || token.jti;
         return session;
       },
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { auth } from '@/auth';
-import { createActiveSession } from '@/lib/session-management';
 import crypto from 'crypto';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
@@ -20,48 +19,71 @@ export async function POST(req: NextRequest) {
 
   const user = session.user as any;
   
-  // Generate a unique session ID for tracking
-  // Use the session ID from NextAuth (jti) if available to link the sessions
-  const sessionId = (session as any).jti || crypto.randomUUID();
-  console.log(`[CREATE-REFRESH] Creating session for user ${user.id}, sessionId: ${sessionId}, jti available: ${!!(session as any).jti}`);
+  // If there's no server-side session id (sid) available on the server session,
+  // defer creating a new refresh token. This prevents generating a refresh token
+  // bound to an unknown session id; the client will retry once the session
+  // contains a stable `sid`.
+  if (!(session as any).sid) {
+    console.warn(`[CREATE-REFRESH] Server session has no sid for user ${user.id}; deferring refresh creation`);
+    return NextResponse.json({ ok: true, deferred: true });
+  }
+
+  // If the client already has a valid refresh token cookie, avoid creating a new one
+  // This prevents parallel requests or repeated navigations from creating multiple
+  // sessions and causing unnecessary invalidations when MAX_CONCURRENT_SESSIONS = 1.
+  const existingRefreshCookie = req.cookies.get(REFRESH_COOKIE_NAME)?.value;
+  if (existingRefreshCookie) {
+    try {
+      const existingPayload = jwt.verify(existingRefreshCookie, signingKey as string, { algorithms: ['HS256'] }) as any;
+      if (existingPayload?.type === 'refresh' && existingPayload?.sub === user.id) {
+        const userType = user.isMember ? 'member' : 'user';
+        const { validateRefreshToken } = await import('@/lib/session-management');
+        const stillValid = await validateRefreshToken(existingRefreshCookie, user.id, userType, existingPayload.sessionId);
+        if (stillValid) {
+          const currentSid = (session as any).sid;
+          // If the existing refresh token is bound to a different sessionId (sid)
+          // we should create a new refresh token bound to the current sid. If we
+          // skip creation, the access token issued for the new login (with a new
+          // sid) may not match the active session.
+          if (currentSid && existingPayload?.sessionId && existingPayload.sessionId !== currentSid) {
+            console.log(`[CREATE-REFRESH] Existing refresh token bound to different sessionId (${existingPayload.sessionId}) — creating new refresh for current sid ${currentSid}`);
+            // fall through to create a new refresh token bound to the current sid
+          } else {
+            console.log(`[CREATE-REFRESH] Existing refresh token valid for user ${user.id}, skipping creation`);
+            return NextResponse.json({ ok: true });
+          }
+        }
+      }
+    } catch (e) {
+      // Invalid cookie or verification failed - proceed to create a new refresh token
+      console.debug('[CREATE-REFRESH] existing refresh cookie invalid or expired, creating new one');
+    }
+  }
+
+  // Generate a sessionId to bind the refresh token. Prefer the server-issued
+  // `sid` attached to the NextAuth session. Do NOT create server sessions here.
+  const sessionId = (session as any).sid || crypto.randomUUID();
+  console.log(`[CREATE-REFRESH] Creating refresh token for user ${user.id}, sessionId: ${sessionId}, sid available: ${!!(session as any).sid}`);
   const expiresIn = '7d';
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
   
-  // Create refresh token with sessionId in payload
+  // Create refresh token with sessionId (sid) in payload
   const refreshToken = jwt.sign(
-    { 
-      sub: user.id, 
+    {
+      sub: user.id,
       type: 'refresh',
-      sessionId: sessionId, // Include sessionId for tracking
-    }, 
-    signingKey as string, 
+      sessionId: sessionId,
+    },
+    signingKey as string,
     {
       algorithm: 'HS256',
       expiresIn,
     }
   );
 
-  // Track the session in database (this will enforce concurrency limits)
-  try {
-    const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                     req.headers.get('x-real-ip') || 
-                     'unknown';
-    const userAgent = req.headers.get('user-agent') || undefined;
-    
-    await createActiveSession({
-      sessionId,
-      userId: user.id,
-      userType: user.isMember ? 'member' : 'user',
-      refreshToken,
-      ipAddress,
-      userAgent,
-      expiresAt,
-    });
-  } catch (error) {
-    console.error('Error creating active session:', error);
-    // Continue anyway - the refresh token is still valid
-    // Session tracking failure shouldn't block authentication
-  }
+  // Important: do NOT create or replace active sessions here. Sessions must be
+  // created at login only. create-refresh exists to generate a refresh token
+  // when needed without altering the authoritative server session state.
 
   const res = NextResponse.json({ ok: true });
   const isProd = process.env.NODE_ENV === 'production';
