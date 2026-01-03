@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isValid } from 'date-fns';
 import { User, School, Phone, Home, ShieldAlert, PiggyBank, HandCoins, Landmark, Banknote, ReceiptText, ArrowUpCircle, ArrowDownCircle, AlertCircle, CalendarIcon, Filter, Loader2, History, Award, PieChart, WalletCards, ShieldCheck } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,19 @@ export default function MemberProfilePage() {
     
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 10;
+
+    // Helpers to avoid throwing when dates are invalid or missing
+    const safeFormat = (value: string | Date | undefined | null, fmt: string) => {
+        if (!value) return 'N/A';
+        const d = value instanceof Date ? value : new Date(value as any);
+        return isValid(d) ? format(d, fmt) : 'N/A';
+    };
+
+    const safeDistanceToNow = (value: string | Date | undefined | null) => {
+        if (!value) return '';
+        const d = value instanceof Date ? value : new Date(value as any);
+        return isValid(d) ? formatDistanceToNow(d) + ' ago' : '';
+    };
 
     useEffect(() => {
         if (!memberId) return;
@@ -200,7 +213,7 @@ export default function MemberProfilePage() {
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Paid</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{member.joinDate ? format(new Date(member.joinDate), 'PP') : 'N/A'}</div><div className="text-xs text-muted-foreground">{member.joinDate ? formatDistanceToNow(new Date(member.joinDate)) + ' ago' : ''}</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{safeFormat(member.joinDate, 'PP')}</div><div className="text-xs text-muted-foreground">{safeDistanceToNow(member.joinDate)}</div></CardContent></Card>
                     </div>
                      <SectionCard title="Member Information">
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
@@ -287,7 +300,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
                                         <TableRow key={tx.id}>
-                                            <TableCell>{tx.date ? format(new Date(tx.date), 'PPP') : 'N/A'}</TableCell>
+                                            <TableCell>{safeFormat(tx.date, 'PPP')}</TableCell>
                                             <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
                                             <TableCell className="font-medium text-destructive text-right">
                                                 {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
@@ -362,7 +375,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {sharePayments.length > 0 ? sharePayments.map(p => (
                                         <TableRow key={p.id}>
-                                            <TableCell>{p.paymentDate ? format(new Date(p.paymentDate), 'PPP') : 'N/A'}</TableCell>
+                                            <TableCell>{safeFormat(p.paymentDate, 'PPP')}</TableCell>
                                             <TableCell className="font-semibold text-primary">{p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell><Badge variant={p.status === 'approved' ? 'default' : 'secondary'}>{p.status}</Badge></TableCell>
                                             <TableCell>{p.depositMode}</TableCell>
@@ -386,7 +399,7 @@ export default function MemberProfilePage() {
                                     <StatInfo icon={<></>} label="Principal Amount" value={`${loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
                                     <StatInfo icon={<></>} label="Remaining Balance" value={`${loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
                                     <StatInfo icon={<></>} label="Status" value={getLoanStatusBadge(loan.status)} />
-                                    <StatInfo icon={<></>} label="Disbursed" value={loan.disbursementDate ? format(new Date(loan.disbursementDate), 'PPP') : 'N/A'} />
+                                    <StatInfo icon={<></>} label="Disbursed" value={safeFormat(loan.disbursementDate, 'PPP')} />
                                 </div>
                                 <h4 className="font-medium mb-2">Repayment History for this Loan</h4>
                                 <div className="overflow-x-auto rounded-md border">
@@ -401,7 +414,7 @@ export default function MemberProfilePage() {
                                         <TableBody>
                                             {specificRepayments.length > 0 ? specificRepayments.map(repayment => (
                                                 <TableRow key={repayment.id}>
-                                                    <TableCell>{repayment.paymentDate ? format(new Date(repayment.paymentDate), 'PPP') : 'N/A'}</TableCell>
+                                                    <TableCell>{safeFormat(repayment.paymentDate, 'PPP')}</TableCell>
                                                     <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-green-600">{repayment.principalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-orange-600">{repayment.interestPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
@@ -468,7 +481,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {dividends.length > 0 ? dividends.map(dividend => (
                                         <TableRow key={dividend.id}>
-                                            <TableCell>{dividend.distributionDate ? format(new Date(dividend.distributionDate), 'PPP') : 'N/A'}</TableCell>
+                                            <TableCell>{safeFormat(dividend.distributionDate, 'PPP')}</TableCell>
                                             <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                                             <TableCell className="text-right font-semibold text-primary">{dividend.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell>{dividend.notes || 'N/A'}</TableCell>
@@ -496,7 +509,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {serviceCharges.length > 0 ? serviceCharges.map(charge => (
                                         <TableRow key={charge.id}>
-                                            <TableCell>{charge.dateApplied ? format(new Date(charge.dateApplied), 'PPP') : 'N/A'}</TableCell>
+                                            <TableCell>{safeFormat(charge.dateApplied, 'PPP')}</TableCell>
                                             <TableCell>{charge.serviceChargeType?.name || '[Deleted Charge Type]'}</TableCell>
                                             <TableCell className="text-right font-semibold">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
@@ -525,10 +538,10 @@ export default function MemberProfilePage() {
                                      {schoolHistory.length > 0 ? schoolHistory.map(history => (
                                         <TableRow key={history.id}>
                                             <TableCell className="font-medium">{history.schoolName}</TableCell>
-                                            <TableCell>{history.startDate ? format(new Date(history.startDate), 'PPP') : 'N/A'}</TableCell>
+                                            <TableCell>{safeFormat(history.startDate, 'PPP')}</TableCell>
                                             <TableCell>
                                                 {history.endDate ? (
-                                                    format(new Date(history.endDate), 'PPP')
+                                                    safeFormat(history.endDate, 'PPP')
                                                 ) : (
                                                     <span className="font-semibold text-green-600">Current</span>
                                                 )}
