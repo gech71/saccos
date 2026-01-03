@@ -13,6 +13,7 @@ import { differenceInMonths } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
 import { sanitizeMembers, sanitizeMember } from '@/lib/sanitize-user-data';
 import { requireCsrf } from '@/lib/csrf';
+import { hashToken } from '@/lib/server-utils';
 
 // Helpers for phone normalization/formatting
 function toLocalPhone(phone?: string | null) {
@@ -201,11 +202,6 @@ async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: 
     return null;
 }
 
-// Hash the token before storing it in the database
-const hashToken = (token: string) => {
-  return crypto.createHash('sha256').update(token).digest('hex');
-};
-
 export async function addMember(
   data: MemberInput,
   csrfToken?: string
@@ -323,6 +319,9 @@ export async function addMember(
         return { member: sanitizeMember(newMember), setupToken };
     } catch (error) {
         console.error('Failed to add member:', error);
+        if (error instanceof Error) {
+            return { error: error.message };
+        }
         return { error: 'An unexpected server error occurred. Please check the logs.' };
     }
 }
@@ -614,5 +613,4 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
-
 

@@ -5,11 +5,7 @@
 import prisma from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/email-service';
 import crypto from 'crypto';
-
-// Hash the token before storing it in the database
-const hashToken = (token: string) => {
-  return crypto.createHash('sha256').update(token).digest('hex');
-};
+import { hashToken } from '@/lib/server-utils';
 
 export async function requestPasswordReset(
   email: string

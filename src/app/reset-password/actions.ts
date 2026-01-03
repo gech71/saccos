@@ -5,10 +5,7 @@
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-
-const hashToken = (token: string) => {
-  return crypto.createHash('sha256').update(token).digest('hex');
-};
+import { hashToken } from '@/lib/server-utils';
 
 export async function validateResetToken(token: string): Promise<{ success: boolean, message: string }> {
     if (!token) {
