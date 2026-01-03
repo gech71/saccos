@@ -254,7 +254,7 @@ export async function addMember(
         
         // Generate a secure reset token instead of a temporary password
         const setupToken = randomBytes(32).toString('hex');
-        const hashedToken = hashToken(setupToken);
+        const hashedToken = await hashToken(setupToken);
 
         const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
         const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
@@ -549,7 +549,7 @@ export async function importMembers(
     
     try {
       const setupToken = randomBytes(32).toString('hex');
-      const hashedToken = hashToken(setupToken);
+      const hashedToken = await hashToken(setupToken);
       
       const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
       const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
@@ -613,4 +613,3 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
-

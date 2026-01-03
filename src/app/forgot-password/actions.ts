@@ -19,7 +19,7 @@ export async function requestPasswordReset(
   
   try {
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const passwordResetToken = hashToken(resetToken);
+    const passwordResetToken = await hashToken(resetToken);
     const passwordResetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
     const user = await prisma.user.findFirst({

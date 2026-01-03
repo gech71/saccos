@@ -13,7 +13,7 @@ export async function validateResetToken(token: string): Promise<{ success: bool
     }
     
     try {
-        const hashedToken = hashToken(token);
+        const hashedToken = await hashToken(token);
 
         if (process.env.NODE_ENV !== 'production') {
             console.debug('[dev] validateResetToken: incoming token hashed:', hashedToken);
@@ -71,7 +71,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
             return validationResult;
         }
         
-        const hashedToken = hashToken(token);
+        const hashedToken = await hashToken(token);
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         const user = await prisma.user.findFirst({
