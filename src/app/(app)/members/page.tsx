@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -109,7 +110,7 @@ export default function MembersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[], setupToken?: string }>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[] }>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,7 +138,7 @@ export default function MembersPage() {
   const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
   
   // New member setup link state
-  const [newMemberInfo, setNewMemberInfo] = useState<{ memberName: string; setupToken?: string } | null>(null);
+  const [newMemberInfo, setNewMemberInfo] = useState<{ memberName: string; } | null>(null);
   const [importedMembersInfo, setImportedMembersInfo] = useState<CreatedMemberInfo[] | null>(null);
 
 
@@ -279,9 +280,10 @@ export default function MembersPage() {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
         } else if (result.member) {
             toast({ title: 'Success', description: `Member '${result.member?.fullName}' added.` });
-            setNewMemberInfo({ memberName: result.member!.fullName, setupToken: result.setupToken });
+            setNewMemberInfo({ memberName: result.member!.fullName });
+            // Add the new member to the local state so the setup link can be generated
+            setMembers(prev => [{ ...result.member! }, ...prev]);
             setIsMemberModalOpen(false);
-            await fetchPageData();
         }
     }
 
@@ -711,9 +713,9 @@ export default function MembersPage() {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>This member must set their password.</p>
-                               {newMemberInfo?.setupToken && member.fullName === newMemberInfo.memberName ? (
+                               {member.setupToken ? (
                                 <Button size="sm" className="mt-2" onClick={() => {
-                                   const link = getPasswordSetupLink(newMemberInfo.setupToken!);
+                                   const link = getPasswordSetupLink(member.setupToken!);
                                     navigator.clipboard.writeText(link);
                                     toast({ title: 'Copied!', description: 'Password setup link copied.' });
                                 }}>
@@ -987,7 +989,7 @@ export default function MembersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Member Created Successfully!</AlertDialogTitle>
             <AlertDialogDescription>
-                A password setup link for <strong>{newMemberInfo?.memberName}</strong> can now be copied from the main table. Hover over the key icon next to their name.
+                A password setup link for the new member can now be copied from the main table. Hover over the key icon next to their name.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

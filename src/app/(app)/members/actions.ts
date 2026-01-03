@@ -47,6 +47,7 @@ export interface MemberWithDetails extends Member {
     totalSavingsBalance: number;
     address: Prisma.AddressGetPayload<{}> | null;
     emergencyContact: Prisma.EmergencyContactGetPayload<{}> | null;
+    setupToken?: string; // Add this field
 }
 
 
@@ -205,7 +206,7 @@ async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: 
 export async function addMember(
   data: MemberInput,
   csrfToken?: string
-): Promise<{ member?: Member; setupToken?: string; error?: string }> {
+): Promise<{ member?: MemberWithDetails; error?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -315,8 +316,10 @@ export async function addMember(
         revalidatePath('/members');
         revalidatePath('/applied-service-charges');
         revalidatePath('/shares');
+        
         // Return the raw token only on creation for the UI to build the link
-        return { member: sanitizeMember(newMember), setupToken };
+        const sanitizedNewMember = sanitizeMember(newMember) as Member;
+        return { member: { ...sanitizedNewMember, setupToken } as MemberWithDetails };
     } catch (error) {
         console.error('Failed to add member:', error);
         if (error instanceof Error) {
