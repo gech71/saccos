@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { getMemberDetails } from './actions';
@@ -107,7 +108,8 @@ export default function MemberProfilePage() {
         if (!details) return [];
         return details.allSavingsTransactions.filter(tx => {
             const matchesType = transactionFilter === 'all' || tx.transactionType === transactionFilter;
-            const txDate = new Date(tx.date);
+            const txDate = tx.date ? new Date(tx.date) : null;
+            if (!txDate) return false;
             const matchesDate = !transactionDateRange || (
                 (!transactionDateRange.from || txDate >= transactionDateRange.from) &&
                 (!transactionDateRange.to || txDate <= transactionDateRange.to)
@@ -198,7 +200,7 @@ export default function MemberProfilePage() {
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Savings</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalSavings.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Shares Paid</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalShares.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
                          <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Active Loan Balance</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{summaryStats.totalLoans.toLocaleString(undefined, {minimumFractionDigits: 2})} Birr</div></CardContent></Card>
-                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{format(new Date(member.joinDate), 'PP')}</div><div className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(member.joinDate))} ago</div></CardContent></Card>
+                         <Card><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Member Since</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-primary">{member.joinDate ? format(new Date(member.joinDate), 'PP') : 'N/A'}</div><div className="text-xs text-muted-foreground">{member.joinDate ? formatDistanceToNow(new Date(member.joinDate)) + ' ago' : ''}</div></CardContent></Card>
                     </div>
                      <SectionCard title="Member Information">
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
@@ -285,7 +287,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                     {paginatedTransactions.length > 0 ? paginatedTransactions.map(tx => (
                                         <TableRow key={tx.id}>
-                                            <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                            <TableCell>{tx.date ? format(new Date(tx.date), 'PPP') : 'N/A'}</TableCell>
                                             <TableCell className="capitalize">{tx.notes || tx.transactionType}</TableCell>
                                             <TableCell className="font-medium text-destructive text-right">
                                                 {tx.transactionType === 'withdrawal' ? tx.amount.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
@@ -360,7 +362,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {sharePayments.length > 0 ? sharePayments.map(p => (
                                         <TableRow key={p.id}>
-                                            <TableCell>{format(new Date(p.paymentDate), 'PPP')}</TableCell>
+                                            <TableCell>{p.paymentDate ? format(new Date(p.paymentDate), 'PPP') : 'N/A'}</TableCell>
                                             <TableCell className="font-semibold text-primary">{p.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell><Badge variant={p.status === 'approved' ? 'default' : 'secondary'}>{p.status}</Badge></TableCell>
                                             <TableCell>{p.depositMode}</TableCell>
@@ -384,7 +386,7 @@ export default function MemberProfilePage() {
                                     <StatInfo icon={<></>} label="Principal Amount" value={`${loan.principalAmount.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
                                     <StatInfo icon={<></>} label="Remaining Balance" value={`${loan.remainingBalance.toLocaleString(undefined, {minimumFractionDigits:2})} Birr`} />
                                     <StatInfo icon={<></>} label="Status" value={getLoanStatusBadge(loan.status)} />
-                                    <StatInfo icon={<></>} label="Disbursed" value={format(new Date(loan.disbursementDate), 'PPP')} />
+                                    <StatInfo icon={<></>} label="Disbursed" value={loan.disbursementDate ? format(new Date(loan.disbursementDate), 'PPP') : 'N/A'} />
                                 </div>
                                 <h4 className="font-medium mb-2">Repayment History for this Loan</h4>
                                 <div className="overflow-x-auto rounded-md border">
@@ -399,7 +401,7 @@ export default function MemberProfilePage() {
                                         <TableBody>
                                             {specificRepayments.length > 0 ? specificRepayments.map(repayment => (
                                                 <TableRow key={repayment.id}>
-                                                    <TableCell>{format(new Date(repayment.paymentDate), 'PPP')}</TableCell>
+                                                    <TableCell>{repayment.paymentDate ? format(new Date(repayment.paymentDate), 'PPP') : 'N/A'}</TableCell>
                                                     <TableCell className="text-right font-semibold text-primary">{repayment.amountPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-green-600">{repayment.principalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                                     <TableCell className="text-right text-orange-600">{repayment.interestPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
@@ -466,7 +468,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {dividends.length > 0 ? dividends.map(dividend => (
                                         <TableRow key={dividend.id}>
-                                            <TableCell>{format(new Date(dividend.distributionDate), 'PPP')}</TableCell>
+                                            <TableCell>{dividend.distributionDate ? format(new Date(dividend.distributionDate), 'PPP') : 'N/A'}</TableCell>
                                             <TableCell className="text-right">{dividend.shareCountAtDistribution}</TableCell>
                                             <TableCell className="text-right font-semibold text-primary">{dividend.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell>{dividend.notes || 'N/A'}</TableCell>
@@ -494,7 +496,7 @@ export default function MemberProfilePage() {
                                 <TableBody>
                                      {serviceCharges.length > 0 ? serviceCharges.map(charge => (
                                         <TableRow key={charge.id}>
-                                            <TableCell>{format(new Date(charge.dateApplied), 'PPP')}</TableCell>
+                                            <TableCell>{charge.dateApplied ? format(new Date(charge.dateApplied), 'PPP') : 'N/A'}</TableCell>
                                             <TableCell>{charge.serviceChargeType?.name || '[Deleted Charge Type]'}</TableCell>
                                             <TableCell className="text-right font-semibold">{charge.amountCharged.toLocaleString(undefined, {minimumFractionDigits: 2})}</TableCell>
                                             <TableCell>{getServiceChargeStatusBadge(charge.status)}</TableCell>
@@ -523,7 +525,7 @@ export default function MemberProfilePage() {
                                      {schoolHistory.length > 0 ? schoolHistory.map(history => (
                                         <TableRow key={history.id}>
                                             <TableCell className="font-medium">{history.schoolName}</TableCell>
-                                            <TableCell>{format(new Date(history.startDate), 'PPP')}</TableCell>
+                                            <TableCell>{history.startDate ? format(new Date(history.startDate), 'PPP') : 'N/A'}</TableCell>
                                             <TableCell>
                                                 {history.endDate ? (
                                                     format(new Date(history.endDate), 'PPP')
