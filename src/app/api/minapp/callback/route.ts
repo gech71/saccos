@@ -1,12 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateNibToken } from '@/app/minapp/actions';
-import { createSignature } from '@/app/minapp/utils'; // Import from the new utility file
-
-/**
- * API route to handle callback notifications from NIBtera.
- * NIBtera will send a POST request to this endpoint after a transaction attempt.
- */
+import { createSignature } from '@/app/minapp/utils'; 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -52,13 +47,7 @@ export async function POST(req: NextRequest) {
 
     console.log('✅ Callback Authenticated and Verified Successfully.');
 
-    // In a real application, you would add logic here to:
-    // 1. Find the transaction in your database using `body.transactionId`.
-    // 2. Update the transaction status based on `body.status` or similar field.
-    // 3. If the payment was successful, create the corresponding 'Saving' record for the member.
-    // 4. Ensure you don't process the same `transactionId` twice.
-
-    // Respond to NIBtera to acknowledge receipt of the callback.
+   
     return NextResponse.json({ success: true, message: "Callback received and verified." }, { status: 200 });
 
   } catch (error) {

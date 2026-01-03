@@ -14,6 +14,6 @@ import crypto from 'crypto';
  * @param token The input token string.
  * @returns The SHA256 hashed token as a hex string.
  */
-export const hashToken = (token: string) => {
+export const hashToken = async (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };

@@ -32,8 +32,7 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
       connectionTimeout: 10000, // 10 seconds
       greetingTimeout: 10000,
       socketTimeout: 10000,
-      // For Gmail, you might need to use OAuth2 or App Password
-      // If using App Password, ensure SMTP_EMAIL_PASS is the app password, not regular password
+      
     });
 
     // Verify connection before sending
