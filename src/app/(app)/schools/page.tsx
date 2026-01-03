@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Search, School as SchoolIcon, Users, FileDown, Loader2, UploadCloud, Download } from 'lucide-react';
@@ -82,7 +83,7 @@ export default function SchoolsPage() {
 
   const [currentSchool, setCurrentSchool] = useState<Partial<School>>(initialSchoolFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // CSRF token will be fetched on-demand before protected actions
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -111,17 +112,7 @@ export default function SchoolsPage() {
     if (user) {
       fetchSchools();
 
-      (async function fetchCsrf() {
-        try {
-          const res = await fetch('/api/csrf');
-          if (res.ok) {
-            const d = await res.json();
-            setCsrfToken(d.csrfToken || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch CSRF token', e);
-        }
-      })();
+      // fetch CSRF token on-demand via ensureCsrfToken
     }
   }, [user]);
   
@@ -144,18 +135,24 @@ export default function SchoolsPage() {
     setIsSubmitting(true);
     let result;
     if (isEditing && currentSchool.id) {
-        result = await updateSchool(currentSchool.id, {
+        {
+          const token = await ensureCsrfToken();
+          result = await updateSchool(currentSchool.id, {
         name: currentSchool.name,
         address: currentSchool.address,
         contactPerson: currentSchool.contactPerson,
-        }, csrfToken || undefined);
+        }, token || undefined);
+        }
     } else {
-        result = await addSchool({
+        {
+          const token = await ensureCsrfToken();
+          result = await addSchool({
         id: currentSchool.id,
         name: currentSchool.name,
         address: currentSchool.address,
         contactPerson: currentSchool.contactPerson,
-        }, csrfToken || undefined);
+        }, token || undefined);
+        }
     }
     
     if (result.success) {
@@ -184,7 +181,8 @@ export default function SchoolsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!schoolToDelete) return;
-    const result = await deleteSchool(schoolToDelete, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await deleteSchool(schoolToDelete, token || undefined);
     if (result.success) {
       toast({ title: 'Success', description: result.message });
       await fetchSchools(); // Refresh data
@@ -381,13 +379,16 @@ export default function SchoolsPage() {
     }
     
     setIsSubmitting(true);
-    const result = await importSchools(schoolsToImport, csrfToken || undefined);
-    if (result.success) {
-      toast({ title: 'Import Complete', description: result.message });
-      await fetchSchools();
-      setIsImportModalOpen(false);
-    } else {
-      toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
+    {
+      const token = await ensureCsrfToken();
+      const result = await importSchools(schoolsToImport, token || undefined);
+      if (result.success) {
+        toast({ title: 'Import Complete', description: result.message });
+        await fetchSchools();
+        setIsImportModalOpen(false);
+      } else {
+        toast({ variant: 'destructive', title: 'Import Failed', description: result.message });
+      }
     }
     setIsSubmitting(false);
   };

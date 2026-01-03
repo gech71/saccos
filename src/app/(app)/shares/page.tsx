@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -101,7 +102,7 @@ export default function SharePaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // CSRF token fetched on-demand before protected actions
 
   const fetchPageData = async () => {
     setIsLoading(true);
@@ -118,18 +119,7 @@ export default function SharePaymentsPage() {
   useEffect(() => {
     fetchPageData();
 
-    // Fetch CSRF token for protected server actions
-    (async function fetchCsrf() {
-      try {
-        const res = await fetch('/api/csrf');
-        if (res.ok) {
-          const data = await res.json();
-          setCsrfToken(data.csrfToken || null);
-        }
-      } catch (e) {
-        console.error('Failed to fetch CSRF token', e);
-      }
-    })();
+    // CSRF token will be fetched on-demand
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,7 +147,8 @@ export default function SharePaymentsPage() {
     }
     
     setIsSubmitting(true);
-    const result = await addSharePayment(currentPayment as SharePaymentInput, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await addSharePayment(currentPayment as SharePaymentInput, token || undefined);
 
     if(result.success) {
         toast({ title: 'Submitted for Approval', description: `Share payment submitted.` });
@@ -183,7 +174,8 @@ export default function SharePaymentsPage() {
       if (!commitmentToRefund) return;
       setIsSubmitting(true);
       try {
-          const result = await refundShareCommitment(commitmentToRefund.id, csrfToken || undefined);
+          const token = await ensureCsrfToken();
+          const result = await refundShareCommitment(commitmentToRefund.id, token || undefined);
           if (result.success) {
               toast({ title: 'Refund Submitted', description: result.message });
               await fetchPageData();

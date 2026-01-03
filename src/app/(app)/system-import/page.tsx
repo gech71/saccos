@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,7 +66,7 @@ export default function SystemImportPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // CSRF token fetched on-demand before protected actions
   const [membersData, setMembersData] = useState<MemberDataForImport[]>([]);
   
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -82,16 +83,7 @@ export default function SystemImportPage() {
         setPageData(data);
         setMembersData(data.members);
 
-        // fetch CSRF token for protected server actions
-        try {
-          const res = await fetch('/api/csrf');
-          if (res.ok) {
-            const d = await res.json();
-            setCsrfToken(d.csrfToken || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch CSRF token', e);
-        }
+        // token fetched on-demand via ensureCsrfToken
 
         setIsPageLoading(false);
     }
@@ -123,7 +115,8 @@ export default function SystemImportPage() {
     
     setIsSubmitting(true);
     try {
-        await processImport(payload, csrfToken || undefined);
+        const token = await ensureCsrfToken();
+        await processImport(payload, token || undefined);
         toast({ title: 'Success', description: 'Imported data has been submitted for approval.' });
         setExcelFile(null);
         setValidatedRows([]);

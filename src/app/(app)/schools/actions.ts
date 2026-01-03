@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import type { School } from '@prisma/client';
 import { requirePermission } from '@/lib/authorization';
 import { requireCsrf } from '@/lib/csrf';
+
 import { revalidatePath } from 'next/cache';
 
 export type SchoolWithMemberCount = School & {
@@ -106,6 +107,7 @@ export async function importSchools(schools: {id: string, name: string, address?
 
     try {
       await requirePermission('school:create');
+      await requireCsrf(csrfToken);
         for (const school of schools) {
             try {
                 await prisma.school.create({

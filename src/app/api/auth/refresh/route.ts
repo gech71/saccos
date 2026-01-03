@@ -6,7 +6,9 @@ import prisma from '@/lib/prisma';
 import { validateRefreshToken } from '@/lib/session-management';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
-const SESSION_COOKIE_NAME = 'authjs.session-token';
+// Keep the session cookie name consistent with NextAuth's session cookie so
+// server-side `getServerSession()` (used by `auth()`) can find the session.
+const SESSION_COOKIE_NAME = process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token';
 
 function buildSessionCookie(token: string) {
   const isProd = process.env.NODE_ENV === 'production';

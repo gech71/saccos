@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ export default function RegisterUserPage() {
   const router = useRouter();
 
   const [newUserInfo, setNewUserInfo] = useState<{ userName: string; setupLink: string } | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // always fetch fresh csrf token before calling the server action
 
   useEffect(() => {
     async function fetchData() {
@@ -45,16 +46,7 @@ export default function RegisterUserPage() {
         const rolesData = await getRolesForRegistration();
         setRoles(rolesData);
 
-        // Fetch CSRF token for protected server actions
-        try {
-          const res = await fetch('/api/csrf');
-          if (res.ok) {
-            const data = await res.json();
-            setCsrfToken(data.csrfToken || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch CSRF token', e);
-        }
+        // no-op: token fetched on-demand at submit time
       } catch {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to load roles.' });
       }
@@ -88,7 +80,8 @@ export default function RegisterUserPage() {
     }
     
     setIsSubmitting(true);
-    const result = await registerUserByAdmin(formState, formState.roleIds, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await registerUserByAdmin(formState, formState.roleIds, token || undefined);
     if (result.success && result.user && result.setupToken) {
       toast({ title: 'Success', description: 'New user has been registered successfully.' });
       const baseUrl = window.location.origin;

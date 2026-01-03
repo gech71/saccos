@@ -11,8 +11,8 @@ import { z } from 'zod';
 import { logAudit } from '@/lib/audit-log';
 import { differenceInMonths } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
-import { sanitizeMembers, sanitizeMember } from '@/lib/sanitize-user-data';
 import { requireCsrf } from '@/lib/csrf';
+import { sanitizeMembers, sanitizeMember } from '@/lib/sanitize-user-data';
 import { hashToken } from '@/lib/server-utils';
 
 // Helpers for phone normalization/formatting

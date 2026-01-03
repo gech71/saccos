@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +31,7 @@ export default function SettingsPage() {
   const [roles, setRoles] = useState<RoleWithUserCount[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // CSRF token fetched on-demand via ensureCsrfToken
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithRoles | null>(null);
@@ -68,19 +69,10 @@ export default function SettingsPage() {
     if (user) {
       fetchPageData();
 
-      (async function fetchCsrf() {
-        try {
-          const res = await fetch('/api/csrf');
-          if (res.ok) {
-            const data = await res.json();
-            setCsrfToken(data.csrfToken || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch CSRF token', e);
-        }
-      })();
+        // CSRF token is fetched on-demand when performing protected actions
     }
   }, [user, toast]);
+    // uses shared ensureCsrfToken helper from hooks
   
   // User Modal Logic
   const openUserModal = (user: UserWithRoles) => {
@@ -102,7 +94,8 @@ export default function SettingsPage() {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
-        await updateUserRoles(selectedUser.id, Array.from(selectedRoleIds), csrfToken || undefined);
+      const token = await ensureCsrfToken();
+      await updateUserRoles(selectedUser.id, Array.from(selectedRoleIds), token || undefined);
         toast({ title: 'Success', description: `Roles for ${selectedUser.name} have been updated.` });
         await fetchPageData();
         setIsUserModalOpen(false);
@@ -127,7 +120,8 @@ export default function SettingsPage() {
     if (!currentUserToEdit.id) return;
     setIsSubmitting(true);
     const { firstName, lastName, email, phoneNumber } = currentUserToEdit;
-    const result = await updateUser(currentUserToEdit.id, { firstName, lastName, email, phoneNumber } as any, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await updateUser(currentUserToEdit.id, { firstName, lastName, email, phoneNumber } as any, token || undefined);
     if (result.success) {
       toast({ title: 'Success', description: 'User details updated.' });
       await fetchPageData();
@@ -184,12 +178,13 @@ export default function SettingsPage() {
     }
     setIsSubmitting(true);
     try {
+        const token = await ensureCsrfToken();
         await createOrUpdateRole({
             id: currentRole.id,
             name: currentRole.name,
             description: currentRole.description,
             permissions: currentRole.permissions as string[] || [],
-        }, csrfToken || undefined);
+        }, token || undefined);
         toast({ title: 'Success', description: `Role '${currentRole.name}' saved successfully.` });
         await fetchPageData();
         setIsRoleModalOpen(false);
@@ -217,10 +212,11 @@ export default function SettingsPage() {
     setIsSubmitting(true);
 
     let result;
+    const token = await ensureCsrfToken();
     if (itemToDelete.type === 'user') {
-      result = await deleteUser(itemToDelete.id, csrfToken || undefined);
+      result = await deleteUser(itemToDelete.id, token || undefined);
     } else {
-      result = await deleteRole(itemToDelete.id, csrfToken || undefined);
+      result = await deleteRole(itemToDelete.id, token || undefined);
     }
     
     if (result.success) {

@@ -9,6 +9,8 @@ import { compareDesc } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
 import { requireCsrf } from '@/lib/csrf';
 
+
+
 export interface MemberCommitmentWithDetails extends MemberShareCommitment {
   member: Pick<Member, 'fullName'>;
   shareType: Pick<ShareType, 'name' | 'totalAmount' | 'paymentType' | 'numberOfInstallments' | 'monthlyPayment'> | null;

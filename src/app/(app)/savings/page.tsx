@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, Filter, DollarSign, Users, TrendingUp, SchoolIcon, WalletCards, Edit, Trash2, UploadCloud, Banknote, Wallet, ArrowUpCircle, ArrowDownCircle, Check, ChevronsUpDown, FileDown, Loader2, MoreVertical } from 'lucide-react';
@@ -84,7 +85,7 @@ export default function SavingsPage() {
   const [members, setMembers] = useState<MemberForSelect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  // CSRF token fetched on-demand via ensureCsrfToken
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState<Partial<SavingInput & {id?: string}>>(initialTransactionFormState);
@@ -124,17 +125,7 @@ export default function SavingsPage() {
     if (user) {
       fetchPageData();
 
-      (async function fetchCsrf() {
-        try {
-          const res = await fetch('/api/csrf');
-          if (res.ok) {
-            const data = await res.json();
-            setCsrfToken(data.csrfToken || null);
-          }
-        } catch (e) {
-          console.error('Failed to fetch CSRF token', e);
-        }
-      })();
+      // CSRF token will be fetched on-demand before actions
     }
   }, [user, toast]);
 
@@ -199,10 +190,16 @@ export default function SavingsPage() {
     
     try {
         if (isEditing && currentTransaction.id) {
-            await updateSavingTransaction(currentTransaction.id, currentTransaction as SavingInput, csrfToken || undefined);
+            {
+              const token = await ensureCsrfToken();
+              await updateSavingTransaction(currentTransaction.id, currentTransaction as SavingInput, token || undefined);
+            }
             toast({ title: 'Success', description: `Savings transaction updated. It requires re-approval.` });
         } else {
-            await addSavingTransaction(currentTransaction as SavingInput, csrfToken || undefined);
+            {
+              const token = await ensureCsrfToken();
+              await addSavingTransaction(currentTransaction as SavingInput, token || undefined);
+            }
             toast({ title: 'Transaction Submitted', description: `Savings transaction sent for approval.` });
         }
         
@@ -240,7 +237,8 @@ export default function SavingsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!transactionToDelete) return;
-    const result = await deleteSavingTransaction(transactionToDelete, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await deleteSavingTransaction(transactionToDelete, token || undefined);
     if (result.success) {
         toast({ title: 'Success', description: result.message });
         const data = await getSavingsPageData();

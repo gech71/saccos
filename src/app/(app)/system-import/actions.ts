@@ -6,6 +6,7 @@ import type { School, SavingAccountType, LoanType, ShareType, ServiceChargeType,
 import { revalidatePath } from 'next/cache';
 import { endOfMonth } from 'date-fns';
 import { requirePermission } from '@/lib/authorization';
+import { requireCsrf } from '@/lib/csrf';
 
 
 export interface ImportPageData {

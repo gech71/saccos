@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { ensureCsrfToken } from '@/hooks/use-csrf';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,7 +71,7 @@ export default function CalculateLoanInterestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [calculationResults, setCalculationResults] = useState<InterestCalculationResult[] | null>(null);
-  const [csrfToken, setCsrfToken] = useState<string | null>(null);
+    // fetch CSRF token on-demand via ensureCsrfToken
 
   // State for Calculator Tab
   const [calculatorPrincipal, setCalculatorPrincipal] = useState<number | undefined>();
@@ -94,19 +95,10 @@ export default function CalculateLoanInterestPage() {
     }
     fetchData();
 
-    // Fetch CSRF token for protected server actions
-    (async function fetchCsrf() {
-      try {
-        const res = await fetch('/api/csrf');
-        if (res.ok) {
-          const data = await res.json();
-          setCsrfToken(data.csrfToken || null);
-        }
-      } catch (e) {
-        console.error('Failed to fetch CSRF token', e);
-      }
-    })();
+        // CSRF token fetched on-demand when needed
   }, []);
+
+    // use shared ensureCsrfToken from hooks
 
   const handleCalculateInterest = async () => {
     if (calculationScope === 'school' && !selectedSchoolId) {
@@ -159,7 +151,8 @@ export default function CalculateLoanInterestPage() {
 
     try {
       const payload = calculationResults!.map(r => ({ loanId: r.loanId, memberId: r.memberId, calculatedInterest: r.interestPaid }));
-      const result = await postInterestCharges(payload, { month: selectedMonth, year: selectedYear }, selectedServiceChargeTypeId, csrfToken || undefined);
+    const token = await ensureCsrfToken();
+    const result = await postInterestCharges(payload, { month: selectedMonth, year: selectedYear }, selectedServiceChargeTypeId, token || undefined);
 
       if (result.success) {
           toast({ title: 'Loan Interest Posted', description: result.message });

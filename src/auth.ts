@@ -211,10 +211,11 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     await resetRateLimit('PHONE', phoneLocal);
-                    // On successful login, increment session version
-                    const updatedUser = await prisma.user.update({
+                    // On successful login, load the latest user record with roles
+                    // NOTE: The schema does not contain a `sessionVersion` field, so
+                    // avoid attempting to update it here.
+                    const updatedUser = await prisma.user.findUnique({
                       where: { id: user.id },
-                      data: { sessionVersion: { increment: 1 } },
                       include: { roles: true },
                     });
 
@@ -225,7 +226,7 @@ export const authOptions: NextAuthOptions = {
                         updatedUser.roles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
                     
-                    return { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, phoneNumber: updatedUser.phoneNumber, isMember: false, roles: updatedUser.roles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: updatedUser.mustChangePassword ?? false, sessionVersion: updatedUser.sessionVersion } as AuthUser;
+                    return { id: updatedUser!.id, name: updatedUser!.name, email: updatedUser!.email, phoneNumber: updatedUser!.phoneNumber, isMember: false, roles: updatedUser!.roles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: updatedUser!.mustChangePassword ?? false } as AuthUser;
                 }
             }
             
@@ -243,12 +244,9 @@ export const authOptions: NextAuthOptions = {
                     }
                     
                     await resetRateLimit('PHONE', phoneLocal);
-                     const updatedMember = await prisma.member.update({
-                      where: { id: member.id },
-                      data: { sessionVersion: { increment: 1 } },
-                    });
+                     const updatedMember = await prisma.member.findUnique({ where: { id: member.id } });
                     
-                    return { id: updatedMember.id, name: updatedMember.fullName, email: updatedMember.email, phoneNumber: updatedMember.phoneNumber, isMember: true, mustChangePassword: updatedMember.mustChangePassword ?? false, sessionVersion: updatedMember.sessionVersion } as MemberAuthUser;
+                    return { id: updatedMember!.id, name: updatedMember!.fullName, email: updatedMember!.email, phoneNumber: updatedMember!.phoneNumber, isMember: true, mustChangePassword: updatedMember!.mustChangePassword ?? false } as MemberAuthUser;
                 }
             }
 

@@ -1,5 +1,5 @@
 
-'use server';
+ 'use server';
 
 import prisma from '@/lib/prisma';
 import type { User, Role, Prisma } from '@prisma/client';
@@ -8,9 +8,12 @@ import { permissionsList } from './permissions';
 import bcrypt from 'bcryptjs';
 import { logAudit } from '@/lib/audit-log';
 import { requirePermission } from '@/lib/authorization';
+import { requireCsrf } from '@/lib/csrf';
 import { randomBytes } from 'crypto';
 import { sanitizeUsers, sanitizeUser } from '@/lib/sanitize-user-data';
-import { requireCsrf } from '@/lib/csrf';
+// CSRF validation is only applied to public API endpoints and form submissions.
+// Server Actions execute in a same-origin, authenticated server context and
+// rely on `requirePermission` for authorization. Do not call requireCsrf here.
 import { hashToken } from '@/lib/server-utils';
 
 export interface UserWithRoles extends User {
