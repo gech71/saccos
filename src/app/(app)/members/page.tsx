@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { PageTitle } from '@/components/page-title';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy, KeyRound, CheckCircle, XCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Search, Filter, MinusCircle, DollarSign, Hash, PieChart as LucidePieChart, FileText, FileDown, Loader2, UploadCloud, UserRound, ArrowUpDown, ArrowRightLeft, ReceiptText, SchoolIcon, ChevronsUpDown, Check, Copy, KeyRound, CheckCircle, XCircle, MoreVertical } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -975,7 +974,7 @@ export default function MembersPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}}{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1014,3 +1013,4 @@ export default function MembersPage() {
   );
 }
 
+    
