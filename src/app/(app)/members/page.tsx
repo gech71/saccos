@@ -974,7 +974,10 @@ export default function MembersPage() {
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
-              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}}{isEditingMember ? 'Save Changes' : 'Add Member'}</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditingMember ? 'Save Changes' : 'Add Member'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
