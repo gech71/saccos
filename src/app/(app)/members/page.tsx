@@ -110,7 +110,7 @@ export default function MembersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
-  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[], temporaryPassword?: string }>>(initialMemberFormState);
+  const [currentMember, setCurrentMember] = useState<Partial<MemberWithDetails & { serviceChargeIds?: string[], shareCommitmentIds?: (string | null)[], setupToken?: string }>>(initialMemberFormState);
   const [isEditingMember, setIsEditingMember] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,8 +137,8 @@ export default function MembersPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [validationSummary, setValidationSummary] = useState<{valid: number, invalid: number, total: number} | null>(null);
   
-  // New password state
-  const [newPasswordInfo, setNewPasswordInfo] = useState<{ memberName: string } | null>(null);
+  // New member setup link state
+  const [newMemberInfo, setNewMemberInfo] = useState<{ memberName: string; setupToken?: string } | null>(null);
   const [importedMembersInfo, setImportedMembersInfo] = useState<CreatedMemberInfo[] | null>(null);
 
 
@@ -278,9 +278,9 @@ export default function MembersPage() {
         const result = await addMember(memberInputData, csrfToken || undefined);
         if (result.error) {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
-        } else {
+        } else if (result.member) {
             toast({ title: 'Success', description: `Member '${result.member?.fullName}' added.` });
-            setNewPasswordInfo({ memberName: result.member!.fullName });
+            setNewMemberInfo({ memberName: result.member!.fullName, setupToken: result.setupToken });
             setIsMemberModalOpen(false);
             await fetchPageData();
         }
@@ -601,6 +601,11 @@ export default function MembersPage() {
     }];
     exportToExcel(templateData, 'member_import_template');
   };
+  
+  const getPasswordSetupLink = (token: string) => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/reset-password?token=${token}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -706,7 +711,18 @@ export default function MembersPage() {
                               <KeyRound className="h-4 w-4 text-primary cursor-pointer" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>This member must change their temporary password on first login.</p>
+                              <p>This member must set their password.</p>
+                               {newMemberInfo?.setupToken && member.fullName === newMemberInfo.memberName ? (
+                                <Button size="sm" className="mt-2" onClick={() => {
+                                   const link = getPasswordSetupLink(newMemberInfo.setupToken!);
+                                    navigator.clipboard.writeText(link);
+                                    toast({ title: 'Copied!', description: 'Password setup link copied.' });
+                                }}>
+                                    <Copy className="mr-2 h-4 w-4"/> Copy Setup Link
+                                </Button>
+                               ) : (
+                                <p className="text-xs text-muted-foreground mt-1">Please ask an admin to reset their password.</p>
+                               )}
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -725,7 +741,7 @@ export default function MembersPage() {
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <span className="sr-only">Open menu</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -776,7 +792,7 @@ export default function MembersPage() {
             <DialogTitle className="font-headline">Import Members from Excel</DialogTitle>
              {importedMembersInfo ? (
                 <DialogDescription>
-                    Import successful. Below are the newly created members. Temporary passwords are not displayed for security; distribute them securely out-of-band.
+                    Import successful. A password setup link can be copied for each new member.
                 </DialogDescription>
              ) : (
                 <DialogDescription>
@@ -790,11 +806,18 @@ export default function MembersPage() {
                      <Label>Imported Members</Label>
                       <div className="mt-2 rounded-md border">
                         <Table>
-                            <TableHeader><TableRow><TableHead>Full Name</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Full Name</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {importedMembersInfo.map(info => (
                                     <TableRow key={info.member.id}>
                                         <TableCell>{info.member.fullName}</TableCell>
+                                        <TableCell className="text-right">
+                                           <Button size="sm" variant="outline" onClick={() => {
+                                                const link = getPasswordSetupLink(info.setupToken);
+                                                navigator.clipboard.writeText(link);
+                                                toast({ title: 'Copied!', description: 'Password setup link copied.' });
+                                            }}><Copy className="mr-2 h-4 w-4"/> Copy Link</Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -957,23 +980,16 @@ export default function MembersPage() {
           </form>
         </DialogContent>
       </Dialog>
-       <AlertDialog open={!!newPasswordInfo}>
+      <AlertDialog open={!!newMemberInfo}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Member Created Successfully!</AlertDialogTitle>
             <AlertDialogDescription>
-                Please provide the following temporary password to <strong>{newPasswordInfo?.memberName}</strong>. They will be required to change it upon their first login.
+                A password setup link for <strong>{newMemberInfo?.memberName}</strong> can now be copied from the main table. Hover over the key icon next to their name.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="p-4 bg-muted rounded-md text-center">
-            <p className="text-lg font-mono font-bold tracking-widest">{newPasswordInfo?.password}</p>
-          </div>
           <AlertDialogFooter>
-            <Button onClick={() => {
-                navigator.clipboard.writeText(newPasswordInfo?.password || '');
-                toast({ title: 'Copied!', description: 'Password copied to clipboard.' });
-            }}><Copy className="mr-2 h-4 w-4"/> Copy Password</Button>
-            <AlertDialogAction onClick={() => setNewPasswordInfo(null)}>Close</AlertDialogAction>
+            <AlertDialogAction onClick={() => setNewMemberInfo(null)}>Got it</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

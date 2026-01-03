@@ -90,6 +90,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
                     passwordResetToken: null,
                     passwordResetTokenExpires: null,
                     mustChangePassword: false,
+                    temporaryPassword: null, // Ensure this is also cleared
                 },
             });
 
@@ -116,6 +117,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
                     passwordResetToken: null,
                     passwordResetTokenExpires: null,
                     mustChangePassword: false,
+                    temporaryPassword: null, // Ensure this is also cleared
                 },
             });
 

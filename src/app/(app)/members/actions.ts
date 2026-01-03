@@ -201,8 +201,15 @@ async function checkDuplicates(email: string, phoneNumber: string, memberUUID?: 
     return null;
 }
 
+// Hash the token before storing it in the database
+const hashToken = (token: string) => {
+  return crypto.createHash('sha256').update(token).digest('hex');
+};
 
-export async function addMember(data: MemberInput, csrfToken?: string): Promise<{ member?: Member; error?: string }> {
+export async function addMember(
+  data: MemberInput,
+  csrfToken?: string
+): Promise<{ member?: Member; setupToken?: string; error?: string }> {
     const validationResult = memberInputSchema.safeParse(data);
     if (!validationResult.success) {
         const firstError = validationResult.error.errors[0];
@@ -248,21 +255,26 @@ export async function addMember(data: MemberInput, csrfToken?: string): Promise<
         const shareTypesToCommit = await prisma.shareType.findMany({
             where: { id: { in: validShareCommitmentIds } }
         });
-
-        const temporaryPassword = randomBytes(12).toString('hex');
-        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        
+        // Generate a secure reset token instead of a temporary password
+        const setupToken = randomBytes(32).toString('hex');
+        const hashedToken = hashToken(setupToken);
 
         const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
         const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+        
+        // Create a secure, random initial password hash that is unknown
+        const randomPassword = randomBytes(32).toString('hex');
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
         const newMember = await prisma.member.create({
             data: {
                 memberId,
                 ...memberData,
-                password: hashedPassword,
-                temporaryPassword: temporaryPassword,
-                temporaryPasswordExpires: expiresAt,
-                mustChangePassword: true,
+                password: hashedPassword, // Set a random, unknown password
+                passwordResetToken: hashedToken, // Store the HASHED setup token
+                passwordResetTokenExpires: expiresAt,
+                mustChangePassword: true, // This flag now indicates the need to set a password
                 status: 'active',
                 joinDate: new Date(memberData.joinDate),
                 address: cleanAddressPayload ? { create: cleanAddressPayload } : undefined,
@@ -307,7 +319,8 @@ export async function addMember(data: MemberInput, csrfToken?: string): Promise<
         revalidatePath('/members');
         revalidatePath('/applied-service-charges');
         revalidatePath('/shares');
-        return { member: sanitizeMember(newMember) };
+        // Return the raw token only on creation for the UI to build the link
+        return { member: sanitizeMember(newMember), setupToken };
     } catch (error) {
         console.error('Failed to add member:', error);
         return { error: 'An unexpected server error occurred. Please check the logs.' };
@@ -510,6 +523,7 @@ export interface ImportedMember {
 
 export interface CreatedMemberInfo {
     member: Member;
+    setupToken: string;
 }
 
 export async function importMembers(
@@ -535,11 +549,14 @@ export async function importMembers(
     const memberId = String(m.MemberID).trim();
     
     try {
-      const temporaryPassword = randomBytes(12).toString('hex');
-      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+      const setupToken = randomBytes(32).toString('hex');
+      const hashedToken = hashToken(setupToken);
       
       const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
       const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+      
+      const randomPassword = randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
       
       const newMember = await prisma.member.create({
         data: {
@@ -547,8 +564,8 @@ export async function importMembers(
           fullName: m.MemberFullName,
           email: `${randomBytes(8).toString('hex')}@academinvest.com`, // Generate unique email
           password: hashedPassword,
-          temporaryPassword,
-          temporaryPasswordExpires: expiresAt,
+          passwordResetToken: hashedToken,
+          passwordResetTokenExpires: expiresAt,
           mustChangePassword: true,
           sex: 'Male', // Default, can be updated later
           phoneNumber: toLocalPhone(m.PhoneNumber),
@@ -576,7 +593,7 @@ export async function importMembers(
                 details: { name: newMember.fullName, memberId: newMember.memberId, source: 'bulk-import' }
             });
 
-      createdMembersInfo.push({ member: sanitizeMember(newMember) });
+      createdMembersInfo.push({ member: sanitizeMember(newMember), setupToken });
       createdCount++;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -597,4 +614,5 @@ export async function importMembers(
 
   return { success: true, message, createdMembers: createdMembersInfo };
 }
+
 
