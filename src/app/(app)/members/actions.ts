@@ -92,7 +92,7 @@ export async function getMembersPageData(): Promise<MembersPageData> {
     const formattedMembers: MemberWithDetails[] = members.map(member => ({
         ...member,
         joinDate: member.joinDate, // Keep as Date object for server
-        totalSavingsBalance: member.memberSavingAccounts.reduce((sum, acc) => sum + acc.balance, 0),
+        totalSavingsBalance: (member.memberSavingAccounts || []).reduce((sum, acc) => sum + (acc.balance || 0), 0),
     }));
 
     // Sanitize members to remove sensitive fields (passwordResetToken, password, etc.)

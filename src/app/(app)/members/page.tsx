@@ -178,6 +178,10 @@ export default function MembersPage() {
       }
     })();
   }, [toast]);
+  
+  useEffect(() => {
+    setCurrentMember(initialMemberFormState);
+  }, [isMemberModalOpen])
 
   const handleMemberInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -736,7 +740,7 @@ export default function MembersPage() {
                     <TableCell>
                       <Badge variant="secondary">{member.school?.name}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold">{member.totalSavingsBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Birr</TableCell>
+                    <TableCell className="text-right font-semibold">{member.totalSavingsBalance?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'} Birr</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
