@@ -1,3 +1,4 @@
+
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -10,6 +11,7 @@ import { requirePermission } from '@/lib/authorization';
 import { randomBytes } from 'crypto';
 import { sanitizeUsers, sanitizeUser } from '@/lib/sanitize-user-data';
 import { requireCsrf } from '@/lib/csrf';
+import { hashToken } from '@/lib/server-utils';
 
 export interface UserWithRoles extends User {
   roles: Role[];
@@ -213,15 +215,16 @@ export async function registerUserByAdmin(
 ): Promise<{
   success: boolean;
   user?: User;
+  setupToken?: string;
   error?: string;
 }> {
   await requirePermission('setting:create');
   await requireCsrf(csrfToken);
   try {
-    if (!data.email || !data.password || !data.phoneNumber) {
+    if (!data.email || !data.phoneNumber) {
       return {
         success: false,
-        error: 'Email, password, and phone number are required.',
+        error: 'Email and phone number are required.',
       };
     }
     if (!/^0[79]\d{8}$/.test(data.phoneNumber)) {
@@ -239,11 +242,16 @@ export async function registerUserByAdmin(
       return { success: false, error: duplicateError };
     }
 
-    const temporaryPassword = data.password; // Use the password from the form as the temp pass
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const setupToken = randomBytes(32).toString('hex');
+    const hashedToken = await hashToken(setupToken);
 
     const ttlHours = parseInt(process.env.TEMP_PASSWORD_TTL_HOURS || '24', 10);
     const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+    
+    // Create a secure, random initial password hash that is unknown
+    const randomPassword = randomBytes(32).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
 
     const newUser = await prisma.user.create({
       data: {
@@ -254,8 +262,8 @@ export async function registerUserByAdmin(
         phoneNumber: data.phoneNumber,
         password: hashedPassword,
         mustChangePassword: true, // Enforce password change on first login
-        temporaryPassword: temporaryPassword,
-        temporaryPasswordExpires: expiresAt,
+        passwordResetToken: hashedToken,
+        passwordResetTokenExpires: expiresAt,
         roles: {
           connect: roleIds.map((id) => ({ id })),
         },
@@ -270,7 +278,7 @@ export async function registerUserByAdmin(
     });
 
     revalidatePath('/settings');
-    return { success: true, user: sanitizeUser(newUser) as User };
+    return { success: true, user: sanitizeUser(newUser) as User, setupToken };
   } catch (error) {
     console.error('Error during user registration:', error);
     if (

@@ -12,7 +12,7 @@ import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import jwt from 'jsonwebtoken';
-import { createActiveSession } from './lib/session-management';
+import { createActiveSession, invalidateSessionByRefreshToken, validateRefreshToken } from './lib/session-management';
 
 function toLocalPhone(phone?: string | null) {
   if (!phone) return "";
@@ -203,54 +203,29 @@ export const authOptions: NextAuthOptions = {
                 if (match) {
                     // If this account requires a password change, validate the temporary password expiry and enforce single-use.
                     if (user.mustChangePassword) {
-                      const now = new Date();
-                      if (!user.temporaryPasswordExpires || user.temporaryPasswordExpires < now) {
-                        setAuthErrorCookie('Temporary password has expired. Please request a password reset.');
-                        return null;
-                      }
-
-                      // Temp password is valid; invalidate it immediately to enforce single-use
-                      try {
-                        await prisma.user.update({ where: { id: user.id }, data: { temporaryPassword: null, temporaryPasswordExpires: null } });
-                      } catch (e) {
-                        console.error('Failed to clear temporary password after login:', e);
-                      }
-
-                      await resetRateLimit('PHONE', phoneLocal);
-                      const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
-                      const permissions = new Set<string>();
-                      if (userRoles.some(r => r.name === "Admin")) {
-                          permissionsList.forEach(p => permissions.add(p.id));
-                      } else {
-                          userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
-                      }
-                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+                      // This user needs to set their password, but has a temp one.
+                      // This state should not happen with the new token flow.
+                      // For now, we will treat it as an error to force a proper password reset.
+                      setAuthErrorCookie('Account requires password setup. Please use the link provided by your administrator.');
+                      return null;
                     }
 
                     await resetRateLimit('PHONE', phoneLocal);
-                    const userRoles: Role[] = await prisma.role.findMany({ where: { users: { some: { id: user.id } } } });
+                    // On successful login, increment session version
+                    const updatedUser = await prisma.user.update({
+                      where: { id: user.id },
+                      data: { sessionVersion: { increment: 1 } },
+                      include: { roles: true },
+                    });
+
                     const permissions = new Set<string>();
-                    if (userRoles.some(r => r.name === "Admin")) {
+                    if (updatedUser.roles.some(r => r.name === "Admin")) {
                         permissionsList.forEach(p => permissions.add(p.id));
                     } else {
-                        userRoles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
+                        updatedUser.roles.forEach(role => role.permissions.split(",").forEach(p => p && permissions.add(p)));
                     }
-                    // Create a server-side session (sid) and a refresh token bound to it
-                    try {
-                      const signingKey = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-                      const sessionId = crypto.randomUUID();
-                      const refreshToken = jwt.sign({ sub: user.id, type: 'refresh', sessionId }, signingKey as string, { algorithm: 'HS256', expiresIn: '7d' });
-                      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                      await createActiveSession({ sessionId, userId: user.id, userType: 'user', refreshToken, ipAddress: getClientIp(req), userAgent: getHeaderValue(req?.headers, 'user-agent') || undefined, expiresAt, forceReplace: true });
-                      // Set refresh cookie so client can call refresh endpoint
-                      try { cookies().set({ name: 'authjs.refresh-token', value: refreshToken, path: '/', httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60, secure: process.env.NODE_ENV === 'production' }); } catch (e) { console.error('Failed to set refresh cookie during login', e); }
-                      // Include sid on returned user so JWT callback can persist it
-                      return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false, sid: sessionId } as any as AuthUser;
-                    } catch (e) {
-                      console.error('Failed to create active session during login', e);
-                    }
-
-                    return { id: user.id, name: user.name, email: user.email, phoneNumber: user.phoneNumber, isMember: false, roles: userRoles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: user.mustChangePassword ?? false } as AuthUser;
+                    
+                    return { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, phoneNumber: updatedUser.phoneNumber, isMember: false, roles: updatedUser.roles.map(r => r.name), permissions: Array.from(permissions), mustChangePassword: updatedUser.mustChangePassword ?? false, sessionVersion: updatedUser.sessionVersion } as AuthUser;
                 }
             }
             
@@ -258,39 +233,22 @@ export const authOptions: NextAuthOptions = {
             if (member) {
                 const match = member.password && (await bcrypt.compare(password, member.password));
                 if (match) {
-                    // Enforce temporary password expiry and single-use if member must change password
+                    // Enforce password change for members with temporary passwords.
                     if (member.mustChangePassword) {
-                      const now = new Date();
-                      if (!member.temporaryPasswordExpires || member.temporaryPasswordExpires < now) {
-                        setAuthErrorCookie('Temporary password has expired. Please request a password reset.');
+                        // This member needs to set their password, but has a temp one.
+                        // This state should not happen with the new token flow.
+                        // For now, we will treat it as an error to force a proper password reset.
+                         setAuthErrorCookie('Account requires password setup. Please use the link provided by your administrator.');
                         return null;
-                      }
-
-                      try {
-                        await prisma.member.update({ where: { id: member.id }, data: { temporaryPassword: null, temporaryPasswordExpires: null } });
-                      } catch (e) {
-                        console.error('Failed to clear temporary password after member login:', e);
-                      }
-
-                      await resetRateLimit('PHONE', phoneLocal);
-                      return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
                     }
-
-                    // Create server-side session for member login
-                    try {
-                      const signingKey = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-                      const sessionId = crypto.randomUUID();
-                      const refreshToken = jwt.sign({ sub: member.id, type: 'refresh', sessionId }, signingKey as string, { algorithm: 'HS256', expiresIn: '7d' });
-                      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                      await createActiveSession({ sessionId, userId: member.id, userType: 'member', refreshToken, ipAddress: getClientIp(req), userAgent: getHeaderValue(req?.headers, 'user-agent') || undefined, expiresAt, forceReplace: true });
-                      try { cookies().set({ name: 'authjs.refresh-token', value: refreshToken, path: '/', httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60, secure: process.env.NODE_ENV === 'production' }); } catch (e) { console.error('Failed to set refresh cookie during member login', e); }
-                      return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false, sid: sessionId } as any as MemberAuthUser;
-                    } catch (e) {
-                      console.error('Failed to create active session during member login', e);
-                    }
-
+                    
                     await resetRateLimit('PHONE', phoneLocal);
-                    return { id: member.id, name: member.fullName, email: member.email, phoneNumber: member.phoneNumber, isMember: true, mustChangePassword: member.mustChangePassword ?? false } as MemberAuthUser;
+                     const updatedMember = await prisma.member.update({
+                      where: { id: member.id },
+                      data: { sessionVersion: { increment: 1 } },
+                    });
+                    
+                    return { id: updatedMember.id, name: updatedMember.fullName, email: updatedMember.email, phoneNumber: updatedMember.phoneNumber, isMember: true, mustChangePassword: updatedMember.mustChangePassword ?? false, sessionVersion: updatedMember.sessionVersion } as MemberAuthUser;
                 }
             }
 
@@ -320,62 +278,25 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user, trigger }) {
-      if (user) {
+      if (user) { // This block runs on sign-in
         token.user = user;
-        // Persist server-provided sid (session id) if returned by authorize
-        if ((user as any).sid) token.sid = (user as any).sid;
-        // Generate a unique jti for token uniqueness (not used for session identification)
+        // Generate a unique jti for token uniqueness
         if (!token.jti) token.jti = crypto.randomUUID();
+        console.log("[AUTH_JWT] JWT created/updated on login. User:", user);
+      } else {
+        // This block runs on subsequent requests
+        console.log("[AUTH_JWT] JWT callback without new user. Token:", token);
       }
-
-      // Concurrent Session Enforcement
-      // Only check existing tokens (not new logins) - skip when user is present (new login)
-      // When MAX_CONCURRENT_SESSIONS = 1, only one session can be active at a time
-      // If the jti doesn't match the active session, it was invalidated by a new login
-      if ((token.sid || token.jti) && token.user && !user) {
-        // This is an existing token being validated (not a new login)
-        // Check if this session is still active in the database
-        try {
-          // Allow a short grace period for very new tokens to handle race conditions
-          // where create-refresh hasn't been called yet. Increase this window to account for
-          // slower client/server timings (e.g., slow networks or heavy page loads). This avoids
-          // falsely invalidating the newly-created session while the refresh token is still being stored.
-          const tokenIat = Number(token.iat || 0);
-          const isVeryNewToken = tokenIat > 0 && (Date.now() / 1000 - tokenIat < 120); // 2 minutes
-          
-          if (!isVeryNewToken) {
-            const userData = token.user as any;
-            const userType = userData.isMember ? 'member' : 'user';
-            // Import here to avoid circular dependencies
-            const { isActiveSession } = await import('./lib/session-management');
-            const sessionToCheck = token.sid as string || token.jti as string;
-            const isActive = await isActiveSession(sessionToCheck, userData.id, userType);
-            if (!isActive) {
-              console.warn(`[AUTH] Session invalidated - sid/jti ${sessionToCheck} is not active for user ${userData.id}`);
-              return { ...token, error: "SessionInvalidated" };
-            }
-          }
-        } catch (error) {
-          // If there's an error checking, log it but don't block the request
-          // This prevents database issues from breaking authentication
-          // Note: requireAuth() will perform additional validation on every API call
-          console.error('[AUTH] Error checking active session:', error);
-        }
-      }
-      
       return token;
       },
   
       async session({ session, token }) {
-        // Handle invalidated sessions
-        if (token.error === "SessionInvalidated" || !token.user) {
-          // Returning null forces the client to sign out
+        if (!token.user) {
           return null as any;
         }
 
         session.user = token.user as any;
-        // Expose the stable session id (sid) to the client and other server-side calls
-        (session as any).sid = token.sid || token.jti;
+        console.log("[AUTH_SESSION] Session created/updated. User from token:", token.user);
         return session;
       },
 

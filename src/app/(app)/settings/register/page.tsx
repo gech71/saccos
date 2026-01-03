@@ -35,7 +35,7 @@ export default function RegisterUserPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [newPasswordInfo, setNewPasswordInfo] = useState<{ userName: string } | null>(null);
+  const [newUserInfo, setNewUserInfo] = useState<{ userName: string; setupLink: string } | null>(null);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,20 +82,18 @@ export default function RegisterUserPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formState.firstName || !formState.lastName || !formState.email || !formState.phoneNumber || !formState.password || formState.roleIds.length === 0) {
+    if (!formState.firstName || !formState.lastName || !formState.email || !formState.phoneNumber || formState.roleIds.length === 0) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields and select at least one role.' });
-      return;
-    }
-    if (!passwordSchema.test(formState.password)) {
-      toast({ variant: 'destructive', title: 'Weak Password', description: 'Password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.' });
       return;
     }
     
     setIsSubmitting(true);
     const result = await registerUserByAdmin(formState, formState.roleIds, csrfToken || undefined);
-    if (result.success) {
+    if (result.success && result.user && result.setupToken) {
       toast({ title: 'Success', description: 'New user has been registered successfully.' });
-      setNewPasswordInfo({ userName: result.user!.name! });
+      const baseUrl = window.location.origin;
+      const setupLink = `${baseUrl}/reset-password?token=${result.setupToken}`;
+      setNewUserInfo({ userName: result.user!.name!, setupLink });
       setFormState(initialFormState); // Reset form
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.error });
@@ -138,13 +136,6 @@ export default function RegisterUserPage() {
                 <Input id="phoneNumber" name="phoneNumber" type="tel" value={formState.phoneNumber} onChange={handleInputChange} required />
               </div>
             </div>
-            <div>
-              <Label htmlFor="password">Temporary Password <span className="text-destructive">*</span></Label>
-              <Input id="password" name="password" type="password" value={formState.password} onChange={handleInputChange} required />
-              <p className="text-xs text-muted-foreground mt-2">
-                Must be at least 8 characters and include uppercase, lowercase, number, and special character.
-              </p>
-            </div>
             
             <Separator />
 
@@ -177,17 +168,31 @@ export default function RegisterUserPage() {
         </form>
       </Card>
 
-      <AlertDialog open={!!newPasswordInfo}>
+      <AlertDialog open={!!newUserInfo}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>User Created Successfully!</AlertDialogTitle>
             <AlertDialogDescription>
-                The user <strong>{newPasswordInfo?.userName}</strong> was created. Temporary passwords are not displayed here for security; deliver the initial password to the user via a secure, out-of-band channel (SMS/email).
+                A password setup link for <strong>{newUserInfo?.userName}</strong> has been generated. Please copy this link and securely share it with the new user.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="relative">
+            <Input value={newUserInfo?.setupLink} readOnly className="pr-10" />
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                onClick={() => {
+                    navigator.clipboard.writeText(newUserInfo?.setupLink || '');
+                    toast({ title: 'Copied!', description: 'Setup link copied to clipboard.' });
+                }}
+            >
+                <Copy className="h-4 w-4" />
+            </Button>
+          </div>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => {
-                setNewPasswordInfo(null);
+                setNewUserInfo(null);
                 router.push('/settings');
             }}>Done</AlertDialogAction>
           </AlertDialogFooter>
