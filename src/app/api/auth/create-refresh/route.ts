@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { auth } from '@/auth';
 import crypto from 'crypto';
+import { requireCsrf } from '@/lib/csrf';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
 
 export async function POST(req: NextRequest) {
+  // Extract CSRF token from common header names
+  const csrfToken = req.headers.get('x-csrf-token') || req.headers.get('x-xsrf-token') || req.headers.get('csrf-token');
+  try {
+    await requireCsrf(csrfToken || undefined);
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid or missing CSRF token' }, { status: 403 });
+  }
   const session = await auth();
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

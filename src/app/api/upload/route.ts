@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join, extname } from 'path';
 import { randomBytes } from 'crypto';
 import { auth } from '@/auth';
+import { requireCsrf } from '@/lib/csrf';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -33,7 +34,15 @@ export async function POST(req: NextRequest) {
     if (!session || !session.user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    // Read formData once so we can extract CSRF token along with file
     const data = await req.formData();
+    const csrfToken = data.get('csrfToken')?.toString() || data.get('csrf')?.toString() || req.headers.get('x-csrf-token') || req.headers.get('csrf-token');
+    try {
+      await requireCsrf(csrfToken || undefined);
+    } catch (err) {
+      return NextResponse.json({ success: false, error: 'Invalid or missing CSRF token' }, { status: 403 });
+    }
+
     const file = data.get('file') as unknown as File;
 
     if (!file) {

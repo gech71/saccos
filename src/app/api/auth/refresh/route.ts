@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { validateRefreshToken } from '@/lib/session-management';
+import { requireCsrf } from '@/lib/csrf';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
 const SESSION_COOKIE_NAME = 'authjs.session-token';
@@ -16,6 +17,13 @@ function buildSessionCookie(token: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Require CSRF token when performing cookie-based refresh
+  const csrfFromHeader = req.headers.get('x-csrf-token') || req.headers.get('x-xsrf-token') || req.headers.get('csrf-token');
+  try {
+    await requireCsrf(csrfFromHeader || undefined);
+  } catch (err) {
+    return NextResponse.json({ error: 'Invalid or missing CSRF token' }, { status: 403 });
+  }
   try {
     const cookies = req.cookies;
     const refresh = cookies.get(REFRESH_COOKIE_NAME)?.value;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { requireCsrf } from '@/lib/csrf';
 import ExcelJS from 'exceljs';
 import { MAX_EXCEL_FILE_SIZE } from '@/lib/file-upload-constants';
 
@@ -16,7 +17,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Read formData once so CSRF token can be validated alongside the file
     const formData = await req.formData();
+    const csrfToken = formData.get('csrfToken')?.toString() || formData.get('csrf')?.toString() || req.headers.get('x-csrf-token') || req.headers.get('csrf-token');
+    try {
+      await requireCsrf(csrfToken || undefined);
+    } catch (err) {
+      return NextResponse.json({ success: false, error: 'Invalid or missing CSRF token' }, { status: 403 });
+    }
+
     const file = formData.get('file') as File;
 
     if (!file) {
