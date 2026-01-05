@@ -280,10 +280,14 @@ export const authOptions: NextAuthOptions = {
         token.user = user;
         // Generate a unique jti for token uniqueness
         if (!token.jti) token.jti = crypto.randomUUID();
-        console.log("[AUTH_JWT] JWT created/updated on login. User:", user);
+        // Expose a stable session id (sid) on the token for session binding
+        token.sid = token.jti;
+        // Only log session identifier to avoid printing sensitive user data
+        console.log("[AUTH_JWT] JWT created/updated on login. sid:", token.jti);
       } else {
         // This block runs on subsequent requests
-        console.log("[AUTH_JWT] JWT callback without new user. Token:", token);
+        // Only log session identifier to avoid printing sensitive user data
+        console.log("[AUTH_JWT] JWT callback without new user. sid:", token.jti ?? token.sid ?? null);
       }
       return token;
       },
@@ -294,7 +298,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         session.user = token.user as any;
-        console.log("[AUTH_SESSION] Session created/updated. User from token:", token.user);
+        // Propagate server-visible `sid` so create-refresh can bind refresh tokens
+        (session as any).sid = (token as any).sid || (token as any).jti;
+        // Only log session identifier to avoid printing sensitive user data
+        console.log("[AUTH_SESSION] Session created/updated. sid:", (token as any).sid ?? (token as any).jti ?? null);
         return session;
       },
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { auth } from '@/auth';
+import { createActiveSession } from '@/lib/session-management';
 import crypto from 'crypto';
 
 const REFRESH_COOKIE_NAME = 'authjs.refresh-token';
@@ -80,10 +81,27 @@ export async function POST(req: NextRequest) {
       expiresIn,
     }
   );
-
-  // Important: do NOT create or replace active sessions here. Sessions must be
-  // created at login only. create-refresh exists to generate a refresh token
-  // when needed without altering the authoritative server session state.
+  // Persist an active session bound to this refresh token. This ensures the
+  // refresh token is recorded server-side and concurrency limits are applied.
+  try {
+    const userType = (user as any).isMember ? 'member' : 'user';
+    const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || null;
+    // Force replacement to enforce single-session policies on login
+    await createActiveSession({
+      sessionId,
+      userId: user.id,
+      userType,
+      refreshToken,
+      ipAddress,
+      userAgent: userAgent || undefined,
+      expiresAt,
+      forceReplace: true,
+    });
+  } catch (e) {
+    console.error('[CREATE-REFRESH] Failed to persist active session', e);
+    // Proceed to return the refresh token to the client even if DB write fails.
+  }
 
   const res = NextResponse.json({ ok: true });
   const isProd = process.env.NODE_ENV === 'production';
